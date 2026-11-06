@@ -469,6 +469,43 @@ describe('V3 shadow release trigger', () => {
                 });
             });
 
+            it('accepts a V3 Step 1 run dispatched from a stable v3 tag in release-gate mode only', () => {
+                expect(
+                    trigger.planStep1(
+                        v3InProgressRun({ head_branch: 'v3.29.1' }),
+                        REPOSITORY,
+                        STEP1_IDS,
+                        'workflow_dispatch',
+                        gateJobs(),
+                        [gateArtifact(1)],
+                        true
+                    )
+                ).toMatchObject({ skip: false, buildId: '36618522123-1' });
+
+                for (const headBranch of ['v3.29.1-rc.1', 'v4.0.0', 'v3.029.1', 'main']) {
+                    expect(() =>
+                        trigger.planStep1(
+                            v3InProgressRun({ head_branch: headBranch }),
+                            REPOSITORY,
+                            STEP1_IDS,
+                            'workflow_dispatch',
+                            gateJobs(),
+                            [gateArtifact(1)],
+                            true
+                        )
+                    ).toThrow(/must be dispatched from v3-staging$/);
+                }
+
+                expect(() =>
+                    trigger.planStep1(
+                        step1Run({ head_branch: 'v3.29.1' }),
+                        REPOSITORY,
+                        STEP1_IDS,
+                        'workflow_run'
+                    )
+                ).toThrow(/must be dispatched from v3-staging$/);
+            });
+
             it('rejects a staging-step-1.yml parent in release-gate mode while keeping non-gate behaviour', () => {
                 expect(() =>
                     trigger.planStep1(

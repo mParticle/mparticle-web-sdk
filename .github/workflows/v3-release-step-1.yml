@@ -5,6 +5,14 @@ run-name: 'V3 Release - Step 1'
 # npm trusted publishing names this file for @mparticle/web-sdk and every kit
 # package. It publishes the next dist-tag until npm publishing moves into its
 # own workflow.
+#
+# Two release modes, chosen by the dispatch ref:
+# - v3-staging (the default until Release Please is on): semantic-release cuts
+#   the release commit and tag from v3-development.
+# - a stable v3.X.Y tag (Release Please mode): the release PR already put the
+#   version, the changelog and the bundles on main, and the tag on that commit.
+#   Step 1 checks a fresh build against the tag's bundles, publishes core and
+#   the kits from the tag, then fast-forwards v3-staging to the tag commit.
 
 on:
     workflow_dispatch:
@@ -37,6 +45,8 @@ jobs:
             staging_branch: ${{ steps.resolve.outputs.staging_branch }}
             release_branch: ${{ steps.resolve.outputs.release_branch }}
             npm_dist_tag: ${{ steps.resolve.outputs.npm_dist_tag }}
+            release_mode: ${{ steps.resolve.outputs.release_mode }}
+            release_tag: ${{ steps.resolve.outputs.release_tag }}
         permissions:
             contents: read
         steps:
@@ -51,15 +61,47 @@ jobs:
                   TRACK: v3
                   DRY_RUN: ${{ github.event.inputs.dryRun }}
                   RESUME_KIT_RELEASE_TAG: ${{ inputs.resumeKitReleaseTag }}
+                  RELEASE_PLEASE_ENABLED: ${{ vars.V3_RELEASE_PLEASE_ENABLED }}
               run: |
                   set -eu
+                  RELEASE_MODE="semantic-release"
                   case "${TRACK}|${SOURCE_REF}" in
                       "v3|refs/heads/v3-staging") ;;
+                      "v3|refs/tags/v3."*)
+                          if ! printf '%s\n' "$SOURCE_REF" |
+                              grep -Eq '^refs/tags/v3\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'; then
+                              echo "Track ${TRACK} releases only a stable v3 tag; received ${SOURCE_REF}"
+                              exit 1
+                          fi
+                          RELEASE_MODE="tag"
+                          ;;
                       *)
                           echo "Track ${TRACK} must dispatch from its staging branch; received ${SOURCE_REF}"
                           exit 1
                           ;;
                   esac
+
+                  # Once Release Please cuts V3 releases, a semantic-release
+                  # run from v3-staging would cut a second release line.
+                  if [ "$RELEASE_MODE" = "semantic-release" ] &&
+                      [ "${RELEASE_PLEASE_ENABLED:-}" = "true" ]; then
+                      echo "Release Please cuts V3 releases; dispatch Step 1 from the release tag"
+                      exit 1
+                  fi
+
+                  # A tag run repeats safely, so it never takes kit recovery.
+                  if [ "$RELEASE_MODE" = "tag" ] && [ -n "$RESUME_KIT_RELEASE_TAG" ]; then
+                      echo "Kit recovery runs from v3-staging; to finish a tag release, dispatch Step 1 from the same tag again"
+                      exit 1
+                  fi
+
+                  # A tag release runs only while Release Please cuts V3
+                  # releases, so the switch is the kill switch for both modes.
+                  if [ "$RELEASE_MODE" = "tag" ] &&
+                      [ "${RELEASE_PLEASE_ENABLED:-}" != "true" ]; then
+                      echo "A Step 1 run from a release tag needs V3_RELEASE_PLEASE_ENABLED set to 'true'"
+                      exit 1
+                  fi
 
                   if [ -n "$RESUME_KIT_RELEASE_TAG" ]; then
                       if [ "$DRY_RUN" != "false" ]; then
@@ -75,7 +117,7 @@ jobs:
 
                   # The running copy must match the V3 trunk, so a workflow
                   # edit reaches a real release only through review.
-                  if [ "$DRY_RUN" = "false" ]; then
+                  if [ "$DRY_RUN" = "false" ] && [ "$RELEASE_MODE" = "semantic-release" ]; then
                       case "$TRACK" in
                           v3) APPROVED_BRANCH="main" ;;
                           *) exit 1 ;;
@@ -93,9 +135,24 @@ jobs:
                       fi
                   fi
 
+                  # A tag run checks out the tag's own copy of this workflow.
+                  # Review approved it when the commit reached main, so the
+                  # tag commit must be on main. A later edit to this file on
+                  # main does not block the release of an earlier tag.
+                  if [ "$RELEASE_MODE" = "tag" ]; then
+                      git fetch --no-tags --force origin \
+                          "refs/heads/main:refs/remotes/origin/main"
+                      if ! git merge-base --is-ancestor HEAD refs/remotes/origin/main; then
+                          echo "${SOURCE_REF} is not on main"
+                          echo "Release Please tags release commits on main; dispatch Step 1 from one of those tags"
+                          exit 1
+                      fi
+                  fi
+
                   {
                       printf '## Workflow source validation\n\n'
                       printf -- '- Source ref: `%s`\n' "$SOURCE_REF"
+                      printf -- '- Release mode: `%s`\n' "$RELEASE_MODE"
                       printf -- '- Dry run: `%s`\n' "$DRY_RUN"
                   } >> "$GITHUB_STEP_SUMMARY"
 
@@ -104,6 +161,8 @@ jobs:
               env:
                   TRACK: v3
                   RESUME_KIT_RELEASE_TAG: ${{ inputs.resumeKitReleaseTag }}
+                  SOURCE_REF: ${{ github.ref }}
+                  SOURCE_SHA: ${{ github.sha }}
               run: |
                   set -eu
                   case "$TRACK" in
@@ -115,8 +174,32 @@ jobs:
                           ;;
                       *) exit 1 ;;
                   esac
+                  RELEASE_MODE="semantic-release"
+                  RELEASE_TAG=""
+                  case "$SOURCE_REF" in
+                      refs/tags/*)
+                          # Release Please cut the release commit and its tag
+                          # on main, so this run pushes no release branch.
+                          RELEASE_MODE="tag"
+                          RELEASE_TAG="${SOURCE_REF#refs/tags/}"
+                          DEVELOPMENT_BRANCH="main"
+                          RELEASE_BRANCH=""
+                          ;;
+                  esac
 
-                  if [ -n "$RESUME_KIT_RELEASE_TAG" ]; then
+                  if [ "$RELEASE_MODE" = "tag" ]; then
+                      # Every job releases the commit the tag held at dispatch.
+                      git tag -d "$RELEASE_TAG" >/dev/null 2>&1 || true
+                      git fetch --no-tags --force origin \
+                          "refs/tags/${RELEASE_TAG}:refs/tags/${RELEASE_TAG}"
+                      CANDIDATE_SHA="$(
+                          git rev-parse "${RELEASE_TAG}^{commit}"
+                      )"
+                      if [ "$CANDIDATE_SHA" != "$SOURCE_SHA" ]; then
+                          echo "${RELEASE_TAG} resolves to ${CANDIDATE_SHA}, but the dispatch ran ${SOURCE_SHA}"
+                          exit 1
+                      fi
+                  elif [ -n "$RESUME_KIT_RELEASE_TAG" ]; then
                       # Recovery is authoritative from the immutable Step 1 tag,
                       # not from development, which intentionally remains at the
                       # pre-release source commit.
@@ -143,6 +226,8 @@ jobs:
                       echo "staging_branch=${STAGING_BRANCH}"
                       echo "release_branch=${RELEASE_BRANCH}"
                       echo "npm_dist_tag=${NPM_DIST_TAG}"
+                      echo "release_mode=${RELEASE_MODE}"
+                      echo "release_tag=${RELEASE_TAG}"
                   } >> "$GITHUB_OUTPUT"
 
             - name: Checkout ${{ steps.resolve.outputs.staging_branch }}
@@ -160,13 +245,28 @@ jobs:
                   NPM_DIST_TAG: ${{ steps.resolve.outputs.npm_dist_tag }}
                   CANDIDATE_SHA: ${{ steps.resolve.outputs.candidate_sha }}
                   RESUME_KIT_RELEASE_TAG: ${{ inputs.resumeKitReleaseTag }}
+                  RELEASE_MODE: ${{ steps.resolve.outputs.release_mode }}
+                  RELEASE_TAG: ${{ steps.resolve.outputs.release_tag }}
               run: |
                   # Verify the selected track uses approved release settings and
                   # the checkout matches the current remote staging commit.
                   set -eu
                   MAPPING="${TRACK}|${DEVELOPMENT_BRANCH}|${STAGING_BRANCH}|${RELEASE_BRANCH}|${NPM_DIST_TAG}"
-                  case "$MAPPING" in
-                      "v3|v3-development|v3-staging|v3-release/step1-${GITHUB_RUN_ID}|next")
+                  case "$RELEASE_MODE" in
+                      semantic-release)
+                          case "$MAPPING" in
+                              "v3|v3-development|v3-staging|v3-release/step1-${GITHUB_RUN_ID}|next")
+                                  ;;
+                              *) exit 1 ;;
+                          esac
+                          ;;
+                      tag)
+                          # main is the development branch, and no release
+                          # branch is pushed.
+                          case "$MAPPING" in
+                              "v3|main|v3-staging||next") ;;
+                              *) exit 1 ;;
+                          esac
                           ;;
                       *) exit 1 ;;
                   esac
@@ -215,6 +315,8 @@ jobs:
                       printf '## Frozen release candidate\n\n'
                       if [ -n "$RESUME_KIT_RELEASE_TAG" ]; then
                           printf -- '- Recovery tag: `%s`\n' "$RESUME_KIT_RELEASE_TAG"
+                      elif [ "$RELEASE_MODE" = "tag" ]; then
+                          printf -- '- Release tag: `%s`\n' "$RELEASE_TAG"
                       else
                           printf -- '- Development branch: `%s`\n' "$DEVELOPMENT_BRANCH"
                       fi
@@ -608,21 +710,105 @@ jobs:
             - confirm-staging-branch
         permissions:
             contents: write # Push the release branch with checkout's default token.
+        # A tag run pushes no release branch; this job then only holds the
+        # release until every test above has passed.
         steps:
             - name: Checkout frozen release candidate
+              if: ${{ needs.confirm-staging-branch.outputs.release_mode == 'semantic-release' }}
               uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
               with:
                   repository: mparticle/mparticle-web-sdk
                   ref: ${{ needs.confirm-staging-branch.outputs.candidate_sha }}
 
             - name: Create and push release branch
-              if: ${{ github.event.inputs.dryRun == 'false' }}
+              if: ${{ github.event.inputs.dryRun == 'false' && needs.confirm-staging-branch.outputs.release_mode == 'semantic-release' }}
               env:
                   RELEASE_BRANCH: ${{ needs.confirm-staging-branch.outputs.release_branch }}
               run: |
                   set -eu
                   git checkout -b "$RELEASE_BRANCH"
                   git push origin "$RELEASE_BRANCH"
+
+    # Tag mode only: installs and builds core and the kits at the release tag
+    # and checks the build against the bundles the tag holds. The job holds no
+    # secret and no id-token, and its checkout keeps no token, so no install
+    # or build script runs with a credential. Only its verdict passes on:
+    # Perform Release and Publish V3 kits pack the tag's committed files, the
+    # files this job built and compared.
+    build-release-tag:
+        name: Build and check the release tag
+        if: ${{ needs.confirm-staging-branch.outputs.release_mode == 'tag' }}
+        needs: confirm-staging-branch
+        runs-on: ubuntu-latest
+        timeout-minutes: 45
+        permissions:
+            contents: read
+        steps:
+            - name: Checkout the release tag
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  ref: ${{ needs.confirm-staging-branch.outputs.candidate_sha }}
+                  persist-credentials: false
+
+            - name: Setup Node.js
+              uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+              with:
+                  node-version: 24.19.0
+                  package-manager-cache: false
+
+            - name: Check the release tag's version
+              env:
+                  RELEASE_TAG: ${{ needs.confirm-staging-branch.outputs.release_tag }}
+              run: |
+                  set -eu
+                  PACKAGE_VERSION="$(node -p "require('./package.json').version")"
+                  if [ "v${PACKAGE_VERSION}" != "$RELEASE_TAG" ]; then
+                      echo "package.json version ${PACKAGE_VERSION} does not match ${RELEASE_TAG}"
+                      exit 1
+                  fi
+                  echo "RELEASE_VERSION=${PACKAGE_VERSION}" >> "$GITHUB_ENV"
+
+            # The build needs no dependency's install script. At the root,
+            # core-js prints a notice, pre-commit installs a git hook and
+            # spawn-sync adds a fallback for Node older than 0.12. In the kits,
+            # fsevents is macOS only, core-js prints the notice, and esbuild's
+            # binary comes from its @esbuild/linux-x64 package.
+            - name: Install dependencies
+              run: npm ci --ignore-scripts
+
+            # The same build Step 1 runs in semantic-release mode, without the
+            # version writes and the commit: the tag already holds both. The
+            # kit installs in scripts/build-v3-release.sh skip install scripts
+            # too.
+            - name: Build core and kits at the release tag
+              env:
+                  npm_config_ignore_scripts: 'true'
+              run: sh ./scripts/build-v3-release.sh "$RELEASE_VERSION"
+
+            - name: Compare the build with the tag's bundles
+              env:
+                  RELEASE_TAG: ${{ needs.confirm-staging-branch.outputs.release_tag }}
+              run: |
+                  set -eu
+                  # Bring new bundle files into the comparison without
+                  # committing anything.
+                  git add -f -- dist
+                  find kits -type d -name dist -not -path '*/node_modules/*' \
+                      -exec git add -f -- {} +
+                  CHANGED="$(git status --porcelain --untracked-files=no)"
+                  if [ -n "$CHANGED" ]; then
+                      echo "A build at ${RELEASE_VERSION} differs from the files committed at ${RELEASE_TAG}:"
+                      printf '%s\n' "$CHANGED"
+                      exit 1
+                  fi
+                  echo "dist/ and kits/**/dist at ${RELEASE_TAG} match a build at ${RELEASE_VERSION}."
+
+            - name: Archive npm failure logs
+              uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+              if: failure()
+              with:
+                  name: npm-logs-build-release-tag
+                  path: ~/.npm/_logs
 
     release:
         name: Perform Release
@@ -632,11 +818,16 @@ jobs:
                 always() &&
                 !cancelled() &&
                 needs.create-release-branch.result == 'success' &&
-                needs.confirm-staging-branch.result == 'success'
+                needs.confirm-staging-branch.result == 'success' &&
+                (
+                    needs.confirm-staging-branch.outputs.release_mode != 'tag' ||
+                    needs.build-release-tag.result == 'success'
+                )
             }}
         needs:
             - create-release-branch
             - confirm-staging-branch
+            - build-release-tag
         outputs:
             release_sha: ${{ steps.verify-release.outputs.release_sha }}
             release_tag: ${{ steps.verify-release.outputs.release_tag }}
@@ -649,8 +840,10 @@ jobs:
             pull-requests: write
             id-token: write
 
+        # semantic-release pushes and tags as the machine user. A tag run
+        # pushes nothing from this job, so it gets the job's own token.
         env:
-            GITHUB_TOKEN: ${{ secrets.MP_SEMANTIC_RELEASE_BOT }}
+            GITHUB_TOKEN: ${{ needs.confirm-staging-branch.outputs.release_mode == 'tag' && github.token || secrets.MP_SEMANTIC_RELEASE_BOT }}
             GIT_AUTHOR_NAME: mparticle-automation
             GIT_AUTHOR_EMAIL: developers@mparticle.com
             GIT_COMMITTER_NAME: mparticle-automation
@@ -658,19 +851,31 @@ jobs:
             TRACK: v3
             NPM_DIST_TAG: ${{ needs.confirm-staging-branch.outputs.npm_dist_tag }}
             NPM_CONFIG_TAG: ${{ needs.confirm-staging-branch.outputs.npm_dist_tag }}
+            # No dependency install script runs with this job's credentials,
+            # the kit installs of scripts/release.sh included.
+            npm_config_ignore_scripts: 'true'
 
         steps:
             - name: Checkout ${{ needs.confirm-staging-branch.outputs.staging_branch }}
+              if: ${{ needs.confirm-staging-branch.outputs.release_mode == 'semantic-release' }}
               uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
               with:
                   fetch-depth: 0
                   ref: ${{ needs.confirm-staging-branch.outputs.staging_branch }}
+
+            - name: Checkout the release tag
+              if: ${{ needs.confirm-staging-branch.outputs.release_mode == 'tag' }}
+              uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+              with:
+                  fetch-depth: 0
+                  ref: ${{ needs.confirm-staging-branch.outputs.candidate_sha }}
 
             - name: Configure release paths
               run: |
                   echo "NEXT_RELEASE_VERSION_FILE=$RUNNER_TEMP/next-release-version" >> "$GITHUB_ENV"
 
             - name: Import GPG Key
+              if: ${{ needs.confirm-staging-branch.outputs.release_mode == 'semantic-release' }}
               uses: crazy-max/ghaction-import-gpg@e00cb83a68c1158b29afc5217dd0582cada6d172 #v4.4.0
               with:
                   gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
@@ -679,7 +884,7 @@ jobs:
                   git_commit_gpgsign: true
 
             - name: Merge frozen candidate into staging preview
-              if: ${{ github.event.inputs.dryRun == 'true' }}
+              if: ${{ github.event.inputs.dryRun == 'true' && needs.confirm-staging-branch.outputs.release_mode == 'semantic-release' }}
               env:
                   CANDIDATE_SHA: ${{ needs.confirm-staging-branch.outputs.candidate_sha }}
               run: |
@@ -693,7 +898,7 @@ jobs:
                   fi
 
             - name: Merge release branch into staging branch
-              if: ${{ github.event.inputs.dryRun == 'false' }}
+              if: ${{ github.event.inputs.dryRun == 'false' && needs.confirm-staging-branch.outputs.release_mode == 'semantic-release' }}
               env:
                   RELEASE_BRANCH: ${{ needs.confirm-staging-branch.outputs.release_branch }}
                   CANDIDATE_SHA: ${{ needs.confirm-staging-branch.outputs.candidate_sha }}
@@ -718,8 +923,14 @@ jobs:
                   node-version: 24.19.0
                   registry-url: 'https://registry.npmjs.org'
 
+            # semantic-release runs from node_modules and builds inside its own
+            # run, so this mode still installs here, with no install scripts.
+            # A tag run installs and builds in Build and check the release tag,
+            # which holds no secret and no id-token; this job then packs and
+            # publishes the tag's committed files that build checked.
             - name: Install dependencies
-              run: npm ci
+              if: ${{ needs.confirm-staging-branch.outputs.release_mode == 'semantic-release' }}
+              run: npm ci --ignore-scripts
 
             - name: Verify npm version
               run: npm --version
@@ -733,8 +944,69 @@ jobs:
                       exit 1
                   fi
 
+            - name: Check the release tag's version
+              if: ${{ needs.confirm-staging-branch.outputs.release_mode == 'tag' }}
+              env:
+                  RELEASE_TAG: ${{ needs.confirm-staging-branch.outputs.release_tag }}
+              run: |
+                  set -eu
+                  PACKAGE_VERSION="$(node -p "require('./package.json').version")"
+                  if [ "v${PACKAGE_VERSION}" != "$RELEASE_TAG" ]; then
+                      echo "package.json version ${PACKAGE_VERSION} does not match ${RELEASE_TAG}"
+                      exit 1
+                  fi
+                  echo "RELEASE_VERSION=${PACKAGE_VERSION}" >> "$GITHUB_ENV"
+
+            - name: Check npm before publishing
+              if: ${{ needs.confirm-staging-branch.outputs.release_mode == 'tag' && github.repository == 'mParticle/mparticle-web-sdk' }}
+              run: |
+                  set -eu
+                  # The checks semantic-release runs before its publish: no
+                  # dist-tag moves backward, and no kit version already on npm
+                  # holds different bytes. Core already on this version means
+                  # a run from this tag stopped before every kit was on npm,
+                  # and the checks let this run finish that release.
+                  node scripts/publish-kits.js --preflight-tags "$RELEASE_VERSION"
+                  node scripts/publish-kits.js --preflight-artifacts "$RELEASE_VERSION"
+
+            # npm publish of core happens here in tag mode. A version npm
+            # already holds with the same bytes counts as published, so a
+            # second dispatch from the same tag finishes a stopped release.
+            # Right before it, the tag on origin must still name the commit
+            # this job checked out and built.
+            - name: Publish core from the release tag
+              if: ${{ needs.confirm-staging-branch.outputs.release_mode == 'tag' && github.event.inputs.dryRun == 'false' && github.repository == 'mParticle/mparticle-web-sdk' }}
+              env:
+                  RELEASE_TAG: ${{ needs.confirm-staging-branch.outputs.release_tag }}
+                  CANDIDATE_SHA: ${{ needs.confirm-staging-branch.outputs.candidate_sha }}
+              run: |
+                  set -eu
+                  if ! REMOTE_TAG_REFS="$(git ls-remote --exit-code --tags origin \
+                      "refs/tags/${RELEASE_TAG}" "refs/tags/${RELEASE_TAG}^{}")"; then
+                      echo "${RELEASE_TAG} is no longer on origin; core was not published"
+                      exit 1
+                  fi
+                  REMOTE_TAG_SHA="$(printf '%s\n' "$REMOTE_TAG_REFS" |
+                      awk '$2 ~ /\^\{\}$/ { print $1; exit }')"
+                  if [ -z "$REMOTE_TAG_SHA" ]; then
+                      REMOTE_TAG_SHA="$(printf '%s\n' "$REMOTE_TAG_REFS" |
+                          awk '$2 !~ /\^\{\}$/ { print $1; exit }')"
+                  fi
+                  if [ "$REMOTE_TAG_SHA" != "$CANDIDATE_SHA" ] ||
+                      [ "$(git rev-parse HEAD)" != "$CANDIDATE_SHA" ]; then
+                      echo "${RELEASE_TAG} on origin (${REMOTE_TAG_SHA}) or this checkout is not the candidate ${CANDIDATE_SHA}; core was not published"
+                      exit 1
+                  fi
+                  node scripts/publish-kits.js --publish-core
+
+            # A dry run, and a run in any other repository (the release
+            # sandbox), packs core and publishes nothing.
+            - name: Pack core without publishing
+              if: ${{ needs.confirm-staging-branch.outputs.release_mode == 'tag' && (github.event.inputs.dryRun == 'true' || github.repository != 'mParticle/mparticle-web-sdk') }}
+              run: npm pack --dry-run --json --ignore-scripts
+
             - name: Release --dry-run
-              if: ${{ github.event.inputs.dryRun == 'true' }}
+              if: ${{ github.event.inputs.dryRun == 'true' && needs.confirm-staging-branch.outputs.release_mode == 'semantic-release' }}
               env:
                   STAGING_BRANCH: ${{ needs.confirm-staging-branch.outputs.staging_branch }}
               run: |
@@ -744,7 +1016,7 @@ jobs:
                   npx semantic-release --branches "$STAGING_BRANCH" --dry-run
 
             - name: Preview V3 kit release
-              if: ${{ github.event.inputs.dryRun == 'true' }}
+              if: ${{ github.event.inputs.dryRun == 'true' && needs.confirm-staging-branch.outputs.release_mode == 'semantic-release' }}
               run: |
                   set -eu
                   if [ ! -s "$NEXT_RELEASE_VERSION_FILE" ]; then
@@ -755,7 +1027,7 @@ jobs:
                   node scripts/preview-kit-release.js "$RELEASE_VERSION"
 
             - name: Snapshot existing stable release tags
-              if: ${{ github.event.inputs.dryRun == 'false' }}
+              if: ${{ github.event.inputs.dryRun == 'false' && needs.confirm-staging-branch.outputs.release_mode == 'semantic-release' }}
               run: |
                   set -eu
                   REMOTE_TAG_REFS="$RUNNER_TEMP/remote-tag-refs-before"
@@ -772,7 +1044,7 @@ jobs:
 
             # NPM Publish happens here
             - name: Release
-              if: ${{ github.event.inputs.dryRun == 'false' }}
+              if: ${{ github.event.inputs.dryRun == 'false' && needs.confirm-staging-branch.outputs.release_mode == 'semantic-release' }}
               env:
                   STAGING_BRANCH: ${{ needs.confirm-staging-branch.outputs.staging_branch }}
               run: |
@@ -789,7 +1061,7 @@ jobs:
                   path: ~/.npm/_logs
 
             - name: Push automated release commits to release branch
-              if: ${{ github.event.inputs.dryRun == 'false' }}
+              if: ${{ github.event.inputs.dryRun == 'false' && needs.confirm-staging-branch.outputs.release_mode == 'semantic-release' }}
               env:
                   RELEASE_BRANCH: ${{ needs.confirm-staging-branch.outputs.release_branch }}
               run: |
@@ -799,6 +1071,9 @@ jobs:
             - name: Verify and report release candidate
               id: verify-release
               if: ${{ github.event.inputs.dryRun == 'false' }}
+              env:
+                  RELEASE_MODE: ${{ needs.confirm-staging-branch.outputs.release_mode }}
+                  EXPECTED_TAG: ${{ needs.confirm-staging-branch.outputs.release_tag }}
               run: |
                   set -eu
                   CANDIDATE_SHA="$(git rev-parse HEAD)"
@@ -813,10 +1088,21 @@ jobs:
                       exit 1
                   fi
                   RELEASE_TAG="$(printf '%s\n' "$STABLE_TAGS" | awk 'NF { print; exit }')"
-                  if grep -Fqx "$RELEASE_TAG" "$RUNNER_TEMP/stable-release-tags-before"; then
-                      echo "Release tag ${RELEASE_TAG} existed before this workflow run"
-                      exit 1
-                  fi
+                  case "$RELEASE_MODE" in
+                      semantic-release)
+                          if grep -Fqx "$RELEASE_TAG" "$RUNNER_TEMP/stable-release-tags-before"; then
+                              echo "Release tag ${RELEASE_TAG} existed before this workflow run"
+                              exit 1
+                          fi
+                          ;;
+                      tag)
+                          if [ "$RELEASE_TAG" != "$EXPECTED_TAG" ]; then
+                              echo "Step 1 was dispatched from ${EXPECTED_TAG}, but ${CANDIDATE_SHA} carries ${RELEASE_TAG}"
+                              exit 1
+                          fi
+                          ;;
+                      *) exit 1 ;;
+                  esac
 
                   PACKAGE_VERSION="$(node -p "require('./package.json').version")"
                   if [ "v${PACKAGE_VERSION}" != "$RELEASE_TAG" ]; then
@@ -857,6 +1143,9 @@ jobs:
                       printf -- '- Version: `%s`\n' "$PACKAGE_VERSION"
                       printf -- '- Candidate SHA: `%s`\n' "$CANDIDATE_SHA"
                       printf -- '- npm dist-tag: `%s`\n\n' "$NPM_DIST_TAG"
+                      if [ "$RELEASE_MODE" = "tag" ]; then
+                          printf 'v3-staging moves to this commit once the kits publish; Steps 2 and 3 need that move.\n\n'
+                      fi
                       printf 'Step 2 is optional and release-order A/B/C are unordered.\n\n'
                       PROMOTION_REF="main"
                       printf '### Preview commands\n\n```sh\n'
@@ -891,6 +1180,9 @@ jobs:
         env:
             NPM_DIST_TAG: ${{ needs.confirm-staging-branch.outputs.npm_dist_tag }}
             KIT_RELEASE_RECOVERY: ${{ inputs.resumeKitReleaseTag != '' }}
+            # No package lifecycle script runs with this job's id-token, npm
+            # publish's own included.
+            npm_config_ignore_scripts: 'true'
         steps:
             - name: Checkout immutable release tag
               uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
@@ -944,10 +1236,15 @@ jobs:
                   registry-url: 'https://registry.npmjs.org'
 
             - name: Publish kits concurrently
+              if: ${{ github.repository == 'mParticle/mparticle-web-sdk' }}
               # Preserve GitHub's authentic dispatch identity for npm OIDC.
               # The checked-out release source is bound separately by the
               # verified tag SHA and exact tarball integrity.
               run: node scripts/publish-kits.js
+
+            - name: Skip kit publishing outside the release repository
+              if: ${{ github.repository != 'mParticle/mparticle-web-sdk' }}
+              run: echo "Kits publish to npm only from mParticle/mparticle-web-sdk; this run published none."
 
             - name: Reverify immutable release tag
               if: ${{ always() }}
@@ -988,6 +1285,7 @@ jobs:
             ${{
                 always() &&
                 !cancelled() &&
+                github.repository == 'mParticle/mparticle-web-sdk' &&
                 needs.publish-kits.result == 'success'
             }}
         needs:
@@ -1022,6 +1320,90 @@ jobs:
             # then reads like a failed publish rather than an audit.
             - name: Audit all packages on npm
               run: node scripts/publish-kits.js --audit
+
+    # Tag mode only: Steps 2 and 3 release the commit v3-staging holds, so
+    # v3-staging moves to the tag commit last, once core and the kits are on
+    # npm and Upload and stage V3 candidate has staged the release in every
+    # pod. Outside mParticle/mparticle-web-sdk (the release sandbox) nothing
+    # publishes or uploads, so that job is skipped and the move goes ahead.
+    # The job runs no npm or repository script. A plain push moves the branch
+    # only forward.
+    advance-staging:
+        name: Fast-forward v3-staging to the release tag
+        if: >-
+            ${{
+                always() &&
+                !cancelled() &&
+                github.event.inputs.dryRun == 'false' &&
+                needs.confirm-staging-branch.outputs.release_mode == 'tag' &&
+                needs.release.result == 'success' &&
+                needs.publish-kits.result == 'success' &&
+                (
+                    needs.upload-v3-candidate.result == 'success' ||
+                    (
+                        github.repository != 'mParticle/mparticle-web-sdk' &&
+                        needs.upload-v3-candidate.result == 'skipped'
+                    )
+                )
+            }}
+        needs:
+            - confirm-staging-branch
+            - release
+            - publish-kits
+            - upload-v3-candidate
+        runs-on: ubuntu-latest
+        timeout-minutes: 10
+        permissions:
+            contents: read # The push uses the machine user's token, not GITHUB_TOKEN.
+        steps:
+            - name: Checkout v3-staging
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  fetch-depth: 0
+                  ref: ${{ needs.confirm-staging-branch.outputs.staging_branch }}
+                  token: ${{ secrets.MP_SEMANTIC_RELEASE_BOT }}
+                  persist-credentials: true # zizmor: ignore[artipacked] -- pushes v3-staging as the release machine user; this job runs no npm or repository script
+
+            - name: Fast-forward v3-staging
+              env:
+                  STAGING_BRANCH: ${{ needs.confirm-staging-branch.outputs.staging_branch }}
+                  RELEASE_TAG: ${{ needs.release.outputs.release_tag }}
+                  RELEASE_SHA: ${{ needs.release.outputs.release_sha }}
+              run: |
+                  set -eu
+                  case "$STAGING_BRANCH" in
+                      v3-staging) ;;
+                      *) exit 1 ;;
+                  esac
+                  REMOTE_TAG_REFS="$(git ls-remote --exit-code --tags origin \
+                      "refs/tags/${RELEASE_TAG}" "refs/tags/${RELEASE_TAG}^{}")"
+                  REMOTE_TAG_SHA="$(printf '%s\n' "$REMOTE_TAG_REFS" |
+                      awk '$2 ~ /\^\{\}$/ { print $1; exit }')"
+                  if [ -z "$REMOTE_TAG_SHA" ]; then
+                      REMOTE_TAG_SHA="$(printf '%s\n' "$REMOTE_TAG_REFS" |
+                          awk '$2 !~ /\^\{\}$/ { print $1; exit }')"
+                  fi
+                  if [ "$REMOTE_TAG_SHA" != "$RELEASE_SHA" ]; then
+                      echo "Remote tag ${RELEASE_TAG} does not resolve to ${RELEASE_SHA}"
+                      exit 1
+                  fi
+                  STAGING_SHA="$(git ls-remote --exit-code origin "refs/heads/${STAGING_BRANCH}" | awk 'NR == 1 { print $1 }')"
+                  if [ "$STAGING_SHA" = "$RELEASE_SHA" ]; then
+                      echo "origin/${STAGING_BRANCH} is already at ${RELEASE_TAG}."
+                  else
+                      git fetch --no-tags origin "$STAGING_SHA" "$RELEASE_SHA"
+                      if ! git merge-base --is-ancestor "$STAGING_SHA" "$RELEASE_SHA"; then
+                          echo "origin/${STAGING_BRANCH} at ${STAGING_SHA} is not an ancestor of ${RELEASE_TAG}"
+                          exit 1
+                      fi
+                      git push origin "${RELEASE_SHA}:refs/heads/${STAGING_BRANCH}"
+                  fi
+                  {
+                      printf '## v3-staging\n\n'
+                      printf -- '- Release tag: `%s`\n' "$RELEASE_TAG"
+                      printf -- '- v3-staging: `%s`\n\n' "$RELEASE_SHA"
+                      printf 'Steps 2 and 3 can run for this tag.\n'
+                  } >> "$GITHUB_STEP_SUMMARY"
 
     # Packages the bundles the release committed, from a read-only checkout of
     # the verified release tag. Upload and stage V3 candidate depends on it, and

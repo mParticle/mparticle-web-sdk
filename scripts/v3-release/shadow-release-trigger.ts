@@ -194,6 +194,9 @@ const RUN_ID_PATTERN = /^[1-9][0-9]{0,19}$/;
 const RUN_ATTEMPT_PATTERN = /^[1-9][0-9]{0,3}$/;
 const REPOSITORY_PATTERN = /^[A-Za-z0-9-]+\/[A-Za-z0-9._-]+$/;
 const STABLE_TAG_PATTERN = /^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/;
+// A V3 Step 1 run dispatched from its release tag (Release Please mode) names
+// that tag as its head branch.
+const STABLE_V3_TAG_PATTERN = /^v3\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/;
 const BRANCH_PATTERN = /^[a-z0-9][a-z0-9/-]{0,62}$/;
 // run-name of each Step 1 file for a V3 release. The shared file's title names
 // the release track, and only its v3 track is mirrored.
@@ -486,6 +489,13 @@ function planStep1(
     if (releaseGate && trigger !== 'workflow_dispatch') {
         fail('Release-gate mode requires workflow_dispatch');
     }
+    // Release-gate mode also takes a V3 Step 1 run dispatched from a stable
+    // v3 tag: Step 1 in tag mode dispatches the gate before v3-staging moves.
+    const tagRun =
+        releaseGate &&
+        run.path === V3_STEP1_PATH &&
+        typeof run.head_branch === 'string' &&
+        STABLE_V3_TAG_PATTERN.test(run.head_branch);
     requireRunSource(
         run,
         repository,
@@ -493,7 +503,7 @@ function planStep1(
             path: file.path,
             workflowId: workflowIds[file.idKey],
         })),
-        [STEP1_BRANCH]
+        tagRun ? [STEP1_BRANCH, run.head_branch as string] : [STEP1_BRANCH]
     );
     // The source check accepted the path, so it names one of STEP1_FILES.
     const file = STEP1_FILES.find(candidate => candidate.path === run.path);
