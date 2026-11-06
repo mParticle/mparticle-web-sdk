@@ -2023,6 +2023,100 @@ describe('Rokt Forwarder', () => {
       });
     });
 
+    describe('the selectPlacements event when the user changes before the selection resolves', () => {
+      let coreUser: { mpid: string; loggedIn: boolean; identities: Record<string, string> };
+      let originalGetCurrentUser: unknown;
+      let resolveSelection: () => void;
+
+      const setCoreUser = (mpid: string, loggedIn: boolean, identities: Record<string, string> = {}) => {
+        coreUser = { mpid, loggedIn, identities };
+        (window as any).mParticle.forwarder.onUserIdentified({
+          getMPID: () => mpid,
+          getUserIdentities: () => ({ userIdentities: identities }),
+          getAllUserAttributes: () => ({}),
+        });
+      };
+
+      beforeEach(async () => {
+        await (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {});
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+        originalGetCurrentUser = (window as any).mParticle.Identity.getCurrentUser;
+        (window as any).mParticle.Identity.getCurrentUser = () =>
+          coreUser.mpid
+            ? {
+                getMPID: () => coreUser.mpid,
+                isLoggedIn: () => coreUser.loggedIn,
+                getUserIdentities: () => ({ userIdentities: coreUser.identities }),
+              }
+            : null;
+        setCoreUser('A', true, { email: 'a@example.com', customerid: 'cust-A' });
+        const kit = (window as any).mParticle.forwarder;
+        kit._workspaceSearchInFlightPromise = null;
+        kit.launcher.selectPlacements = () =>
+          new Promise((resolve) => {
+            resolveSelection = () => resolve({});
+          });
+      });
+
+      afterEach(() => {
+        (window as any).mParticle.Identity.getCurrentUser = originalGetCurrentUser;
+        (window as any).mParticle.forwarder._workspaceSearchInFlightPromise = null;
+        (window as any).mParticle.forwarder.userAttributes = {};
+      });
+
+      const settle = async (selection: unknown) => {
+        resolveSelection();
+        await selection;
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      };
+
+      it('does not log the event under a logged-in user who replaced the dispatch user', async () => {
+        const kit = (window as any).mParticle.forwarder;
+        const logSpy = vi.spyOn(kit.loggingService, 'log');
+        const selection = kit.selectPlacements({ identifier: 'test-placement', attributes: { email: 'a@example.com' } });
+        setCoreUser('B', true, { email: 'b@example.com', customerid: 'cust-B' });
+        await settle(selection);
+
+        expect((window as any).mParticle.loggedEvents).toEqual([]);
+        expect(logSpy).toHaveBeenCalledWith(expect.objectContaining({ code: 'SELECT_PLACEMENTS_EVENT_USER_CHANGED' }));
+        logSpy.mockRestore();
+      });
+
+      it('does not log the event after the dispatch user logs out', async () => {
+        const kit = (window as any).mParticle.forwarder;
+        const selection = kit.selectPlacements({ identifier: 'test-placement', attributes: { email: 'a@example.com' } });
+        setCoreUser('anonymous', false);
+        await settle(selection);
+
+        expect((window as any).mParticle.loggedEvents).toEqual([]);
+      });
+
+      it('logs the event when the user has not changed', async () => {
+        const kit = (window as any).mParticle.forwarder;
+        const selection = kit.selectPlacements({ identifier: 'test-placement', attributes: { email: 'a@example.com' } });
+        await settle(selection);
+
+        expect((window as any).mParticle.loggedEvents).toHaveLength(1);
+        expect((window as any).mParticle.loggedEvents[0].eventAttributes).toEqual(
+          expect.objectContaining({ mpid: 'A', email: 'a@example.com' }),
+        );
+      });
+
+      it('logs the event when an anonymous dispatch user logs in as a user who holds the call email', async () => {
+        const kit = (window as any).mParticle.forwarder;
+        setCoreUser('anonymous', false);
+        kit._workspaceSearchInFlightPromise = null;
+        const selection = kit.selectPlacements({ identifier: 'test-placement', attributes: { email: 'b@example.com' } });
+        setCoreUser('B', true, { email: 'b@example.com', customerid: 'cust-B' });
+        await settle(selection);
+
+        expect((window as any).mParticle.loggedEvents).toHaveLength(1);
+        expect((window as any).mParticle.loggedEvents[0].eventAttributes).toEqual(
+          expect.objectContaining({ email: 'b@example.com' }),
+        );
+      });
+    });
+
     describe('Identity handling', () => {
       beforeEach(() => {
         (window as any).Rokt = new (MockRoktForwarder as any)();
