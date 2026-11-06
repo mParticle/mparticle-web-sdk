@@ -1832,6 +1832,85 @@ describe('Rokt Forwarder', () => {
         );
       });
 
+      it('drops the call of a profile that holds an email but is not logged in when another user replaces it', async () => {
+        coreUser = { mpid: 'A', loggedIn: false, identities: { email: 'a@example.com' } };
+        const selection = callForA();
+        identify('C', false, { email: 'c@example.com' });
+        finishSearch();
+
+        expect(await selection).toBeUndefined();
+        expect((window as any).Rokt.selectPlacementsCalled).toBeFalsy();
+        expect((window as any).mParticle.loggedEvents).toEqual([]);
+        expect((window as any).mParticle.forwarder.userAttributes).toEqual({});
+      });
+
+      it('drops the call of a user with identities that carries no email when another user replaces it', async () => {
+        coreUser = { mpid: 'A', loggedIn: false, identities: { customerid: 'cust-A' } };
+        const selection = (window as any).mParticle.forwarder.selectPlacements({
+          identifier: 'test-placement',
+          attributes: { firstname: 'call-for-A' },
+        });
+        identify('C', true, { customerid: 'cust-C' });
+        finishSearch();
+
+        expect(await selection).toBeUndefined();
+        expect((window as any).Rokt.selectPlacementsCalled).toBeFalsy();
+      });
+
+      it('drops the call on a logout that keeps the email, under the same MPID or a new one', async () => {
+        const sameMpid = callForA();
+        coreUser = { mpid: 'A', loggedIn: false, identities: { email: 'a@example.com' } };
+        finishSearch();
+        expect(await sameMpid).toBeUndefined();
+
+        coreUser = { mpid: 'A', loggedIn: true, identities: { email: 'a@example.com' } };
+        (window as any).mParticle.forwarder._workspaceSearchInFlightPromise = new Promise<void>((resolve) => {
+          finishSearch = resolve;
+        });
+        const newMpid = callForA();
+        identify('logged-out', false, { email: 'a@example.com' });
+        finishSearch();
+        expect(await newMpid).toBeUndefined();
+        expect((window as any).Rokt.selectPlacementsCalled).toBeFalsy();
+      });
+
+      it('drops the call when the new user holds one email form it carries but not the other', async () => {
+        const kit = (window as any).mParticle.forwarder;
+        kit._mappedEmailSha256Key = 'other';
+        const plainMatches = kit.selectPlacements({
+          identifier: 'test-placement',
+          attributes: { email: 'b@example.com', emailsha256: 'sha256-A' },
+        });
+        identify('B', true, { email: 'b@example.com', other: 'sha256-B' });
+        finishSearch();
+        expect(await plainMatches).toBeUndefined();
+
+        coreUser = { mpid: 'A', loggedIn: true, identities: { email: 'a@example.com', other: 'sha256-A' } };
+        kit._workspaceSearchInFlightPromise = new Promise<void>((resolve) => {
+          finishSearch = resolve;
+        });
+        const hashMatches = kit.selectPlacements({
+          identifier: 'test-placement',
+          attributes: { email: 'a@example.com', emailsha256: 'sha256-B' },
+        });
+        identify('B', true, { email: 'b@example.com', other: 'sha256-B' });
+        finishSearch();
+        expect(await hashMatches).toBeUndefined();
+
+        coreUser = { mpid: 'A', loggedIn: true, identities: { email: 'a@example.com', other: 'sha256-A' } };
+        kit._workspaceSearchInFlightPromise = new Promise<void>((resolve) => {
+          finishSearch = resolve;
+        });
+        const hashNotHeld = kit.selectPlacements({
+          identifier: 'test-placement',
+          attributes: { email: 'b@example.com', emailsha256: 'sha256-A' },
+        });
+        identify('B', true, { email: 'b@example.com' });
+        finishSearch();
+        expect(await hashNotHeld).toBeUndefined();
+        expect((window as any).Rokt.selectPlacementsCalled).toBeFalsy();
+      });
+
       it('drops the call when its logged-in user logs out during the search', async () => {
         const selection = callForA();
         identify('anonymous', false);
