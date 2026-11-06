@@ -96,7 +96,7 @@ const steps = new RegExp(
             'ir a caja|continuar al pago|tramitar pedido',
             "procedi al checkout|procedi all'acquisto|procedi al pagamento|vai alla cassa",
             'afrekenen|verder naar betalen|doorgaan naar betalen',
-            'レジに進む|ご?(?:購入|注文)手続き(?:へ|に)(?:進む)?|お?支払い(?:へ|に)進む|(?:ご注文内容の)?確認画面へ(?:進む)?',
+            'レジに進む|ご?(?:購入|注文)手続き(?:(?:へ|に)(?:進む)?)?|お?支払い(?:へ|に)進む|(?:ご注文内容の)?確認画面へ(?:進む)?',
         ].join('|') +
         ')$'
 );
