@@ -1,0 +1,110 @@
+name: 'V3 Release Please - Release Bundle Check'
+
+# The required check for pull requests to main. It passes on any branch other
+# than the Release Please release branch. On the release branch, it builds core
+# and every publishable kit at the head's package.json version, the same way
+# Step 1 builds them, and fails until the committed dist/ and kits/**/dist
+# equal that build. v3-release-please-dist.yml commits the bundles; its push
+# runs this check again on the new head.
+#
+# The job always runs, so the check never reports as skipped: a skipped
+# required check would count as passing on the release branch.
+
+on:
+    pull_request:
+        branches:
+            - main
+
+permissions: {}
+
+concurrency:
+    group: v3-release-dist-check-${{ github.event.pull_request.number }}
+    cancel-in-progress: true
+
+jobs:
+    dist-matches-version:
+        name: V3 release bundles match version
+        runs-on: ubuntu-latest
+        timeout-minutes: 45
+        permissions:
+            contents: read
+        steps:
+            - name: Find the release branch
+              id: scope
+              env:
+                  HEAD_REF: ${{ github.event.pull_request.head.ref }}
+                  HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+                  BASE_REPOSITORY: ${{ github.repository }}
+              run: |
+                  set -eu
+                  RELEASE=false
+                  case "$HEAD_REF" in
+                      release-please--branches--main|release-please--branches--main--components--*)
+                          if [ "$HEAD_REPOSITORY" = "$BASE_REPOSITORY" ]; then
+                              RELEASE=true
+                          fi
+                          ;;
+                  esac
+                  echo "release=${RELEASE}" >> "$GITHUB_OUTPUT"
+                  if [ "$RELEASE" = "false" ]; then
+                      echo "${HEAD_REF} is not the Release Please branch, so there are no release bundles to check."
+                  fi
+
+            - name: Checkout the pull request head
+              if: ${{ steps.scope.outputs.release == 'true' }}
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  ref: ${{ github.event.pull_request.head.sha }}
+                  persist-credentials: false
+
+            - name: Setup Node.js
+              if: ${{ steps.scope.outputs.release == 'true' }}
+              uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+              with:
+                  node-version: 24.19.0
+                  package-manager-cache: false
+
+            - name: Read the release version
+              if: ${{ steps.scope.outputs.release == 'true' }}
+              id: version
+              run: |
+                  set -eu
+                  VERSION="$(node -p "require('./package.json').version")"
+                  if ! printf '%s\n' "$VERSION" |
+                      grep -Eq '^3\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'; then
+                      echo "package.json version ${VERSION} is not a stable V3 version"
+                      exit 1
+                  fi
+                  echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+            - name: Install dependencies
+              if: ${{ steps.scope.outputs.release == 'true' }}
+              run: npm ci
+
+            - name: Build core and kits at the release version
+              if: ${{ steps.scope.outputs.release == 'true' }}
+              env:
+                  VERSION: ${{ steps.version.outputs.version }}
+              run: sh ./scripts/build-v3-release.sh "$VERSION"
+
+            - name: Compare the build with the committed bundles
+              if: ${{ steps.scope.outputs.release == 'true' }}
+              env:
+                  VERSION: ${{ steps.version.outputs.version }}
+              run: |
+                  set -eu
+                  # Bring every change under kits and the new bundle files into
+                  # the comparison, as the commit job does, without committing
+                  # anything.
+                  git add -f -- dist
+                  git add -A -- kits
+                  find kits -type d -name dist -not -path '*/node_modules/*' \
+                      -exec git add -f -- {} +
+                  CHANGED="$(git status --porcelain --untracked-files=no)"
+                  if [ -n "$CHANGED" ]; then
+                      echo "The committed files do not match a build at ${VERSION}:"
+                      printf '%s\n' "$CHANGED"
+                      echo "The bundle commit job pushes the matching bundles; this check reruns on that push."
+                      exit 1
+                  fi
+                  echo "dist/ and kits/**/dist match a build at ${VERSION}."

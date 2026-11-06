@@ -106,6 +106,38 @@ describe('parsePreselectionConfigSetting', () => {
     });
   });
 
+  it('parses intentSelectors with either or both kinds', () => {
+    const both = { ...ENTRY, intentSelectors: { commit: ['button.place-order'], checkoutStep: ['#to-checkout'] } };
+    const commitOnly = {
+      ...ENTRY,
+      targetPageIdentifier: 'other_page',
+      intentSelectors: { commit: ['[data-test-id="submit"]'] },
+    };
+
+    expect(parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([both, commitOnly]))).toEqual({
+      entries: [
+        { accountId: ACCOUNT_ID, ...both },
+        { accountId: ACCOUNT_ID, ...commitOnly },
+      ],
+    });
+  });
+
+  it('ignores an intentSelectors kind this kit does not know when a known kind is set', () => {
+    const entry = { ...ENTRY, intentSelectors: { commit: ['#buy'], cart: [1] } };
+
+    expect(parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([entry]))).toEqual({
+      entries: [{ accountId: ACCOUNT_ID, ...entry }],
+    });
+  });
+
+  it('keeps a selector the browser could not parse, since it is skipped when a click is matched', () => {
+    const entry = { ...ENTRY, intentSelectors: { commit: ['button[['] } };
+
+    expect(parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([entry]))).toEqual({
+      entries: [{ accountId: ACCOUNT_ID, ...entry }],
+    });
+  });
+
   it('parses triggerEventNames', () => {
     const entry = { ...ENTRY, triggerEventNames: ['Ready to Checkout'] };
 
@@ -314,6 +346,18 @@ describe('parsePreselectionConfigSetting', () => {
       { ...BARE_ENTRY, identityKeys: ['email'], preselectAttributeOverrides: { email: 'x' } },
       'preselectAttributeOverrides',
     ],
+    ['a list as intentSelectors', { ...ENTRY, intentSelectors: ['button'] }, 'intentSelectors'],
+    ['empty intentSelectors', { ...ENTRY, intentSelectors: {} }, 'intentSelectors'],
+    ['only an unknown intentSelectors kind', { ...ENTRY, intentSelectors: { wallet: ['button'] } }, 'intentSelectors'],
+    ['an empty selector list', { ...ENTRY, intentSelectors: { commit: [] } }, 'intentSelectors'],
+    ['a blank selector', { ...ENTRY, intentSelectors: { commit: [' '] } }, 'intentSelectors'],
+    ['a non-string selector', { ...ENTRY, intentSelectors: { checkoutStep: [1] } }, 'intentSelectors'],
+    [
+      'more than 10 selectors for a kind',
+      { ...ENTRY, intentSelectors: { commit: Array.from({ length: 11 }, (_, i) => `#b${i}`) } },
+      'intentSelectors',
+    ],
+    ['a selector over 256 characters', { ...ENTRY, intentSelectors: { commit: ['#' + 'a'.repeat(256)] } }, 'intentSelectors'],
     ['a string checkoutStepIntent', { ...ENTRY, checkoutStepIntent: 'true' }, 'checkoutStepIntent'],
     ['a null checkoutStepIntent', { ...ENTRY, checkoutStepIntent: null }, 'checkoutStepIntent'],
     [

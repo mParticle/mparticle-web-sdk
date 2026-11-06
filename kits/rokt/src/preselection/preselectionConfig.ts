@@ -17,6 +17,11 @@ export interface PreselectAttributeDefault {
   matchGroups?: string[][];
 }
 
+export interface PreselectIntentSelectors {
+  commit?: string[];
+  checkoutStep?: string[];
+}
+
 // Fallback for an account whose connection has no valid preselectionConfig kit setting.
 export interface PreselectionConfigEntry {
   accountId: string;
@@ -52,6 +57,10 @@ export interface PreselectionConfigEntry {
   // step, such as "Checkout" or "Proceed to checkout", fires the entry as the confirm click would. For an entry whose
   // confirm click happens on a page the kit doesn't run on. Off the route, such a click still only gets observed.
   checkoutStepIntent?: boolean;
+  // CSS selectors naming the page's own confirm and checkout-step buttons. While checkout intent is active, a click on
+  // a control matching one counts as that kind before the core SDK's label rules, on any route; a checkout-step match
+  // still fires only an entry with checkoutStepIntent. Each selector must match the button itself, not a container.
+  intentSelectors?: PreselectIntentSelectors;
   // Values the speculative call sends only for a key it has no value for, from the trigger event, the
   // shopper's saved attributes or an identity, in any casing; the shopper's own value wins unless the default
   // skips remembered values. A defaulted key counts as resolved, is never written to the saved attributes, and is
@@ -65,7 +74,7 @@ export interface PreselectionConfigEntry {
   // one cartIntent entry. A commit or wallet tap never fires it, on its route or off it.
   cartIntent?: boolean;
   // Opt-in for the account's one cartIntent entry: the user attribute, in any casing, that holds the shopper's cart.
-  // A page view off the entry's route fires it at once while that attribute holds items. A gate only, never a key.
+  // A page view off every entry's route fires it at once while that attribute holds items. A gate only, never a key.
   cartUserAttribute?: string;
 }
 

@@ -213,7 +213,12 @@ function preflightReleaseDistTags(version, distTag, track) {
     // The completeness check and the scan below share one deadline.
     const viewTag = deadlineView(Date.now() + distTagScanPhaseMs);
     if (track === 'v3') {
-        verifyCurrentReleaseComplete(coreManifest.name, distTag, viewTag);
+        verifyCurrentReleaseComplete(
+            coreManifest.name,
+            distTag,
+            viewTag,
+            version
+        );
         packageNames.push(
             ...loadReleaseInventory().publishEntries.map(entry => entry.name)
         );
@@ -230,10 +235,16 @@ function preflightReleaseDistTags(version, distTag, track) {
     }
 }
 
+// Core already on the target version means an earlier run published core at
+// that version and stopped before every kit had it, so this run recovers it:
+// the kits not yet on it must all be on one earlier version. Otherwise a kit
+// that does not match core stops the release, so no newer release starts
+// while the current one is incomplete.
 function verifyCurrentReleaseComplete(
     corePackageName,
     distTag,
-    viewPackage = npmView
+    viewPackage = npmView,
+    targetVersion = null
 ) {
     const currentCoreVersion = viewPackage(
         corePackageName,
@@ -247,6 +258,7 @@ function verifyCurrentReleaseComplete(
     validateStableDistTagVersion(corePackageName, currentCoreVersion, distTag);
 
     const incompletePackages = [];
+    const incompleteVersions = [];
     let kitsWithCurrentVersion = 0;
     for (const entry of loadReleaseInventory().publishEntries) {
         const currentKitVersion = viewPackage(
@@ -260,6 +272,7 @@ function verifyCurrentReleaseComplete(
             incompletePackages.push(
                 `${entry.name}=${currentKitVersion || 'missing'}`
             );
+            incompleteVersions.push(currentKitVersion);
         }
     }
     if (
@@ -268,6 +281,23 @@ function verifyCurrentReleaseComplete(
     ) {
         console.log(
             `No kits currently use npm dist-tag ${distTag}; allowing the first synchronized V3 kit release`
+        );
+        return currentCoreVersion;
+    }
+    if (incompletePackages.length > 0 && currentCoreVersion === targetVersion) {
+        const [earlierVersion] = incompleteVersions;
+        if (
+            !isOlderStableVersion(earlierVersion, targetVersion) ||
+            incompleteVersions.some(kitVersion => kitVersion !== earlierVersion)
+        ) {
+            throw new Error(
+                `Cannot recover V3 release ${targetVersion} on npm: core is on it, but the kits not on it are not all on one earlier version: ${incompletePackages.join(
+                    ', '
+                )}`
+            );
+        }
+        console.log(
+            `Core is already on ${targetVersion}, so this run recovers it; the kits still on ${earlierVersion} publish next`
         );
         return currentCoreVersion;
     }
@@ -1403,6 +1433,71 @@ function packReleaseArtifacts(inventory, version, destination) {
     ];
 }
 
+// Publishes core from a checkout of its release tag, for a Step 1 run
+// dispatched from that tag (Release Please mode). A version npm already holds
+// with the same integrity is left as it is, so a second run from the same tag
+// finishes a stopped release; a different integrity fails. When npm reports an
+// error after the upload, npm is read until core shows the local integrity.
+async function publishCore(version, distTag, options = {}) {
+    const pack = options.packPackage || packPackage;
+    const publish = options.publishTarball || publishTarball;
+    const waitForCore = options.waitForPublishedCore || waitForPublishedCore;
+    const validateContents =
+        options.validatePackageContents || validatePackageContents;
+    const coreManifest =
+        options.coreManifest ||
+        JSON.parse(
+            fs.readFileSync(path.join(repositoryRoot, 'package.json'), 'utf8')
+        );
+    if (coreManifest.version !== version) {
+        throw new Error(
+            `Core SDK is ${coreManifest.version}, expected ${version}`
+        );
+    }
+    validateContents('.', coreManifest);
+
+    const destination = fs.mkdtempSync(
+        path.join(os.tmpdir(), 'mparticle-core-release-')
+    );
+    try {
+        const packageInfo = {
+            name: coreManifest.name,
+            ...pack('.', destination),
+        };
+        try {
+            const result = await publish(packageInfo, version, distTag);
+            if (result === 'skipped') {
+                return {
+                    name: packageInfo.name,
+                    result: 'already on npm with the same integrity',
+                };
+            }
+            return { name: packageInfo.name, result };
+        } catch (error) {
+            if (error.code !== 'PUBLISH_AMBIGUOUS') {
+                throw error;
+            }
+            console.log(
+                `${error.message}; reading npm for ${packageInfo.name}@${version}`
+            );
+            waitForCore(packageInfo, version, distTag);
+            return {
+                name: packageInfo.name,
+                result: 'published after npm reported an error',
+            };
+        }
+    } finally {
+        fs.rmSync(destination, { force: true, recursive: true });
+    }
+}
+
+async function publishCoreMain() {
+    const { version, distTag } = readReleaseEnvironment();
+    const result = await publishCore(version, distTag);
+    appendSummary(version, distTag, [result], 'npm core publish');
+    console.log(`${result.name}@${version}: ${result.result}`);
+}
+
 async function main() {
     const { version, distTag } = readReleaseEnvironment();
     const inventory = loadReleaseInventory();
@@ -1540,6 +1635,10 @@ if (require.main === module) {
             auditMain();
             return;
         }
+        if (process.argv[2] === '--publish-core') {
+            await publishCoreMain();
+            return;
+        }
         await main();
     };
 
@@ -1557,6 +1656,7 @@ module.exports = {
     auditRemotePackages,
     compareStableVersions,
     kitPublishConcurrency,
+    main,
     npmView,
     observeRegistry,
     packKitArtifacts,
@@ -1564,6 +1664,7 @@ module.exports = {
     preflightKitArtifacts,
     preflightReleaseDistTags,
     preflightTarball,
+    publishCore,
     publishKitArtifacts,
     publishTarball,
     reconcileAmbiguousPublishes,

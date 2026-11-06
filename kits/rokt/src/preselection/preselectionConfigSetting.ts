@@ -37,6 +37,33 @@ function isMatchGroups(matchGroups: unknown, skipValues: unknown): boolean {
   return !values.some((value) => skipped.includes(value.toLowerCase()));
 }
 
+// Matches the limits enforced when the setting is saved. A selector the browser can't parse is skipped when a click
+// is matched, so only the shape is checked here.
+const MAX_INTENT_SELECTORS = 10;
+const MAX_INTENT_SELECTOR_LENGTH = 256;
+const INTENT_SELECTOR_KINDS = ['commit', 'checkoutStep'];
+
+// An object holding commit or checkoutStep, each a list of 1-10 non-empty selectors of at most 256 characters. Other
+// keys are ignored so a later kit can add a kind, but at least one known kind must be set.
+function isIntentSelectors(value: unknown): boolean {
+  if (!isObject(value)) {
+    return false;
+  }
+  const kinds = INTENT_SELECTOR_KINDS.filter((kind) => value[kind] !== undefined);
+  return (
+    kinds.length > 0 &&
+    kinds.every((kind) => {
+      const selectors = value[kind];
+      return (
+        isStringArray(selectors) &&
+        selectors.length > 0 &&
+        selectors.length <= MAX_INTENT_SELECTORS &&
+        selectors.every((selector) => selector.trim() !== '' && selector.length <= MAX_INTENT_SELECTOR_LENGTH)
+      );
+    })
+  );
+}
+
 // Fields this kit does not know are ignored, as they are on the entry, so a later kit can add one.
 function isAttributeDefault(value: unknown): boolean {
   if (isNonEmptyString(value)) {
@@ -106,7 +133,7 @@ function parseEntry(accountId: string, raw: unknown): PreselectionConfigEntry | 
 
   const { pathname, targetPageIdentifier, attributeKeys, optionalAttributeKeys, identityKeys, dispatchDelayMs } = raw;
   const { triggerEventNames, releaseHoldOnRouteChange, readEmailInput, cartIntent, cartUserAttribute } = raw;
-  const { checkoutStepIntent } = raw;
+  const { checkoutStepIntent, intentSelectors } = raw;
   // The older name for the same field, read until every setting has moved to the new one.
   const legacyDefaults = raw.preselectAttributeOverrides;
   const defaults = raw.preselectAttributeDefaults !== undefined ? raw.preselectAttributeDefaults : legacyDefaults;
@@ -170,6 +197,9 @@ function parseEntry(accountId: string, raw: unknown): PreselectionConfigEntry | 
   }
   if (cartIntent !== undefined && typeof cartIntent !== 'boolean') {
     return 'cartIntent';
+  }
+  if (intentSelectors !== undefined && !isIntentSelectors(intentSelectors)) {
+    return 'intentSelectors';
   }
   if (
     readEmailInput !== undefined &&
@@ -240,6 +270,9 @@ function parseEntry(accountId: string, raw: unknown): PreselectionConfigEntry | 
   }
   if (checkoutStepIntent !== undefined) {
     entry.checkoutStepIntent = checkoutStepIntent;
+  }
+  if (intentSelectors !== undefined) {
+    entry.intentSelectors = intentSelectors as PreselectionConfigEntry['intentSelectors'];
   }
   if (readEmailInput !== undefined) {
     entry.readEmailInput = readEmailInput;

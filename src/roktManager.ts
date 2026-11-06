@@ -23,7 +23,8 @@ import { PARTNER_MODULE_IDS } from "./cookieSyncManager";
 import IntegrationCapture from "./integrationCapture";
 import Constants from "./constants";
 import { subscribeToRouteChange } from "./routeChangeMonitor";
-import type { CheckoutIntentKind, CheckoutIntentSource, PaymentFrameFamily } from "./buttonTracking/checkoutIntent";
+import type { CheckoutIntentKind, CheckoutIntentSource, ICheckoutIntentSelectors, PaymentFrameFamily } from "./buttonTracking/checkoutIntent";
+export type { ICheckoutIntentSelectors } from "./buttonTracking/checkoutIntent";
 
 const PASSBACK_CONVERSION_TRACKING_ID = 'passbackconversiontrackingid';
 // One signal per kind (commit, wallet, checkout_step, frame and cart), with an
@@ -123,6 +124,9 @@ export interface IRoktKit {
     onRouteChange?: () => void;
     // Set by the kit only when it wants checkout intent signals.
     onCheckoutIntent?: (signal: ICheckoutIntentSignal) => void;
+    // Set by the kit when its config names the page's confirm or checkout-step
+    // buttons. Older kits leave it unset, and the label rules apply alone.
+    checkoutIntentSelectors?: ICheckoutIntentSelectors;
     // Set by the kit only when it wants payment picks.
     onPaymentPick?: (signal: IPaymentPickSignal) => void;
     launcherOptions?: Dictionary<any>;
@@ -413,6 +417,13 @@ export default class RoktManager {
                 `RoktManager: Error in onCheckoutIntent: ${getErrorMessage(e)}`
             );
         }
+    }
+
+    // Read at click time, so selectors from a kit that attaches later apply to
+    // the next click.
+    public getCheckoutIntentSelectors(): ICheckoutIntentSelectors | undefined {
+        const kit = this.kit;
+        return kit ? kit.checkoutIntentSelectors : undefined;
     }
 
     public discardCheckoutIntents(): void {

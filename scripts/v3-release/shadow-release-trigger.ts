@@ -13,7 +13,11 @@
 // release has run on the V3 files. Pointer moves then
 // mirror what the release actually did: a channel moves only when every
 // branch it shadows points at the release tag's commit, so dry runs, failed
-// runs and superseded releases change nothing.
+// runs and superseded releases change nothing. In Release Please mode
+// (--release-please-mode true, from the V3_RELEASE_PLEASE_ENABLED repository
+// variable that V3 Step 3 reads), Step 3 pushes only the three release-order
+// branches and main can already be past the tag, so a Step 3 move checks only
+// those three branches.
 //
 // The run must have completed, and automatic mirroring (workflow_run) acts
 // only on a run whose conclusion is success, or a Step 1 run that concluded
@@ -34,12 +38,13 @@
 // node --experimental-strip-types scripts/v3-release/shadow-release-trigger.ts \
 //     step1 --run <run.json> --repository <owner/name> --workflow-id <id> \
 //     --v3-workflow-id <id> --trigger workflow_run|workflow_dispatch \
-//     [--jobs <jobs.json>] [--artifacts <artifacts.json>]
+//     [--release-gate true|false] [--jobs <jobs.json>] [--artifacts <artifacts.json>]
 // ... release-step --run <run.json> --repository <owner/name> \
 //     --step2-workflow-id <id> --step3-workflow-id <id> \
-//     --v3-step2-workflow-id <id> --v3-step3-workflow-id <id>
+//     --v3-step2-workflow-id <id> --v3-step3-workflow-id <id> \
+//     [--release-please-mode true|false]
 // ... branches --tag <vX.Y.Z> --branch <name> [--branch <name> ...]
-// ... pods --list <comma-separated pods>
+// ... pods --list <comma-separated pods> [--release-gate true|false]
 //
 // --workflow-id, --step2-workflow-id and --step3-workflow-id are the IDs of
 // staging-step-1.yml, staging-step-2.yml and staging-step-3.yml; the --v3-
@@ -181,12 +186,17 @@ const RELEASE_ORDER_BRANCHES: readonly string[] = [
     'v3-release-order-b',
     'v3-release-order-c',
 ];
-// Every pod the workflows know, in the order they are processed.
+// Every pod the workflows know, in the order they are processed, and the
+// production subset that a release-gate run must cover.
 const PODS: readonly string[] = ['qa', 'us1', 'us2', 'st1', 'eu1', 'au1'];
+const PRODUCTION_PODS: readonly string[] = ['us1', 'us2', 'st1', 'eu1', 'au1'];
 const RUN_ID_PATTERN = /^[1-9][0-9]{0,19}$/;
 const RUN_ATTEMPT_PATTERN = /^[1-9][0-9]{0,3}$/;
 const REPOSITORY_PATTERN = /^[A-Za-z0-9-]+\/[A-Za-z0-9._-]+$/;
 const STABLE_TAG_PATTERN = /^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/;
+// A V3 Step 1 run dispatched from its release tag (Release Please mode) names
+// that tag as its head branch.
+const STABLE_V3_TAG_PATTERN = /^v3\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/;
 const BRANCH_PATTERN = /^[a-z0-9][a-z0-9/-]{0,62}$/;
 // run-name of each Step 1 file for a V3 release. The shared file's title names
 // the release track, and only its v3 track is mirrored.
@@ -236,6 +246,16 @@ function validateRunId(value: string, description: string): string {
         fail(`${description} must be a positive integer`);
     }
     return value;
+}
+
+function validateBoolean(value: string, description: string): boolean {
+    if (value === 'true') {
+        return true;
+    }
+    if (value === 'false') {
+        return false;
+    }
+    return fail(`${description} must be true or false`);
 }
 
 function requireRunSource(
@@ -339,18 +359,12 @@ function timeOf(value: unknown): number {
         : NaN;
 }
 
-// Infers the attempt whose package job made the run's candidate: the one
-// named by the only unexpired v3-candidate-<run>-<attempt> artifact, up to
-// this attempt, created while the attempt's package job ran (the API does not
-// link an artifact to its job). A package job that ran again in this attempt
-// rules out every earlier artifact. Without exactly one such artifact, it
-// falls back to this attempt, so a missing candidate is reported as before.
-function candidateAttempt(
+function matchingCandidateAttempts(
     artifacts: WorkflowArtifact[],
     jobs: WorkflowJob[],
     runId: string,
     runAttempt: string
-): string {
+): string[] {
     for (const artifact of artifacts) {
         const artifactRun = artifact.workflow_run && artifact.workflow_run.id;
         if (stringOf(artifactRun) !== runId) {
@@ -359,7 +373,7 @@ function candidateAttempt(
     }
     const packageJobs = jobs.filter(job => job.name === STEP1_PACKAGE_JOB);
     if (packageJobs.length !== 1) {
-        return runAttempt;
+        return [];
     }
     const started = timeOf(packageJobs[0].started_at);
     const completed = timeOf(packageJobs[0].completed_at);
@@ -384,7 +398,77 @@ function candidateAttempt(
             attempts.push(attempt);
         }
     }
+    return attempts;
+}
+
+// Infers the attempt whose package job made the run's candidate: the one
+// named by the only unexpired v3-candidate-<run>-<attempt> artifact, up to
+// this attempt, created while the attempt's package job ran (the API does not
+// link an artifact to its job). A package job that ran again in this attempt
+// rules out every earlier artifact. Without exactly one such artifact, it
+// falls back to this attempt, so a missing candidate is reported as before.
+function candidateAttempt(
+    artifacts: WorkflowArtifact[],
+    jobs: WorkflowJob[],
+    runId: string,
+    runAttempt: string
+): string {
+    const attempts = matchingCandidateAttempts(
+        artifacts,
+        jobs,
+        runId,
+        runAttempt
+    );
     return attempts.length === 1 ? attempts[0] : runAttempt;
+}
+
+function requireReleaseGateReady(
+    run: WorkflowRun,
+    jobs: WorkflowJob[] | undefined,
+    artifacts: WorkflowArtifact[] | undefined,
+    runId: string,
+    runAttempt: string
+): string {
+    if (run.path !== V3_STEP1_PATH) {
+        fail('Release-gate mode accepts only .github/workflows/v3-release-step-1.yml');
+    }
+    if (run.status !== 'in_progress' && run.status !== 'completed') {
+        fail('The release run must be in_progress or completed in release-gate mode');
+    }
+    if (run.status === 'completed' && run.conclusion === 'cancelled') {
+        fail('The release run was cancelled');
+    }
+    if (jobs === undefined || artifacts === undefined) {
+        fail('Release-gate mode requires jobs and artifacts');
+    }
+    const releaseJobs = jobs.filter(job => job.name === STEP1_RELEASE_JOB);
+    if (
+        releaseJobs.length !== 1 ||
+        releaseJobs[0].status !== 'completed' ||
+        releaseJobs[0].conclusion !== 'success'
+    ) {
+        fail('The Step 1 release job has not succeeded');
+    }
+    const packageJobs = jobs.filter(job => job.name === STEP1_PACKAGE_JOB);
+    if (
+        packageJobs.length !== 1 ||
+        packageJobs[0].status !== 'completed' ||
+        packageJobs[0].conclusion !== 'success'
+    ) {
+        fail('The Step 1 package job has not succeeded');
+    }
+    const attempts = matchingCandidateAttempts(
+        artifacts,
+        jobs,
+        runId,
+        runAttempt
+    );
+    if (attempts.length !== 1) {
+        fail(
+            'Release-gate mode requires exactly one unexpired candidate artifact from the package job'
+        );
+    }
+    return attempts[0];
 }
 
 function planStep1(
@@ -393,7 +477,8 @@ function planStep1(
     workflowIds: Step1WorkflowIds,
     trigger: Trigger,
     jobs?: WorkflowJob[],
-    artifacts?: WorkflowArtifact[]
+    artifacts?: WorkflowArtifact[],
+    releaseGate = false
 ): Step1Plan {
     validateRepository(repository);
     validateRunId(workflowIds.staging, 'The Step 1 workflow ID');
@@ -401,6 +486,16 @@ function planStep1(
     if (trigger !== 'workflow_run' && trigger !== 'workflow_dispatch') {
         fail('The trigger must be workflow_run or workflow_dispatch');
     }
+    if (releaseGate && trigger !== 'workflow_dispatch') {
+        fail('Release-gate mode requires workflow_dispatch');
+    }
+    // Release-gate mode also takes a V3 Step 1 run dispatched from a stable
+    // v3 tag: Step 1 in tag mode dispatches the gate before v3-staging moves.
+    const tagRun =
+        releaseGate &&
+        run.path === V3_STEP1_PATH &&
+        typeof run.head_branch === 'string' &&
+        STABLE_V3_TAG_PATTERN.test(run.head_branch);
     requireRunSource(
         run,
         repository,
@@ -408,7 +503,7 @@ function planStep1(
             path: file.path,
             workflowId: workflowIds[file.idKey],
         })),
-        [STEP1_BRANCH]
+        tagRun ? [STEP1_BRANCH, run.head_branch as string] : [STEP1_BRANCH]
     );
     // The source check accepted the path, so it names one of STEP1_FILES.
     const file = STEP1_FILES.find(candidate => candidate.path === run.path);
@@ -426,6 +521,24 @@ function planStep1(
     }
     if (jobs !== undefined) {
         requireAttemptJobs(jobs, runId, runAttempt);
+    }
+    if (releaseGate) {
+        const attempt = requireReleaseGateReady(
+            run,
+            jobs,
+            artifacts,
+            runId,
+            runAttempt
+        );
+        const gatedBuildId = contract.validateBuildId(`${runId}-${attempt}`);
+        return {
+            skip: false,
+            reason: '',
+            runId,
+            runAttempt,
+            buildId: gatedBuildId,
+            artifactName: `v3-candidate-${gatedBuildId}`,
+        };
     }
     // The shadow package job names both the build and its artifact this way.
     const buildId = contract.validateBuildId(
@@ -459,7 +572,8 @@ function planStep1(
 function planReleaseStep(
     run: WorkflowRun,
     repository: string,
-    workflowIds: ReleaseStepWorkflowIds
+    workflowIds: ReleaseStepWorkflowIds,
+    releasePleaseMode = false
 ): ReleaseStepPlan {
     validateRepository(repository);
     validateRunId(workflowIds.step2, 'The Step 2 workflow ID');
@@ -529,7 +643,11 @@ function planReleaseStep(
         releaseTag,
         releaseVersion,
         channels: [...contract.RELEASE_ORDER_CHANNELS, contract.GA_CHANNEL],
-        branches: [V3_TRUNK_BRANCH, ...RELEASE_ORDER_BRANCHES],
+        // In Release Please mode, Step 3 leaves main alone: main already holds
+        // the release and can move past the tag before Step 3 runs.
+        branches: releasePleaseMode
+            ? [...RELEASE_ORDER_BRANCHES]
+            : [V3_TRUNK_BRANCH, ...RELEASE_ORDER_BRANCHES],
     };
 }
 
@@ -584,8 +702,9 @@ function checkBranches(
 }
 
 // Accepts a comma-separated subset of PODS, each at most once, and returns it
-// in processing order.
-function selectPods(list: string): string[] {
+// in processing order. Release-gate mode requires every production pod; qa is
+// optional and runs in the same matrix only when included in the list.
+function selectPods(list: string, releaseGate = false): string[] {
     const requested = list
         .split(',')
         .map(pod => pod.trim())
@@ -600,6 +719,18 @@ function selectPods(list: string): string[] {
     }
     if (new Set(requested).size !== requested.length) {
         fail('A pod is listed more than once');
+    }
+    if (releaseGate) {
+        const missing = PRODUCTION_PODS.filter(
+            pod => !requested.includes(pod)
+        );
+        if (missing.length > 0) {
+            fail(
+                `Release-gate mode requires all production pods (${PRODUCTION_PODS.join(
+                    ', '
+                )}); missing: ${missing.join(', ')}`
+            );
+        }
     }
     return PODS.filter(pod => requested.includes(pod));
 }
@@ -671,9 +802,13 @@ function main(args: string[], git: GitRunner = defaultGit): string[] {
             '--workflow-id',
             '--v3-workflow-id',
             '--trigger',
+            '--release-gate',
             '--jobs',
             '--artifacts',
         ]);
+        const releaseGate = flags.has('--release-gate')
+            ? validateBoolean(single(flags, '--release-gate'), '--release-gate')
+            : false;
         const plan = planStep1(
             readRun(single(flags, '--run')),
             single(flags, '--repository'),
@@ -693,7 +828,8 @@ function main(args: string[], git: GitRunner = defaultGit): string[] {
                       single(flags, '--artifacts'),
                       'artifacts'
                   ) as WorkflowArtifact[])
-                : undefined
+                : undefined,
+            releaseGate
         );
         if (plan.skip) {
             // The reason is built from fixed text, so it is one safe line.
@@ -715,7 +851,14 @@ function main(args: string[], git: GitRunner = defaultGit): string[] {
             '--step3-workflow-id',
             '--v3-step2-workflow-id',
             '--v3-step3-workflow-id',
+            '--release-please-mode',
         ]);
+        const releasePleaseMode = flags.has('--release-please-mode')
+            ? single(flags, '--release-please-mode')
+            : 'false';
+        if (releasePleaseMode !== 'true' && releasePleaseMode !== 'false') {
+            fail('--release-please-mode must be true or false');
+        }
         const plan = planReleaseStep(
             readRun(single(flags, '--run')),
             single(flags, '--repository'),
@@ -724,7 +867,8 @@ function main(args: string[], git: GitRunner = defaultGit): string[] {
                 step3: single(flags, '--step3-workflow-id'),
                 v3Step2: single(flags, '--v3-step2-workflow-id'),
                 v3Step3: single(flags, '--v3-step3-workflow-id'),
-            }
+            },
+            releasePleaseMode === 'true'
         );
         if (plan.skip) {
             return [`step=${plan.step}`, 'skip=true', `reason=${plan.reason}`];
@@ -741,8 +885,11 @@ function main(args: string[], git: GitRunner = defaultGit): string[] {
         ];
     }
     if (command === 'pods') {
-        requireOnly(flags, ['--list']);
-        const pods = selectPods(single(flags, '--list'));
+        requireOnly(flags, ['--list', '--release-gate']);
+        const releaseGate = flags.has('--release-gate')
+            ? validateBoolean(single(flags, '--release-gate'), '--release-gate')
+            : false;
+        const pods = selectPods(single(flags, '--list'), releaseGate);
         return [
             `pods=${pods.join(',')}`,
             ...PODS.map(
@@ -779,6 +926,7 @@ if (require.main === module) {
 
 const shadowReleaseTrigger = {
     PODS,
+    PRODUCTION_PODS,
     STEP1_KIT_JOBS,
     STEP1_LEGACY_KIT_JOBS,
     STEP1_PACKAGE_JOB,

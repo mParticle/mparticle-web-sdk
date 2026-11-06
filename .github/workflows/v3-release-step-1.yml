@@ -5,6 +5,14 @@ run-name: 'V3 Release - Step 1'
 # npm trusted publishing names this file for @mparticle/web-sdk and every kit
 # package. It publishes the next dist-tag until npm publishing moves into its
 # own workflow.
+#
+# Two release modes, chosen by the dispatch ref:
+# - v3-staging (the default until Release Please is on): semantic-release cuts
+#   the release commit and tag from v3-development.
+# - a stable v3.X.Y tag (Release Please mode): the release PR already put the
+#   version, the changelog and the bundles on main, and the tag on that commit.
+#   Step 1 checks a fresh build against the tag's bundles, publishes core and
+#   the kits from the tag, then fast-forwards v3-staging to the tag commit.
 
 on:
     workflow_dispatch:
@@ -19,6 +27,8 @@ on:
                 required: false
                 type: string
                 default: ''
+
+permissions: {}
 
 concurrency:
     group: mparticle-web-sdk-release-publish
@@ -35,9 +45,13 @@ jobs:
             staging_branch: ${{ steps.resolve.outputs.staging_branch }}
             release_branch: ${{ steps.resolve.outputs.release_branch }}
             npm_dist_tag: ${{ steps.resolve.outputs.npm_dist_tag }}
+            release_mode: ${{ steps.resolve.outputs.release_mode }}
+            release_tag: ${{ steps.resolve.outputs.release_tag }}
+        permissions:
+            contents: read
         steps:
             - name: Checkout workflow source
-              uses: actions/checkout@v6
+              uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
               with:
                   fetch-depth: 0
 
@@ -47,15 +61,47 @@ jobs:
                   TRACK: v3
                   DRY_RUN: ${{ github.event.inputs.dryRun }}
                   RESUME_KIT_RELEASE_TAG: ${{ inputs.resumeKitReleaseTag }}
+                  RELEASE_PLEASE_ENABLED: ${{ vars.V3_RELEASE_PLEASE_ENABLED }}
               run: |
                   set -eu
+                  RELEASE_MODE="semantic-release"
                   case "${TRACK}|${SOURCE_REF}" in
                       "v3|refs/heads/v3-staging") ;;
+                      "v3|refs/tags/v3."*)
+                          if ! printf '%s\n' "$SOURCE_REF" |
+                              grep -Eq '^refs/tags/v3\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'; then
+                              echo "Track ${TRACK} releases only a stable v3 tag; received ${SOURCE_REF}"
+                              exit 1
+                          fi
+                          RELEASE_MODE="tag"
+                          ;;
                       *)
                           echo "Track ${TRACK} must dispatch from its staging branch; received ${SOURCE_REF}"
                           exit 1
                           ;;
                   esac
+
+                  # Once Release Please cuts V3 releases, a semantic-release
+                  # run from v3-staging would cut a second release line.
+                  if [ "$RELEASE_MODE" = "semantic-release" ] &&
+                      [ "${RELEASE_PLEASE_ENABLED:-}" = "true" ]; then
+                      echo "Release Please cuts V3 releases; dispatch Step 1 from the release tag"
+                      exit 1
+                  fi
+
+                  # A tag run repeats safely, so it never takes kit recovery.
+                  if [ "$RELEASE_MODE" = "tag" ] && [ -n "$RESUME_KIT_RELEASE_TAG" ]; then
+                      echo "Kit recovery runs from v3-staging; to finish a tag release, dispatch Step 1 from the same tag again"
+                      exit 1
+                  fi
+
+                  # A tag release runs only while Release Please cuts V3
+                  # releases, so the switch is the kill switch for both modes.
+                  if [ "$RELEASE_MODE" = "tag" ] &&
+                      [ "${RELEASE_PLEASE_ENABLED:-}" != "true" ]; then
+                      echo "A Step 1 run from a release tag needs V3_RELEASE_PLEASE_ENABLED set to 'true'"
+                      exit 1
+                  fi
 
                   if [ -n "$RESUME_KIT_RELEASE_TAG" ]; then
                       if [ "$DRY_RUN" != "false" ]; then
@@ -71,7 +117,7 @@ jobs:
 
                   # The running copy must match the V3 trunk, so a workflow
                   # edit reaches a real release only through review.
-                  if [ "$DRY_RUN" = "false" ]; then
+                  if [ "$DRY_RUN" = "false" ] && [ "$RELEASE_MODE" = "semantic-release" ]; then
                       case "$TRACK" in
                           v3) APPROVED_BRANCH="main" ;;
                           *) exit 1 ;;
@@ -89,9 +135,24 @@ jobs:
                       fi
                   fi
 
+                  # A tag run checks out the tag's own copy of this workflow.
+                  # Review approved it when the commit reached main, so the
+                  # tag commit must be on main. A later edit to this file on
+                  # main does not block the release of an earlier tag.
+                  if [ "$RELEASE_MODE" = "tag" ]; then
+                      git fetch --no-tags --force origin \
+                          "refs/heads/main:refs/remotes/origin/main"
+                      if ! git merge-base --is-ancestor HEAD refs/remotes/origin/main; then
+                          echo "${SOURCE_REF} is not on main"
+                          echo "Release Please tags release commits on main; dispatch Step 1 from one of those tags"
+                          exit 1
+                      fi
+                  fi
+
                   {
                       printf '## Workflow source validation\n\n'
                       printf -- '- Source ref: `%s`\n' "$SOURCE_REF"
+                      printf -- '- Release mode: `%s`\n' "$RELEASE_MODE"
                       printf -- '- Dry run: `%s`\n' "$DRY_RUN"
                   } >> "$GITHUB_STEP_SUMMARY"
 
@@ -100,19 +161,45 @@ jobs:
               env:
                   TRACK: v3
                   RESUME_KIT_RELEASE_TAG: ${{ inputs.resumeKitReleaseTag }}
+                  SOURCE_REF: ${{ github.ref }}
+                  SOURCE_SHA: ${{ github.sha }}
               run: |
                   set -eu
                   case "$TRACK" in
                       v3)
                           DEVELOPMENT_BRANCH="v3-development"
                           STAGING_BRANCH="v3-staging"
-                          RELEASE_BRANCH="v3-release/${GITHUB_RUN_NUMBER}"
+                          RELEASE_BRANCH="v3-release/step1-${GITHUB_RUN_ID}"
                           NPM_DIST_TAG="next"
                           ;;
                       *) exit 1 ;;
                   esac
+                  RELEASE_MODE="semantic-release"
+                  RELEASE_TAG=""
+                  case "$SOURCE_REF" in
+                      refs/tags/*)
+                          # Release Please cut the release commit and its tag
+                          # on main, so this run pushes no release branch.
+                          RELEASE_MODE="tag"
+                          RELEASE_TAG="${SOURCE_REF#refs/tags/}"
+                          DEVELOPMENT_BRANCH="main"
+                          RELEASE_BRANCH=""
+                          ;;
+                  esac
 
-                  if [ -n "$RESUME_KIT_RELEASE_TAG" ]; then
+                  if [ "$RELEASE_MODE" = "tag" ]; then
+                      # Every job releases the commit the tag held at dispatch.
+                      git tag -d "$RELEASE_TAG" >/dev/null 2>&1 || true
+                      git fetch --no-tags --force origin \
+                          "refs/tags/${RELEASE_TAG}:refs/tags/${RELEASE_TAG}"
+                      CANDIDATE_SHA="$(
+                          git rev-parse "${RELEASE_TAG}^{commit}"
+                      )"
+                      if [ "$CANDIDATE_SHA" != "$SOURCE_SHA" ]; then
+                          echo "${RELEASE_TAG} resolves to ${CANDIDATE_SHA}, but the dispatch ran ${SOURCE_SHA}"
+                          exit 1
+                      fi
+                  elif [ -n "$RESUME_KIT_RELEASE_TAG" ]; then
                       # Recovery is authoritative from the immutable Step 1 tag,
                       # not from development, which intentionally remains at the
                       # pre-release source commit.
@@ -139,10 +226,12 @@ jobs:
                       echo "staging_branch=${STAGING_BRANCH}"
                       echo "release_branch=${RELEASE_BRANCH}"
                       echo "npm_dist_tag=${NPM_DIST_TAG}"
+                      echo "release_mode=${RELEASE_MODE}"
+                      echo "release_tag=${RELEASE_TAG}"
                   } >> "$GITHUB_OUTPUT"
 
             - name: Checkout ${{ steps.resolve.outputs.staging_branch }}
-              uses: actions/checkout@v6
+              uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
               with:
                   fetch-depth: 0
                   ref: ${{ steps.resolve.outputs.staging_branch }}
@@ -156,13 +245,28 @@ jobs:
                   NPM_DIST_TAG: ${{ steps.resolve.outputs.npm_dist_tag }}
                   CANDIDATE_SHA: ${{ steps.resolve.outputs.candidate_sha }}
                   RESUME_KIT_RELEASE_TAG: ${{ inputs.resumeKitReleaseTag }}
+                  RELEASE_MODE: ${{ steps.resolve.outputs.release_mode }}
+                  RELEASE_TAG: ${{ steps.resolve.outputs.release_tag }}
               run: |
                   # Verify the selected track uses approved release settings and
                   # the checkout matches the current remote staging commit.
                   set -eu
                   MAPPING="${TRACK}|${DEVELOPMENT_BRANCH}|${STAGING_BRANCH}|${RELEASE_BRANCH}|${NPM_DIST_TAG}"
-                  case "$MAPPING" in
-                      "v3|v3-development|v3-staging|v3-release/${GITHUB_RUN_NUMBER}|next")
+                  case "$RELEASE_MODE" in
+                      semantic-release)
+                          case "$MAPPING" in
+                              "v3|v3-development|v3-staging|v3-release/step1-${GITHUB_RUN_ID}|next")
+                                  ;;
+                              *) exit 1 ;;
+                          esac
+                          ;;
+                      tag)
+                          # main is the development branch, and no release
+                          # branch is pushed.
+                          case "$MAPPING" in
+                              "v3|main|v3-staging||next") ;;
+                              *) exit 1 ;;
+                          esac
                           ;;
                       *) exit 1 ;;
                   esac
@@ -211,6 +315,8 @@ jobs:
                       printf '## Frozen release candidate\n\n'
                       if [ -n "$RESUME_KIT_RELEASE_TAG" ]; then
                           printf -- '- Recovery tag: `%s`\n' "$RESUME_KIT_RELEASE_TAG"
+                      elif [ "$RELEASE_MODE" = "tag" ]; then
+                          printf -- '- Release tag: `%s`\n' "$RELEASE_TAG"
                       else
                           printf -- '- Development branch: `%s`\n' "$DEVELOPMENT_BRANCH"
                       fi
@@ -257,14 +363,16 @@ jobs:
         if: ${{ inputs.resumeKitReleaseTag == '' }}
         runs-on: ubuntu-latest
         needs: confirm-staging-branch
+        permissions:
+            contents: read
         steps:
             - name: Checkout
-              uses: actions/checkout@v6
+              uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
               with:
                   ref: ${{ needs.confirm-staging-branch.outputs.candidate_sha }}
 
             - name: NPM install
-              uses: actions/setup-node@v6
+              uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
               with:
                   node-version: 24.x
 
@@ -284,7 +392,7 @@ jobs:
               run: git diff --unified=3 dist/mparticle.js | npx diff-so-fancy
 
             - name: Archive npm failure logs
-              uses: actions/upload-artifact@v6
+              uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
               if: failure()
               with:
                   name: npm-logs-build-bundle
@@ -300,14 +408,16 @@ jobs:
         strategy:
             matrix:
                 node-version: [18.x, 19.x, 20.x, 21.x, 22.x, 23.x, 24.x, 25.x]
+        permissions:
+            contents: read
         steps:
             - name: Checkout
-              uses: actions/checkout@v6
+              uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
               with:
                   ref: ${{ needs.confirm-staging-branch.outputs.candidate_sha }}
 
             - name: NPM install
-              uses: actions/setup-node@v6
+              uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
               with:
                   node-version: ${{ matrix.node-version }}
 
@@ -318,7 +428,7 @@ jobs:
               run: npm run test:jest
 
             - name: Archive npm failure logs
-              uses: actions/upload-artifact@v6
+              uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
               if: failure()
               with:
                   name: npm-logs-test-jest-${{ matrix.node-version }}
@@ -328,7 +438,9 @@ jobs:
     # that tests only run when the bundle is successfully built
     test-core:
         name: Core Tests
-        uses: mParticle/mparticle-workflows/.github/workflows/web-run-test.yml@main
+        permissions:
+            contents: read
+        uses: mParticle/mparticle-workflows/.github/workflows/web-run-test.yml@a78c8b34f5811be7c046a27cae900a844094f1cf # main
         needs:
             - confirm-staging-branch
             - test-jest
@@ -348,14 +460,16 @@ jobs:
             - test-core
             - test-jest
             - build-bundle
+        permissions:
+            contents: read
         steps:
             - name: Checkout
-              uses: actions/checkout@v6
+              uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
               with:
                   ref: ${{ needs.confirm-staging-branch.outputs.candidate_sha }}
 
             - name: NPM install
-              uses: actions/setup-node@v6
+              uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
               with:
                   node-version: 24.x
 
@@ -372,7 +486,7 @@ jobs:
               run: npm run test:stub
 
             - name: Archive npm failure logs
-              uses: actions/upload-artifact@v6
+              uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
               if: failure()
               with:
                   name: npm-logs-test-stub
@@ -383,7 +497,9 @@ jobs:
 
     test-integrations-require-js:
         name: 'Integration Tests: Require JS'
-        uses: mParticle/mparticle-workflows/.github/workflows/web-run-test.yml@main
+        permissions:
+            contents: read
+        uses: mParticle/mparticle-workflows/.github/workflows/web-run-test.yml@a78c8b34f5811be7c046a27cae900a844094f1cf # main
         needs:
             - confirm-staging-branch
             - test-core
@@ -396,7 +512,9 @@ jobs:
 
     test-integrations-common-js-browserfy:
         name: 'Integration Tests: Browserfy Common JS'
-        uses: mParticle/mparticle-workflows/.github/workflows/web-run-test.yml@main
+        permissions:
+            contents: read
+        uses: mParticle/mparticle-workflows/.github/workflows/web-run-test.yml@a78c8b34f5811be7c046a27cae900a844094f1cf # main
         needs:
             - confirm-staging-branch
             - test-core
@@ -410,7 +528,9 @@ jobs:
 
     test-integrations-common-js-webpack:
         name: 'Integration Tests: webpack Common JS'
-        uses: mParticle/mparticle-workflows/.github/workflows/web-run-test.yml@main
+        permissions:
+            contents: read
+        uses: mParticle/mparticle-workflows/.github/workflows/web-run-test.yml@a78c8b34f5811be7c046a27cae900a844094f1cf # main
         needs:
             - confirm-staging-branch
             - test-core
@@ -424,7 +544,9 @@ jobs:
 
     test-integrations-common-js-rollup:
         name: 'Integration Tests: Rollup Common JS'
-        uses: mParticle/mparticle-workflows/.github/workflows/web-run-test.yml@main
+        permissions:
+            contents: read
+        uses: mParticle/mparticle-workflows/.github/workflows/web-run-test.yml@a78c8b34f5811be7c046a27cae900a844094f1cf # main
         needs:
             - confirm-staging-branch
             - test-core
@@ -438,7 +560,9 @@ jobs:
 
     test-integrations-module-js-webpack:
         name: 'Integration Tests: webpack Module JS'
-        uses: mParticle/mparticle-workflows/.github/workflows/web-run-test.yml@main
+        permissions:
+            contents: read
+        uses: mParticle/mparticle-workflows/.github/workflows/web-run-test.yml@a78c8b34f5811be7c046a27cae900a844094f1cf # main
         needs:
             - confirm-staging-branch
             - test-core
@@ -452,7 +576,9 @@ jobs:
 
     test-integrations-module-js-rollup:
         name: 'Integration Tests: Rollup Module JS'
-        uses: mParticle/mparticle-workflows/.github/workflows/web-run-test.yml@main
+        permissions:
+            contents: read
+        uses: mParticle/mparticle-workflows/.github/workflows/web-run-test.yml@a78c8b34f5811be7c046a27cae900a844094f1cf # main
         needs:
             - confirm-staging-branch
             - test-core
@@ -471,9 +597,11 @@ jobs:
         needs: confirm-staging-branch
         outputs:
             matrix: ${{ steps.load.outputs.matrix }}
+        permissions:
+            contents: read
         steps:
             - name: Checkout frozen release candidate
-              uses: actions/checkout@v6
+              uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
               with:
                   ref: ${{ needs.confirm-staging-branch.outputs.candidate_sha }}
 
@@ -512,14 +640,16 @@ jobs:
             fail-fast: false
             matrix:
                 kit: ${{ fromJson(needs.load-kit-matrix.outputs.matrix) }}
+        permissions:
+            contents: read
         steps:
             - name: Checkout frozen release candidate
-              uses: actions/checkout@v6
+              uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
               with:
                   ref: ${{ needs.confirm-staging-branch.outputs.candidate_sha }}
 
             - name: Setup Node.js
-              uses: actions/setup-node@v6
+              uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
               with:
                   node-version: 24.x
 
@@ -535,7 +665,7 @@ jobs:
                   npm test
 
             - name: Archive npm failure logs
-              uses: actions/upload-artifact@v6
+              uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
               if: failure()
               with:
                   name: npm-logs-kit-${{ strategy.job-index }}
@@ -578,21 +708,107 @@ jobs:
             - load-kit-matrix
             - run-kit-tests
             - confirm-staging-branch
+        permissions:
+            contents: write # Push the release branch with checkout's default token.
+        # A tag run pushes no release branch; this job then only holds the
+        # release until every test above has passed.
         steps:
             - name: Checkout frozen release candidate
-              uses: actions/checkout@v6
+              if: ${{ needs.confirm-staging-branch.outputs.release_mode == 'semantic-release' }}
+              uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
               with:
                   repository: mparticle/mparticle-web-sdk
                   ref: ${{ needs.confirm-staging-branch.outputs.candidate_sha }}
 
             - name: Create and push release branch
-              if: ${{ github.event.inputs.dryRun == 'false' }}
+              if: ${{ github.event.inputs.dryRun == 'false' && needs.confirm-staging-branch.outputs.release_mode == 'semantic-release' }}
               env:
                   RELEASE_BRANCH: ${{ needs.confirm-staging-branch.outputs.release_branch }}
               run: |
                   set -eu
                   git checkout -b "$RELEASE_BRANCH"
                   git push origin "$RELEASE_BRANCH"
+
+    # Tag mode only: installs and builds core and the kits at the release tag
+    # and checks the build against the bundles the tag holds. The job holds no
+    # secret and no id-token, and its checkout keeps no token, so no install
+    # or build script runs with a credential. Only its verdict passes on:
+    # Perform Release and Publish V3 kits pack the tag's committed files, the
+    # files this job built and compared.
+    build-release-tag:
+        name: Build and check the release tag
+        if: ${{ needs.confirm-staging-branch.outputs.release_mode == 'tag' }}
+        needs: confirm-staging-branch
+        runs-on: ubuntu-latest
+        timeout-minutes: 45
+        permissions:
+            contents: read
+        steps:
+            - name: Checkout the release tag
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  ref: ${{ needs.confirm-staging-branch.outputs.candidate_sha }}
+                  persist-credentials: false
+
+            - name: Setup Node.js
+              uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+              with:
+                  node-version: 24.19.0
+                  package-manager-cache: false
+
+            - name: Check the release tag's version
+              env:
+                  RELEASE_TAG: ${{ needs.confirm-staging-branch.outputs.release_tag }}
+              run: |
+                  set -eu
+                  PACKAGE_VERSION="$(node -p "require('./package.json').version")"
+                  if [ "v${PACKAGE_VERSION}" != "$RELEASE_TAG" ]; then
+                      echo "package.json version ${PACKAGE_VERSION} does not match ${RELEASE_TAG}"
+                      exit 1
+                  fi
+                  echo "RELEASE_VERSION=${PACKAGE_VERSION}" >> "$GITHUB_ENV"
+
+            # The build needs no dependency's install script. At the root,
+            # core-js prints a notice, pre-commit installs a git hook and
+            # spawn-sync adds a fallback for Node older than 0.12. In the kits,
+            # fsevents is macOS only, core-js prints the notice, and esbuild's
+            # binary comes from its @esbuild/linux-x64 package.
+            - name: Install dependencies
+              run: npm ci --ignore-scripts
+
+            # The same build Step 1 runs in semantic-release mode, without the
+            # version writes and the commit: the tag already holds both. The
+            # kit installs in scripts/build-v3-release.sh skip install scripts
+            # too.
+            - name: Build core and kits at the release tag
+              env:
+                  npm_config_ignore_scripts: 'true'
+              run: sh ./scripts/build-v3-release.sh "$RELEASE_VERSION"
+
+            - name: Compare the build with the tag's bundles
+              env:
+                  RELEASE_TAG: ${{ needs.confirm-staging-branch.outputs.release_tag }}
+              run: |
+                  set -eu
+                  # Bring new bundle files into the comparison without
+                  # committing anything.
+                  git add -f -- dist
+                  find kits -type d -name dist -not -path '*/node_modules/*' \
+                      -exec git add -f -- {} +
+                  CHANGED="$(git status --porcelain --untracked-files=no)"
+                  if [ -n "$CHANGED" ]; then
+                      echo "A build at ${RELEASE_VERSION} differs from the files committed at ${RELEASE_TAG}:"
+                      printf '%s\n' "$CHANGED"
+                      exit 1
+                  fi
+                  echo "dist/ and kits/**/dist at ${RELEASE_TAG} match a build at ${RELEASE_VERSION}."
+
+            - name: Archive npm failure logs
+              uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+              if: failure()
+              with:
+                  name: npm-logs-build-release-tag
+                  path: ~/.npm/_logs
 
     release:
         name: Perform Release
@@ -602,11 +818,16 @@ jobs:
                 always() &&
                 !cancelled() &&
                 needs.create-release-branch.result == 'success' &&
-                needs.confirm-staging-branch.result == 'success'
+                needs.confirm-staging-branch.result == 'success' &&
+                (
+                    needs.confirm-staging-branch.outputs.release_mode != 'tag' ||
+                    needs.build-release-tag.result == 'success'
+                )
             }}
         needs:
             - create-release-branch
             - confirm-staging-branch
+            - build-release-tag
         outputs:
             release_sha: ${{ steps.verify-release.outputs.release_sha }}
             release_tag: ${{ steps.verify-release.outputs.release_tag }}
@@ -619,8 +840,10 @@ jobs:
             pull-requests: write
             id-token: write
 
+        # semantic-release pushes and tags as the machine user. A tag run
+        # pushes nothing from this job, so it gets the job's own token.
         env:
-            GITHUB_TOKEN: ${{ secrets.MP_SEMANTIC_RELEASE_BOT }}
+            GITHUB_TOKEN: ${{ needs.confirm-staging-branch.outputs.release_mode == 'tag' && github.token || secrets.MP_SEMANTIC_RELEASE_BOT }}
             GIT_AUTHOR_NAME: mparticle-automation
             GIT_AUTHOR_EMAIL: developers@mparticle.com
             GIT_COMMITTER_NAME: mparticle-automation
@@ -628,19 +851,31 @@ jobs:
             TRACK: v3
             NPM_DIST_TAG: ${{ needs.confirm-staging-branch.outputs.npm_dist_tag }}
             NPM_CONFIG_TAG: ${{ needs.confirm-staging-branch.outputs.npm_dist_tag }}
+            # No dependency install script runs with this job's credentials,
+            # the kit installs of scripts/release.sh included.
+            npm_config_ignore_scripts: 'true'
 
         steps:
             - name: Checkout ${{ needs.confirm-staging-branch.outputs.staging_branch }}
-              uses: actions/checkout@v6
+              if: ${{ needs.confirm-staging-branch.outputs.release_mode == 'semantic-release' }}
+              uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
               with:
                   fetch-depth: 0
                   ref: ${{ needs.confirm-staging-branch.outputs.staging_branch }}
+
+            - name: Checkout the release tag
+              if: ${{ needs.confirm-staging-branch.outputs.release_mode == 'tag' }}
+              uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+              with:
+                  fetch-depth: 0
+                  ref: ${{ needs.confirm-staging-branch.outputs.candidate_sha }}
 
             - name: Configure release paths
               run: |
                   echo "NEXT_RELEASE_VERSION_FILE=$RUNNER_TEMP/next-release-version" >> "$GITHUB_ENV"
 
             - name: Import GPG Key
+              if: ${{ needs.confirm-staging-branch.outputs.release_mode == 'semantic-release' }}
               uses: crazy-max/ghaction-import-gpg@e00cb83a68c1158b29afc5217dd0582cada6d172 #v4.4.0
               with:
                   gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
@@ -649,7 +884,7 @@ jobs:
                   git_commit_gpgsign: true
 
             - name: Merge frozen candidate into staging preview
-              if: ${{ github.event.inputs.dryRun == 'true' }}
+              if: ${{ github.event.inputs.dryRun == 'true' && needs.confirm-staging-branch.outputs.release_mode == 'semantic-release' }}
               env:
                   CANDIDATE_SHA: ${{ needs.confirm-staging-branch.outputs.candidate_sha }}
               run: |
@@ -663,7 +898,7 @@ jobs:
                   fi
 
             - name: Merge release branch into staging branch
-              if: ${{ github.event.inputs.dryRun == 'false' }}
+              if: ${{ github.event.inputs.dryRun == 'false' && needs.confirm-staging-branch.outputs.release_mode == 'semantic-release' }}
               env:
                   RELEASE_BRANCH: ${{ needs.confirm-staging-branch.outputs.release_branch }}
                   CANDIDATE_SHA: ${{ needs.confirm-staging-branch.outputs.candidate_sha }}
@@ -683,13 +918,19 @@ jobs:
                   fi
 
             - name: Setup Node.js
-              uses: actions/setup-node@v6
+              uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
               with:
                   node-version: 24.19.0
                   registry-url: 'https://registry.npmjs.org'
 
+            # semantic-release runs from node_modules and builds inside its own
+            # run, so this mode still installs here, with no install scripts.
+            # A tag run installs and builds in Build and check the release tag,
+            # which holds no secret and no id-token; this job then packs and
+            # publishes the tag's committed files that build checked.
             - name: Install dependencies
-              run: npm ci
+              if: ${{ needs.confirm-staging-branch.outputs.release_mode == 'semantic-release' }}
+              run: npm ci --ignore-scripts
 
             - name: Verify npm version
               run: npm --version
@@ -703,8 +944,69 @@ jobs:
                       exit 1
                   fi
 
+            - name: Check the release tag's version
+              if: ${{ needs.confirm-staging-branch.outputs.release_mode == 'tag' }}
+              env:
+                  RELEASE_TAG: ${{ needs.confirm-staging-branch.outputs.release_tag }}
+              run: |
+                  set -eu
+                  PACKAGE_VERSION="$(node -p "require('./package.json').version")"
+                  if [ "v${PACKAGE_VERSION}" != "$RELEASE_TAG" ]; then
+                      echo "package.json version ${PACKAGE_VERSION} does not match ${RELEASE_TAG}"
+                      exit 1
+                  fi
+                  echo "RELEASE_VERSION=${PACKAGE_VERSION}" >> "$GITHUB_ENV"
+
+            - name: Check npm before publishing
+              if: ${{ needs.confirm-staging-branch.outputs.release_mode == 'tag' && github.repository == 'mParticle/mparticle-web-sdk' }}
+              run: |
+                  set -eu
+                  # The checks semantic-release runs before its publish: no
+                  # dist-tag moves backward, and no kit version already on npm
+                  # holds different bytes. Core already on this version means
+                  # a run from this tag stopped before every kit was on npm,
+                  # and the checks let this run finish that release.
+                  node scripts/publish-kits.js --preflight-tags "$RELEASE_VERSION"
+                  node scripts/publish-kits.js --preflight-artifacts "$RELEASE_VERSION"
+
+            # npm publish of core happens here in tag mode. A version npm
+            # already holds with the same bytes counts as published, so a
+            # second dispatch from the same tag finishes a stopped release.
+            # Right before it, the tag on origin must still name the commit
+            # this job checked out and built.
+            - name: Publish core from the release tag
+              if: ${{ needs.confirm-staging-branch.outputs.release_mode == 'tag' && github.event.inputs.dryRun == 'false' && github.repository == 'mParticle/mparticle-web-sdk' }}
+              env:
+                  RELEASE_TAG: ${{ needs.confirm-staging-branch.outputs.release_tag }}
+                  CANDIDATE_SHA: ${{ needs.confirm-staging-branch.outputs.candidate_sha }}
+              run: |
+                  set -eu
+                  if ! REMOTE_TAG_REFS="$(git ls-remote --exit-code --tags origin \
+                      "refs/tags/${RELEASE_TAG}" "refs/tags/${RELEASE_TAG}^{}")"; then
+                      echo "${RELEASE_TAG} is no longer on origin; core was not published"
+                      exit 1
+                  fi
+                  REMOTE_TAG_SHA="$(printf '%s\n' "$REMOTE_TAG_REFS" |
+                      awk '$2 ~ /\^\{\}$/ { print $1; exit }')"
+                  if [ -z "$REMOTE_TAG_SHA" ]; then
+                      REMOTE_TAG_SHA="$(printf '%s\n' "$REMOTE_TAG_REFS" |
+                          awk '$2 !~ /\^\{\}$/ { print $1; exit }')"
+                  fi
+                  if [ "$REMOTE_TAG_SHA" != "$CANDIDATE_SHA" ] ||
+                      [ "$(git rev-parse HEAD)" != "$CANDIDATE_SHA" ]; then
+                      echo "${RELEASE_TAG} on origin (${REMOTE_TAG_SHA}) or this checkout is not the candidate ${CANDIDATE_SHA}; core was not published"
+                      exit 1
+                  fi
+                  node scripts/publish-kits.js --publish-core
+
+            # A dry run, and a run in any other repository (the release
+            # sandbox), packs core and publishes nothing.
+            - name: Pack core without publishing
+              if: ${{ needs.confirm-staging-branch.outputs.release_mode == 'tag' && (github.event.inputs.dryRun == 'true' || github.repository != 'mParticle/mparticle-web-sdk') }}
+              run: npm pack --dry-run --json --ignore-scripts
+
             - name: Release --dry-run
-              if: ${{ github.event.inputs.dryRun == 'true' }}
+              if: ${{ github.event.inputs.dryRun == 'true' && needs.confirm-staging-branch.outputs.release_mode == 'semantic-release' }}
               env:
                   STAGING_BRANCH: ${{ needs.confirm-staging-branch.outputs.staging_branch }}
               run: |
@@ -714,7 +1016,7 @@ jobs:
                   npx semantic-release --branches "$STAGING_BRANCH" --dry-run
 
             - name: Preview V3 kit release
-              if: ${{ github.event.inputs.dryRun == 'true' }}
+              if: ${{ github.event.inputs.dryRun == 'true' && needs.confirm-staging-branch.outputs.release_mode == 'semantic-release' }}
               run: |
                   set -eu
                   if [ ! -s "$NEXT_RELEASE_VERSION_FILE" ]; then
@@ -725,7 +1027,7 @@ jobs:
                   node scripts/preview-kit-release.js "$RELEASE_VERSION"
 
             - name: Snapshot existing stable release tags
-              if: ${{ github.event.inputs.dryRun == 'false' }}
+              if: ${{ github.event.inputs.dryRun == 'false' && needs.confirm-staging-branch.outputs.release_mode == 'semantic-release' }}
               run: |
                   set -eu
                   REMOTE_TAG_REFS="$RUNNER_TEMP/remote-tag-refs-before"
@@ -742,7 +1044,7 @@ jobs:
 
             # NPM Publish happens here
             - name: Release
-              if: ${{ github.event.inputs.dryRun == 'false' }}
+              if: ${{ github.event.inputs.dryRun == 'false' && needs.confirm-staging-branch.outputs.release_mode == 'semantic-release' }}
               env:
                   STAGING_BRANCH: ${{ needs.confirm-staging-branch.outputs.staging_branch }}
               run: |
@@ -752,14 +1054,14 @@ jobs:
                   npx semantic-release --branches "$STAGING_BRANCH"
 
             - name: Archive npm failure logs
-              uses: actions/upload-artifact@v6
+              uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
               if: failure()
               with:
                   name: npm-logs-release
                   path: ~/.npm/_logs
 
             - name: Push automated release commits to release branch
-              if: ${{ github.event.inputs.dryRun == 'false' }}
+              if: ${{ github.event.inputs.dryRun == 'false' && needs.confirm-staging-branch.outputs.release_mode == 'semantic-release' }}
               env:
                   RELEASE_BRANCH: ${{ needs.confirm-staging-branch.outputs.release_branch }}
               run: |
@@ -769,6 +1071,9 @@ jobs:
             - name: Verify and report release candidate
               id: verify-release
               if: ${{ github.event.inputs.dryRun == 'false' }}
+              env:
+                  RELEASE_MODE: ${{ needs.confirm-staging-branch.outputs.release_mode }}
+                  EXPECTED_TAG: ${{ needs.confirm-staging-branch.outputs.release_tag }}
               run: |
                   set -eu
                   CANDIDATE_SHA="$(git rev-parse HEAD)"
@@ -783,10 +1088,21 @@ jobs:
                       exit 1
                   fi
                   RELEASE_TAG="$(printf '%s\n' "$STABLE_TAGS" | awk 'NF { print; exit }')"
-                  if grep -Fqx "$RELEASE_TAG" "$RUNNER_TEMP/stable-release-tags-before"; then
-                      echo "Release tag ${RELEASE_TAG} existed before this workflow run"
-                      exit 1
-                  fi
+                  case "$RELEASE_MODE" in
+                      semantic-release)
+                          if grep -Fqx "$RELEASE_TAG" "$RUNNER_TEMP/stable-release-tags-before"; then
+                              echo "Release tag ${RELEASE_TAG} existed before this workflow run"
+                              exit 1
+                          fi
+                          ;;
+                      tag)
+                          if [ "$RELEASE_TAG" != "$EXPECTED_TAG" ]; then
+                              echo "Step 1 was dispatched from ${EXPECTED_TAG}, but ${CANDIDATE_SHA} carries ${RELEASE_TAG}"
+                              exit 1
+                          fi
+                          ;;
+                      *) exit 1 ;;
+                  esac
 
                   PACKAGE_VERSION="$(node -p "require('./package.json').version")"
                   if [ "v${PACKAGE_VERSION}" != "$RELEASE_TAG" ]; then
@@ -827,6 +1143,9 @@ jobs:
                       printf -- '- Version: `%s`\n' "$PACKAGE_VERSION"
                       printf -- '- Candidate SHA: `%s`\n' "$CANDIDATE_SHA"
                       printf -- '- npm dist-tag: `%s`\n\n' "$NPM_DIST_TAG"
+                      if [ "$RELEASE_MODE" = "tag" ]; then
+                          printf 'v3-staging moves to this commit once the kits publish; Steps 2 and 3 need that move.\n\n'
+                      fi
                       printf 'Step 2 is optional and release-order A/B/C are unordered.\n\n'
                       PROMOTION_REF="main"
                       printf '### Preview commands\n\n```sh\n'
@@ -861,9 +1180,12 @@ jobs:
         env:
             NPM_DIST_TAG: ${{ needs.confirm-staging-branch.outputs.npm_dist_tag }}
             KIT_RELEASE_RECOVERY: ${{ inputs.resumeKitReleaseTag != '' }}
+            # No package lifecycle script runs with this job's id-token, npm
+            # publish's own included.
+            npm_config_ignore_scripts: 'true'
         steps:
             - name: Checkout immutable release tag
-              uses: actions/checkout@v6
+              uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
               with:
                   fetch-depth: 0
                   ref: ${{ inputs.resumeKitReleaseTag || needs.release.outputs.release_tag }}
@@ -908,16 +1230,21 @@ jobs:
                   } >> "$GITHUB_OUTPUT"
 
             - name: Setup Node.js
-              uses: actions/setup-node@v6
+              uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
               with:
                   node-version: 24.19.0
                   registry-url: 'https://registry.npmjs.org'
 
             - name: Publish kits concurrently
+              if: ${{ github.repository == 'mParticle/mparticle-web-sdk' }}
               # Preserve GitHub's authentic dispatch identity for npm OIDC.
               # The checked-out release source is bound separately by the
               # verified tag SHA and exact tarball integrity.
               run: node scripts/publish-kits.js
+
+            - name: Skip kit publishing outside the release repository
+              if: ${{ github.repository != 'mParticle/mparticle-web-sdk' }}
+              run: echo "Kits publish to npm only from mParticle/mparticle-web-sdk; this run published none."
 
             - name: Reverify immutable release tag
               if: ${{ always() }}
@@ -941,7 +1268,7 @@ jobs:
                   fi
 
             - name: Archive npm failure logs
-              uses: actions/upload-artifact@v6
+              uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
               if: failure()
               with:
                   name: npm-logs-publish-kits
@@ -949,13 +1276,16 @@ jobs:
 
     # npm can take several minutes to show a version it has accepted, so a
     # package npm has not confirmed yet is a warning here; a mismatched
-    # artifact or dist-tag still fails. No job needs this one.
+    # artifact or dist-tag still fails. Upload and stage V3 candidate waits for
+    # this job, and the candidate workflow's release-gate npm parity check reads
+    # npm again for up to 10 minutes while a package is still pending.
     audit-kits:
         name: Audit V3 kits on npm
         if: >-
             ${{
                 always() &&
                 !cancelled() &&
+                github.repository == 'mParticle/mparticle-web-sdk' &&
                 needs.publish-kits.result == 'success'
             }}
         needs:
@@ -991,10 +1321,93 @@ jobs:
             - name: Audit all packages on npm
               run: node scripts/publish-kits.js --audit
 
-    # Shadow V3 candidate packaging, off unless the V3_PACKAGE_CANDIDATE
-    # repository variable is 'true'. It packages the bundles the release
-    # committed, from a read-only checkout of the verified release tag. No job
-    # needs it, and continue-on-error keeps its failure out of the run result.
+    # Tag mode only: Steps 2 and 3 release the commit v3-staging holds, so
+    # v3-staging moves to the tag commit last, once core and the kits are on
+    # npm and Upload and stage V3 candidate has staged the release in every
+    # pod. Outside mParticle/mparticle-web-sdk (the release sandbox) nothing
+    # publishes or uploads, so that job is skipped and the move goes ahead.
+    # The job runs no npm or repository script. A plain push moves the branch
+    # only forward.
+    advance-staging:
+        name: Fast-forward v3-staging to the release tag
+        if: >-
+            ${{
+                always() &&
+                !cancelled() &&
+                github.event.inputs.dryRun == 'false' &&
+                needs.confirm-staging-branch.outputs.release_mode == 'tag' &&
+                needs.release.result == 'success' &&
+                needs.publish-kits.result == 'success' &&
+                (
+                    needs.upload-v3-candidate.result == 'success' ||
+                    (
+                        github.repository != 'mParticle/mparticle-web-sdk' &&
+                        needs.upload-v3-candidate.result == 'skipped'
+                    )
+                )
+            }}
+        needs:
+            - confirm-staging-branch
+            - release
+            - publish-kits
+            - upload-v3-candidate
+        runs-on: ubuntu-latest
+        timeout-minutes: 10
+        permissions:
+            contents: read # The push uses the machine user's token, not GITHUB_TOKEN.
+        steps:
+            - name: Checkout v3-staging
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  fetch-depth: 0
+                  ref: ${{ needs.confirm-staging-branch.outputs.staging_branch }}
+                  token: ${{ secrets.MP_SEMANTIC_RELEASE_BOT }}
+                  persist-credentials: true # zizmor: ignore[artipacked] -- pushes v3-staging as the release machine user; this job runs no npm or repository script
+
+            - name: Fast-forward v3-staging
+              env:
+                  STAGING_BRANCH: ${{ needs.confirm-staging-branch.outputs.staging_branch }}
+                  RELEASE_TAG: ${{ needs.release.outputs.release_tag }}
+                  RELEASE_SHA: ${{ needs.release.outputs.release_sha }}
+              run: |
+                  set -eu
+                  case "$STAGING_BRANCH" in
+                      v3-staging) ;;
+                      *) exit 1 ;;
+                  esac
+                  REMOTE_TAG_REFS="$(git ls-remote --exit-code --tags origin \
+                      "refs/tags/${RELEASE_TAG}" "refs/tags/${RELEASE_TAG}^{}")"
+                  REMOTE_TAG_SHA="$(printf '%s\n' "$REMOTE_TAG_REFS" |
+                      awk '$2 ~ /\^\{\}$/ { print $1; exit }')"
+                  if [ -z "$REMOTE_TAG_SHA" ]; then
+                      REMOTE_TAG_SHA="$(printf '%s\n' "$REMOTE_TAG_REFS" |
+                          awk '$2 !~ /\^\{\}$/ { print $1; exit }')"
+                  fi
+                  if [ "$REMOTE_TAG_SHA" != "$RELEASE_SHA" ]; then
+                      echo "Remote tag ${RELEASE_TAG} does not resolve to ${RELEASE_SHA}"
+                      exit 1
+                  fi
+                  STAGING_SHA="$(git ls-remote --exit-code origin "refs/heads/${STAGING_BRANCH}" | awk 'NR == 1 { print $1 }')"
+                  if [ "$STAGING_SHA" = "$RELEASE_SHA" ]; then
+                      echo "origin/${STAGING_BRANCH} is already at ${RELEASE_TAG}."
+                  else
+                      git fetch --no-tags origin "$STAGING_SHA" "$RELEASE_SHA"
+                      if ! git merge-base --is-ancestor "$STAGING_SHA" "$RELEASE_SHA"; then
+                          echo "origin/${STAGING_BRANCH} at ${STAGING_SHA} is not an ancestor of ${RELEASE_TAG}"
+                          exit 1
+                      fi
+                      git push origin "${RELEASE_SHA}:refs/heads/${STAGING_BRANCH}"
+                  fi
+                  {
+                      printf '## v3-staging\n\n'
+                      printf -- '- Release tag: `%s`\n' "$RELEASE_TAG"
+                      printf -- '- v3-staging: `%s`\n\n' "$RELEASE_SHA"
+                      printf 'Steps 2 and 3 can run for this tag.\n'
+                  } >> "$GITHUB_STEP_SUMMARY"
+
+    # Packages the bundles the release committed, from a read-only checkout of
+    # the verified release tag. Upload and stage V3 candidate depends on it, and
+    # a packaging failure fails the release.
     package-v3-candidate:
         name: Package V3 candidate (shadow)
         needs: release
@@ -1003,13 +1416,11 @@ jobs:
                 always() &&
                 !cancelled() &&
                 needs.release.result == 'success' &&
-                vars.V3_PACKAGE_CANDIDATE == 'true' &&
                 github.event.inputs.dryRun == 'false' &&
                 needs.release.outputs.release_tag != ''
             }}
         runs-on: ubuntu-latest
         timeout-minutes: 20
-        continue-on-error: true
         permissions:
             contents: read
         steps:
@@ -1062,3 +1473,242 @@ jobs:
                   path: out/v3-candidate
                   if-no-files-found: error
                   retention-days: 7
+
+    # Once the kits are published and audited, dispatches v3-shadow-candidate.yml
+    # on main in release-gate mode, which requires npm parity to pass, and waits
+    # up to 120 minutes (the child jobs' 110-minute ceiling: resolve 5, verify
+    # 25, upload 30, stage 45 and the gate 5, plus 10 minutes of queue time)
+    # for the dispatched workflow_run_id to complete with success.
+    # A failed status read is retried until the deadline. Every other way this
+    # job ends before the child run completes (a failure, the deadline, a
+    # timeout or a cancellation) cancels the child run, so a re-run never stages
+    # the same build twice in parallel. A refused cancel (a 5xx or rate-limit
+    # reply) is retried with a doubling backoff until GitHub accepts it or the
+    # child run reads completed, first by the wait step's exit trap and then by
+    # the cleanup step. If the dispatch reply is lost or has no workflow_run_id,
+    # nothing can cancel the child, so the step names the manual check instead.
+    upload-v3-candidate:
+        name: Upload and stage V3 candidate
+        needs:
+            - release
+            - package-v3-candidate
+            - publish-kits
+            - audit-kits
+        if: >-
+            ${{
+                always() &&
+                !cancelled() &&
+                needs.release.result == 'success' &&
+                needs.package-v3-candidate.result == 'success' &&
+                needs.publish-kits.result == 'success' &&
+                needs.audit-kits.result == 'success' &&
+                github.event.inputs.dryRun == 'false' &&
+                needs.release.outputs.release_tag != ''
+            }}
+        runs-on: ubuntu-latest
+        timeout-minutes: 130
+        permissions:
+            actions: write
+        steps:
+            - name: Dispatch and wait for V3 candidate upload and stage
+              id: dispatch
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  STEP1_RUN_ID: ${{ github.run_id }}
+                  WAIT_TIMEOUT_SECONDS: '7200'
+                  POLL_INTERVAL_SECONDS: '15'
+                  CANCEL_ATTEMPTS: '6'
+                  CANCEL_RETRY_SECONDS: '5'
+              run: |
+                  set -euo pipefail
+                  if [[ ! "$STEP1_RUN_ID" =~ ^[1-9][0-9]{0,19}$ ]]; then
+                      echo 'STEP1_RUN_ID must be a workflow run ID.'
+                      exit 1
+                  fi
+                  case "$WAIT_TIMEOUT_SECONDS" in
+                      ''|*[!0-9]*|0)
+                          echo 'WAIT_TIMEOUT_SECONDS must be a positive integer.'
+                          exit 1
+                          ;;
+                  esac
+                  case "$POLL_INTERVAL_SECONDS" in
+                      ''|*[!0-9]*|0)
+                          echo 'POLL_INTERVAL_SECONDS must be a positive integer.'
+                          exit 1
+                          ;;
+                  esac
+                  case "$CANCEL_ATTEMPTS" in
+                      ''|*[!0-9]*|0)
+                          echo 'CANCEL_ATTEMPTS must be a positive integer.'
+                          exit 1
+                          ;;
+                  esac
+                  case "$CANCEL_RETRY_SECONDS" in
+                      ''|*[!0-9]*|0)
+                          echo 'CANCEL_RETRY_SECONDS must be a positive integer.'
+                          exit 1
+                          ;;
+                  esac
+                  # If the dispatch reply is lost or has no workflow_run_id, the
+                  # child run may exist with no ID to cancel it by. Its runs
+                  # share the gate concurrency group for this Step 1 run, so a
+                  # re-run's child queues behind it instead of racing it.
+                  UNKNOWN_CHILD="Check the V3 shadow release: upload candidate runs for one dispatched after this Step 1 run started, and cancel it if it is still running, before re-running Step 1."
+                  if ! DISPATCH_RESPONSE="$(gh api \
+                      --method POST \
+                      "repos/${GITHUB_REPOSITORY}/actions/workflows/v3-shadow-candidate.yml/dispatches" \
+                      -f ref=main \
+                      -f "inputs[step1_run_id]=${STEP1_RUN_ID}" \
+                      -f 'inputs[release_gate]=true' \
+                      -F return_run_details=true)"; then
+                      echo "Dispatch of the V3 candidate upload workflow failed or its reply was lost. ${UNKNOWN_CHILD}"
+                      exit 1
+                  fi
+                  CHILD_RUN_ID="$(printf '%s\n' "$DISPATCH_RESPONSE" | jq -r '.workflow_run_id // empty')"
+                  if [[ ! "$CHILD_RUN_ID" =~ ^[1-9][0-9]{0,19}$ ]]; then
+                      echo "Dispatch did not return a valid workflow_run_id. ${UNKNOWN_CHILD}"
+                      exit 1
+                  fi
+                  echo "child_run_id=${CHILD_RUN_ID}" >> "$GITHUB_OUTPUT"
+
+                  # Retries a refused cancel (a 5xx or rate-limit reply) with a
+                  # doubling backoff, CANCEL_ATTEMPTS tries in all, until GitHub
+                  # accepts it or the run reads completed. The cleanup step
+                  # below carries the same function; keep the two the same.
+                  cancel_child() {
+                      CANCEL_ATTEMPT=1
+                      CANCEL_DELAY="$CANCEL_RETRY_SECONDS"
+                      while :; do
+                          echo "Cancelling V3 candidate upload workflow run ${CHILD_RUN_ID} (attempt ${CANCEL_ATTEMPT} of ${CANCEL_ATTEMPTS})."
+                          if gh api --method POST \
+                              "repos/${GITHUB_REPOSITORY}/actions/runs/${CHILD_RUN_ID}/cancel" >/dev/null; then
+                              echo "Cancelled V3 candidate upload workflow run ${CHILD_RUN_ID}."
+                              return 0
+                          fi
+                          # GitHub refuses to cancel a completed run.
+                          CHILD_STATUS="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${CHILD_RUN_ID}" --jq .status || true)"
+                          if [ "$CHILD_STATUS" = 'completed' ]; then
+                              echo "V3 candidate upload workflow run ${CHILD_RUN_ID} has already completed."
+                              return 0
+                          fi
+                          if [ "$CANCEL_ATTEMPT" -ge "$CANCEL_ATTEMPTS" ]; then
+                              echo "Could not cancel V3 candidate upload workflow run ${CHILD_RUN_ID} after ${CANCEL_ATTEMPTS} attempts (status ${CHILD_STATUS:-unknown})."
+                              return 1
+                          fi
+                          echo "Retrying the cancel in ${CANCEL_DELAY}s (status ${CHILD_STATUS:-unknown})."
+                          sleep "$CANCEL_DELAY"
+                          CANCEL_DELAY=$((CANCEL_DELAY * 2))
+                          CANCEL_ATTEMPT=$((CANCEL_ATTEMPT + 1))
+                      done
+                  }
+
+                  # Until the child run completes, every exit of this step (the
+                  # deadline, an error or a signal) cancels it, so it never goes
+                  # on uploading and staging after Step 1 has failed.
+                  CHILD_COMPLETED=false
+                  on_exit() {
+                      EXIT_CODE=$?
+                      trap - EXIT
+                      if [ "$CHILD_COMPLETED" != 'true' ]; then
+                          cancel_child || echo 'The next step tries the cancel again.'
+                      fi
+                      exit "$EXIT_CODE"
+                  }
+                  trap on_exit EXIT
+                  trap 'exit 130' INT TERM
+
+                  READ_ERRORS="$(mktemp)"
+                  HTML_URL=''
+                  DEADLINE="$(( $(date +%s) + WAIT_TIMEOUT_SECONDS ))"
+                  while :; do
+                      # A failed read (a 5xx or rate-limit reply, a dropped
+                      # connection, or a reply without the run's status) is
+                      # retried until the deadline instead of failing Step 1.
+                      if RUN_JSON="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${CHILD_RUN_ID}" 2>"$READ_ERRORS")" &&
+                          STATUS="$(printf '%s\n' "$RUN_JSON" | jq -er '.status | strings')"; then
+                          CONCLUSION="$(printf '%s\n' "$RUN_JSON" | jq -r '.conclusion // empty')"
+                          HTML_URL="$(printf '%s\n' "$RUN_JSON" | jq -r '.html_url // empty')"
+                          if [ "$STATUS" = 'completed' ]; then
+                              CHILD_COMPLETED=true
+                              echo 'child_completed=true' >> "$GITHUB_OUTPUT"
+                              if [ "$CONCLUSION" != 'success' ]; then
+                                  echo "V3 candidate upload workflow run ${CHILD_RUN_ID} concluded ${CONCLUSION:-without_success} (${HTML_URL})."
+                                  exit 1
+                              fi
+                              {
+                                  printf '## V3 candidate upload and stage\n\n'
+                                  printf -- '- Child workflow run: `%s` (%s)\n' "$CHILD_RUN_ID" "$HTML_URL"
+                                  printf -- '- Conclusion: `%s`\n' "$CONCLUSION"
+                              } >> "$GITHUB_STEP_SUMMARY"
+                              break
+                          fi
+                      else
+                          echo "Reading V3 candidate upload workflow run ${CHILD_RUN_ID} failed; retrying until the deadline. $(tail -n 1 "$READ_ERRORS" 2>/dev/null || true)"
+                      fi
+                      if [ "$(date +%s)" -ge "$DEADLINE" ]; then
+                          echo "Timed out after ${WAIT_TIMEOUT_SECONDS}s waiting for V3 candidate upload workflow run ${CHILD_RUN_ID} (${HTML_URL}); cancelling child run."
+                          exit 1
+                      fi
+                      sleep "$POLL_INTERVAL_SECONDS"
+                  done
+
+            # Also covers a job timeout or cancellation that stops the wait
+            # step before its own exit trap can cancel the child run.
+            - name: Cancel V3 candidate workflow if Step 1 fails or is cancelled
+              if: ${{ (failure() || cancelled()) && steps.dispatch.outputs.child_run_id != '' && steps.dispatch.outputs.child_completed != 'true' }}
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  CHILD_RUN_ID: ${{ steps.dispatch.outputs.child_run_id }}
+                  CANCEL_ATTEMPTS: '6'
+                  CANCEL_RETRY_SECONDS: '5'
+              run: |
+                  set -eu
+                  if [[ ! "$CHILD_RUN_ID" =~ ^[1-9][0-9]{0,19}$ ]]; then
+                      echo 'CHILD_RUN_ID must be a workflow run ID.'
+                      exit 1
+                  fi
+                  case "$CANCEL_ATTEMPTS" in
+                      ''|*[!0-9]*|0)
+                          echo 'CANCEL_ATTEMPTS must be a positive integer.'
+                          exit 1
+                          ;;
+                  esac
+                  case "$CANCEL_RETRY_SECONDS" in
+                      ''|*[!0-9]*|0)
+                          echo 'CANCEL_RETRY_SECONDS must be a positive integer.'
+                          exit 1
+                          ;;
+                  esac
+                  # The same function as the wait step's. A run the wait step's
+                  # exit trap has already cancelled reads completed.
+                  cancel_child() {
+                      CANCEL_ATTEMPT=1
+                      CANCEL_DELAY="$CANCEL_RETRY_SECONDS"
+                      while :; do
+                          echo "Cancelling V3 candidate upload workflow run ${CHILD_RUN_ID} (attempt ${CANCEL_ATTEMPT} of ${CANCEL_ATTEMPTS})."
+                          if gh api --method POST \
+                              "repos/${GITHUB_REPOSITORY}/actions/runs/${CHILD_RUN_ID}/cancel" >/dev/null; then
+                              echo "Cancelled V3 candidate upload workflow run ${CHILD_RUN_ID}."
+                              return 0
+                          fi
+                          # GitHub refuses to cancel a completed run.
+                          CHILD_STATUS="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${CHILD_RUN_ID}" --jq .status || true)"
+                          if [ "$CHILD_STATUS" = 'completed' ]; then
+                              echo "V3 candidate upload workflow run ${CHILD_RUN_ID} has already completed."
+                              return 0
+                          fi
+                          if [ "$CANCEL_ATTEMPT" -ge "$CANCEL_ATTEMPTS" ]; then
+                              echo "Could not cancel V3 candidate upload workflow run ${CHILD_RUN_ID} after ${CANCEL_ATTEMPTS} attempts (status ${CHILD_STATUS:-unknown})."
+                              return 1
+                          fi
+                          echo "Retrying the cancel in ${CANCEL_DELAY}s (status ${CHILD_STATUS:-unknown})."
+                          sleep "$CANCEL_DELAY"
+                          CANCEL_DELAY=$((CANCEL_DELAY * 2))
+                          CANCEL_ATTEMPT=$((CANCEL_ATTEMPT + 1))
+                      done
+                  }
+                  if cancel_child; then
+                      exit 0
+                  fi
+                  echo "Cancel V3 candidate upload workflow run ${CHILD_RUN_ID} before re-running Step 1."
+                  exit 1

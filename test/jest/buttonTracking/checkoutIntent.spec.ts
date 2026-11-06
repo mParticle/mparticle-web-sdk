@@ -34,6 +34,107 @@ describe('checkoutIntent', () => {
         return [inner, root, host];
     };
 
+    describe('kit-supplied selectors', () => {
+        const selectors = {
+            commit: ['button.btnSubmitOrder', '[data-test-id="place-order"]'],
+            checkout_step: ['#go-to-checkout'],
+        };
+
+        it('counts a control matching a commit selector as a commit, whatever its label', () => {
+            const button = control(
+                '<button class="btn btnSubmitOrder">Weiter</button>'
+            );
+            expect(classifyIntent(button, '/cart', selectors)).toEqual({
+                kind: 'commit',
+                source: 'selector',
+            });
+        });
+
+        it('counts a control matching a checkout-step selector as a checkout step', () => {
+            const button = control(
+                '<button id="go-to-checkout">Sign in to continue</button>'
+            );
+            expect(classifyIntent(button, '/cart', selectors)).toEqual({
+                kind: 'checkout_step',
+                source: 'selector',
+            });
+        });
+
+        it('prefers the commit selector when a control matches both kinds', () => {
+            const button = control(
+                '<button id="go-to-checkout" class="btnSubmitOrder">Go</button>'
+            );
+            expect(classifyIntent(button, '/checkout', selectors)!.kind).toBe(
+                'commit'
+            );
+        });
+
+        it('falls back to the label rules when no selector matches', () => {
+            const button = control('<button class="other">Place order</button>');
+            expect(classifyIntent(button, '/checkout', selectors)).toEqual({
+                kind: 'commit',
+                source: 'label',
+            });
+        });
+
+        it('skips a selector the browser cannot parse and keeps checking the rest', () => {
+            const button = control(
+                '<button data-test-id="place-order">Go</button>'
+            );
+            const withBadSelector = {
+                commit: ['button[[', '[data-test-id="place-order"]'],
+            };
+            expect(classifyIntent(button, '/checkout', withBadSelector)).toEqual({
+                kind: 'commit',
+                source: 'selector',
+            });
+        });
+
+        it('never counts a picker, even when a selector matches it', () => {
+            const radio = control(
+                '<input type="radio" name="pay" class="pay-choice">'
+            );
+            const matchingPicker = {
+                commit: ['.pay-choice'],
+                checkout_step: ['input[name="pay"]'],
+            };
+            expect(radio.matches('.pay-choice')).toBe(true);
+            expect(
+                classifyIntent(radio, '/checkout', matchingPicker)
+            ).toBeUndefined();
+        });
+
+        it('matches only the control itself, not a container around it', () => {
+            const parent = document.createElement('div');
+            parent.className = 'btnSubmitOrder';
+            parent.innerHTML = '<button>Weiter</button>';
+            const button = parent.firstElementChild!;
+            const containerOnly = { commit: ['.btnSubmitOrder'] };
+            expect(classifyIntent(button, '/checkout', containerOnly)).toBeUndefined();
+        });
+
+        it('keeps a vendor wallet button a wallet when a broad selector matches it', () => {
+            const gpay = control('<button id="gpay-button-online-api-id" class="pay-row-btn"></button>');
+            const broad = { commit: ['.pay-row-btn'], checkout_step: ['button'] };
+            expect(classifyIntent(gpay, '/checkout', broad)).toEqual({
+                kind: 'wallet',
+                source: 'vendor',
+            });
+        });
+
+        it('never counts a vendor set-up button, even when a selector matches it', () => {
+            const setUp = control('<apple-pay-button type="set-up" class="pay-row-btn"></apple-pay-button>');
+            expect(
+                classifyIntent(setUp, '/checkout', { commit: ['.pay-row-btn'] })
+            ).toBeUndefined();
+        });
+
+        it('behaves as before with no selectors', () => {
+            const button = control('<button class="btnSubmitOrder">Weiter</button>');
+            expect(classifyIntent(button, '/checkout')).toBeUndefined();
+        });
+    });
+
     describe('English grammar', () => {
         // [visible text, aria-label or null, expected kind]
         it.each([
@@ -644,6 +745,11 @@ describe('checkoutIntent', () => {
         ['レジに進む', 'checkout_step'],
         ['ご購入手続きへ', 'checkout_step'],
         ['購入手続きに進む', 'checkout_step'],
+        ['購入手続き', 'checkout_step'],
+        ['ご購入手続き', 'checkout_step'],
+        ['注文手続き', 'checkout_step'],
+        ['購入手続きについて', undefined],
+        ['購入手続きを中止する', undefined],
         ['Check-out', 'checkout_step'],
         ['Auschecken', 'checkout_step'],
         ['Subscribe', undefined],
@@ -689,6 +795,12 @@ describe('checkoutIntent', () => {
         const button = document.createElement('button');
         button.textContent = text!;
         expect(classify([button], '/checkout')).toBe(expected);
+    });
+    it('classifies a bare purchase-procedure button on a cart route as a checkout step', () => {
+        const button = document.createElement('button');
+        button.setAttribute('aria-label', '購入手続き');
+        button.textContent = '購入手続き';
+        expect(classify([button], '/cart')).toBe('checkout_step');
     });
     it.each([
         ['Place order \u00B7 $43.95', 'commit'],

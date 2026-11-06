@@ -144,7 +144,7 @@ export type PreselectPaymentPickSignal = {
   family?: string;
 };
 const INTENT_KINDS: PreselectIntentKind[] = ['commit', 'wallet', 'checkout_step', 'frame', 'cart'];
-const INTENT_SOURCES = ['vendor', 'label', 'brand', 'frame', 'submit', 'name', 'api'];
+const INTENT_SOURCES = ['vendor', 'label', 'brand', 'frame', 'submit', 'name', 'api', 'selector'];
 const MAX_INTENT_PATHNAME_LENGTH = 512;
 
 // What a commit, wallet, cart or opted-in checkout-step click fires as, and the event that stands in for it.
@@ -870,6 +870,26 @@ export function getPreselectDefaultedMarker(
 export function getPreselectCacheMatchKeys(configEntry: PreselectionConfigEntry): string[] {
   const defaultKeys = Object.keys(configEntry.preselectAttributeDefaults ?? {});
   return [...configEntry.attributeKeys, ...defaultKeys.filter((key) => !configEntry.attributeKeys.includes(key))];
+}
+
+// Every entry's intent selectors for the account, in the core SDK's kind names, or undefined when no entry has any.
+// A click matches on any route; what it fires is still decided by the route it happened on.
+export function getPreselectIntentSelectors(
+  accountId: string | null | undefined,
+): { commit?: string[]; checkout_step?: string[] } | undefined {
+  if (!accountId) {
+    return undefined;
+  }
+  const entries = getPreselectionEntries(accountId);
+  const commit = [...new Set(entries.flatMap((entry) => entry.intentSelectors?.commit ?? []))];
+  const checkoutStep = [...new Set(entries.flatMap((entry) => entry.intentSelectors?.checkoutStep ?? []))];
+  if (commit.length === 0 && checkoutStep.length === 0) {
+    return undefined;
+  }
+  return {
+    ...(commit.length > 0 ? { commit } : {}),
+    ...(checkoutStep.length > 0 ? { checkout_step: checkoutStep } : {}),
+  };
 }
 
 export function hasPreselectionConfigForAccount(accountId: string | null | undefined): boolean {
@@ -2560,7 +2580,7 @@ function digestCart(cart: unknown): number | undefined {
   }
 }
 
-// A page view or route change off the cart entry's route fires that entry once the shopper's cart holds items, even
+// A page view or route change off every entry's route fires the cart entry once the shopper's cart holds items, even
 // while checkout intent is active: the click into the cart leaves too late for the call to land. The cart holds items
 // while its attribute says so, or after an add-to-cart click the page hasn't set that attribute since.
 export function maybeFirePreselectForCartPageView(
@@ -2579,7 +2599,9 @@ function fireCartPageView(state: PreselectState, host: PreselectHost, pathname: 
   if (
     !entry ||
     state.cartPageViewPathname !== stripTrailingSlash(pathname) ||
-    pathnameMatches(entry.pathname, pathname) ||
+    // The cart entry's own route waits for its add-to-cart click, and another entry's route is a checkout step the
+    // shopper reaches after the cart, where a call made for the cart page is rarely used.
+    findPreselectionConfig(host.accountId, pathname) !== undefined ||
     !canDispatchPreselection(host)
   ) {
     state.cartPageViewPathname = undefined;
