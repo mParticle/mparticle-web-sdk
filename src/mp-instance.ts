@@ -39,7 +39,7 @@ import Consent, { IConsent } from './consent';
 import KitBlocker from './kitBlocking';
 import ConfigAPIClient, { IKitConfigs } from './configAPIClient';
 import IdentityAPIClient, { IIdentityApiClient } from './identityApiClient';
-import { isFunction, parseConfig, valueof, generateDeprecationMessage, extend } from './utils';
+import { isFunction, parseConfig, valueof, generateDeprecationMessage, extend, findKeyInObject, isObject } from './utils';
 import { DisabledVault, LocalStorageVault } from './vault';
 import { removeExpiredIdentityCacheDates, hasExplicitIdentifier } from './identity-utils';
 import IntegrationCapture, { isIntegrationCaptureEnabled } from './integrationCapture';
@@ -703,7 +703,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
                     hostname: window.location.hostname,
                     title: window.document.title,
                 };
-            } else if (!self._Helpers.isObject(attrs)) {
+            } else if (!isObject(attrs)) {
                 self.Logger.error(
                     'The attributes argument must be an object. A ' +
                         typeof attrs +
@@ -711,7 +711,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
                 );
                 return;
             }
-            if (customFlags && !self._Helpers.isObject(customFlags)) {
+            if (customFlags && !isObject(customFlags)) {
                 self.Logger.error(
                     'The customFlags argument must be an object. A ' +
                         typeof customFlags +
@@ -1108,7 +1108,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
                     JSON.stringify({ key: key, value: value })
                 );
             } else {
-                const existingProp = self._Helpers.findKeyInObject(
+                const existingProp = findKeyInObject(
                     self._Store.sessionAttributes,
                     key
                 );
@@ -1190,7 +1190,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
         }
         if (attrs === null) {
             self._Store.integrationAttributes[integrationId] = {};
-        } else if (self._Helpers.isObject(attrs)) {
+        } else if (isObject(attrs)) {
             if (Object.keys(attrs).length === 0) {
                 self._Store.integrationAttributes[integrationId] = {};
             } else {
@@ -1198,7 +1198,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
                     if (typeof key === 'string') {
                         if (typeof attrs[key] === 'string') {
                             if (
-                                self._Helpers.isObject(
+                                isObject(
                                     self._Store.integrationAttributes[
                                         integrationId
                                     ]

@@ -20,7 +20,7 @@ import {
     SDKEventOptions,
     TransactionAttributes,
 } from '@mparticle/web-sdk';
-import { getHref, valueof } from './utils';
+import { getHref, valueof, isObject } from './utils';
 import {
     allowedQueryParams,
     autoPageViewAttribute,
@@ -242,7 +242,7 @@ export default function Events(
                 );
             }
 
-            if (mpInstance._Helpers.isObject(transactionAttributes)) {
+            if (isObject(transactionAttributes)) {
                 mpInstance._Ecommerce.convertTransactionAttributesToProductAction(
                     transactionAttributes,
                     event.ProductAction
