@@ -1,3 +1,10 @@
+# [3.30.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.29.1...v3.30.0) (2026-11-05)
+
+
+### Features
+
+* **mparticle-web-sdk:** V3 release-gate Option A workflow_run gate and tag verify (P1-a) ([#1747](https://github.com/mParticle/mparticle-web-sdk/issues/1747)) ([e577956](https://github.com/mParticle/mparticle-web-sdk/commit/e5779566d5a00518bf99039f5835fb3a816064aa))
+
 ## [3.29.1](https://github.com/mParticle/mparticle-web-sdk/compare/v3.29.0...v3.29.1) (2026-11-05)
 
 
