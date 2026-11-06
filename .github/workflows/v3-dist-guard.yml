@@ -1,0 +1,125 @@
+name: 'V3 Release Please - Bundle Change Guard'
+
+# dist/ and kits/**/dist change only in the Release Please release PR, in
+# commits the release machine user made and signed. A dist that is a file or a
+# symlink counts as a bundle change too. This check fails a pull
+# request to main that changes them any other way. It is inert until the
+# repository variable V3_DIST_GUARD_ENABLED is 'true': until then it passes
+# with a note. The job always runs, so the check never reports as skipped.
+#
+# pull_request_target runs this file and its script from main, never from the
+# pull request, so a pull request that edits this guard cannot change what its
+# own check runs. The job checks out the base commit, then fetches the pull
+# request's head commits as git data for git diff, git rev-list and the GitHub
+# commit lookups. It never checks out or runs the pull request's code, it reads
+# contents only and it uses no secrets. A change to this file takes effect for
+# pull requests opened or updated after it merges to main.
+
+on:
+    pull_request_target: # zizmor: ignore[dangerous-triggers] -- see the header; the pull request's commits are fetched as data only, never checked out or run
+        branches:
+            - main
+
+permissions: {}
+
+concurrency:
+    group: v3-dist-guard-${{ github.event.pull_request.number }}
+    cancel-in-progress: true
+
+jobs:
+    dist-guard:
+        name: V3 bundles change only in release PRs
+        runs-on: ubuntu-latest
+        timeout-minutes: 10
+        permissions:
+            contents: read
+        steps:
+            - name: Read the guard switch
+              id: switch
+              env:
+                  GUARD_ENABLED: ${{ vars.V3_DIST_GUARD_ENABLED }}
+              run: |
+                  set -eu
+                  if [ "$GUARD_ENABLED" = "true" ]; then
+                      echo "enabled=true" >> "$GITHUB_OUTPUT"
+                  else
+                      echo "enabled=false" >> "$GITHUB_OUTPUT"
+                      echo "The bundle guard is off (V3_DIST_GUARD_ENABLED is not 'true'), so this check passes."
+                  fi
+
+            - name: Checkout the base commit
+              if: ${{ steps.switch.outputs.enabled == 'true' }}
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  ref: ${{ github.event.pull_request.base.sha }}
+                  fetch-depth: 0
+                  persist-credentials: false
+
+            # The head commits arrive as objects only. The working tree stays
+            # on the base commit, and nothing from the pull request runs.
+            - name: Fetch the pull request head as data
+              if: ${{ steps.switch.outputs.enabled == 'true' }}
+              env:
+                  HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+              run: |
+                  set -eu
+                  git fetch --no-tags --no-recurse-submodules origin "$HEAD_SHA"
+                  git cat-file -e "${HEAD_SHA}^{commit}"
+
+            - name: Check every bundle change
+              if: ${{ steps.switch.outputs.enabled == 'true' }}
+              env:
+                  BASE_SHA: ${{ github.event.pull_request.base.sha }}
+                  HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+                  HEAD_REF: ${{ github.event.pull_request.head.ref }}
+                  HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+                  BASE_REPOSITORY: ${{ github.repository }}
+                  RELEASE_IDENTITY: 'mparticle-automation <developers@mparticle.com>'
+                  GH_TOKEN: ${{ github.token }}
+              run: |
+                  set -eu
+                  MERGE_BASE="$(git merge-base "$BASE_SHA" "$HEAD_SHA")"
+                  # kits/**/dist names a dist that is a file or a symlink;
+                  # kits/**/dist/** names every file under a dist directory.
+                  CHANGED="$(git diff --name-only "$MERGE_BASE" "$HEAD_SHA" -- \
+                      dist ':(glob)kits/**/dist' ':(glob)kits/**/dist/**')"
+                  if [ -z "$CHANGED" ]; then
+                      echo "This pull request changes no release bundle."
+                      exit 0
+                  fi
+
+                  RELEASE_BRANCH=false
+                  case "$HEAD_REF" in
+                      release-please--branches--main|release-please--branches--main--components--*)
+                          if [ "$HEAD_REPOSITORY" = "$BASE_REPOSITORY" ]; then
+                              RELEASE_BRANCH=true
+                          fi
+                          ;;
+                  esac
+                  if [ "$RELEASE_BRANCH" != "true" ]; then
+                      echo "This pull request changes release bundles, which change only in the Release Please release PR:"
+                      printf '%s\n' "$CHANGED"
+                      exit 1
+                  fi
+
+                  # Every commit on the release branch that touches a bundle
+                  # must be the release machine user's, signed and verified.
+                  REFUSED=""
+                  for SHA in $(git rev-list "${MERGE_BASE}..${HEAD_SHA}" -- \
+                      dist ':(glob)kits/**/dist' ':(glob)kits/**/dist/**'); do
+                      AUTHOR="$(git show -s --format='%an <%ae>' "$SHA")"
+                      COMMITTER="$(git show -s --format='%cn <%ce>' "$SHA")"
+                      VERIFIED="$(gh api "repos/${BASE_REPOSITORY}/commits/${SHA}" \
+                          --jq '.commit.verification.verified')"
+                      if [ "$AUTHOR" != "$RELEASE_IDENTITY" ] ||
+                          [ "$COMMITTER" != "$RELEASE_IDENTITY" ] ||
+                          [ "$VERIFIED" != "true" ]; then
+                          REFUSED="${REFUSED}${SHA} author ${AUTHOR}, committer ${COMMITTER}, verified ${VERIFIED}"$'\n'
+                      fi
+                  done
+                  if [ -n "$REFUSED" ]; then
+                      echo "These commits change release bundles but are not signed release commits by ${RELEASE_IDENTITY}:"
+                      printf '%s' "$REFUSED"
+                      exit 1
+                  fi
+                  echo "Every bundle change is a signed release commit by ${RELEASE_IDENTITY}."
