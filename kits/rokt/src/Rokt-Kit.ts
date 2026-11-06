@@ -216,11 +216,6 @@ interface KitFilters {
   filteredUser?: FilteredUser | null;
 }
 
-interface CallTimeUser {
-  user: FilteredUser | null;
-  userAttributes: Record<string, unknown>;
-}
-
 interface RoktManager {
   attachKit(kit: RoktKit): void | Promise<void>;
   flushOnShoppableAdsReadyMessageQueue?(kit: RoktKit): void;
@@ -2121,7 +2116,8 @@ class RoktKit implements KitInterface {
    * and on a post-terminate createLauncher when the SPA needs a new instance.
    */
   public selectPlacements(options: Record<string, unknown>): RoktSelection | Promise<RoktSelection> | undefined {
-    const callTime: CallTimeUser = { user: this.filters.filteredUser || null, userAttributes: this.userAttributes };
+    const callTimeUser = mp()?.Identity?.getCurrentUser?.() as FilteredUser | null | undefined;
+    const loggedInMpid = callTimeUser?.isLoggedIn?.() === true ? String(callTimeUser.getMPID?.() ?? '') : '';
     const recreate = this.recreateLauncherIfTerminated();
     if (recreate) {
       const inFlight = this._workspaceSearchInFlightPromise;
@@ -2132,7 +2128,7 @@ class RoktKit implements KitInterface {
           ])
         : Promise.resolve();
       return Promise.all([recreate, waitForSearch]).then(() =>
-        this._dispatchPlacements(options, callTime),
+        this._dispatchPlacements(options, loggedInMpid),
       ) as Promise<RoktSelection>;
     }
     if (this._workspaceSearchInFlightPromise) {
@@ -2140,7 +2136,7 @@ class RoktKit implements KitInterface {
       return Promise.race([
         inFlight,
         new Promise<void>((resolve) => setTimeout(resolve, WORKSPACE_SEARCH_SELECT_TIMEOUT_MS)),
-      ]).then(() => this._dispatchPlacements(options, callTime)) as Promise<RoktSelection>;
+      ]).then(() => this._dispatchPlacements(options, loggedInMpid)) as Promise<RoktSelection>;
     }
     return this._dispatchPlacements(options);
   }
@@ -2172,9 +2168,19 @@ class RoktKit implements KitInterface {
     };
   }
 
+  private isStillCurrentUser(mpid: string, requireLogin: boolean): boolean {
+    const currentUser = mp().Identity?.getCurrentUser?.() as FilteredUser | null | undefined;
+    return (
+      mpid !== '' &&
+      String(this.filters?.filteredUser?.getMPID?.() ?? '') === mpid &&
+      String(currentUser?.getMPID?.() ?? '') === mpid &&
+      (!requireLogin || currentUser?.isLoggedIn?.() === true)
+    );
+  }
+
   private _dispatchPlacements(
     options: Record<string, unknown>,
-    callTime?: CallTimeUser,
+    waitedForLoggedInMpid?: string,
   ): RoktSelection | Promise<RoktSelection> | undefined {
     // Undoes the fire's records if this call is dropped below.
     const rollback = options ? getPreselectRollback(options) : undefined;
@@ -2194,21 +2200,29 @@ class RoktKit implements KitInterface {
     // the fire needed that, so a logout or user switch during the wait never sends one user's attributes as another's.
     if (boundUserOption !== undefined) {
       const bound = isObject(boundUserOption) ? boundUserOption : {};
-      const mpid = String(bound.mpid ?? '');
       const requireLogin = bound.requireLogin !== false;
-      const currentUser = mp().Identity?.getCurrentUser?.() as FilteredUser | null | undefined;
-      if (
-        mpid === '' ||
-        String(this.filters?.filteredUser?.getMPID?.() ?? '') !== mpid ||
-        String(currentUser?.getMPID?.() ?? '') !== mpid ||
-        (requireLogin && currentUser?.isLoggedIn?.() !== true)
-      ) {
+      if (!this.isStillCurrentUser(String(bound.mpid ?? ''), requireLogin)) {
         this.loggingService?.logPlacementDiagnostic(
           buildPreselectDiagnosticLogEntry('missed', requireLogin ? 'logged_in_dropped' : 'user_changed_dropped'),
         );
         rollback?.();
         return undefined;
       }
+    }
+    // The same rule holds for any call that waited: a logout or user switch during the wait would send, and log, the
+    // old user's attributes as the new user's. An anonymous user who logs in is the same shopper, so that call still
+    // goes out, for the user who logged in.
+    if (waitedForLoggedInMpid && !this.isStillCurrentUser(waitedForLoggedInMpid, true)) {
+      if (options.preselect === true) {
+        this.loggingService?.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('missed', 'logged_in_dropped'));
+      } else {
+        this.loggingService?.log({
+          message: 'Rokt Kit: Dropped a selectPlacements call whose logged-in user changed while it waited',
+          code: 'SELECT_PLACEMENTS_USER_CHANGED',
+        });
+      }
+      rollback?.();
+      return undefined;
     }
     const formEmail = isObject(transientOption) ? transientOption : undefined;
     const formEmailKey = formEmail && isString(formEmail.key) ? formEmail.key : undefined;
@@ -2223,21 +2237,13 @@ class RoktKit implements KitInterface {
         return undefined;
       }
     }
-    // An identity call that completed while selectPlacements waited has replaced the kit's user and its cached
-    // attributes. The call still goes out for the user it was made for, whose email core already put in the
-    // attributes, and the new user's cache is left alone. A call made before any user is not tied to one.
-    const callTimeMpid = String(callTime?.user?.getMPID?.() ?? '');
-    const userChanged = callTimeMpid !== '' && callTimeMpid !== String(this.filters?.filteredUser?.getMPID?.() ?? '');
-
     const attributes = (options.attributes as Record<string, unknown>) || {};
-    const cachedUserAttributes = removeSelectPlacementsAttributePersistenceDeniedAttributes(
-      userChanged ? callTime!.userAttributes : this.userAttributes,
-    );
+    const cachedUserAttributes = removeSelectPlacementsAttributePersistenceDeniedAttributes(this.userAttributes);
     const placementAttributes: Record<string, unknown> = { ...cachedUserAttributes, ...attributes };
 
     const filters = this.filters || {};
     const userAttributeFilters = (filters.userAttributeFilters as string[]) || [];
-    const filteredUser = (userChanged ? callTime!.user : filters.filteredUser) || null;
+    const filteredUser = filters.filteredUser || null;
     const mpid = filteredUser ? filteredUser.getMPID() : null;
 
     let filteredAttributes: Record<string, unknown>;
@@ -2260,9 +2266,7 @@ class RoktKit implements KitInterface {
         delete persistedAttributes[formEmailKey];
       }
     }
-    if (!userChanged) {
-      this.userAttributes = persistedAttributes;
-    }
+    this.userAttributes = persistedAttributes;
 
     const optimizelyAttributes = this._onboardingExpProvider === 'Optimizely' ? this.fetchOptimizely() : {};
 
@@ -2297,8 +2301,7 @@ class RoktKit implements KitInterface {
       ...sessionAttributes,
       ...(pageEvents.length ? { [PAGE_EVENTS_KEY]: JSON.stringify(pageEvents) } : {}),
       ...(utmParams ? { [PAGE_VIEW_ATTRIBUTES_KEY]: utmParams } : {}),
-      // The search behind the wait ran for the new user, so its result says nothing about this call's user.
-      ...(!userChanged && this.userIdentifiedInWorkspace ? { [USER_IDENTIFIED_IN_WORKSPACE_KEY]: true } : {}),
+      ...(this.userIdentifiedInWorkspace ? { [USER_IDENTIFIED_IN_WORKSPACE_KEY]: true } : {}),
       ...(mpSessionId ? { [MPARTICLE_SESSION_ID_KEY]: mpSessionId } : {}),
       ...(mpDeviceId ? { [MPARTICLE_DEVICE_ID_KEY]: mpDeviceId } : {}),
       mpid,
