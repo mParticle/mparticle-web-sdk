@@ -57,14 +57,24 @@ jobs:
 
             # The head commits arrive as objects only. The working tree stays
             # on the base commit, and nothing from the pull request runs.
+            # Fetching refs/pull/<number>/head into a temporary ref works for
+            # fork pull requests without credentials, and checking that the
+            # fetched commit equals HEAD_SHA catches a race with a newer push.
             - name: Fetch the pull request head as data
               if: ${{ steps.switch.outputs.enabled == 'true' }}
               env:
+                  PR_NUMBER: ${{ github.event.pull_request.number }}
                   HEAD_SHA: ${{ github.event.pull_request.head.sha }}
               run: |
                   set -eu
-                  git fetch --no-tags --no-recurse-submodules origin "$HEAD_SHA"
-                  git cat-file -e "${HEAD_SHA}^{commit}"
+                  TEMP_REF="refs/guard/pull-${PR_NUMBER}-head"
+                  git fetch --no-tags --no-recurse-submodules origin \
+                      "+refs/pull/${PR_NUMBER}/head:${TEMP_REF}"
+                  FETCHED_SHA="$(git rev-parse --verify "${TEMP_REF}^{commit}")"
+                  if [ "$FETCHED_SHA" != "$HEAD_SHA" ]; then
+                      echo "refs/pull/${PR_NUMBER}/head resolved to ${FETCHED_SHA}, expected ${HEAD_SHA}."
+                      exit 1
+                  fi
 
             - name: Check every bundle change
               if: ${{ steps.switch.outputs.enabled == 'true' }}
@@ -74,6 +84,8 @@ jobs:
                   HEAD_REF: ${{ github.event.pull_request.head.ref }}
                   HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
                   BASE_REPOSITORY: ${{ github.repository }}
+                  PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+                  RELEASE_BOT_LOGIN: 'mparticle-automation'
                   RELEASE_IDENTITY: 'mparticle-automation <developers@mparticle.com>'
                   GH_TOKEN: ${{ github.token }}
               run: |
@@ -91,7 +103,8 @@ jobs:
                   RELEASE_BRANCH=false
                   case "$HEAD_REF" in
                       release-please--branches--main|release-please--branches--main--components--*)
-                          if [ "$HEAD_REPOSITORY" = "$BASE_REPOSITORY" ]; then
+                          if [ "$HEAD_REPOSITORY" = "$BASE_REPOSITORY" ] &&
+                              [ "$PR_AUTHOR" = "$RELEASE_BOT_LOGIN" ]; then
                               RELEASE_BRANCH=true
                           fi
                           ;;
@@ -102,19 +115,27 @@ jobs:
                       exit 1
                   fi
 
-                  # Every commit on the release branch that touches a bundle
-                  # must be the release machine user's, signed and verified.
+                  # Every commit on the release branch that touches a bundle,
+                  # merge commits included, must be the release machine user's
+                  # in both git metadata and the GitHub API, signed and verified.
+                  # Capture the list first so set -e exits if git rev-list fails.
+                  SHAS="$(git rev-list --full-history "${MERGE_BASE}..${HEAD_SHA}" -- \
+                      dist ':(glob)kits/**/dist' ':(glob)kits/**/dist/**')"
                   REFUSED=""
-                  for SHA in $(git rev-list "${MERGE_BASE}..${HEAD_SHA}" -- \
-                      dist ':(glob)kits/**/dist' ':(glob)kits/**/dist/**'); do
+                  for SHA in $SHAS; do
                       AUTHOR="$(git show -s --format='%an <%ae>' "$SHA")"
                       COMMITTER="$(git show -s --format='%cn <%ce>' "$SHA")"
-                      VERIFIED="$(gh api "repos/${BASE_REPOSITORY}/commits/${SHA}" \
-                          --jq '.commit.verification.verified')"
+                      API_META="$(gh api "repos/${BASE_REPOSITORY}/commits/${SHA}" \
+                          --jq '[(.commit.verification.verified // false), (.author.login // "none"), (.committer.login // "none")] | join("\t")')"
+                      VERIFIED="$(printf '%s\n' "$API_META" | cut -f1)"
+                      API_AUTHOR="$(printf '%s\n' "$API_META" | cut -f2)"
+                      API_COMMITTER="$(printf '%s\n' "$API_META" | cut -f3)"
                       if [ "$AUTHOR" != "$RELEASE_IDENTITY" ] ||
                           [ "$COMMITTER" != "$RELEASE_IDENTITY" ] ||
+                          [ "$API_AUTHOR" != "$RELEASE_BOT_LOGIN" ] ||
+                          [ "$API_COMMITTER" != "$RELEASE_BOT_LOGIN" ] ||
                           [ "$VERIFIED" != "true" ]; then
-                          REFUSED="${REFUSED}${SHA} author ${AUTHOR}, committer ${COMMITTER}, verified ${VERIFIED}"$'\n'
+                          REFUSED="${REFUSED}${SHA} author ${AUTHOR} (${API_AUTHOR}), committer ${COMMITTER} (${API_COMMITTER}), verified ${VERIFIED}"$'\n'
                       fi
                   done
                   if [ -n "$REFUSED" ]; then
