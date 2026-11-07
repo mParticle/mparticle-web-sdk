@@ -2126,14 +2126,7 @@ class RoktKit implements KitInterface {
    * and on a post-terminate createLauncher when the SPA needs a new instance.
    */
   public selectPlacements(options: Record<string, unknown>): RoktSelection | Promise<RoktSelection> | undefined {
-    const coreUser = mp()?.Identity?.getCurrentUser?.() as FilteredUser | null | undefined;
-    const callTimeUser: CallTimeUser = {
-      mpid: String(coreUser?.getMPID?.() ?? ''),
-      loggedIn: coreUser?.isLoggedIn?.() === true,
-      hasIdentities: Object.values(coreUser?.getUserIdentities?.()?.userIdentities || {}).some(
-        (value) => isString(value) && value !== '',
-      ),
-    };
+    const callTimeUser = this.currentUserSnapshot();
     const recreate = this.recreateLauncherIfTerminated();
     if (recreate) {
       const inFlight = this._workspaceSearchInFlightPromise;
@@ -2192,6 +2185,17 @@ class RoktKit implements KitInterface {
       String(currentUser?.getMPID?.() ?? '') === mpid &&
       (!requireLogin || currentUser?.isLoggedIn?.() === true)
     );
+  }
+
+  private currentUserSnapshot(): CallTimeUser {
+    const currentUser = mp()?.Identity?.getCurrentUser?.() as FilteredUser | null | undefined;
+    return {
+      mpid: String(currentUser?.getMPID?.() ?? ''),
+      loggedIn: currentUser?.isLoggedIn?.() === true,
+      hasIdentities: Object.values(currentUser?.getUserIdentities?.()?.userIdentities || {}).some(
+        (value) => isString(value) && value !== '',
+      ),
+    };
   }
 
   private hasUserChangedSince(callTime: CallTimeUser): boolean {
@@ -2412,15 +2416,29 @@ class RoktKit implements KitInterface {
       ...(cacheMatchValues ? { cacheMatchValues } : {}),
     };
 
+    const dispatchUser = this.currentUserSnapshot();
     const selection = this.launcher!.selectPlacements(selectPlacementsOptions);
 
     const isPreselect = options.preselect === true;
 
     // After selection resolves, sync the Rokt session ID back to mParticle, then log
     const logSelection = () => {
-      if (!isPreselect) {
-        this.logSelectPlacementsEvent(selectPlacementsAttributes);
+      if (isPreselect) {
+        return;
       }
+      // Core files the event under whoever is current once the selection resolves, which can be a user an identity
+      // call put in place after dispatch. The event's attributes were built for the dispatch user: its MPID, its
+      // identities and its cached attributes. So it goes to a new user only when the dispatch user was anonymous,
+      // not logged in and with no identities, as when an anonymous shopper logs in. A new user who holds the call's
+      // email is not enough, unlike for a call that waited: the rest of the attributes would still be another user's.
+      if (this.hasUserChangedSince(dispatchUser) && (dispatchUser.loggedIn || dispatchUser.hasIdentities)) {
+        this.loggingService?.log({
+          message: 'Rokt Kit: Skipped the selectPlacements event because its user changed before the selection resolved',
+          code: 'SELECT_PLACEMENTS_EVENT_USER_CHANGED',
+        });
+        return;
+      }
+      this.logSelectPlacementsEvent(selectPlacementsAttributes);
     };
 
     void Promise.resolve(selection)
