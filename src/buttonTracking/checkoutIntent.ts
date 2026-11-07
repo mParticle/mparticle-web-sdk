@@ -284,7 +284,9 @@ export type CheckoutIntentSource =
     | 'selector';
 
 // CSS selectors a kit supplies for the page's own confirm and checkout-step
-// buttons. A control matching one counts as that kind before any label rule.
+// buttons. A control matching one counts as that kind before any label rule,
+// except that a confirm, wallet or add-to-cart label beats a checkout-step
+// selector.
 export interface ICheckoutIntentSelectors {
     commit?: readonly string[];
     checkout_step?: readonly string[];
@@ -353,8 +355,10 @@ function isCommitLabel(text: string, isLink: boolean, pathname: string, control:
 
 // Classifies a clicked or submitting control found by findControl, in order:
 // pickers, toggles and pay-later messages never count; a vendor's own wallet
-// button keeps its vendor kind; a control matching a kit-supplied commit or
-// checkout-step selector counts as that kind before any label rule; a confirm label on any source
+// button keeps its vendor kind; a control matching a kit-supplied commit
+// selector counts as a commit before any label rule, and one matching a
+// checkout-step selector as a step unless its labels make it a confirm, a
+// wallet or an add-to-cart click; a confirm label on any source
 // counts before the look-alike exclusions veto; then a wallet-named control,
 // wallet phrases and steps. An add-to-cart label, links included, or a control
 // that opens the cart on the page counts only where none of those do.
@@ -377,9 +381,25 @@ export function classifyIntent(
             return { kind: 'commit', source: 'selector' };
         }
         if (matchesAnySelector(control, selectors.checkout_step)) {
-            return { kind: 'checkout_step', source: 'selector' };
+            // A confirm, wallet or add-to-cart label still wins, so a class those
+            // buttons share with a step button can't turn their clicks into steps.
+            const byLabel = classifyLabels(control, pathname);
+            return byLabel &&
+                (byLabel.kind === 'commit' ||
+                    byLabel.kind === 'wallet' ||
+                    byLabel.adds === true)
+                ? byLabel
+                : { kind: 'checkout_step', source: 'selector' };
         }
     }
+    return classifyLabels(control, pathname);
+}
+
+// The label rules, read once the vendor and selector checks have passed.
+function classifyLabels(
+    control: Element,
+    pathname: string
+): ICheckoutIntent | undefined {
     const texts = labels(control);
     const cores = texts.map(coreLabel);
     const cartAction = cartControlAction(control, cores);
