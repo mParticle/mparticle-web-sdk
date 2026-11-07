@@ -7722,14 +7722,36 @@ describe('preselection', () => {
       input.type = 'email';
       input.value = 'guest@example.com';
       document.body.appendChild(input);
-      shopperTouch(input, 'change');
       input.focus();
+      shopperTouch(input, 'change');
       queueOnRoute();
 
       expect(isReadableFormEmailChange(state, host, shopperEvent(input))).toBe(false);
 
       input.blur();
-      expect(isReadableFormEmailChange(state, host, shopperEvent(input, 'blur'))).toBe(true);
+      const blur = shopperEvent(input, 'blur');
+      recordShopperInput(blur);
+      expect(isReadableFormEmailChange(state, host, blur)).toBe(true);
+
+      const laterBlur = shopperEvent(input, 'blur');
+      recordShopperInput(laterBlur);
+      expect(isReadableFormEmailChange(state, host, laterBlur)).toBe(false);
+    });
+
+    it('never retries the read on the blur of a field committed before it had focus', () => {
+      const input = document.createElement('input');
+      input.type = 'email';
+      input.value = 'guest@example.com';
+      document.body.appendChild(input);
+      shopperTouch(input, 'change');
+      queueOnRoute();
+      input.focus();
+      input.value = 'someone-else@example.com';
+
+      input.blur();
+      const blur = shopperEvent(input, 'blur');
+      recordShopperInput(blur);
+      expect(isReadableFormEmailChange(state, host, blur)).toBe(false);
     });
 
     it('treats a change on a textarea holding an email as no email input', () => {
