@@ -1261,6 +1261,8 @@ export function recordShopperInput(event: Event): void {
   const target = event.target;
   if (!(target instanceof HTMLInputElement)) return;
   if (event.type === 'blur' || event.type === 'focusout') {
+    // A script's blur says nothing about the shopper, so it never marks a field finished.
+    if (event.isTrusted !== true) return;
     if (isEmailCandidate(target) && committedInputs.has(target)) {
       shopperInputs.add(target);
     } else {

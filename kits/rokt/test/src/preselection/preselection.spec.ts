@@ -7886,6 +7886,19 @@ describe('preselection', () => {
         expect(selectPlacementsCalls[0].attributes).toEqual(tagged({ email: 'guest@example.com' }));
       });
 
+      it('does not restore a finished field on a blur a script dispatches', () => {
+        listenLikeTheKit();
+        const input = addInput('guest@example.com', 'email');
+        input.value = 'someone-else@example.com';
+        shopperTouch(input, 'input');
+
+        input.dispatchEvent(new FocusEvent('blur'));
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        flushPendingPreselectDispatches(state, host, PATHNAME);
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+      });
+
       it('reads a committed email field that still holds focus when checkout commit intent fires', () => {
         host.isCheckoutIntentActive = () => true;
         const input = addInput('guest@example.com', 'email');
