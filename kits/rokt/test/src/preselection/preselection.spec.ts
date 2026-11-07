@@ -7738,6 +7738,26 @@ describe('preselection', () => {
       expect(isReadableFormEmailChange(state, host, laterBlur)).toBe(false);
     });
 
+    it('never retries the read when a script replays the blur that ended a focused commit', () => {
+      const input = document.createElement('input');
+      input.type = 'email';
+      input.value = 'guest@example.com';
+      document.body.appendChild(input);
+      input.focus();
+      shopperTouch(input, 'change');
+      queueOnRoute();
+      input.blur();
+
+      input.addEventListener('blur', recordShopperInput);
+      onTestFinished(() => input.removeEventListener('blur', recordShopperInput));
+      const blur = dispatchShopperEvent(input, 'blur');
+      input.value = 'someone-else@example.com';
+      input.dispatchEvent(blur);
+
+      expect(blur.isTrusted).toBe(false);
+      expect(isReadableFormEmailChange(state, host, blur)).toBe(false);
+    });
+
     it('never retries the read on the blur of a field committed before it had focus', () => {
       const input = document.createElement('input');
       input.type = 'email';

@@ -1510,7 +1510,10 @@ export function isReadableFormEmailChange(state: PreselectState, host: Preselect
         !whyFormEmailUnreadable(host, configEntry, emailKey, entry.event.EventAttributes ?? {}),
     ) &&
     (isBlur
-      ? commitBlurs.has(event) && event.target instanceof HTMLInputElement && shopperInputs.has(event.target)
+      ? event.isTrusted === true &&
+        commitBlurs.has(event) &&
+        event.target instanceof HTMLInputElement &&
+        shopperInputs.has(event.target)
       : event.isTrusted === true) &&
     isEmailInput(event.target)
   );
