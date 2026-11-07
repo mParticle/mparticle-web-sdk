@@ -69,6 +69,71 @@ describe('checkoutIntent', () => {
             );
         });
 
+        it('keeps a confirm label a commit when a checkout-step selector also matches it', () => {
+            // A step selector written for one route can match the confirm
+            // button on another when both share a class.
+            const shared = { checkout_step: ['.btn-primary'] };
+            const placeOrder = control(
+                '<button class="btn-primary">Place order</button>'
+            );
+            expect(classifyIntent(placeOrder, '/checkout/review', shared)).toEqual({
+                kind: 'commit',
+                source: 'label',
+            });
+            const next = control('<button class="btn-primary">Continue</button>');
+            expect(classifyIntent(next, '/checkout/review', shared)).toEqual({
+                kind: 'checkout_step',
+                source: 'selector',
+            });
+        });
+
+        it('keeps an add-to-cart or wallet label when a checkout-step selector also matches it', () => {
+            const shared = { checkout_step: ['.btn-primary'] };
+            const add = control('<button class="btn-primary">Add to bag</button>');
+            expect(classifyIntent(add, '/product/123', shared)).toEqual({
+                kind: 'cart',
+                source: 'label',
+                adds: true,
+            });
+            const payWith = control(
+                '<button class="btn-primary">Pay with PayPal</button>'
+            );
+            expect(classifyIntent(payWith, '/checkout', shared)).toEqual({
+                kind: 'wallet',
+                source: 'label',
+            });
+            const brand = control('<button class="btn-primary">PayPal</button>');
+            expect(classifyIntent(brand, '/checkout', shared)).toEqual({
+                kind: 'wallet',
+                source: 'brand',
+            });
+            // Only a cart click that adds wins; one that opens the cart stays the step.
+            const opener = control(
+                '<button class="btn-primary" aria-haspopup="dialog">Bag</button>'
+            );
+            expect(classifyIntent(opener, '/product/123')).toEqual({
+                kind: 'cart',
+                source: 'label',
+            });
+            expect(classifyIntent(opener, '/product/123', shared)).toEqual({
+                kind: 'checkout_step',
+                source: 'selector',
+            });
+        });
+
+        it('lets a checkout-step selector keep a route-gated label off a checkout route', () => {
+            const shared = { checkout_step: ['.btn-primary'] };
+            const buyNow = control('<button class="btn-primary">Buy now</button>');
+            expect(classifyIntent(buyNow, '/product/123', shared)).toEqual({
+                kind: 'checkout_step',
+                source: 'selector',
+            });
+            expect(classifyIntent(buyNow, '/checkout', shared)).toEqual({
+                kind: 'commit',
+                source: 'label',
+            });
+        });
+
         it('falls back to the label rules when no selector matches', () => {
             const button = control('<button class="other">Place order</button>');
             expect(classifyIntent(button, '/checkout', selectors)).toEqual({
