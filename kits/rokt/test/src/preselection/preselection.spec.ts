@@ -7870,7 +7870,7 @@ describe('preselection', () => {
         expect(selectPlacementsCalls[0].attributes).toEqual(tagged({ email: 'guest@example.com' }));
       });
 
-      it('restores a finished field on blur when the shopper edits it and settles on the same value', () => {
+      it('does not restore a finished field on blur when the shopper edits it and settles on the same value', () => {
         listenLikeTheKit();
         const input = addInput('guest@example.com', 'email');
         input.focus();
@@ -7880,6 +7880,32 @@ describe('preselection', () => {
         expect(selectPlacementsCalls).toHaveLength(0);
 
         input.blur();
+        flushPendingPreselectDispatches(state, host, PATHNAME);
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+      });
+
+      it('does not restore a finished field on a trusted blur after a script sets another value silently', () => {
+        listenLikeTheKit();
+        const input = addInput('guest@example.com', 'email');
+        shopperTouch(input, 'input');
+        input.value = 'someone-else@example.com';
+
+        shopperTouch(input, 'blur');
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        flushPendingPreselectDispatches(state, host, PATHNAME);
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+      });
+
+      it('reads an edited field again once a trusted change commits it', () => {
+        listenLikeTheKit();
+        const input = addInput('guest@example.com', 'email');
+        shopperTouch(input, 'input');
+        shopperTouch(input, 'blur');
+        shopperTouch(input, 'change');
+
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
         flushPendingPreselectDispatches(state, host, PATHNAME);
 
         expect(selectPlacementsCalls).toHaveLength(1);

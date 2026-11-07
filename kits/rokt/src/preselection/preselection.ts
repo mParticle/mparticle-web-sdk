@@ -1224,11 +1224,11 @@ function hasValidIdentity(filteredUser: IMParticleUser | null | undefined): bool
 // shopper typed into or autofilled is read, and only a value shaped like an email counts.
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.(?:[a-zA-Z]{2,}|xn--[a-zA-Z0-9-]+|[^\s@.\x00-\x7F]{2,})$/;
 
-// Candidates whose latest input or change event was a trusted change, or that blurred after a trusted edit
-// of a previously committed value: the shopper finished typing into or autofilled them. A field the shopper
-// never finished never fills the call, and one the shopper edits again or a script changes drops out when
-// that input or change event fires; a silent script write after the shopper's last change is not seen.
-// Holds elements, never values.
+// Candidates whose latest input or change event was a trusted change: the shopper finished typing into or
+// autofilled them. A field the shopper never finished never fills the call, and one the shopper edits again or
+// a script changes drops out when that input or change event fires, until a trusted change commits it again. A
+// blur never restores one, since a script can set the value silently first. A silent script write after the
+// shopper's last change is not seen. Holds elements, never values.
 const shopperInputs = new WeakSet<HTMLInputElement>();
 
 // Candidates that have heard at least one trusted change event and no untrusted or non-candidate event since.
@@ -1255,17 +1255,16 @@ function isEmailCandidate(target: EventTarget | null): target is HTMLInputElemen
   );
 }
 
-// Records an input on a trusted change event while it is a candidate (or restores a committed candidate on
-// blur after a trusted edit), and drops it on any other, whatever its type then. Reads no value.
+// Records an input on a trusted change event while it is a candidate, and drops it on any other, whatever its
+// type then. A trusted blur only drops a field no change committed. Reads no value.
 export function recordShopperInput(event: Event): void {
   const target = event.target;
   if (!(target instanceof HTMLInputElement)) return;
   if (event.type === 'blur' || event.type === 'focusout') {
-    // A script's blur says nothing about the shopper, so it never marks a field finished.
+    // A script's blur says nothing about the shopper. A trusted one can follow a silent script write, so it
+    // never marks a field finished either: only a trusted change does.
     if (event.isTrusted !== true) return;
-    if (isEmailCandidate(target) && committedInputs.has(target)) {
-      shopperInputs.add(target);
-    } else {
+    if (!isEmailCandidate(target) || !committedInputs.has(target)) {
       shopperInputs.delete(target);
       touchedInputs.delete(target);
     }
