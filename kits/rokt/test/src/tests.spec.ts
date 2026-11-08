@@ -12682,19 +12682,19 @@ describe('Rokt Forwarder', () => {
         }
       });
 
-      it('never fires the queued guest dispatch on blur, even when change fired while the email input had focus', async () => {
+      it('fires the queued guest dispatch with the email committed while the input had focus, not one a script writes later', async () => {
         firePreselectPageview();
         input.focus();
         input.value = 'guest@example.com';
         shopperChange(input);
-        await new Promise((resolve) => setTimeout(resolve, 0));
-        expect(selectPlacementsCalls).toHaveLength(0);
+        await waitForCondition(() => selectPlacementsCalls.length > 0);
+        expect(selectPlacementsCalls[0].attributes.email).toBe('guest@example.com');
 
         input.value = 'someone-else@example.com';
         input.blur();
         await new Promise((resolve) => setTimeout(resolve, 0));
-        expect(selectPlacementsCalls).toHaveLength(0);
-        expect((window as any).mParticle.forwarder._preselectState.pending).toHaveLength(1);
+        expect(selectPlacementsCalls).toHaveLength(1);
+        expect((window as any).mParticle.forwarder._preselectState.pending).toHaveLength(0);
       });
 
       it('fires the queued guest dispatch once a type="text" field changes to hold an email', async () => {

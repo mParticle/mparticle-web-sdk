@@ -7717,7 +7717,7 @@ describe('preselection', () => {
       expect(isReadableFormEmailChange(state, host, shopperEvent(input))).toBe(expected);
     });
 
-    it('treats a change on a focused email or text input as not yet readable', () => {
+    it('treats a change on an email input that still holds focus as readable', () => {
       const input = document.createElement('input');
       input.type = 'email';
       input.value = 'guest@example.com';
@@ -7726,10 +7726,8 @@ describe('preselection', () => {
       shopperTouch(input, 'change');
       queueOnRoute();
 
-      expect(isReadableFormEmailChange(state, host, shopperEvent(input))).toBe(false);
-
-      input.blur();
       expect(isReadableFormEmailChange(state, host, shopperEvent(input))).toBe(true);
+      input.remove();
     });
 
     it('treats a change on a textarea holding an email as no email input', () => {
@@ -7856,15 +7854,11 @@ describe('preselection', () => {
         expect(selectPlacementsCalls[0].attributes).toEqual(tagged({ email: 'guest@example.com' }));
       });
 
-      it('skips a focused field until it loses focus', () => {
+      it('reads a committed field that still holds focus', () => {
         const input = addInput('guest@example.com', 'email');
         input.focus();
 
         maybeFirePreselect(state, host, buildEvent(), PATHNAME);
-        expect(selectPlacementsCalls).toHaveLength(0);
-
-        input.blur();
-        flushPendingPreselectDispatches(state, host, PATHNAME);
 
         expect(selectPlacementsCalls).toHaveLength(1);
         expect(selectPlacementsCalls[0].attributes).toEqual(tagged({ email: 'guest@example.com' }));
@@ -7944,14 +7938,6 @@ describe('preselection', () => {
       });
 
       it.each([
-        {
-          label: 'focused',
-          setup: (second: HTMLInputElement) => {
-            second.type = 'email';
-            shopperTouch(second, 'change');
-            second.focus();
-          },
-        },
         {
           label: 'mid-edit after input',
           setup: (second: HTMLInputElement) => {
@@ -8500,13 +8486,6 @@ describe('preselection', () => {
       });
 
       it.each([
-        {
-          label: 'is focused after change',
-          setup: () => {
-            const input = addInput('guest@example.com', 'email');
-            input.focus();
-          },
-        },
         {
           label: 'has only heard trusted input events',
           setup: () => {
