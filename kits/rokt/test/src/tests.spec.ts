@@ -12697,6 +12697,24 @@ describe('Rokt Forwarder', () => {
         expect((window as any).mParticle.forwarder._preselectState.pending).toHaveLength(0);
       });
 
+      it('never flushes the queued guest dispatch on a trusted blur', async () => {
+        firePreselectPageview();
+        const flushSpy = vi.spyOn((window as any).mParticle.forwarder, 'flushPendingPreselectDispatches');
+        try {
+          input.focus();
+          input.value = 'guest@example.com';
+          shopperChange(input, 'input');
+          dispatchShopperEvent(input, 'blur');
+          await new Promise((resolve) => setTimeout(resolve, 0));
+
+          expect(flushSpy).not.toHaveBeenCalled();
+          expect(selectPlacementsCalls).toHaveLength(0);
+          expect((window as any).mParticle.forwarder._preselectState.pending).toHaveLength(1);
+        } finally {
+          flushSpy.mockRestore();
+        }
+      });
+
       it('fires the queued guest dispatch once a type="text" field changes to hold an email', async () => {
         const text = document.createElement('input');
         text.type = 'text';
