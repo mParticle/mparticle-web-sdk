@@ -1372,11 +1372,12 @@ class RoktKit implements KitInterface {
     }
 
     // Notes which fields the shopper types into or autofills, reading no value, and retries on a committed
-    // change or blur. The form's own gates run before the changed field's value is read.
+    // change. A blur only drops a field no change committed. The form's own gates run before the changed
+    // field's value is read.
     this._preselectEmailInputListener = (event: Event): void => {
       recordShopperInput(event);
       if (
-        (event.type === 'change' || event.type === 'blur') &&
+        event.type === 'change' &&
         this._preselectState.pending.length > 0 &&
         isReadableFormEmailChange(this._preselectState, this.buildPreselectHost(), event)
       ) {

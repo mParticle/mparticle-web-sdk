@@ -1237,13 +1237,6 @@ const committedInputs = new WeakSet<HTMLInputElement>();
 // Candidates whose latest input or change event was trusted, including fields currently mid-edit.
 const touchedInputs = new WeakSet<HTMLInputElement>();
 
-// Candidates whose latest event was a trusted change heard while they had focus. That change can't be read yet,
-// so the blur that ends it is the one blur that may retry the read.
-const focusedCommits = new WeakSet<HTMLInputElement>();
-
-// Trusted blur events that ended a focused commit. Each retries the read once; any other blur never does.
-const commitBlurs = new WeakSet<Event>();
-
 // Inputs whose latest input or change event was untrusted, dispatched by script. Read only by the email miss reason.
 const scriptInputs = new WeakSet<HTMLInputElement>();
 
@@ -1271,7 +1264,6 @@ export function recordShopperInput(event: Event): void {
     // A script's blur says nothing about the shopper. A trusted one can follow a silent script write, so it
     // never marks a field finished either: only a trusted change does.
     if (event.isTrusted !== true) return;
-    if (focusedCommits.delete(target)) commitBlurs.add(event);
     if (!isEmailCandidate(target) || !committedInputs.has(target)) {
       shopperInputs.delete(target);
       touchedInputs.delete(target);
@@ -1283,7 +1275,6 @@ export function recordShopperInput(event: Event): void {
   if (event.isTrusted !== true) {
     scriptInputs.add(target);
     shopperInputs.delete(target);
-    focusedCommits.delete(target);
     committedInputs.delete(target);
     touchedInputs.delete(target);
     return;
@@ -1291,7 +1282,6 @@ export function recordShopperInput(event: Event): void {
   if (firstHearing) scriptInputs.delete(target);
   if (!isEmailCandidate(target)) {
     shopperInputs.delete(target);
-    focusedCommits.delete(target);
     committedInputs.delete(target);
     touchedInputs.delete(target);
     return;
@@ -1304,11 +1294,8 @@ export function recordShopperInput(event: Event): void {
   if (event.type === 'change') {
     shopperInputs.add(target);
     committedInputs.add(target);
-    if (target === document.activeElement) focusedCommits.add(target);
-    else focusedCommits.delete(target);
   } else {
     shopperInputs.delete(target);
-    focusedCommits.delete(target);
   }
 }
 
@@ -1496,12 +1483,11 @@ function describeMissingEmail(
 
 // The change listener's test. A dispatch queued on this route must be one the form may fill, judged with
 // its own event as the read is, before the changed field's value is read; then the shopper must have
-// changed or blurred an email input.
+// changed an email input. A blur never retries: a script can set the value silently before it.
 export function isReadableFormEmailChange(state: PreselectState, host: PreselectHost, event: Event): boolean {
   const pathname = window.location.pathname;
   const configEntry = findPreselectionConfig(host.accountId, pathname);
   const emailKey = configEntry && findEmailAttributeKey(configEntry);
-  const isBlur = event.type === 'blur' || event.type === 'focusout';
   return (
     !!emailKey &&
     state.pending.some(
@@ -1509,12 +1495,7 @@ export function isReadableFormEmailChange(state: PreselectState, host: Preselect
         entry.pathname === pathname &&
         !whyFormEmailUnreadable(host, configEntry, emailKey, entry.event.EventAttributes ?? {}),
     ) &&
-    (isBlur
-      ? event.isTrusted === true &&
-        commitBlurs.has(event) &&
-        event.target instanceof HTMLInputElement &&
-        shopperInputs.has(event.target)
-      : event.isTrusted === true) &&
+    event.isTrusted === true &&
     isEmailInput(event.target)
   );
 }

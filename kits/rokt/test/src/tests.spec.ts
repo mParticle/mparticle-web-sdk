@@ -12682,7 +12682,7 @@ describe('Rokt Forwarder', () => {
         }
       });
 
-      it('fires the queued guest dispatch on blur when change fired while the email input had focus', async () => {
+      it('never fires the queued guest dispatch on blur, even when change fired while the email input had focus', async () => {
         firePreselectPageview();
         input.focus();
         input.value = 'guest@example.com';
@@ -12691,8 +12691,8 @@ describe('Rokt Forwarder', () => {
         expect(selectPlacementsCalls).toHaveLength(0);
 
         input.blur();
-        await waitForCondition(() => selectPlacementsCalls.length > 0);
-        expect(selectPlacementsCalls[0].attributes.email).toBe('guest@example.com');
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        expect(selectPlacementsCalls).toHaveLength(0);
       });
 
       it('fires the queued guest dispatch once a type="text" field changes to hold an email', async () => {

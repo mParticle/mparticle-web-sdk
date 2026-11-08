@@ -7717,7 +7717,7 @@ describe('preselection', () => {
       expect(isReadableFormEmailChange(state, host, shopperEvent(input))).toBe(expected);
     });
 
-    it('treats a change on a focused email or text input as not yet readable until blur', () => {
+    it('treats a change on a focused email or text input as not yet readable', () => {
       const input = document.createElement('input');
       input.type = 'email';
       input.value = 'guest@example.com';
@@ -7729,49 +7729,7 @@ describe('preselection', () => {
       expect(isReadableFormEmailChange(state, host, shopperEvent(input))).toBe(false);
 
       input.blur();
-      const blur = shopperEvent(input, 'blur');
-      recordShopperInput(blur);
-      expect(isReadableFormEmailChange(state, host, blur)).toBe(true);
-
-      const laterBlur = shopperEvent(input, 'blur');
-      recordShopperInput(laterBlur);
-      expect(isReadableFormEmailChange(state, host, laterBlur)).toBe(false);
-    });
-
-    it('never retries the read when a script replays the blur that ended a focused commit', () => {
-      const input = document.createElement('input');
-      input.type = 'email';
-      input.value = 'guest@example.com';
-      document.body.appendChild(input);
-      input.focus();
-      shopperTouch(input, 'change');
-      queueOnRoute();
-      input.blur();
-
-      input.addEventListener('blur', recordShopperInput);
-      onTestFinished(() => input.removeEventListener('blur', recordShopperInput));
-      const blur = dispatchShopperEvent(input, 'blur');
-      input.value = 'someone-else@example.com';
-      input.dispatchEvent(blur);
-
-      expect(blur.isTrusted).toBe(false);
-      expect(isReadableFormEmailChange(state, host, blur)).toBe(false);
-    });
-
-    it('never retries the read on the blur of a field committed before it had focus', () => {
-      const input = document.createElement('input');
-      input.type = 'email';
-      input.value = 'guest@example.com';
-      document.body.appendChild(input);
-      shopperTouch(input, 'change');
-      queueOnRoute();
-      input.focus();
-      input.value = 'someone-else@example.com';
-
-      input.blur();
-      const blur = shopperEvent(input, 'blur');
-      recordShopperInput(blur);
-      expect(isReadableFormEmailChange(state, host, blur)).toBe(false);
+      expect(isReadableFormEmailChange(state, host, shopperEvent(input))).toBe(true);
     });
 
     it('treats a change on a textarea holding an email as no email input', () => {
