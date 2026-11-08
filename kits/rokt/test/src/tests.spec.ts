@@ -12690,9 +12690,11 @@ describe('Rokt Forwarder', () => {
         await new Promise((resolve) => setTimeout(resolve, 0));
         expect(selectPlacementsCalls).toHaveLength(0);
 
+        input.value = 'someone-else@example.com';
         input.blur();
         await new Promise((resolve) => setTimeout(resolve, 0));
         expect(selectPlacementsCalls).toHaveLength(0);
+        expect((window as any).mParticle.forwarder._preselectState.pending).toHaveLength(1);
       });
 
       it('fires the queued guest dispatch once a type="text" field changes to hold an email', async () => {
