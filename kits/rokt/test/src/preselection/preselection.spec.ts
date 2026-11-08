@@ -131,12 +131,12 @@ const buildEvent = (eventAttributes: Record<string, unknown> = {}): SDKEvent =>
 // The kit's listener sees a shopper's typing or autofill as a trusted event; jsdom cannot dispatch one.
 const shopperEvent = (target: EventTarget | null, type = 'change') =>
   ({ type, isTrusted: true, target }) as unknown as Event;
-const shopperTouch = (target: EventTarget, type = 'input') => recordShopperInput(shopperEvent(target, type));
+const shopperTouch = (target: EventTarget, type = 'change') => recordShopperInput(shopperEvent(target, type));
 
 // jsdom marks every dispatched event untrusted. This one stays trusted through its whole propagation, the way a
 // browser carries a shopper's typing or autofill past document capture listeners and on to the field. A script
 // that dispatches it again gets an untrusted event, as in a browser.
-const dispatchShopperEvent = (target: EventTarget, type = 'input'): Event => {
+const dispatchShopperEvent = (target: EventTarget, type = 'change'): Event => {
   const event = new Event(type, { bubbles: true });
   const impl = Object.getOwnPropertySymbols(event).find((key) => key.description === 'impl') as symbol;
   let trusted = true;
@@ -150,13 +150,15 @@ const dispatchShopperEvent = (target: EventTarget, type = 'input'): Event => {
   return event;
 };
 
-// Stands in for the kit's document capture listener, which records every input and change event first.
+// Stands in for the kit's document capture listener, which records every input, change and blur event first.
 const listenLikeTheKit = () => {
   document.addEventListener('input', recordShopperInput, true);
   document.addEventListener('change', recordShopperInput, true);
+  document.addEventListener('blur', recordShopperInput, true);
   onTestFinished(() => {
     document.removeEventListener('input', recordShopperInput, true);
     document.removeEventListener('change', recordShopperInput, true);
+    document.removeEventListener('blur', recordShopperInput, true);
   });
 };
 
@@ -174,7 +176,7 @@ const OVERWRITING_HANDLERS = [
   {
     label: 'switched from search to text and overwrote',
     prepare: (input: HTMLInputElement) => {
-      dispatchShopperEvent(input, 'input');
+      dispatchShopperEvent(input, 'change');
       input.type = 'search';
     },
     overwrite: (input: HTMLInputElement) => {
@@ -194,9 +196,9 @@ const typeIntoOverwritingForm = (value: string, handler = OVERWRITING_HANDLERS[0
   document.body.appendChild(form);
   handler.prepare(input);
   const overwrite = vi.fn(() => handler.overwrite(input));
-  form.addEventListener('input', overwrite, true);
+  form.addEventListener('change', overwrite, { capture: true, once: true });
   input.value = value;
-  dispatchShopperEvent(input, 'input');
+  dispatchShopperEvent(input, 'change');
   expect(overwrite).toHaveBeenCalledTimes(1);
   return { form, input, overwrite };
 };
@@ -210,7 +212,7 @@ const touchAfterScriptChange = (value: string) => {
   const scriptEvent = new Event('change', { bubbles: true });
   input.dispatchEvent(scriptEvent);
   input.value = value;
-  const shopperEvent = dispatchShopperEvent(input, 'input');
+  const shopperEvent = dispatchShopperEvent(input, 'change');
   return { input, shopperEvent, scriptEvent };
 };
 
@@ -231,7 +233,7 @@ const REUSED_EVENT_OVERWRITES: Array<{ label: string; overwrite: ReusedEventOver
       const other = document.createElement('input');
       other.type = 'email';
       document.body.appendChild(other);
-      const otherEvent = dispatchShopperEvent(other, 'input');
+      const otherEvent = dispatchShopperEvent(other, 'change');
       other.remove();
       input.value = 'someone-else@example.com';
       input.dispatchEvent(otherEvent);
@@ -759,7 +761,7 @@ describe('preselection', () => {
         input.value = 'typed@example.com';
         document.body.appendChild(input);
         onTestFinished(() => input.remove());
-        dispatchShopperEvent(input, 'input');
+        dispatchShopperEvent(input, 'change');
 
         tap('wallet');
 
@@ -2480,7 +2482,7 @@ describe('preselection', () => {
       input.value = 'typed@example.com';
       document.body.appendChild(input);
       onTestFinished(() => input.remove());
-      dispatchShopperEvent(input, 'input');
+      dispatchShopperEvent(input, 'change');
 
       click('cart', { pathname });
 
@@ -7693,6 +7695,13 @@ describe('preselection', () => {
 
     it.each([
       { label: 'a text field holding an email', type: 'text', value: ' guest@example.com ', expected: true },
+      { label: 'a text field with a two-letter TLD', type: 'text', value: 'guest@example.co', expected: true },
+      { label: 'a text field with a punycode TLD', type: 'text', value: 'guest@example.xn--p1ai', expected: true },
+      { label: 'a text field with an internationalized TLD', type: 'text', value: 'guest@пример.рф', expected: true },
+      { label: 'a text field with a one-letter TLD', type: 'text', value: 'guest@gmail.c', expected: false },
+      { label: 'a text field with a one-character internationalized TLD', type: 'text', value: 'guest@пример.р', expected: false },
+      { label: 'a text field with non-ASCII whitespace in its TLD', type: 'text', value: 'guest@пример.р\u00A0ф', expected: false },
+      { label: 'a text field with a numeric TLD', type: 'text', value: 'guest@example.12', expected: false },
       { label: 'a field with no type holding an email', type: undefined, value: 'guest@example.com', expected: true },
       { label: 'a text field holding something else', type: 'text', value: 'Jane Shopper', expected: false },
       { label: 'an empty text field', type: 'text', value: '', expected: false },
@@ -7706,6 +7715,19 @@ describe('preselection', () => {
       queueOnRoute();
 
       expect(isReadableFormEmailChange(state, host, shopperEvent(input))).toBe(expected);
+    });
+
+    it('treats a change on an email input that still holds focus as readable', () => {
+      const input = document.createElement('input');
+      input.type = 'email';
+      input.value = 'guest@example.com';
+      document.body.appendChild(input);
+      input.focus();
+      shopperTouch(input, 'change');
+      queueOnRoute();
+
+      expect(isReadableFormEmailChange(state, host, shopperEvent(input))).toBe(true);
+      input.remove();
     });
 
     it('treats a change on a textarea holding an email as no email input', () => {
@@ -7797,6 +7819,213 @@ describe('preselection', () => {
 
         shopperTouch(input, 'change');
         flushPendingPreselectDispatches(state, host, PATHNAME);
+
+        expect(selectPlacementsCalls).toHaveLength(1);
+        expect(selectPlacementsCalls[0].attributes).toEqual(tagged({ email: 'guest@example.com' }));
+      });
+
+      it('ignores a field that has only heard keystroke input events, until change fires', () => {
+        const input = addInput('guest@example.com', 'email', false);
+        shopperTouch(input, 'input');
+
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        expect(selectPlacementsCalls).toHaveLength(0);
+
+        shopperTouch(input, 'change');
+        flushPendingPreselectDispatches(state, host, PATHNAME);
+
+        expect(selectPlacementsCalls).toHaveLength(1);
+        expect(selectPlacementsCalls[0].attributes).toEqual(tagged({ email: 'guest@example.com' }));
+      });
+
+      it('drops a finished field when the shopper types into it again before change fires', () => {
+        const input = addInput('guest@example.com', 'email');
+        input.value = 'guest@example.co';
+        shopperTouch(input, 'input');
+
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        expect(selectPlacementsCalls).toHaveLength(0);
+
+        input.value = 'guest@example.com';
+        shopperTouch(input, 'change');
+        flushPendingPreselectDispatches(state, host, PATHNAME);
+
+        expect(selectPlacementsCalls).toHaveLength(1);
+        expect(selectPlacementsCalls[0].attributes).toEqual(tagged({ email: 'guest@example.com' }));
+      });
+
+      it('reads a committed field that still holds focus', () => {
+        const input = addInput('guest@example.com', 'email');
+        input.focus();
+
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+        expect(selectPlacementsCalls).toHaveLength(1);
+        expect(selectPlacementsCalls[0].attributes).toEqual(tagged({ email: 'guest@example.com' }));
+      });
+
+      it('does not restore a finished field on blur when the shopper edits it and settles on the same value', () => {
+        listenLikeTheKit();
+        const input = addInput('guest@example.com', 'email');
+        input.focus();
+        shopperTouch(input, 'input');
+
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        expect(selectPlacementsCalls).toHaveLength(0);
+
+        input.blur();
+        flushPendingPreselectDispatches(state, host, PATHNAME);
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+      });
+
+      it('does not restore a finished field on a trusted blur after a script sets another value silently', () => {
+        listenLikeTheKit();
+        const input = addInput('guest@example.com', 'email');
+        shopperTouch(input, 'input');
+        input.value = 'someone-else@example.com';
+
+        shopperTouch(input, 'blur');
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        flushPendingPreselectDispatches(state, host, PATHNAME);
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+      });
+
+      it('reads an edited field again once a trusted change commits it', () => {
+        listenLikeTheKit();
+        const input = addInput('guest@example.com', 'email');
+        shopperTouch(input, 'input');
+        shopperTouch(input, 'blur');
+        shopperTouch(input, 'change');
+
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        flushPendingPreselectDispatches(state, host, PATHNAME);
+
+        expect(selectPlacementsCalls).toHaveLength(1);
+        expect(selectPlacementsCalls[0].attributes).toEqual(tagged({ email: 'guest@example.com' }));
+      });
+
+      it.each(['blur', 'focusout'])('does not restore a finished field on a %s a script dispatches', (type) => {
+        listenLikeTheKit();
+        const input = addInput('guest@example.com', 'email');
+        input.value = 'someone-else@example.com';
+        shopperTouch(input, 'input');
+
+        input.addEventListener(type, recordShopperInput);
+        input.dispatchEvent(new FocusEvent(type));
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        flushPendingPreselectDispatches(state, host, PATHNAME);
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+      });
+
+      it('reads a committed email field that still holds focus when checkout commit intent fires', () => {
+        host.isCheckoutIntentActive = () => true;
+        const input = addInput('guest@example.com', 'email');
+        input.focus();
+
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        expect(selectPlacementsCalls).toHaveLength(0);
+
+        handlePreselectIntentSignal(state, host, { kind: 'commit', t: Date.now(), pathname: PATHNAME });
+
+        expect(selectPlacementsCalls).toHaveLength(1);
+        expect(selectPlacementsCalls[0].attributes).toEqual({
+          email: 'guest@example.com',
+          [PRESELECT_TRIGGER_ATTRIBUTE]: `intent_commit|${PATHNAME}`,
+        });
+      });
+
+      it.each([
+        {
+          label: 'mid-edit after input',
+          setup: (second: HTMLInputElement) => {
+            second.type = 'email';
+            shopperTouch(second, 'input');
+          },
+        },
+        {
+          label: 'mid-edit with autocomplete="email"',
+          setup: (second: HTMLInputElement) => {
+            second.type = 'text';
+            second.setAttribute('autocomplete', 'email');
+            shopperTouch(second, 'input');
+          },
+        },
+      ])(
+        'treats a second shopper-touched field as ambiguous while $label, without reading its value',
+        ({ setup }) => {
+          addInput('recipient@example.com', 'email');
+          const second = document.createElement('input');
+          document.body.appendChild(second);
+          const readSecond = vi.fn(() => 'guest@example.com');
+          Object.defineProperty(second, 'value', { get: readSecond, configurable: true });
+          setup(second);
+
+          maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+          expect(readSecond).not.toHaveBeenCalled();
+          expect(selectPlacementsCalls).toHaveLength(0);
+        },
+      );
+
+      it('treats a mid-edit text field holding @ as ambiguous beside a committed text email', () => {
+        addInput('recipient@example.com', 'text');
+        const second = addInput('guest@', 'text', false);
+        shopperTouch(second, 'input');
+
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+      });
+
+      it('treats a previously committed text email field as ambiguous while the shopper replaces it before retyping @', () => {
+        const shopperField = addInput('guest@example.com', 'text');
+        addInput('recipient@example.com', 'text');
+        shopperField.focus();
+        shopperField.value = 'newguest';
+        shopperTouch(shopperField, 'input');
+
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+      });
+
+      it('still reads the email on autofill when a focused name text field stays focused during the email change', () => {
+        listenLikeTheKit();
+        const nameInput = addInput('Jane Shopper', 'text', false);
+        const emailInput = addInput('guest@example.com', 'email', false);
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        expect(selectPlacementsCalls).toHaveLength(0);
+
+        nameInput.focus();
+        shopperTouch(nameInput, 'input');
+        shopperTouch(nameInput, 'change');
+        shopperTouch(nameInput, 'blur');
+        expect(document.activeElement).toBe(nameInput);
+
+        shopperTouch(emailInput, 'input');
+        shopperTouch(emailInput, 'change');
+        shopperTouch(emailInput, 'blur');
+        expect(isReadableFormEmailChange(state, host, shopperEvent(emailInput))).toBe(true);
+        flushPendingPreselectDispatches(state, host, PATHNAME);
+
+        expect(selectPlacementsCalls).toHaveLength(1);
+        expect(selectPlacementsCalls[0].attributes).toEqual(tagged({ email: 'guest@example.com' }));
+      });
+
+      it('still reads the email after another email field is typed into, cleared, and blurred without a change event', () => {
+        listenLikeTheKit();
+        const otherEmail = addInput('x@', 'email', false);
+        addInput('guest@example.com', 'email');
+        otherEmail.focus();
+        shopperTouch(otherEmail, 'input');
+        otherEmail.value = '';
+        shopperTouch(otherEmail, 'input');
+        otherEmail.blur();
+
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
 
         expect(selectPlacementsCalls).toHaveLength(1);
         expect(selectPlacementsCalls[0].attributes).toEqual(tagged({ email: 'guest@example.com' }));
@@ -7955,10 +8184,10 @@ describe('preselection', () => {
 
       it('reads the field once the shopper edits it again after a capture handler overwrote it', () => {
         const { form, input, overwrite } = typeIntoOverwritingForm('guest@example.com');
-        form.removeEventListener('input', overwrite, true);
+        form.removeEventListener('change', overwrite, true);
 
         input.value = 'guest@example.com';
-        dispatchShopperEvent(input, 'input');
+        dispatchShopperEvent(input, 'change');
         maybeFirePreselect(state, host, buildEvent(), PATHNAME);
 
         expect(selectPlacementsCalls[0].attributes).toEqual(tagged({ email: 'guest@example.com' }));
@@ -8029,6 +8258,9 @@ describe('preselection', () => {
 
     it.each([
       { label: 'is not a valid email', values: ['not-an-email'] },
+      { label: 'has a one-letter TLD', values: ['guest@gmail.c'] },
+      { label: 'has a non-letter TLD', values: ['guest@example.12', 'guest@example.c1'] },
+      { label: 'has non-ASCII whitespace in its TLD', values: ['guest@example.c\u00A0m', 'guest@пример.р\u00A0ф'] },
       { label: 'holds two different emails', values: ['one@example.com', 'two@example.com'] },
     ])('ignores a form that $label', ({ values }) => {
       values.forEach((value) => addInput(value));
@@ -8160,6 +8392,7 @@ describe('preselection', () => {
         'partner_email',
         'multiple_emails',
         'untrusted_fill',
+        'uncommitted_fill',
         'unseen_fill',
         'no_field',
       ];
@@ -8250,6 +8483,22 @@ describe('preselection', () => {
         fire();
 
         expect(emailReason()).toBe('multiple_emails');
+      });
+
+      it.each([
+        {
+          label: 'has only heard trusted input events',
+          setup: () => {
+            const input = addInput('guest@example.com', 'email', false);
+            shopperTouch(input, 'input');
+          },
+        },
+      ])('is uncommitted_fill when a field holding an email $label', ({ setup }) => {
+        setup();
+
+        fire();
+
+        expect(emailReason()).toBe('uncommitted_fill');
       });
 
       it('never tests a value longer than an email can be', () => {

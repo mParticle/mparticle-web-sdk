@@ -1215,12 +1215,20 @@ function hasValidIdentity(filteredUser: IMParticleUser | null | undefined): bool
 // Some checkout forms mark the email field type="text", so any text or email input is a candidate,
 // as is one marked autocomplete="email"; hidden and password inputs never are. Only a candidate the
 // shopper typed into or autofilled is read, and only a value shaped like an email counts.
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.(?:[a-zA-Z]{2,}|xn--[a-zA-Z0-9-]+|[^\s@.\x00-\x7F]{2,})$/;
 
-// Candidates whose latest input or change event was trusted: the shopper typed into or autofilled them. A
-// field the shopper never touched never fills the call, and one a script later changes drops out when that change
-// fires an event; a silent script write after the shopper's last edit is not seen. Holds elements, never values.
+// Candidates whose latest input or change event was a trusted change: the shopper finished typing into or
+// autofilled them. A field the shopper never finished never fills the call, and one the shopper edits again or
+// a script changes drops out when that input or change event fires, until a trusted change commits it again. A
+// blur never restores one, since a script can set the value silently first. A silent script write after the
+// shopper's last change is not seen. Holds elements, never values.
 const shopperInputs = new WeakSet<HTMLInputElement>();
+
+// Candidates that have heard at least one trusted change event and no untrusted or non-candidate event since.
+const committedInputs = new WeakSet<HTMLInputElement>();
+
+// Candidates whose latest input or change event was trusted, including fields currently mid-edit.
+const touchedInputs = new WeakSet<HTMLInputElement>();
 
 // Inputs whose latest input or change event was untrusted, dispatched by script. Read only by the email miss reason.
 const scriptInputs = new WeakSet<HTMLInputElement>();
@@ -1240,21 +1248,45 @@ function isEmailCandidate(target: EventTarget | null): target is HTMLInputElemen
   );
 }
 
-// Records an input on a trusted input or change event while it is a candidate, and drops it on any other,
-// whatever its type then. Reads no value.
+// Records an input on a trusted change event while it is a candidate, and drops it on any other, whatever its
+// type then. A trusted blur only drops a field no change committed. Reads no value.
 export function recordShopperInput(event: Event): void {
   const target = event.target;
   if (!(target instanceof HTMLInputElement)) return;
+  if (event.type === 'blur' || event.type === 'focusout') {
+    // A script's blur says nothing about the shopper. A trusted one can follow a silent script write, so it
+    // never marks a field finished either: only a trusted change does.
+    if (event.isTrusted !== true) return;
+    if (!isEmailCandidate(target) || !committedInputs.has(target)) {
+      shopperInputs.delete(target);
+      touchedInputs.delete(target);
+    }
+    return;
+  }
   const firstHearing = !heardEvents.has(event);
   heardEvents.add(event);
-  if (event.isTrusted !== true) scriptInputs.add(target);
-  else if (firstHearing) scriptInputs.delete(target);
-  if (event.isTrusted === true && isEmailCandidate(target)) {
-    if (!firstHearing) return;
+  if (event.isTrusted !== true) {
+    scriptInputs.add(target);
+    shopperInputs.delete(target);
+    committedInputs.delete(target);
+    touchedInputs.delete(target);
+    return;
+  }
+  if (firstHearing) scriptInputs.delete(target);
+  if (!isEmailCandidate(target)) {
+    shopperInputs.delete(target);
+    committedInputs.delete(target);
+    touchedInputs.delete(target);
+    return;
+  }
+  if (!firstHearing) return;
+  touchedInputs.add(target);
+  // The field hears its own events even while detached from the page, where the document listener can't.
+  target.addEventListener('input', recordShopperInput, true);
+  target.addEventListener('change', recordShopperInput, true);
+  if (event.type === 'change') {
     shopperInputs.add(target);
-    // The field hears its own events even while detached from the page, where the document listener can't.
-    target.addEventListener('input', recordShopperInput, true);
-    target.addEventListener('change', recordShopperInput, true);
+    committedInputs.add(target);
   } else {
     shopperInputs.delete(target);
   }
@@ -1283,41 +1315,72 @@ type EmailMissReason =
   | 'partner_email'
   | 'multiple_emails'
   | 'untrusted_fill'
+  | 'uncommitted_fill'
   | 'unseen_fill'
   | 'no_field';
 
 // Longer values are never emails, and skipping them bounds the pattern's backtracking on fields the shopper didn't fill.
 const MAX_EMAIL_LENGTH = 254;
 
+function isUnsettledEmailInput(input: HTMLInputElement): boolean {
+  return (
+    input.type === 'email' ||
+    input.getAttribute('autocomplete') === 'email' ||
+    (committedInputs.has(input) && !shopperInputs.has(input)) ||
+    input.value.includes('@')
+  );
+}
+
 // One pass over the candidates. Collects the shopper-filled emails keyed in lower case; with testUnfilled, also says
 // how an email-shaped value reached a field the shopper didn't fill. That value is only tested, never kept.
 function scanFormEmails(testUnfilled: boolean): {
   emails: Map<string, string>;
-  unfilled?: 'untrusted_fill' | 'unseen_fill';
+  ambiguous: boolean;
+  unfilled?: 'untrusted_fill' | 'uncommitted_fill' | 'unseen_fill';
 } {
   const emails = new Map<string, string>();
-  let unfilled: 'untrusted_fill' | 'unseen_fill' | undefined;
+  const unfilledCandidates: HTMLInputElement[] = [];
+  let unsettledTouched = 0;
   document.querySelectorAll('input').forEach((input) => {
+    if (!isEmailCandidate(input)) return;
     const filled = shopperInputs.has(input);
-    if ((!filled && !testUnfilled) || !isEmailCandidate(input)) return;
+    const touched = touchedInputs.has(input);
+    if (!filled) {
+      if (touched && isUnsettledEmailInput(input)) unsettledTouched += 1;
+      if (testUnfilled) unfilledCandidates.push(input);
+      return;
+    }
     const value = input.value.trim();
-    if (filled) {
-      if (EMAIL_PATTERN.test(value) && !emails.has(value.toLowerCase())) {
-        emails.set(value.toLowerCase(), value);
-      }
-    } else if (unfilled !== 'untrusted_fill' && value.length <= MAX_EMAIL_LENGTH && EMAIL_PATTERN.test(value)) {
-      unfilled = scriptInputs.has(input) ? 'untrusted_fill' : 'unseen_fill';
+    if (EMAIL_PATTERN.test(value) && !emails.has(value.toLowerCase())) {
+      emails.set(value.toLowerCase(), value);
     }
   });
-  return { emails, unfilled };
+  const ambiguous = emails.size > 0 && unsettledTouched > 0;
+  let unfilled: 'untrusted_fill' | 'uncommitted_fill' | 'unseen_fill' | undefined;
+  if (testUnfilled && !ambiguous && emails.size === 0) {
+    unfilledCandidates.forEach((input) => {
+      const value = input.value.trim();
+      if (value.length > MAX_EMAIL_LENGTH || !EMAIL_PATTERN.test(value)) return;
+      if (scriptInputs.has(input)) {
+        unfilled = 'untrusted_fill';
+      } else if (unfilled !== 'untrusted_fill') {
+        if (touchedInputs.has(input) || input === document.activeElement) {
+          unfilled = 'uncommitted_fill';
+        } else if (unfilled !== 'uncommitted_fill') {
+          unfilled = 'unseen_fill';
+        }
+      }
+    });
+  }
+  return { emails, ambiguous, unfilled };
 }
 
 // The one email across the candidates on the page that the shopper typed into or autofilled, trimmed and
 // otherwise as typed. Inputs differing only in case or spacing (email and confirm email) count as one; two
 // different emails, such as a gift recipient's beside the shopper's, are ambiguous and read nothing.
 function readFormEmail(): string | undefined {
-  const { emails } = scanFormEmails(false);
-  return emails.size === 1 ? emails.values().next().value : undefined;
+  const { emails, ambiguous } = scanFormEmails(false);
+  return emails.size === 1 && !ambiguous ? emails.values().next().value : undefined;
 }
 
 // Whether the partner supplies the shopper's email anywhere, including on the unfiltered user: an email
@@ -1401,13 +1464,13 @@ function describeMissingEmail(
 ): EmailMissReason {
   const unreadable = whyFormEmailUnreadable(host, configEntry, emailKey, event.EventAttributes ?? {});
   if (unreadable) return unreadable;
-  const { emails, unfilled } = scanFormEmails(true);
-  return emails.size > 1 ? 'multiple_emails' : (unfilled ?? 'no_field');
+  const { emails, ambiguous, unfilled } = scanFormEmails(true);
+  return emails.size > 1 || ambiguous ? 'multiple_emails' : (unfilled ?? 'no_field');
 }
 
 // The change listener's test. A dispatch queued on this route must be one the form may fill, judged with
 // its own event as the read is, before the changed field's value is read; then the shopper must have
-// changed an email input.
+// changed an email input. A blur never retries: a script can set the value silently before it.
 export function isReadableFormEmailChange(state: PreselectState, host: PreselectHost, event: Event): boolean {
   const pathname = window.location.pathname;
   const configEntry = findPreselectionConfig(host.accountId, pathname);
@@ -2423,7 +2486,9 @@ function resolveAndDispatch(
         buildPreselectDiagnosticLogEntry('missed', `missing_attribute:${key}`, {
           identity_types: formatIdentityTypes(identityTypes),
           key_is_identity: identityTypes.some((type) => type.toLowerCase() === key.toLowerCase()),
-          ...(key === emailKey ? { email_reason: describeMissingEmail(host, configEntry, key, event) } : {}),
+          ...(key === emailKey
+            ? { email_reason: describeMissingEmail(host, configEntry, key, event) }
+            : {}),
           ...preselectVariantDetail(host),
         }),
       );

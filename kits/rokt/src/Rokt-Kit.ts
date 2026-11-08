@@ -1364,6 +1364,7 @@ class RoktKit implements KitInterface {
     if (this._preselectEmailInputListener) {
       document.removeEventListener('input', this._preselectEmailInputListener, true);
       document.removeEventListener('change', this._preselectEmailInputListener, true);
+      document.removeEventListener('blur', this._preselectEmailInputListener, true);
       this._preselectEmailInputListener = undefined;
     }
     if (!hasEmailInputEntry(this.accountId)) {
@@ -1371,7 +1372,8 @@ class RoktKit implements KitInterface {
     }
 
     // Notes which fields the shopper types into or autofills, reading no value, and retries on a committed
-    // change. The form's own gates run before the changed field's value is read.
+    // change. A blur only drops a field no change committed. The form's own gates run before the changed
+    // field's value is read.
     this._preselectEmailInputListener = (event: Event): void => {
       recordShopperInput(event);
       if (
@@ -1384,6 +1386,7 @@ class RoktKit implements KitInterface {
     };
     document.addEventListener('input', this._preselectEmailInputListener, true);
     document.addEventListener('change', this._preselectEmailInputListener, true);
+    document.addEventListener('blur', this._preselectEmailInputListener, true);
   }
 
   // A core released without the check reads false, so its page views are judged by their marker alone.
