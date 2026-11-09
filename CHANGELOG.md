@@ -1,5 +1,18 @@
 # Changelog
 
+## [3.32.1](https://github.com/mParticle/mparticle-web-sdk/compare/v3.32.0...v3.32.1) (2026-11-09)
+
+
+### Bug Fixes
+
+* **rokt:** keep reading the form email after a name field is re-edited without a change ([#1785](https://github.com/mParticle/mparticle-web-sdk/issues/1785)) ([8ac0095](https://github.com/mParticle/mparticle-web-sdk/commit/8ac0095608890524dcb58a56f68620bc9af713f6))
+* **web-sdk:** stage v3-staging before upload and allow tag recovery ([#1788](https://github.com/mParticle/mparticle-web-sdk/issues/1788)) ([cc23936](https://github.com/mParticle/mparticle-web-sdk/commit/cc23936b230fd24b3944426deae4c6205a20ff97))
+
+
+### Miscellaneous
+
+* **web SDK:** build the V3 release kits six at a time ([#1787](https://github.com/mParticle/mparticle-web-sdk/issues/1787)) ([acd4a91](https://github.com/mParticle/mparticle-web-sdk/commit/acd4a91560e2fea11eaebd6b0d91fb79b1475207))
+
 ## [3.32.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.31.0...v3.32.0) (2026-11-09)
 
 
