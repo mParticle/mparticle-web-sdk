@@ -26,6 +26,7 @@ import {
   wasPreselectTriggeredRecently,
   recordPreselectIntent,
   recordPreselectNearMiss,
+  readPreselectPaymentPick,
   recordPreselectPaymentPick,
   recordPreselectTrigger,
   recordPreselectCartAdd,
@@ -687,8 +688,12 @@ export function getPreselectClientType(userAgent: string): PreselectClientType |
   return DESKTOP_OS_PATTERN.test(userAgent) ? 'DesktopWeb' : undefined;
 }
 
-// A device's skip wins over everything; otherwise the page's host, then the device, then the plain value.
-function resolvePreselectAttributeDefault(attributeDefault: string | PreselectAttributeDefault): string | undefined {
+// A device's skip wins over everything; otherwise the shopper's payment pick, then the page's host, then the device,
+// then the plain value.
+function resolvePreselectAttributeDefault(
+  attributeDefault: string | PreselectAttributeDefault,
+  paymentPick: PaymentFamily | undefined,
+): string | undefined {
   if (isString(attributeDefault)) {
     return attributeDefault;
   }
@@ -698,10 +703,22 @@ function resolvePreselectAttributeDefault(attributeDefault: string | PreselectAt
   if (byClientType === PRESELECT_SKIP_DEFAULT) {
     return undefined;
   }
+  const byPaymentPick =
+    paymentPick && attributeDefault.byPaymentPick
+      ? (readOwnValue(attributeDefault.byPaymentPick, paymentPick) as string | undefined)
+      : undefined;
   const byHostname = attributeDefault.byHostname
     ? (readOwnValue(attributeDefault.byHostname, window.location.hostname) as string | undefined)
     : undefined;
-  return byHostname ?? byClientType ?? attributeDefault.value;
+  return byPaymentPick ?? byHostname ?? byClientType ?? attributeDefault.value;
+}
+
+// Read only for an entry with a default that names payment picks, so no other entry touches the tab's record.
+function readDefaultPaymentPick(configEntry: PreselectionConfigEntry): PaymentFamily | undefined {
+  const defaults = Object.values(configEntry.preselectAttributeDefaults ?? {});
+  return defaults.some((attributeDefault) => isObject(attributeDefault) && attributeDefault.byPaymentPick)
+    ? readPreselectPaymentPick(configEntry.accountId, configEntry.targetPageIdentifier)
+    : undefined;
 }
 
 function getHeldKeys(source: Record<string, unknown>): Set<string> {
@@ -728,6 +745,7 @@ export function getPreselectAttributeDefaults(
 
   const heldKeys = new Set([...getHeldKeys(host.getUserIdentities?.() ?? {}), ...getHeldKeys(attributes)]);
   const savedKeys = getHeldKeys(host.userAttributes ?? {});
+  const paymentPick = readDefaultPaymentPick(configEntry);
   const fills: Record<string, string> = {};
   for (const key of Object.keys(defaults)) {
     const lowerKey = key.toLowerCase();
@@ -740,7 +758,7 @@ export function getPreselectAttributeDefaults(
     ) {
       continue;
     }
-    const value = resolvePreselectAttributeDefault(defaults[key]);
+    const value = resolvePreselectAttributeDefault(defaults[key], paymentPick);
     if (value !== undefined) {
       fills[key] = value;
     }
@@ -756,7 +774,10 @@ function skipsRememberedValues(host: PreselectHost, configEntry: PreselectionCon
     attributeDefault.skipRemembered === true &&
     !isWidenedTab(host) &&
     !isPreselectEmailKey(key, host.mappedEmailSha256Key) &&
-    resolvePreselectAttributeDefault(attributeDefault as PreselectAttributeDefault) !== undefined
+    resolvePreselectAttributeDefault(
+      attributeDefault as PreselectAttributeDefault,
+      readDefaultPaymentPick(configEntry),
+    ) !== undefined
   );
 }
 

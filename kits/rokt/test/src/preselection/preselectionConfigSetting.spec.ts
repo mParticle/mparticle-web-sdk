@@ -417,6 +417,16 @@ describe('parsePreselectionConfigSetting', () => {
       ).toEqual({ entries: [{ accountId: ACCOUNT_ID, ...DEFAULTS_ENTRY, preselectAttributeDefaults }] });
     });
 
+    it('parses a default that fills only from the payment family the shopper picked', () => {
+      const preselectAttributeDefaults = {
+        placementType: { byPaymentPick: { paypal: 'PayPal', apple_pay: 'applepay' }, matchGroups: [['PayPal', 'paypal']] },
+      };
+
+      expect(
+        parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([{ ...DEFAULTS_ENTRY, preselectAttributeDefaults }])),
+      ).toEqual({ entries: [{ accountId: ACCOUNT_ID, ...DEFAULTS_ENTRY, preselectAttributeDefaults }] });
+    });
+
     it("accepts skipValues beside a device's skip, which fills nothing", () => {
       const preselectAttributeDefaults = {
         placementType: { value: 'overlay', byClientType: { MobileWeb: 'skip' }, skipValues: ['skip', 'embed'] },
@@ -474,6 +484,15 @@ describe('parsePreselectionConfigSetting', () => {
       ['a host in upper case', { placementType: { byHostname: { 'Shop.example.com': 'overlay' } } }],
       ['an empty host', { placementType: { byHostname: { '': 'overlay' } } }],
       ['a non-string host value', { placementType: { byHostname: { 'shop.example.com': 1 } } }],
+      ['a byPaymentPick that is not an object', { placementType: { byPaymentPick: 'PayPal' } }],
+      ['an empty byPaymentPick', { placementType: { byPaymentPick: {} } }],
+      ['a payment family the kit does not know', { placementType: { byPaymentPick: { bitcoin: 'crypto' } } }],
+      ['an empty payment pick value', { placementType: { byPaymentPick: { paypal: '' } } }],
+      ['a non-string payment pick value', { placementType: { byPaymentPick: { paypal: 1 } } }],
+      [
+        'a skip value the default fills on a payment pick',
+        { placementType: { value: 'visa', byPaymentPick: { paypal: 'PayPal' }, skipValues: ['paypal'] } },
+      ],
       ['a non-boolean skipRemembered', { placementType: { value: 'overlay', skipRemembered: 'true' } }],
       ['skipValues that are not an array', { placementType: { value: 'overlay', skipValues: 'embed' } }],
       ['empty skipValues', { placementType: { value: 'overlay', skipValues: [] } }],

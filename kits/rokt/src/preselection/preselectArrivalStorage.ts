@@ -350,6 +350,14 @@ export function recordPreselectPaymentPick(
   writeRecord(fieldKey, { ...record, paymentPick: family, paymentPickAt: t });
 }
 
+// The payment family the shopper last picked in this tab for a target page, within the arrival window, or undefined.
+export function readPreselectPaymentPick(accountId: string, targetPageIdentifier: string): PaymentFamily | undefined {
+  const record = readOpenRecord(buildFieldKey(accountId, targetPageIdentifier));
+  return record.paymentPick !== undefined && record.paymentPickAt !== undefined && isWithinWindow(record.paymentPickAt)
+    ? record.paymentPick
+    : undefined;
+}
+
 // Returns what this tab recorded before its first arrival on the target page, and undefined for
 // every later arrival until a new trigger or fire opens a fresh record.
 export function markPreselectArrival(

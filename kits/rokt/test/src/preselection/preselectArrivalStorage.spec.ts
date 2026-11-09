@@ -12,6 +12,7 @@ import {
   recordPreselectIntent,
   recordPreselectNearMiss,
   recordPreselectPaymentPick,
+  readPreselectPaymentPick,
   recordPreselectTrigger,
   recordPreselectCartAdd,
   wasPreselectCartAdded,
@@ -286,6 +287,27 @@ describe('preselectArrivalStorage', () => {
     );
 
     expect(markPreselectArrival('1', 'confirmation')).toEqual({ triggeredAt: 1 });
+  });
+
+  describe('readPreselectPaymentPick', () => {
+    it('reads the latest pick within the window, and nothing once it is older or the arrival was reported', () => {
+      expect(readPreselectPaymentPick('1', 'confirmation')).toBeUndefined();
+
+      recordPreselectPaymentPick('1', 'confirmation', 'card', 900);
+      recordPreselectPaymentPick('1', 'confirmation', 'paypal', 950);
+      expect(readPreselectPaymentPick('1', 'confirmation')).toBe('paypal');
+      expect(readPreselectPaymentPick('1', 'other-page')).toBeUndefined();
+
+      vi.setSystemTime(950 + INTENT_ARRIVAL_WINDOW_MS);
+      expect(readPreselectPaymentPick('1', 'confirmation')).toBeUndefined();
+    });
+
+    it('reads nothing after the arrival was reported', () => {
+      recordPreselectPaymentPick('1', 'confirmation', 'paypal', 950);
+      markPreselectArrival('1', 'confirmation');
+
+      expect(readPreselectPaymentPick('1', 'confirmation')).toBeUndefined();
+    });
   });
 
   describe('recordPreselectPaymentPick', () => {
