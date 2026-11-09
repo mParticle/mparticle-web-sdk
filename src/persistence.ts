@@ -211,8 +211,7 @@ export default function _Persistence(
             obj.gs.lsa || mpInstance._Store.localSessionAttributes;
         mpInstance._Store.serverSettings =
             obj.gs.ss || mpInstance._Store.serverSettings;
-        mpInstance._Store.devToken =
-            mpInstance._Store.devToken || obj.gs.dt;
+        // gs.dt is written for older readers but never read back: the API key comes only from init.
         mpInstance._Store.SDKConfig.appVersion =
             mpInstance._Store.SDKConfig.appVersion || obj.gs.av;
         mpInstance._Store.clientId =
@@ -346,7 +345,9 @@ export default function _Persistence(
         data.gs.sa = store.sessionAttributes;
         data.gs.lsa = store.localSessionAttributes;
         data.gs.ss = store.serverSettings;
-        data.gs.dt = store.devToken;
+        if (store.devToken) {
+            data.gs.dt = store.devToken;
+        }
         data.gs.les = store.dateLastEventSent
             ? store.dateLastEventSent.getTime()
             : null;
