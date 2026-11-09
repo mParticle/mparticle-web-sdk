@@ -83,18 +83,16 @@ describe('kit release scripts', () => {
         );
     });
 
-    it('audits npm in its own job that only the V3 candidate upload waits for', () => {
+    it('has no separate npm audit job; the V3 candidate upload waits for the kit publish', () => {
         const yaml = require('js-yaml');
-        const jobs = yaml.load(
-            fs.readFileSync(
-                path.join(
-                    __dirname,
-                    '../../.github/workflows/v3-release-step-1.yml'
-                ),
-                'utf8'
-            )
-        ).jobs;
-        const audit = jobs['audit-kits'];
+        const workflow = fs.readFileSync(
+            path.join(
+                __dirname,
+                '../../.github/workflows/v3-release-step-1.yml'
+            ),
+            'utf8'
+        );
+        const jobs = yaml.load(workflow).jobs;
 
         expect(jobs['publish-kits'].name).toBe('Publish V3 kits');
         expect(jobs['publish-kits'].outputs).toEqual({
@@ -104,31 +102,21 @@ describe('kit release scripts', () => {
         expect(
             jobs['publish-kits'].steps.map((step: {run?: string}) => step.run)
         ).toContain('node scripts/publish-kits.js');
-        expect(audit.name).toBe('Audit V3 kits on npm');
-        expect(audit.needs).toEqual(['confirm-staging-branch', 'publish-kits']);
-        expect(audit.if).toContain("needs.publish-kits.result == 'success'");
-        expect(audit.permissions).toEqual({contents: 'read'});
-        expect(audit.env.RELEASE_VERSION).toBe(
-            '${{ needs.publish-kits.outputs.release_version }}'
+        // The release gate's npm parity check (check-release-parity.ts with
+        // --npm-retry-seconds 600) reads npm in the candidate workflow instead.
+        expect(jobs['audit-kits']).toBeUndefined();
+        expect(workflow).not.toContain('publish-kits.js --audit');
+        expect(jobs['upload-v3-candidate'].needs).toEqual([
+            'confirm-staging-branch',
+            'release',
+            'package-v3-candidate',
+            'publish-kits',
+            'advance-staging',
+        ]);
+        expect(jobs['upload-v3-candidate'].if).toContain(
+            "needs.publish-kits.result == 'success'"
         );
-        expect(audit.steps[0].with).toEqual({
-            ref: '${{ needs.publish-kits.outputs.release_sha }}',
-            'persist-credentials': false,
-        });
-        expect(audit.steps[audit.steps.length - 1].run).toBe(
-            'node scripts/publish-kits.js --audit'
-        );
-        // The candidate upload's npm parity check must see the published kits.
-        for (const [name, job] of Object.entries(jobs) as Array<
-            [string, {needs?: string | string[]}]
-        >) {
-            const needs = ([] as string[]).concat(job.needs || []);
-            if (name === 'upload-v3-candidate') {
-                expect(needs).toContain('audit-kits');
-            } else {
-                expect(needs).not.toContain('audit-kits');
-            }
-        }
+        expect(jobs['upload-v3-candidate'].if).not.toContain('audit-kits');
     });
 
     it('loads a unique, complete publish inventory', () => {
@@ -2171,6 +2159,40 @@ describe('kit release scripts', () => {
                 `Core SDK is ${coreVersion}, expected 3.999.0\n`
             );
             // A publish that stops writes recovery steps; the audit does not.
+            expect(fs.existsSync(summaryPath)).toBe(false);
+        } finally {
+            fs.rmSync(tempDirectory, {force: true, recursive: true});
+        }
+    });
+
+    it('refuses an unknown option instead of running the publish', () => {
+        const tempDirectory = fs.mkdtempSync(
+            path.join(os.tmpdir(), 'mparticle-unknown-option-cli-')
+        );
+        const summaryPath = path.join(tempDirectory, 'summary.md');
+
+        try {
+            const result = spawnSync(
+                process.execPath,
+                [
+                    path.join(__dirname, '../../scripts/publish-kits.js'),
+                    '--no-such-option',
+                ],
+                {
+                    encoding: 'utf8',
+                    env: {
+                        ...process.env,
+                        RELEASE_VERSION: '3.999.0',
+                        NPM_DIST_TAG: 'next',
+                        GITHUB_STEP_SUMMARY: summaryPath,
+                    },
+                }
+            );
+
+            expect(result.status).toBe(1);
+            expect(result.stderr).toBe('Unknown option: --no-such-option\n');
+            // A publish that stops writes recovery steps; a refused option
+            // stops before the publish path reads anything.
             expect(fs.existsSync(summaryPath)).toBe(false);
         } finally {
             fs.rmSync(tempDirectory, {force: true, recursive: true});

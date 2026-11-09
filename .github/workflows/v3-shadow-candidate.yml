@@ -4,8 +4,8 @@ name: 'V3 shadow release: upload candidate'
 # v3-staging channel at it.
 #
 # In release-gate mode (workflow_dispatch with release_gate=true, dispatched by
-# v3-release-step-1.yml after its package, kit publish and kit audit jobs
-# succeed), this workflow requires npm parity to pass (reading npm again with
+# v3-release-step-1.yml after its package and kit publish jobs succeed), this
+# workflow requires npm parity to pass (reading npm again with
 # backoff for up to 10 minutes while a package reads pending or unavailable),
 # accepts an in-progress or already-completed (uncancelled)
 # v3-release-step-1.yml run once Perform Release and Package V3 candidate
@@ -315,8 +315,7 @@ jobs:
                   set -eu
                   git fetch --no-tags --depth=1 origin "+refs/tags/${RELEASE_TAG}:refs/tags/${RELEASE_TAG}"
 
-            # Audit V3 kits on npm only warns while npm has not shown a kit yet,
-            # and npm can take minutes to show a version it has accepted. So in
+            # npm can take minutes to show a version it has accepted, so in
             # release-gate mode a pending or unavailable npm read is read again
             # with a doubling backoff for up to 10 minutes, and a fail reading
             # stops at once. Each npm view gets at most 30 seconds and each
@@ -340,7 +339,7 @@ jobs:
                       --github-output "$GITHUB_OUTPUT"
 
             # Step 1 dispatches a release-gate run only after its kits are
-            # published and audited, and the parity check above has read npm
+            # published, and the parity check above has read npm
             # again for up to 10 minutes, so every package must now be on npm
             # with the candidate's integrity. A read still pending (not yet
             # published) or unavailable fails the gate instead of uploading.

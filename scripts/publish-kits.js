@@ -1639,6 +1639,11 @@ if (require.main === module) {
             await publishCoreMain();
             return;
         }
+        // An option this script does not know, such as a typo, stops here
+        // rather than falling through to the publish.
+        if (process.argv.length > 2) {
+            throw new Error(`Unknown option: ${process.argv[2]}`);
+        }
         await main();
     };
 

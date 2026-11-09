@@ -345,13 +345,18 @@ from** dropdown and run its workflows in order:
    registry-preflights all kit artifacts before publishing core. It then checks
    out the immutable release tag, waits up to five minutes for core to become
    visible on npm, and publishes all packages in `kits/publish-matrix.json`
-   concurrently with a bounded worker pool. After all publishes finish, a
-   separate **Audit V3 kits on npm** job, which no other job waits for, gives
-   npm up to five minutes to show every package and verifies that the core SDK
-   and every kit have the expected version, artifact integrity, and npm
-   dist-tag. A package npm has not confirmed by then, because it does not show
-   it yet or `npm view` failed, is a warning in the job summary, not a failure;
-   a mismatched artifact or dist-tag fails the job. The next
+   concurrently with a bounded worker pool. In **V3 Release - Step 1**, npm is
+   then checked by the release gate described below: `check-release-parity.ts`
+   compares every package's `dist.integrity` with the candidate and reads npm
+   again for up to 10 minutes before it fails the release. The gate does not
+   read dist-tags: `npm publish --tag` sets them, `assertDistTagWillNotMoveBackward`
+   guards them before each publish, and the next release's `--preflight-tags`
+   refuses to start until every kit's tag matches core's. The separate
+   **Audit V3 kits on npm** job (`publish-kits.js --audit`) warns when npm has
+   not confirmed a package yet and fails on a mismatched artifact or dist-tag.
+   It stays callable until the Step 1 copies on `v3-staging` and `main` and
+   `staging-step-1.yml`'s v3 track stop calling it; a follow-up then removes
+   `--audit` and that v3 track. The next
    Step 1 refuses to start until every kit's `next` matches core, so a kit
    that never appears blocks the next release rather than shipping
    unnoticed. A rerun skips an existing kit only when its artifact is
@@ -360,7 +365,11 @@ from** dropdown and run its workflows in order:
    release branch and publishes. If core publishes but kit publication cannot
    finish, rerun V3 Release - Step 1 from `v3-staging` with `dryRun=false` and
    `resumeKitReleaseTag` set to the exact Step 1 tag. Recovery validates that
-   immutable tag and resumes kits without republishing core.
+   immutable tag and resumes kits without republishing core. A recovery run
+   skips Perform Release, Package and Upload, so it ends with no npm check:
+   once it finishes, dispatch **V3 shadow release: upload candidate**
+   (`v3-shadow-candidate.yml`) on `main` with `release_gate=true` and
+   `step1_run_id` set to the original Step 1 run.
 2. **Step 2: Publish SDK Release to Release Order Branch** (optional): run
    **Staging Release - Step 2** (`staging-step-2.yml`) from `master` for v2, or
    **V3 Release - Step 2** (`v3-release-step-2.yml`) from `main` for v3. Every
@@ -396,7 +405,7 @@ V3 candidate packaging, upload, and staging: a real **V3 Release - Step 1**
 (`v3-release-step-1.yml`, `dryRun=false`) runs **Package V3 candidate
 (shadow)** after the release to package the release tag's committed bundles
 into a `v3-candidate-<run id>-<run attempt>` artifact (kept for 7 days). Once
-**Publish V3 kits** and **Audit V3 kits on npm** have also succeeded, it runs
+**Publish V3 kits** has also succeeded, it runs
 **Upload and stage V3 candidate**, which dispatches **V3 shadow
 release: upload candidate** (`v3-shadow-candidate.yml`) on `main` with
 `release_gate=true` and waits up to 120 minutes (the child jobs' 110-minute
@@ -428,9 +437,8 @@ completed without being cancelled (so a maintainer can also dispatch
 Step 1 finishes), provided **Perform Release** and **Package V3 candidate
 (shadow)** succeeded and one unexpired candidate artifact exists. Release-gate
 mode also requires npm parity to pass: every package must be on npm with the
-candidate's integrity. **Audit V3 kits on npm** only warns about a kit npm does
-not show yet, and npm can take minutes to show a version it has accepted. So
-while npm parity reads pending (a version npm does not show yet) or unavailable
+candidate's integrity. npm can take minutes to show a version it has
+accepted, so while npm parity reads pending (a version npm does not show yet) or unavailable
 (an `npm view` error or an unexpected reply), the candidate workflow reads npm
 again with a doubling backoff (15 seconds at first, at most 2 minutes apart)
 for up to 10 minutes, with a last read when the 10 minutes run out. A fail

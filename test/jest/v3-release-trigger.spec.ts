@@ -209,7 +209,8 @@ describe('V3 shadow release trigger', () => {
 
         it.each([
             ['kit publishing failed', {}],
-            ['only the npm audit failed', { 'Publish V3 kits': 'success', 'Audit V3 kits on npm': 'failure' }],
+            ['kit publishing failed in a Step 1 file with no audit job', { 'Audit V3 kits on npm': null }],
+            ['only the npm audit of an older Step 1 file failed', { 'Publish V3 kits': 'success', 'Audit V3 kits on npm': 'failure' }],
         ])('mirrors a failed run automatically when %s after the release', (_label, conclusions) => {
             expect(
                 trigger.planStep1(
@@ -437,10 +438,10 @@ describe('V3 shadow release trigger', () => {
                 'release',
                 'package-v3-candidate',
                 'publish-kits',
-                'audit-kits',
                 'advance-staging',
             ]);
-            expect(trigger.STEP1_KIT_JOBS).toEqual([workflow.jobs['publish-kits'].name, workflow.jobs['audit-kits'].name]);
+            expect(trigger.STEP1_KIT_JOBS).toEqual([workflow.jobs['publish-kits'].name]);
+            expect(trigger.STEP1_LEGACY_KIT_JOBS).toContain('Audit V3 kits on npm');
             for (const name of trigger.STEP1_LEGACY_KIT_JOBS) {
                 expect(names).not.toContain(name);
             }

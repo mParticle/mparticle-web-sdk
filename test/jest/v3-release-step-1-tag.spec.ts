@@ -838,7 +838,6 @@ describe('V3 Step 1 from a release tag: release jobs', () => {
         );
         const kits = stepNamed('publish-kits', 'Publish kits concurrently');
         expect(kits.if).toContain(RELEASE_REPOSITORY);
-        expect(workflow.jobs['audit-kits'].if).toContain(RELEASE_REPOSITORY);
     });
 
     it('keeps expressions out of the tag mode run scripts', () => {
@@ -889,7 +888,6 @@ describe('V3 Step 1 from a release tag: release jobs', () => {
             'release',
             'package-v3-candidate',
             'publish-kits',
-            'audit-kits',
             'advance-staging',
         ]);
         expect(upload.if.replace(/\s+/g, ' ')).toContain(
@@ -924,7 +922,6 @@ describe('V3 Step 1 from a release tag: release jobs', () => {
                     },
                     'package-v3-candidate': { result: 'success' },
                     'publish-kits': { result: 'success' },
-                    'audit-kits': { result: 'success' },
                     'advance-staging': { result: advanceStagingResult },
                 },
                 { event: { inputs: { dryRun: 'false' } } }

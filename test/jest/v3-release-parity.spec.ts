@@ -417,9 +417,9 @@ describe('V3 shadow release parity', () => {
         });
     });
 
-    // Release-gate mode passes --npm-retry-seconds 600: Audit V3 kits on npm
-    // only warns about a kit npm does not show yet, so the gate reads npm
-    // again with backoff before it fails on pending or unavailable.
+    // Release-gate mode passes --npm-retry-seconds 600: npm can take minutes
+    // to show a version it has accepted, so the gate reads npm again with
+    // backoff before it fails on pending or unavailable.
     describe('npm retry window', () => {
         const PENDING: NpmReply = { status: 1, stdout: '', stderr: 'npm error code E404' };
         const UNAVAILABLE: NpmReply = { status: 1, stdout: '', stderr: 'npm error code ETIMEDOUT' };
