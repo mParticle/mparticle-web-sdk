@@ -2364,3 +2364,195 @@ describe('kit release scripts', () => {
         }
     });
 });
+
+describe('build-v3-release.sh', () => {
+    const script = path.join(__dirname, '../../scripts/build-v3-release.sh');
+    let fixtureRoot: string;
+
+    // node -e prints the stub kit inventory. npm records each kit step and
+    // how many kit steps were running when it began, and exits with the code
+    // a line of the failures file gives that kit and step.
+    const stubNode = [
+        '#!/bin/sh',
+        'echo node >> "$STUB_DIR/calls"',
+        'if [ "$1" = -e ]; then cat "$STUB_DIR/inventory"; fi',
+        '',
+    ].join('\n');
+    const stubNpm = [
+        '#!/bin/sh',
+        'echo npm >> "$STUB_DIR/calls"',
+        'KIT=',
+        'case "$1" in',
+        '    ci) STEP=ci KIT=$3 ;;',
+        '    run) STEP=build KIT=$4 ;;',
+        'esac',
+        '[ -n "$KIT" ] || exit 0',
+        'echo "start $KIT $STEP" >> "$STUB_DIR/events"',
+        'touch "$STUB_DIR/running/$$"',
+        'ls "$STUB_DIR/running" | wc -l >> "$STUB_DIR/overlap"',
+        'sleep "$STUB_SLEEP"',
+        'rm -f "$STUB_DIR/running/$$"',
+        'echo "end $KIT $STEP" >> "$STUB_DIR/events"',
+        'CODE=$(sed -n "s|^$KIT $STEP ||p" "$STUB_DIR/failures")',
+        'if [ -n "$CODE" ]; then echo "$KIT $STEP failed"; exit "$CODE"; fi',
+        '',
+    ].join('\n');
+
+    const lines = (name: string): string[] => {
+        const file = path.join(fixtureRoot, name);
+        if (!fs.existsSync(file)) {
+            return [];
+        }
+        return fs
+            .readFileSync(file, 'utf8')
+            .split('\n')
+            .filter(line => line !== '');
+    };
+    const peakOverlap = () => Math.max(0, ...lines('overlap').map(Number));
+
+    const runBuild = (
+        kits: string[],
+        options: {
+            concurrency?: string;
+            failures?: string[];
+            stepSeconds?: string;
+        } = {}
+    ) => {
+        fs.writeFileSync(
+            path.join(fixtureRoot, 'inventory'),
+            kits.map(kit => `${kit}\n`).join('')
+        );
+        fs.writeFileSync(
+            path.join(fixtureRoot, 'failures'),
+            (options.failures || []).map(failure => `${failure}\n`).join('')
+        );
+        const env: NodeJS.ProcessEnv = {
+            ...process.env,
+            PATH: `${path.join(fixtureRoot, 'bin')}${path.delimiter}${
+                process.env.PATH
+            }`,
+            STUB_DIR: fixtureRoot,
+            STUB_SLEEP: options.stepSeconds || '0.3',
+        };
+        delete env.GITHUB_ACTIONS;
+        delete env.KIT_BUILD_CONCURRENCY;
+        if (options.concurrency !== undefined) {
+            env.KIT_BUILD_CONCURRENCY = options.concurrency;
+        }
+        return spawnSync('sh', [script, '3.1.0'], {
+            cwd: path.join(fixtureRoot, 'work'),
+            encoding: 'utf8',
+            env,
+            timeout: 60000,
+        });
+    };
+
+    beforeEach(() => {
+        fixtureRoot = fs.mkdtempSync(
+            path.join(os.tmpdir(), 'mparticle-build-v3-release-')
+        );
+        for (const directory of ['bin', 'running', 'work']) {
+            fs.mkdirSync(path.join(fixtureRoot, directory));
+        }
+        fs.writeFileSync(path.join(fixtureRoot, 'bin', 'node'), stubNode, {
+            mode: 0o755,
+        });
+        fs.writeFileSync(path.join(fixtureRoot, 'bin', 'npm'), stubNpm, {
+            mode: 0o755,
+        });
+    });
+
+    afterEach(() => {
+        fs.rmSync(fixtureRoot, {force: true, recursive: true});
+    });
+
+    it('builds every kit, at most six at once, and prints the logs in inventory order', () => {
+        const kits = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'].map(
+            name => `kits/${name}`
+        );
+
+        const result = runBuild(kits);
+
+        expect(result.stderr).toBe('');
+        expect(result.status).toBe(0);
+        expect(peakOverlap()).toBeGreaterThan(1);
+        expect(peakOverlap()).toBeLessThanOrEqual(6);
+        for (const kit of kits) {
+            expect(result.stdout).toContain(`\n${kit}: npm ci\n`);
+            expect(result.stdout).toContain(`\n${kit}: build\n`);
+            expect(result.stdout).toContain(`\nBuilt ${kit} in `);
+        }
+        expect(
+            result.stdout
+                .split('\n')
+                .filter(line => line.indexOf('---------- Kit ') === 0)
+        ).toEqual(kits.map(kit => `---------- Kit ${kit} ----------`));
+        expect(result.stdout).toContain('(8 kits, concurrency 6)');
+    }, 30000);
+
+    it('builds one kit at a time when KIT_BUILD_CONCURRENCY is 1', () => {
+        const kits = ['kits/a', 'kits/b', 'kits/c'];
+
+        const result = runBuild(kits, {concurrency: '1', stepSeconds: '0.1'});
+
+        expect(result.status).toBe(0);
+        expect(peakOverlap()).toBe(1);
+        const serial: string[] = [];
+        for (const kit of kits) {
+            for (const step of ['ci', 'build']) {
+                serial.push(`start ${kit} ${step}`, `end ${kit} ${step}`);
+            }
+        }
+        expect(lines('events')).toEqual(serial);
+        expect(result.stdout).toContain('(3 kits, concurrency 1)');
+    }, 30000);
+
+    it('builds the other kits after a failed install and a failed build, then exits 1 naming both', () => {
+        const kits = ['kits/a', 'kits/b', 'kits/c', 'kits/d'];
+
+        const result = runBuild(kits, {
+            concurrency: '2',
+            failures: ['kits/b ci 3', 'kits/c build 4'],
+            stepSeconds: '0.1',
+        });
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toBe(
+            'Error: these kits failed to build: kits/b kits/c\n'
+        );
+        const events = lines('events');
+        expect(events).not.toContain('start kits/b build');
+        // kits/d starts only once the failed kits/b has been waited for.
+        expect(events.indexOf('start kits/d ci')).toBeGreaterThan(
+            events.indexOf('end kits/b ci')
+        );
+        expect(events).toContain('end kits/c build');
+        expect(events).toContain('end kits/d build');
+        expect(result.stdout).toContain('\nBuilt kits/a in ');
+        expect(result.stdout).toContain('\nBuilt kits/d in ');
+        expect(result.stdout).toContain(
+            '---------- Kit kits/b failed (exit 3) ----------'
+        );
+        expect(result.stdout).toContain(
+            '---------- Kit kits/c failed (exit 4) ----------'
+        );
+        expect(result.stdout).toContain('(2 of 4 kits failed, concurrency 2)');
+        expect(result.stdout).toContain('---------- Failed kit kits/b ----------');
+        expect(result.stdout).toContain('---------- Failed kit kits/c ----------');
+    }, 30000);
+
+    it.each(['0', 'abc'])(
+        'rejects KIT_BUILD_CONCURRENCY=%s before any work',
+        concurrency => {
+            const result = runBuild(['kits/a'], {concurrency});
+
+            expect(result.status).toBe(1);
+            expect(result.stderr).toBe(
+                `Error: KIT_BUILD_CONCURRENCY must be a whole number from 1 to 999, not '${concurrency}'\n`
+            );
+            expect(result.stdout).toBe('');
+            expect(lines('calls')).toEqual([]);
+        },
+        30000
+    );
+});
