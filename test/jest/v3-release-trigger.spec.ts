@@ -433,10 +433,12 @@ describe('V3 shadow release trigger', () => {
             }
             expect(workflow.jobs['package-v3-candidate'].needs).toBe('release');
             expect(workflow.jobs['upload-v3-candidate'].needs).toEqual([
+                'confirm-staging-branch',
                 'release',
                 'package-v3-candidate',
                 'publish-kits',
                 'audit-kits',
+                'advance-staging',
             ]);
             expect(trigger.STEP1_KIT_JOBS).toEqual([workflow.jobs['publish-kits'].name, workflow.jobs['audit-kits'].name]);
             for (const name of trigger.STEP1_LEGACY_KIT_JOBS) {
@@ -522,7 +524,7 @@ describe('V3 shadow release trigger', () => {
                 });
             });
 
-            it('accepts a V3 Step 1 run dispatched from a stable v3 tag in release-gate mode only', () => {
+            it('accepts a V3 Step 1 run dispatched from a strict v3.X.Y tag in release-gate mode and on recovery while V3_RELEASE_PLEASE_ENABLED is true', () => {
                 expect(
                     trigger.planStep1(
                         v3InProgressRun({ head_branch: 'v3.29.1' }),
@@ -533,20 +535,78 @@ describe('V3 shadow release trigger', () => {
                         [gateArtifact(1)],
                         true
                     )
-                ).toMatchObject({ skip: false, buildId: '36618522123-1' });
+                ).toMatchObject({
+                    skip: false,
+                    buildId: '36618522123-1',
+                    releaseTag: 'v3.29.1',
+                });
 
-                for (const headBranch of ['v3.29.1-rc.1', 'v4.0.0', 'v3.029.1', 'main']) {
-                    expect(() =>
-                        trigger.planStep1(
-                            v3InProgressRun({ head_branch: headBranch }),
-                            REPOSITORY,
-                            STEP1_IDS,
-                            'workflow_dispatch',
-                            gateJobs(),
-                            [gateArtifact(1)],
-                            true
-                        )
-                    ).toThrow(/must be dispatched from v3-staging$/);
+                expect(
+                    trigger.planStep1(
+                        v3InProgressRun({
+                            id: 42638277207,
+                            run_attempt: 1,
+                            status: 'completed',
+                            conclusion: 'success',
+                            head_branch: 'v3.32.0',
+                        }),
+                        REPOSITORY,
+                        STEP1_IDS,
+                        'workflow_dispatch',
+                        undefined,
+                        undefined,
+                        false,
+                        true
+                    )
+                ).toEqual({
+                    skip: false,
+                    reason: '',
+                    runId: '42638277207',
+                    runAttempt: '1',
+                    buildId: '42638277207-1',
+                    artifactName: 'v3-candidate-42638277207-1',
+                    releaseTag: 'v3.32.0',
+                });
+
+                expect(() =>
+                    trigger.planStep1(
+                        v3InProgressRun({
+                            status: 'completed',
+                            conclusion: 'success',
+                            head_branch: 'v3.32.0',
+                        }),
+                        REPOSITORY,
+                        STEP1_IDS,
+                        'workflow_dispatch',
+                        undefined,
+                        undefined,
+                        false,
+                        false
+                    )
+                ).toThrow(/must be dispatched from v3-staging$/);
+
+                for (const headBranch of ['v3.29.1-rc.1', 'v4.0.0', 'v3.029.1', 'v3.29', 'main']) {
+                    for (const [releaseGate, releasePleaseMode] of [
+                        [true, false],
+                        [false, true],
+                    ] as const) {
+                        expect(() =>
+                            trigger.planStep1(
+                                v3InProgressRun({
+                                    status: 'completed',
+                                    conclusion: 'success',
+                                    head_branch: headBranch,
+                                }),
+                                REPOSITORY,
+                                STEP1_IDS,
+                                'workflow_dispatch',
+                                gateJobs(),
+                                [gateArtifact(1)],
+                                releaseGate,
+                                releasePleaseMode
+                            )
+                        ).toThrow(/must be dispatched from v3-staging$/);
+                    }
                 }
 
                 expect(() =>
@@ -554,9 +614,94 @@ describe('V3 shadow release trigger', () => {
                         step1Run({ head_branch: 'v3.29.1' }),
                         REPOSITORY,
                         STEP1_IDS,
-                        'workflow_run'
+                        'workflow_dispatch',
+                        undefined,
+                        undefined,
+                        false,
+                        true
                     )
                 ).toThrow(/must be dispatched from v3-staging$/);
+
+                expect(() =>
+                    trigger.planStep1(
+                        v3InProgressRun({
+                            status: 'completed',
+                            conclusion: 'success',
+                            head_branch: 'v3.29.1',
+                        }),
+                        REPOSITORY,
+                        STEP1_IDS,
+                        'workflow_run',
+                        undefined,
+                        undefined,
+                        false,
+                        true
+                    )
+                ).toThrow(/must be dispatched from v3-staging$/);
+            });
+
+            it('requires the candidate release_tag to equal the Step 1 run head_branch on a tag-origin recovery', () => {
+                const tagRecoveryRun = v3InProgressRun({
+                    id: 42638277207,
+                    run_attempt: 1,
+                    status: 'completed',
+                    conclusion: 'success',
+                    head_branch: 'v3.32.0',
+                });
+
+                expect(
+                    trigger.planStep1(
+                        tagRecoveryRun,
+                        REPOSITORY,
+                        STEP1_IDS,
+                        'workflow_dispatch',
+                        undefined,
+                        undefined,
+                        false,
+                        true,
+                        'v3.32.0'
+                    )
+                ).toEqual({
+                    skip: false,
+                    reason: '',
+                    runId: '42638277207',
+                    runAttempt: '1',
+                    buildId: '42638277207-1',
+                    artifactName: 'v3-candidate-42638277207-1',
+                    releaseTag: 'v3.32.0',
+                });
+
+                expect(() =>
+                    trigger.planStep1(
+                        tagRecoveryRun,
+                        REPOSITORY,
+                        STEP1_IDS,
+                        'workflow_dispatch',
+                        undefined,
+                        undefined,
+                        false,
+                        true,
+                        'v3.31.0'
+                    )
+                ).toThrow(
+                    'The candidate release_tag must equal the Step 1 run head_branch'
+                );
+
+                expect(() =>
+                    trigger.planStep1(
+                        v3InProgressRun({ head_branch: 'v3.32.0' }),
+                        REPOSITORY,
+                        STEP1_IDS,
+                        'workflow_dispatch',
+                        gateJobs(),
+                        [gateArtifact(1)],
+                        true,
+                        true,
+                        'v3.31.0'
+                    )
+                ).toThrow(
+                    'The candidate release_tag must equal the Step 1 run head_branch'
+                );
             });
 
             it('rejects a staging-step-1.yml parent in release-gate mode while keeping non-gate behaviour', () => {
@@ -1706,6 +1851,64 @@ describe('V3 shadow release trigger', () => {
                     V3_STEP2_ID,
                 ])
             ).toThrow(/--v3-step3-workflow-id is required once/);
+        });
+
+        it('accepts a tag-mode Step 1 recovery run on the command line while V3_RELEASE_PLEASE_ENABLED is true', () => {
+            const tagRunFile = runFile(
+                step1Run({
+                    id: 42638277207,
+                    run_attempt: 1,
+                    path: V3_STEP1_PATH,
+                    workflow_id: 111,
+                    display_title: 'V3 Release - Step 1',
+                    head_branch: 'v3.32.0',
+                })
+            );
+            const args = (mode: string, extra: string[] = []) => [
+                'step1',
+                '--run',
+                tagRunFile,
+                '--repository',
+                REPOSITORY,
+                '--workflow-id',
+                STEP1_ID,
+                '--v3-workflow-id',
+                V3_STEP1_ID,
+                '--trigger',
+                'workflow_dispatch',
+                '--release-gate',
+                'false',
+                '--release-please-mode',
+                mode,
+                ...extra,
+            ];
+            expect(trigger.main(args('true'))).toEqual([
+                'skip=false',
+                'run_id=42638277207',
+                'run_attempt=1',
+                'build_id=42638277207-1',
+                'artifact_name=v3-candidate-42638277207-1',
+                'release_tag=v3.32.0',
+            ]);
+            expect(trigger.main(args('true', ['--release-tag', 'v3.32.0']))).toEqual([
+                'skip=false',
+                'run_id=42638277207',
+                'run_attempt=1',
+                'build_id=42638277207-1',
+                'artifact_name=v3-candidate-42638277207-1',
+                'release_tag=v3.32.0',
+            ]);
+            expect(() =>
+                trigger.main(args('true', ['--release-tag', 'v3.31.0']))
+            ).toThrow(
+                'The candidate release_tag must equal the Step 1 run head_branch'
+            );
+            expect(() => trigger.main(args('false'))).toThrow(
+                'The release run must be dispatched from v3-staging'
+            );
+            expect(() => trigger.main(args('yes'))).toThrow(
+                '--release-please-mode must be true or false'
+            );
         });
 
         it('checks explicit branches', () => {

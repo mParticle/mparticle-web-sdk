@@ -12,7 +12,8 @@ run-name: 'V3 Release - Step 1'
 # - a stable v3.X.Y tag (Release Please mode): the release PR already put the
 #   version, the changelog and the bundles on main, and the tag on that commit.
 #   Step 1 checks a fresh build against the tag's bundles, publishes core and
-#   the kits from the tag, then fast-forwards v3-staging to the tag commit.
+#   the kits from the tag, fast-forwards v3-staging to the tag commit, then
+#   uploads and stages the V3 candidate.
 
 on:
     workflow_dispatch:
@@ -1304,13 +1305,12 @@ jobs:
             - name: Audit all packages on npm
               run: node scripts/publish-kits.js --audit
 
-    # Tag mode only: Steps 2 and 3 release the commit v3-staging holds, so
-    # v3-staging moves to the tag commit last, once core and the kits are on
-    # npm and Upload and stage V3 candidate has staged the release in every
-    # pod. Outside mParticle/mparticle-web-sdk (the release sandbox) nothing
-    # publishes or uploads, so that job is skipped and the move goes ahead.
-    # The job runs no npm or repository script. A plain push moves the branch
-    # only forward.
+    # Tag mode only: Steps 2 and 3 release the commit v3-staging holds, and
+    # Upload and stage V3 candidate requires v3-staging to point at the release
+    # tag before staging its S3 pointer, so v3-staging moves to the tag commit
+    # once core and the kits are on npm, before the candidate is uploaded and
+    # staged (the order the branch path uses). The job runs no npm or
+    # repository script. A plain push moves the branch only forward.
     advance-staging:
         name: Fast-forward v3-staging to the release tag
         if: >-
@@ -1320,20 +1320,12 @@ jobs:
                 github.event.inputs.dryRun == 'false' &&
                 needs.confirm-staging-branch.outputs.release_mode == 'tag' &&
                 needs.release.result == 'success' &&
-                needs.publish-kits.result == 'success' &&
-                (
-                    needs.upload-v3-candidate.result == 'success' ||
-                    (
-                        github.repository != 'mParticle/mparticle-web-sdk' &&
-                        needs.upload-v3-candidate.result == 'skipped'
-                    )
-                )
+                needs.publish-kits.result == 'success'
             }}
         needs:
             - confirm-staging-branch
             - release
             - publish-kits
-            - upload-v3-candidate
         runs-on: ubuntu-latest
         timeout-minutes: 10
         permissions:
@@ -1457,7 +1449,8 @@ jobs:
                   if-no-files-found: error
                   retention-days: 7
 
-    # Once the kits are published and audited, dispatches v3-shadow-candidate.yml
+    # Once the kits are published and audited (and v3-staging has moved to the
+    # release tag in tag mode), dispatches v3-shadow-candidate.yml
     # on main in release-gate mode, which requires npm parity to pass, and waits
     # up to 120 minutes (the child jobs' 110-minute ceiling: resolve 5, verify
     # 25, upload 30, stage 45 and the gate 5, plus 10 minutes of queue time)
@@ -1473,18 +1466,25 @@ jobs:
     upload-v3-candidate:
         name: Upload and stage V3 candidate
         needs:
+            - confirm-staging-branch
             - release
             - package-v3-candidate
             - publish-kits
             - audit-kits
+            - advance-staging
         if: >-
             ${{
                 always() &&
                 !cancelled() &&
+                needs.confirm-staging-branch.result == 'success' &&
                 needs.release.result == 'success' &&
                 needs.package-v3-candidate.result == 'success' &&
                 needs.publish-kits.result == 'success' &&
                 needs.audit-kits.result == 'success' &&
+                (
+                    needs.confirm-staging-branch.outputs.release_mode != 'tag' ||
+                    needs.advance-staging.result == 'success'
+                ) &&
                 github.event.inputs.dryRun == 'false' &&
                 needs.release.outputs.release_tag != ''
             }}

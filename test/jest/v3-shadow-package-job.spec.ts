@@ -338,18 +338,22 @@ describe('shadow V3 candidate packaging job in V3 Step 1', () => {
         for (const condition of [
             'always() &&',
             '!cancelled() &&',
+            "needs.confirm-staging-branch.result == 'success'",
             "needs.release.result == 'success'",
             "needs.package-v3-candidate.result == 'success'",
             "needs.publish-kits.result == 'success'",
             "needs.audit-kits.result == 'success'",
+            "needs.confirm-staging-branch.outputs.release_mode != 'tag' ||",
+            "needs.advance-staging.result == 'success'",
             "github.event.inputs.dryRun == 'false'",
             "needs.release.outputs.release_tag != ''",
         ]) {
             expect(uploadJob).toContain(condition);
         }
-        // The child's npm parity check must see the published kits.
+        // The child's npm parity check must see the published kits, and in tag
+        // mode v3-staging must fast-forward before the candidate stages.
         expect(uploadJob).toContain(
-            '\n        needs:\n            - release\n            - package-v3-candidate\n            - publish-kits\n            - audit-kits\n'
+            '\n        needs:\n            - confirm-staging-branch\n            - release\n            - package-v3-candidate\n            - publish-kits\n            - audit-kits\n            - advance-staging\n'
         );
         expect(uploadJob).not.toContain('continue-on-error');
         expect(uploadJob).toContain('\n        timeout-minutes: 130\n');

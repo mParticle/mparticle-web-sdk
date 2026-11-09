@@ -858,13 +858,12 @@ describe('V3 Step 1 from a release tag: release jobs', () => {
         }
     });
 
-    it('fast-forwards v3-staging last, once core and the kits are on npm and the candidate is staged', () => {
+    it('fast-forwards v3-staging once core and the kits are on npm, before uploading and staging the candidate', () => {
         const job = workflow.jobs['advance-staging'];
         expect(job.needs).toEqual([
             'confirm-staging-branch',
             'release',
             'publish-kits',
-            'upload-v3-candidate',
         ]);
         const condition = job.if.replace(/\s+/g, ' ');
         for (const part of [
@@ -872,10 +871,10 @@ describe('V3 Step 1 from a release tag: release jobs', () => {
             "github.event.inputs.dryRun == 'false'",
             "needs.release.result == 'success'",
             "needs.publish-kits.result == 'success'",
-            "( needs.upload-v3-candidate.result == 'success' || ( github.repository != 'mParticle/mparticle-web-sdk' && needs.upload-v3-candidate.result == 'skipped' ) )",
         ]) {
             expect(condition).toContain(part);
         }
+        expect(condition).not.toContain('upload-v3-candidate');
         expect(job.permissions).toEqual({ contents: 'read' });
         const script = stepNamed('advance-staging', 'Fast-forward v3-staging')
             .run;
@@ -883,6 +882,58 @@ describe('V3 Step 1 from a release tag: release jobs', () => {
         expect(script).toContain(
             'git push origin "${RELEASE_SHA}:refs/heads/${STAGING_BRANCH}"'
         );
+
+        const upload = workflow.jobs['upload-v3-candidate'];
+        expect(upload.needs).toEqual([
+            'confirm-staging-branch',
+            'release',
+            'package-v3-candidate',
+            'publish-kits',
+            'audit-kits',
+            'advance-staging',
+        ]);
+        expect(upload.if.replace(/\s+/g, ' ')).toContain(
+            "( needs.confirm-staging-branch.outputs.release_mode != 'tag' || needs.advance-staging.result == 'success' )"
+        );
+
+        const evaluateUploadIf = (
+            releaseMode: string,
+            advanceStagingResult: string
+        ): boolean => {
+            const expression = upload.if
+                .replace(/^\s*\$\{\{|\}\}\s*$/g, '')
+                .replace(/\bneeds\.([a-z0-9-]+)\b/g, "needs['$1']");
+            const evaluate = new Function(
+                'always',
+                'cancelled',
+                'needs',
+                'github',
+                `return Boolean(${expression});`
+            );
+            return evaluate(
+                () => true,
+                () => false,
+                {
+                    'confirm-staging-branch': {
+                        result: 'success',
+                        outputs: { release_mode: releaseMode },
+                    },
+                    release: {
+                        result: 'success',
+                        outputs: { release_tag: 'v3.32.0' },
+                    },
+                    'package-v3-candidate': { result: 'success' },
+                    'publish-kits': { result: 'success' },
+                    'audit-kits': { result: 'success' },
+                    'advance-staging': { result: advanceStagingResult },
+                },
+                { event: { inputs: { dryRun: 'false' } } }
+            );
+        };
+        expect(evaluateUploadIf('tag', 'success')).toBe(true);
+        expect(evaluateUploadIf('tag', 'failure')).toBe(false);
+        expect(evaluateUploadIf('tag', 'skipped')).toBe(false);
+        expect(evaluateUploadIf('semantic-release', 'skipped')).toBe(true);
     });
 });
 

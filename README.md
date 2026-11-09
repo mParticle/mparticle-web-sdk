@@ -488,6 +488,19 @@ A real v3 Step 1 run can publish core and create the GitHub Release before all
 7. Continue to Step 2 or Step 3 only after the recovery run and the candidate
    upload are green.
 
+In tag mode, `v3-staging` moves to the release tag before the S3 upload and
+stage runs. If `v3-staging` moves and the S3 upload or stage then fails,
+recover by using **Re-run failed jobs** on the original **V3 Release - Step 1**
+run (which preserves the successful package job and its
+`${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}` build ID) or by dispatching **V3
+shadow release: upload candidate** (`v3-shadow-candidate.yml`) on `main` with
+`step1_run_id` set to the original Step 1 run's ID and `release_gate=true`,
+within the candidate's 7-day artifact retention window. Never start a fresh
+Step 1 run or use **Re-run all jobs** for recovery after any pod has staged:
+that packages a new `${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}` build ID, and
+`promote-v3-release.ts` rejects a different build of the same version on
+already-staged pods without `--allow-rebuild`.
+
 If recovery reports that the tagged core version is missing from npm, stop the
 kit recovery. Semantic-release may have pushed the generated staging commit and
 tag before core publication failed:
