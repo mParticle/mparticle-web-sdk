@@ -3692,6 +3692,34 @@ describe('preselection', () => {
               expect(getPreselectAttributeDefaults(host, mockConfig.current[0], { [DEFAULTED_KEY]: 'visa' })).toEqual({});
             });
 
+            it("fills the pick's value over the page host's value", () => {
+              vi.mocked(readPreselectPaymentPick).mockReturnValue('paypal');
+              useEntry({
+                preselectAttributeDefaults: {
+                  [DEFAULTED_KEY]: { byHostname: { [window.location.hostname]: 'visa' }, byPaymentPick: { paypal: 'PayPal' } },
+                },
+              });
+
+              expect(getPreselectAttributeDefaults(host, mockConfig.current[0], {})).toEqual({
+                [DEFAULTED_KEY]: 'PayPal',
+              });
+            });
+
+            it('lets a pick-only skipRemembered default replace a saved value, and keeps the saved one with no pick', () => {
+              useEntry({
+                preselectAttributeDefaults: { [DEFAULTED_KEY]: { byPaymentPick: { paypal: 'PayPal' }, skipRemembered: true } },
+              });
+              host.userAttributes = { [DEFAULTED_KEY]: 'visa' };
+
+              vi.mocked(readPreselectPaymentPick).mockReturnValue('paypal');
+              expect(getPreselectAttributeDefaults(host, mockConfig.current[0], {})).toEqual({
+                [DEFAULTED_KEY]: 'PayPal',
+              });
+
+              vi.mocked(readPreselectPaymentPick).mockReturnValue(undefined);
+              expect(getPreselectAttributeDefaults(host, mockConfig.current[0], {})).toEqual({});
+            });
+
             it('never reads the pick for an entry whose defaults name none', () => {
               useEntry();
 
