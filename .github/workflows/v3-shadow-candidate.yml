@@ -27,7 +27,8 @@ name: 'V3 shadow release: upload candidate'
 # workflow_run always runs this file and its scripts from the default branch,
 # never code from the release run. The release run and its artifact are
 # untrusted input: the run must be a workflow_dispatch of v3-release-step-1.yml
-# or staging-step-1.yml in this repository from v3-staging, with that file's
+# or staging-step-1.yml in this repository from v3-staging (or a strict v3.X.Y
+# tag while V3_RELEASE_PLEASE_ENABLED is true), with that file's
 # V3 run title, and the candidate is validated and compared with the release
 # tag before any credential is issued.
 #
@@ -97,6 +98,7 @@ jobs:
             run_id: ${{ steps.run.outputs.run_id }}
             build_id: ${{ steps.run.outputs.build_id }}
             artifact_name: ${{ steps.run.outputs.artifact_name }}
+            release_tag: ${{ steps.run.outputs.release_tag }}
             pods: ${{ steps.pods.outputs.pods }}
         steps:
             - name: Checkout the default branch
@@ -128,12 +130,17 @@ jobs:
                   GH_TOKEN: ${{ github.token }}
                   STEP1_RUN_ID: ${{ inputs.step1_run_id }}
                   RELEASE_GATE: ${{ github.event_name == 'workflow_dispatch' && inputs.release_gate && 'true' || 'false' }}
+                  RELEASE_PLEASE_ENABLED: ${{ vars.V3_RELEASE_PLEASE_ENABLED }}
               run: |
                   set -euo pipefail
                   case "${RELEASE_GATE:-false}" in
                       true|false) ;;
                       *) exit 1 ;;
                   esac
+                  RELEASE_PLEASE_MODE=false
+                  if [ "${RELEASE_PLEASE_ENABLED:-}" = 'true' ]; then
+                      RELEASE_PLEASE_MODE=true
+                  fi
                   RUN_FILE="$RUNNER_TEMP/step1-run.json"
                   if [ "$GITHUB_EVENT_NAME" = 'workflow_run' ]; then
                       jq '.workflow_run' "$GITHUB_EVENT_PATH" > "$RUN_FILE"
@@ -168,6 +175,7 @@ jobs:
                       --v3-workflow-id "$V3_WORKFLOW_ID" \
                       --trigger "$GITHUB_EVENT_NAME" \
                       --release-gate "${RELEASE_GATE:-false}" \
+                      --release-please-mode "$RELEASE_PLEASE_MODE" \
                       --artifacts "$ARTIFACTS_FILE" \
                       --jobs "$JOBS_FILE" | tee -a "$GITHUB_OUTPUT" > "$RUNNER_TEMP/step1-plan.txt"
                   cat "$RUNNER_TEMP/step1-plan.txt"
@@ -260,6 +268,7 @@ jobs:
               id: candidate
               env:
                   BUILD_ID: ${{ needs.resolve.outputs.build_id }}
+                  EXPECTED_RELEASE_TAG: ${{ needs.resolve.outputs.release_tag }}
               run: |
                   set -euo pipefail
                   CANDIDATE="$RUNNER_TEMP/v3-candidate"
@@ -273,9 +282,14 @@ jobs:
                       echo 'The candidate is not a stable V3 release.'
                       exit 1
                   fi
+                  RELEASE_TAG="v${VERSION}"
+                  if [ -n "${EXPECTED_RELEASE_TAG:-}" ] && [ "$RELEASE_TAG" != "$EXPECTED_RELEASE_TAG" ]; then
+                      echo "The candidate release_tag (${RELEASE_TAG}) must equal the Step 1 run head_branch (${EXPECTED_RELEASE_TAG})."
+                      exit 1
+                  fi
                   {
                       echo "version=${VERSION}"
-                      echo "release_tag=v${VERSION}"
+                      echo "release_tag=${RELEASE_TAG}"
                       echo "source_sha=${SOURCE_SHA}"
                       echo "metadata_sha256=$(sha256sum "$CANDIDATE/metadata.json" | cut -d ' ' -f 1)"
                   } >> "$GITHUB_OUTPUT"
@@ -406,6 +420,7 @@ jobs:
             branches: v3-staging
             pods: ${{ needs.resolve.outputs.pods }}
             dry_run: false
+            release_gate: ${{ github.event_name == 'workflow_dispatch' && inputs.release_gate }}
         # Named, not inherited: the called job's Environment supplies the values.
         secrets:
             AWS_ROLE_ARN_QA: ${{ secrets.AWS_ROLE_ARN_QA }}

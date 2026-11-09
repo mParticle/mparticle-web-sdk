@@ -46,7 +46,9 @@
 // node --experimental-strip-types scripts/v3-release/shadow-release-trigger.ts \
 //     step1 --run <run.json> --repository <owner/name> --workflow-id <id> \
 //     --v3-workflow-id <id> --trigger workflow_run|workflow_dispatch \
-//     [--release-gate true|false] [--jobs <jobs.json>] [--artifacts <artifacts.json>]
+//     [--release-gate true|false] [--release-please-mode true|false] \
+//     [--release-tag <vX.Y.Z>] \
+//     [--jobs <jobs.json>] [--artifacts <artifacts.json>]
 // ... release-step --run <run.json> --repository <owner/name> \
 //     --step2-workflow-id <id> --step3-workflow-id <id> \
 //     --v3-step2-workflow-id <id> --v3-step3-workflow-id <id> \
@@ -156,6 +158,7 @@ export interface Step1Plan {
     runAttempt: string;
     buildId: string;
     artifactName: string;
+    releaseTag?: string;
 }
 
 export interface ReleaseStepPlan {
@@ -538,7 +541,9 @@ function planStep1(
     trigger: Trigger,
     jobs?: WorkflowJob[],
     artifacts?: WorkflowArtifact[],
-    releaseGate = false
+    releaseGate = false,
+    releasePleaseMode = false,
+    releaseTag?: string
 ): Step1Plan {
     validateRepository(repository);
     validateRunId(workflowIds.staging, 'The Step 1 workflow ID');
@@ -549,10 +554,12 @@ function planStep1(
     if (releaseGate && trigger !== 'workflow_dispatch') {
         fail('Release-gate mode requires workflow_dispatch');
     }
-    // Release-gate mode also takes a V3 Step 1 run dispatched from a stable
-    // v3 tag: Step 1 in tag mode dispatches the gate before v3-staging moves.
+    // Release-gate mode, and a manual recovery dispatch while
+    // V3_RELEASE_PLEASE_ENABLED is true, also take a V3 Step 1 run dispatched
+    // from a strict v3.X.Y tag.
     const tagRun =
-        releaseGate &&
+        (releaseGate ||
+            (releasePleaseMode && trigger === 'workflow_dispatch')) &&
         run.path === V3_STEP1_PATH &&
         typeof run.head_branch === 'string' &&
         STABLE_V3_TAG_PATTERN.test(run.head_branch);
@@ -565,6 +572,11 @@ function planStep1(
         })),
         tagRun ? [STEP1_BRANCH, run.head_branch as string] : [STEP1_BRANCH]
     );
+    if (tagRun && releaseTag !== undefined && releaseTag !== run.head_branch) {
+        fail(
+            'The candidate release_tag must equal the Step 1 run head_branch'
+        );
+    }
     // The source check accepted the path, so it names one of STEP1_FILES.
     const file = STEP1_FILES.find(candidate => candidate.path === run.path);
     if (
@@ -598,6 +610,7 @@ function planStep1(
             runAttempt,
             buildId: gatedBuildId,
             artifactName: `v3-candidate-${gatedBuildId}`,
+            ...(tagRun ? { releaseTag: run.head_branch as string } : {}),
         };
     }
     // The shadow package job names both the build and its artifact this way.
@@ -626,6 +639,7 @@ function planStep1(
         runAttempt,
         buildId,
         artifactName: `v3-candidate-${buildId}`,
+        ...(tagRun ? { releaseTag: run.head_branch as string } : {}),
     };
 }
 
@@ -882,12 +896,23 @@ function main(args: string[], git: GitRunner = defaultGit): string[] {
             '--v3-workflow-id',
             '--trigger',
             '--release-gate',
+            '--release-please-mode',
+            '--release-tag',
             '--jobs',
             '--artifacts',
         ]);
         const releaseGate = flags.has('--release-gate')
             ? validateBoolean(single(flags, '--release-gate'), '--release-gate')
             : false;
+        const releasePleaseMode = flags.has('--release-please-mode')
+            ? validateBoolean(
+                  single(flags, '--release-please-mode'),
+                  '--release-please-mode'
+              )
+            : false;
+        const releaseTag = flags.has('--release-tag')
+            ? single(flags, '--release-tag')
+            : undefined;
         const plan = planStep1(
             readRun(single(flags, '--run')),
             single(flags, '--repository'),
@@ -908,7 +933,9 @@ function main(args: string[], git: GitRunner = defaultGit): string[] {
                       'artifacts'
                   ) as WorkflowArtifact[])
                 : undefined,
-            releaseGate
+            releaseGate,
+            releasePleaseMode,
+            releaseTag
         );
         if (plan.skip) {
             // The reason is built from fixed text, so it is one safe line.
@@ -920,6 +947,7 @@ function main(args: string[], git: GitRunner = defaultGit): string[] {
             `run_attempt=${plan.runAttempt}`,
             `build_id=${plan.buildId}`,
             `artifact_name=${plan.artifactName}`,
+            ...(plan.releaseTag ? [`release_tag=${plan.releaseTag}`] : []),
         ];
     }
     if (command === 'release-step') {
