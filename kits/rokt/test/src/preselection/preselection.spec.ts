@@ -8087,11 +8087,26 @@ describe('preselection', () => {
         nameInput.focus();
         shopperTouch(nameInput, 'input');
         shopperTouch(nameInput, 'blur');
+        nameInput.blur();
 
         maybeFirePreselect(state, host, buildEvent(), PATHNAME);
 
         expect(selectPlacementsCalls).toHaveLength(1);
         expect(selectPlacementsCalls[0].attributes).toEqual(tagged({ email: 'guest@example.com' }));
+      });
+
+      it("keeps a re-edited field unsettled after a window blur that leaves it focused, so another field's email isn't read", () => {
+        addInput('recipient@example.com', 'email');
+        const shopperField = addInput('guest@example.com', 'text');
+        shopperField.focus();
+        shopperField.value = 'jane';
+        shopperTouch(shopperField, 'input');
+        shopperTouch(shopperField, 'blur');
+        expect(document.activeElement).toBe(shopperField);
+
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+        expect(selectPlacementsCalls).toHaveLength(0);
       });
 
       it('reads no value when it records a trusted blur on a re-edited committed field', () => {

@@ -1357,11 +1357,17 @@ function mayHoldEmail(input: HTMLInputElement): boolean {
   return input.type === 'email' || input.getAttribute('autocomplete') === 'email' || input.value.includes('@');
 }
 
-// A committed field the shopper re-edited stays unsettled until a change commits it, unless they blurred it and it
-// can't hold an email: a re-edit that ends where it started fires no change, and a name field left that way would
-// otherwise hide the shopper's email for the rest of the page.
+// A committed field the shopper re-edited stays unsettled until a change commits it, unless they blurred it, it no
+// longer has focus and it can't hold an email: a re-edit that ends where it started fires no change, and a name field
+// left that way would otherwise hide the shopper's email for the rest of the page. A window or tab blur leaves the
+// field focused and mid-edit, so it stays unsettled.
 function isUnsettledEmailInput(input: HTMLInputElement): boolean {
-  return mayHoldEmail(input) || (committedInputs.has(input) && !shopperInputs.has(input) && !blurredInputs.has(input));
+  return (
+    mayHoldEmail(input) ||
+    (committedInputs.has(input) &&
+      !shopperInputs.has(input) &&
+      !(blurredInputs.has(input) && input !== document.activeElement))
+  );
 }
 
 // One pass over the candidates. Collects the shopper-filled emails keyed in lower case; with testUnfilled, also says
