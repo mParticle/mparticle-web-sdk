@@ -19,13 +19,29 @@ case "$KIT_BUILD_CONCURRENCY" in
         ;;
 esac
 
+V3_RELEASE_STOP_TIMEOUT_S=${V3_RELEASE_STOP_TIMEOUT_S:-10}
+case "$V3_RELEASE_STOP_TIMEOUT_S" in
+    [1-9] | [1-9][0-9] | [1-9][0-9][0-9]) ;;
+    *)
+        echo "Error: V3_RELEASE_STOP_TIMEOUT_S must be a whole number from 1 to 999, not '$V3_RELEASE_STOP_TIMEOUT_S'" >&2
+        exit 1
+        ;;
+esac
+
 BUILD_PATHS_FILE=
 KIT_LOG_DIR=
 RUNNING_PIDS=
+HAS_SETSID=false
+if command -v setsid >/dev/null 2>&1; then
+    HAS_SETSID=true
+fi
 
 cleanup() {
     for PID in $RUNNING_PIDS; do
-        kill "$PID" 2>/dev/null || :
+        kill -TERM "$PID" 2>/dev/null || :
+    done
+    for PID in $RUNNING_PIDS; do
+        wait "$PID" 2>/dev/null || :
     done
     if [ -n "$BUILD_PATHS_FILE" ]; then
         rm -f "$BUILD_PATHS_FILE"
@@ -36,17 +52,86 @@ cleanup() {
 }
 
 # A shell runs a trap only once its foreground command ends, so npm runs in
-# the background and the kit's trap can stop it at once.
+# the background and the kit's trap can stop it at once. In a backgrounded
+# subshell getpid() != getpgrp(), so setsid execs in place and $! is both the
+# npm PID and its process group; when setsid is missing (such as on local
+# macOS), fall back to the direct npm PID.
 run_kit_step() {
-    "$@" 3>&- &
+    STEP_PID=
+    STEP_ACTIVE=true
+    if [ "$HAS_SETSID" = true ]; then
+        setsid "$@" 3>&- &
+    else
+        "$@" 3>&- &
+    fi
     STEP_PID=$!
     wait "$STEP_PID"
+    LAST_STEP_PID=$STEP_PID
+    STEP_ACTIVE=false
     STEP_PID=
+}
+
+stop_kit_step() {
+    if [ -z "$STEP_PID" ] && [ "${STEP_ACTIVE:-false}" = true ] && [ "${!:-}" != "${LAST_STEP_PID:-}" ]; then
+        STEP_PID=${!:-}
+    fi
+    if [ -n "$STEP_PID" ]; then
+        STOP_TIMEOUT_TICKS=$((${V3_RELEASE_STOP_TIMEOUT_S:-10} * 20))
+        WAIT_TICKS=0
+        if [ "$HAS_SETSID" = true ]; then
+            kill -TERM "-$STEP_PID" 2>/dev/null || kill -TERM "$STEP_PID" 2>/dev/null || :
+            # sleep 0.05 is non-POSIX but supported on Linux and macOS runners;
+            # sleep 1 is the strict POSIX backup. Poll before wait so a group
+            # leader that ignores TERM still escalates to SIGKILL after
+            # ~V3_RELEASE_STOP_TIMEOUT_S (default 10s).
+            while kill -0 "-$STEP_PID" 2>/dev/null || kill -0 "$STEP_PID" 2>/dev/null; do
+                if [ "$WAIT_TICKS" -ge "$STOP_TIMEOUT_TICKS" ]; then
+                    kill -KILL "-$STEP_PID" 2>/dev/null || :
+                    kill -KILL "$STEP_PID" 2>/dev/null || :
+                    break
+                fi
+                if sleep 0.05 2>/dev/null; then
+                    WAIT_TICKS=$(($WAIT_TICKS + 1))
+                else
+                    sleep 1
+                    WAIT_TICKS=$(($WAIT_TICKS + 20))
+                fi
+            done
+            wait "$STEP_PID" 2>/dev/null || :
+            REAP_TICKS=0
+            while kill -0 "-$STEP_PID" 2>/dev/null && [ "$REAP_TICKS" -lt 20 ]; do
+                if sleep 0.05 2>/dev/null; then
+                    REAP_TICKS=$(($REAP_TICKS + 1))
+                else
+                    sleep 1
+                    break
+                fi
+            done
+        else
+            kill -TERM "$STEP_PID" 2>/dev/null || :
+            while kill -0 "$STEP_PID" 2>/dev/null; do
+                if [ "$WAIT_TICKS" -ge "$STOP_TIMEOUT_TICKS" ]; then
+                    kill -KILL "$STEP_PID" 2>/dev/null || :
+                    break
+                fi
+                if sleep 0.05 2>/dev/null; then
+                    WAIT_TICKS=$(($WAIT_TICKS + 1))
+                else
+                    sleep 1
+                    WAIT_TICKS=$(($WAIT_TICKS + 20))
+                fi
+            done
+            wait "$STEP_PID" 2>/dev/null || :
+        fi
+    fi
+    exit 143
 }
 
 build_kit() {
     STEP_PID=
-    trap 'if [ -n "$STEP_PID" ]; then kill "$STEP_PID" 2>/dev/null || :; fi; exit 143' 15
+    LAST_STEP_PID=
+    STEP_ACTIVE=false
+    trap stop_kit_step 15
     KIT_START=$(date +%s)
     echo "$1: npm ci" >&3
     echo "Installing dependencies for $1"
