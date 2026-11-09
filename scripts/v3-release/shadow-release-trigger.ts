@@ -192,13 +192,15 @@ const STEP1_BRANCH = 'v3-staging';
 // staging-step-1.yml it was split from.
 const STEP1_RELEASE_JOB = 'Perform Release';
 const STEP1_PACKAGE_JOB = 'Package V3 candidate (shadow)';
-const STEP1_KIT_JOBS: readonly string[] = [
-    'Publish V3 kits',
+const STEP1_KIT_JOBS: readonly string[] = ['Publish V3 kits'];
+// Step 1 runs the workflow file on v3-staging, which can predate this one.
+// Before kit publishing and its audit were split, both were one job; later
+// files ran the npm audit as a job of its own until the release gate's npm
+// parity check replaced it.
+const STEP1_LEGACY_KIT_JOBS: readonly string[] = [
+    'Publish and audit V3 kits',
     'Audit V3 kits on npm',
 ];
-// Step 1 runs the workflow file on v3-staging, which can predate this one.
-// Before kit publishing and its audit were split, both were this one job.
-const STEP1_LEGACY_KIT_JOBS: readonly string[] = ['Publish and audit V3 kits'];
 const RELEASE_STEP_BRANCHES: readonly string[] = ['main'];
 // The step of both Step 3 files (staging-step-3.yml and v3-release-step-3.yml)
 // that pushes the release branches. Each runs it only when dryRun is 'false'.

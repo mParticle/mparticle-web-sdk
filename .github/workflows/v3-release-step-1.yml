@@ -1258,53 +1258,6 @@ jobs:
                   name: npm-logs-publish-kits
                   path: ~/.npm/_logs
 
-    # npm can take several minutes to show a version it has accepted, so a
-    # package npm has not confirmed yet is a warning here; a mismatched
-    # artifact or dist-tag still fails. Upload and stage V3 candidate waits for
-    # this job, and the candidate workflow's release-gate npm parity check reads
-    # npm again for up to 10 minutes while a package is still pending.
-    audit-kits:
-        name: Audit V3 kits on npm
-        if: >-
-            ${{
-                always() &&
-                !cancelled() &&
-                github.repository == 'mParticle/mparticle-web-sdk' &&
-                needs.publish-kits.result == 'success'
-            }}
-        needs:
-            - confirm-staging-branch
-            - publish-kits
-        runs-on: ubuntu-latest
-        timeout-minutes: 20
-        permissions:
-            contents: read
-        env:
-            NPM_DIST_TAG: ${{ needs.confirm-staging-branch.outputs.npm_dist_tag }}
-            RELEASE_VERSION: ${{ needs.publish-kits.outputs.release_version }}
-        steps:
-            - name: Checkout the published release source
-              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-              with:
-                  ref: ${{ needs.publish-kits.outputs.release_sha }}
-                  persist-credentials: false
-
-            - name: Setup Node.js
-              uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-              with:
-                  node-version: 24.19.0
-                  package-manager-cache: false
-
-            # Recovering a tag cut before the separate audit existed checks out
-            # a script that ignores --audit and runs its publish path. That
-            # script's publish job audits every package before it succeeds, so
-            # here it finds each one already published and re-verifies it. It
-            # tries `npm publish` only if npm stops showing a package, and this
-            # job has no npm credentials, so that attempt fails; its summary
-            # then reads like a failed publish rather than an audit.
-            - name: Audit all packages on npm
-              run: node scripts/publish-kits.js --audit
-
     # Tag mode only: Steps 2 and 3 release the commit v3-staging holds, and
     # Upload and stage V3 candidate requires v3-staging to point at the release
     # tag before staging its S3 pointer, so v3-staging moves to the tag commit
@@ -1449,9 +1402,10 @@ jobs:
                   if-no-files-found: error
                   retention-days: 7
 
-    # Once the kits are published and audited (and v3-staging has moved to the
-    # release tag in tag mode), dispatches v3-shadow-candidate.yml
-    # on main in release-gate mode, which requires npm parity to pass, and waits
+    # Once the kits are published (and v3-staging has moved to the release tag
+    # in tag mode), dispatches v3-shadow-candidate.yml on main in release-gate
+    # mode, which requires npm parity to pass (the gate reads npm for up to 10
+    # minutes while a package is still pending), and waits
     # up to 120 minutes (the child jobs' 110-minute ceiling: resolve 5, verify
     # 25, upload 30, stage 45 and the gate 5, plus 10 minutes of queue time)
     # for the dispatched workflow_run_id to complete with success.
@@ -1470,7 +1424,6 @@ jobs:
             - release
             - package-v3-candidate
             - publish-kits
-            - audit-kits
             - advance-staging
         if: >-
             ${{
@@ -1480,7 +1433,6 @@ jobs:
                 needs.release.result == 'success' &&
                 needs.package-v3-candidate.result == 'success' &&
                 needs.publish-kits.result == 'success' &&
-                needs.audit-kits.result == 'success' &&
                 (
                     needs.confirm-staging-branch.outputs.release_mode != 'tag' ||
                     needs.advance-staging.result == 'success'
