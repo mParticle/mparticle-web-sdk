@@ -1,5 +1,6 @@
 import { PRESELECT_SKIP_DEFAULT, type PreselectionConfigEntry } from './preselectionConfig';
 import { isObject, isString, parseKitSettingJson } from '../utils';
+import { isPaymentFamily } from '../paymentFamily';
 
 const SUPPORTED_SCHEMA_VERSION = 1;
 
@@ -46,7 +47,7 @@ function isAttributeDefault(value: unknown): boolean {
     return false;
   }
 
-  const { byClientType, byHostname, skipRemembered, skipValues, matchGroups } = value;
+  const { byClientType, byHostname, byPaymentPick, skipRemembered, skipValues, matchGroups } = value;
   if (value.value !== undefined && !isNonEmptyString(value.value)) {
     return false;
   }
@@ -69,6 +70,17 @@ function isAttributeDefault(value: unknown): boolean {
   ) {
     return false;
   }
+  // Keyed by the kit's payment family names only, since a pick is only ever stored as one of them.
+  if (
+    byPaymentPick !== undefined &&
+    (!isObject(byPaymentPick) ||
+      Object.keys(byPaymentPick).length === 0 ||
+      !Object.entries(byPaymentPick).every(
+        ([family, familyValue]) => isPaymentFamily(family) && isNonEmptyString(familyValue),
+      ))
+  ) {
+    return false;
+  }
   if (skipRemembered !== undefined && typeof skipRemembered !== 'boolean') {
     return false;
   }
@@ -87,6 +99,7 @@ function isAttributeDefault(value: unknown): boolean {
       value.value,
       ...Object.values(byClientType ?? {}).filter((fill) => fill !== PRESELECT_SKIP_DEFAULT),
       ...Object.values(byHostname ?? {}),
+      ...Object.values(byPaymentPick ?? {}),
     ];
     if (filled.some((fill) => isString(fill) && skipped.includes(fill.toLowerCase()))) {
       return false;
@@ -95,7 +108,9 @@ function isAttributeDefault(value: unknown): boolean {
   if (matchGroups !== undefined && !isMatchGroups(matchGroups, skipValues)) {
     return false;
   }
-  return value.value !== undefined || byClientType !== undefined || byHostname !== undefined;
+  return (
+    value.value !== undefined || byClientType !== undefined || byHostname !== undefined || byPaymentPick !== undefined
+  );
 }
 
 // Reasons name the field only, never its value, since they ship over the logging pipeline.

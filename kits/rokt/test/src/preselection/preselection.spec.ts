@@ -50,6 +50,7 @@ import {
   recordPreselectIntent,
   recordPreselectNearMiss,
   recordPreselectPaymentPick,
+  readPreselectPaymentPick,
   recordPreselectTrigger,
   recordPreselectCartAdd,
   wasPreselectCartAdded,
@@ -98,6 +99,7 @@ vi.mock('../../../src/preselection/preselectArrivalStorage', () => ({
   recordPreselectIntent: vi.fn(),
   recordPreselectNearMiss: vi.fn(),
   recordPreselectPaymentPick: vi.fn(),
+  readPreselectPaymentPick: vi.fn(),
   recordPreselectTrigger: vi.fn(),
   recordPreselectCartAdd: vi.fn(),
   wasPreselectCartAdded: vi.fn(),
@@ -3638,6 +3640,65 @@ describe('preselection', () => {
 
             expect(selectPlacementsCalls[0].attributes).toEqual(tagged({ [ATTRIBUTE_KEY]: 'gold' }));
             expect(firedLine()?.message).toContain('[defaulted_keys=placementType]');
+          });
+
+          describe('byPaymentPick', () => {
+            const PAYMENT_DEFAULT = {
+              value: 'visa',
+              byClientType: { MobileWeb: 'applepay' },
+              byPaymentPick: { paypal: 'PayPal', apple_pay: 'applepay' },
+            };
+
+            it("fills the value for the family the shopper picked, over the device's value", () => {
+              vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue(IPHONE);
+              vi.mocked(readPreselectPaymentPick).mockReturnValue('paypal');
+              useEntry({ preselectAttributeDefaults: { [DEFAULTED_KEY]: PAYMENT_DEFAULT } });
+
+              expect(getPreselectAttributeDefaults(host, mockConfig.current[0], {})).toEqual({
+                [DEFAULTED_KEY]: 'PayPal',
+              });
+              expect(readPreselectPaymentPick).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER);
+            });
+
+            it.each([
+              ['there is no pick', undefined],
+              ['the picked family has no value', 'klarna'],
+            ] as const)('falls back to the device value when %s', (_, pick) => {
+              vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue(IPHONE);
+              vi.mocked(readPreselectPaymentPick).mockReturnValue(pick);
+              useEntry({ preselectAttributeDefaults: { [DEFAULTED_KEY]: PAYMENT_DEFAULT } });
+
+              expect(getPreselectAttributeDefaults(host, mockConfig.current[0], {})).toEqual({
+                [DEFAULTED_KEY]: 'applepay',
+              });
+            });
+
+            it("still leaves the key empty on a device the default skips, whatever the shopper picked", () => {
+              vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue(IPHONE);
+              vi.mocked(readPreselectPaymentPick).mockReturnValue('paypal');
+              useEntry({
+                preselectAttributeDefaults: {
+                  [DEFAULTED_KEY]: { ...PAYMENT_DEFAULT, byClientType: { MobileWeb: 'skip' } },
+                },
+              });
+
+              expect(getPreselectAttributeDefaults(host, mockConfig.current[0], {})).toEqual({});
+            });
+
+            it("never overrides the shopper's own value with a pick", () => {
+              vi.mocked(readPreselectPaymentPick).mockReturnValue('paypal');
+              useEntry({ preselectAttributeDefaults: { [DEFAULTED_KEY]: PAYMENT_DEFAULT } });
+
+              expect(getPreselectAttributeDefaults(host, mockConfig.current[0], { [DEFAULTED_KEY]: 'visa' })).toEqual({});
+            });
+
+            it('never reads the pick for an entry whose defaults name none', () => {
+              useEntry();
+
+              getPreselectAttributeDefaults(host, mockConfig.current[0], {});
+
+              expect(readPreselectPaymentPick).not.toHaveBeenCalled();
+            });
           });
 
           it('fills nothing over a value the attributes hold in another casing', () => {

@@ -1,3 +1,5 @@
+import type { PaymentFamily } from '../paymentFamily';
+
 export type PreselectClientType = 'DesktopWeb' | 'MobileWeb';
 
 export const PRESELECT_SKIP_DEFAULT = 'skip';
@@ -8,6 +10,9 @@ export interface PreselectAttributeDefault {
   byClientType?: Partial<Record<PreselectClientType, string>>;
   // Keyed by the exact, lowercase host of the page the call fires from.
   byHostname?: Record<string, string>;
+  // Keyed by the payment family the shopper last picked on the page in this tab (a payment radio, frame or wallet
+  // button), within the arrival window. Beats byHostname, byClientType and value; a device's skip still wins.
+  byPaymentPick?: Partial<Record<PaymentFamily, string>>;
   // Fill even over a value saved from an earlier call, which the kit cannot tell from this page's own.
   skipRemembered?: boolean;
   // No speculative call while the shopper's own value for the key is one of these, in any casing. A fill never counts.
