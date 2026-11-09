@@ -1585,3 +1585,78 @@ describe('V3 Step 1 release branch name', () => {
         expect(read(STEP1_PATH)).not.toMatch(/v3-release\/[^"|\s]*\$\{\{\s*github\.run_(number|attempt)\s*\}\}/);
     });
 });
+
+describe('V3 Step 1 test jobs', () => {
+    const STEP1_PATH = `${WORKFLOW_DIRECTORY}/v3-release-step-1.yml`;
+    const KIT_RECOVERY_SKIP = "${{ inputs.resumeKitReleaseTag == '' }}";
+    // The build and test jobs. Create release branch waits for each of them
+    // and for confirm-staging-branch.
+    const TEST_JOBS = [
+        'build-bundle',
+        'test-jest',
+        'test-core',
+        'test-stub',
+        'test-integrations-require-js',
+        'test-integrations-common-js-browserfy',
+        'test-integrations-common-js-webpack',
+        'test-integrations-common-js-rollup',
+        'test-integrations-module-js-webpack',
+        'test-integrations-module-js-rollup',
+        'load-kit-matrix',
+        'run-kit-tests',
+    ];
+
+    function needsOf(job: any): string[] {
+        if (job.needs === undefined) {
+            return [];
+        }
+        return Array.isArray(job.needs) ? job.needs : [job.needs];
+    }
+
+    // Each test job checks out the frozen candidate and builds what it tests
+    // itself, so none waits for another test job: they all start once the
+    // candidate is resolved, and the kit tests also wait for their matrix.
+    it('starts every test job at once and still creates the release branch only after all of them', () => {
+        const jobs = load(STEP1_PATH).jobs;
+        for (const name of TEST_JOBS) {
+            const expected =
+                name === 'run-kit-tests' ? ['confirm-staging-branch', 'load-kit-matrix'] : ['confirm-staging-branch'];
+            expect({ job: name, needs: needsOf(jobs[name]) }).toEqual({ job: name, needs: expected });
+        }
+
+        const createBranch = jobs['create-release-branch'];
+        expect([...needsOf(createBranch)].sort()).toEqual([...TEST_JOBS, 'confirm-staging-branch'].sort());
+        const condition = createBranch.if.replace(/\s+/g, ' ');
+        expect(condition).toContain('always() && !cancelled() &&');
+        for (const name of [...TEST_JOBS, 'confirm-staging-branch']) {
+            expect(condition).toContain(`needs.${name}.result == 'success'`);
+        }
+    });
+
+    // A kit recovery run publishes the kits of an existing tag and tests
+    // nothing: each test job is skipped by its own if, or, with no if of its
+    // own, because a job it needs is skipped.
+    it('runs no test job in a kit recovery run', () => {
+        const jobs = load(STEP1_PATH).jobs;
+        for (const name of TEST_JOBS) {
+            const job = jobs[name];
+            const skipped =
+                job.if === KIT_RECOVERY_SKIP ||
+                (job.if === undefined && needsOf(job).some(need => jobs[need].if === KIT_RECOVERY_SKIP));
+            expect({ job: name, skipped }).toEqual({ job: name, skipped: true });
+        }
+    });
+
+    // GitHub rejects a workflow whose job reads needs.X for an X the job does
+    // not need, so a need dropped from a job must leave no reference behind.
+    it('reads the result or outputs only of a job each job needs', () => {
+        const jobs = load(STEP1_PATH).jobs;
+        for (const [name, job] of Object.entries(jobs) as Array<[string, any]>) {
+            const referenced = (JSON.stringify(job).match(/needs\.[\w-]+\./g) || []).map((reference: string) =>
+                reference.slice('needs.'.length, -1)
+            );
+            const unlisted = Array.from(new Set(referenced)).filter(need => needsOf(job).indexOf(need) === -1);
+            expect({ job: name, unlisted }).toEqual({ job: name, unlisted: [] });
+        }
+    });
+});
