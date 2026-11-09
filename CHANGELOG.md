@@ -1,5 +1,18 @@
 # Changelog
 
+## [3.32.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.31.0...v3.32.0) (2026-11-09)
+
+
+### Features
+
+* **rokt:** let a pre-selection default fill from the payment method the shopper picked ([#1780](https://github.com/mParticle/mparticle-web-sdk/issues/1780)) ([#1782](https://github.com/mParticle/mparticle-web-sdk/issues/1782)) ([41f4796](https://github.com/mParticle/mparticle-web-sdk/commit/41f4796153256e6a97fc5627a583e463d21b2735))
+
+
+### Miscellaneous
+
+* set Release Please manifest to 3.31.0 ([#1781](https://github.com/mParticle/mparticle-web-sdk/issues/1781)) ([fab4837](https://github.com/mParticle/mparticle-web-sdk/commit/fab4837af073443a3a31398df132e1028890fbad))
+* **web SDK:** start every V3 Step 1 test job at once ([#1784](https://github.com/mParticle/mparticle-web-sdk/issues/1784)) ([f43a2f2](https://github.com/mParticle/mparticle-web-sdk/commit/f43a2f23de0e53d987277b719cc96b83d48f1f9c))
+
 ## [3.31.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.30.0...v3.31.0) (2026-11-09)
 
 
