@@ -722,5 +722,43 @@ describe('Optimizely Forwarder', function () {
 
             done();
         });
+
+        it('should load the Full Stack SDK with Subresource Integrity', function(done) {
+            var appended = [];
+            // Keep the script element out of the page so the test fetches nothing.
+            document.head.appendChild = function(node) {
+                appended.push(node);
+                return node;
+            };
+            delete window.optimizelyClientInstance;
+
+            try {
+                mParticle.forwarder.init(
+                    {
+                        projectId: 'LYLgZJqZzFKd5SaNLcQRc',
+                        useFullStack: 'True',
+                        userIdField: 'other3',
+                    },
+                    reportService.cb,
+                    false,
+                    null,
+                    {},
+                    []
+                );
+            } finally {
+                delete document.head.appendChild;
+            }
+
+            appended.length.should.equal(1);
+            appended[0].src.should.equal(
+                'https://unpkg.com/@optimizely/optimizely-sdk@3.5.0/dist/optimizely.browser.umd.min.js'
+            );
+            appended[0].integrity.should.equal(
+                'sha256-7xlyPsgKmldoP2Wgc+c48o92PeZn4vvrbO4JVh/ikAQ='
+            );
+            appended[0].crossOrigin.should.equal('anonymous');
+
+            done();
+        });
     });
 });
