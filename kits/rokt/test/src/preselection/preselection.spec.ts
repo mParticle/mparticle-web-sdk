@@ -8154,6 +8154,8 @@ describe('preselection', () => {
         second.focus();
         shopperTouch(second, 'input');
         shopperTouch(second, 'blur');
+        second.blur();
+        expect(document.activeElement).not.toBe(second);
 
         maybeFirePreselect(state, host, buildEvent(), PATHNAME);
 
