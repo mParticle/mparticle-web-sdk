@@ -8094,6 +8094,29 @@ describe('preselection', () => {
         expect(selectPlacementsCalls[0].attributes).toEqual(tagged({ email: 'guest@example.com' }));
       });
 
+      it('reads no value when it records a trusted blur on a re-edited committed field', () => {
+        const nameInput = addInput('Jane Shopper', 'text');
+        shopperTouch(nameInput, 'input');
+        const readValue = vi.fn(() => 'Jane Shopper');
+        Object.defineProperty(nameInput, 'value', { get: readValue, configurable: true });
+
+        shopperTouch(nameInput, 'blur');
+
+        expect(readValue).not.toHaveBeenCalled();
+      });
+
+      it('treats a blurred name field as ambiguous again once the shopper types into it', () => {
+        addInput('guest@example.com', 'email');
+        const nameInput = addInput('Jane Shopper', 'text');
+        shopperTouch(nameInput, 'input');
+        shopperTouch(nameInput, 'blur');
+        shopperTouch(nameInput, 'input');
+
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+      });
+
       it('still treats a re-edited name field as ambiguous while it holds focus', () => {
         addInput('guest@example.com', 'email');
         const nameInput = addInput('Jane Shopper', 'text');

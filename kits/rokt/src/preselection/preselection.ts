@@ -1251,6 +1251,10 @@ const committedInputs = new WeakSet<HTMLInputElement>();
 // Candidates whose latest input or change event was trusted, including fields currently mid-edit.
 const touchedInputs = new WeakSet<HTMLInputElement>();
 
+// Committed candidates the shopper left with a trusted blur after an input that no change followed, as when a
+// re-edit ends where it started. The scan settles one that can't hold an email.
+const blurredInputs = new WeakSet<HTMLInputElement>();
+
 // Inputs whose latest input or change event was untrusted, dispatched by script. Read only by the email miss reason.
 const scriptInputs = new WeakSet<HTMLInputElement>();
 
@@ -1270,8 +1274,8 @@ function isEmailCandidate(target: EventTarget | null): target is HTMLInputElemen
 }
 
 // Records an input on a trusted change event while it is a candidate, and drops it on any other, whatever its
-// type then. A trusted blur drops a field no change committed, and settles a committed one that can't hold an
-// email. Reads a value only to test it for @.
+// type then. A trusted blur drops a field no change committed, and marks a committed one left mid-edit. Reads no
+// value.
 export function recordShopperInput(event: Event): void {
   const target = event.target;
   if (!(target instanceof HTMLInputElement)) return;
@@ -1282,10 +1286,8 @@ export function recordShopperInput(event: Event): void {
     if (!isEmailCandidate(target) || !committedInputs.has(target)) {
       shopperInputs.delete(target);
       touchedInputs.delete(target);
-    } else if (!shopperInputs.has(target) && !mayHoldEmail(target)) {
-      // A re-edit that ends where it started fires no change, so a name field left that way would otherwise
-      // stay unsettled and hide the shopper's email for the rest of the page.
-      touchedInputs.delete(target);
+    } else if (!shopperInputs.has(target)) {
+      blurredInputs.add(target);
     }
     return;
   }
@@ -1296,6 +1298,7 @@ export function recordShopperInput(event: Event): void {
     shopperInputs.delete(target);
     committedInputs.delete(target);
     touchedInputs.delete(target);
+    blurredInputs.delete(target);
     return;
   }
   if (firstHearing) scriptInputs.delete(target);
@@ -1303,10 +1306,12 @@ export function recordShopperInput(event: Event): void {
     shopperInputs.delete(target);
     committedInputs.delete(target);
     touchedInputs.delete(target);
+    blurredInputs.delete(target);
     return;
   }
   if (!firstHearing) return;
   touchedInputs.add(target);
+  blurredInputs.delete(target);
   // The field hears its own events even while detached from the page, where the document listener can't.
   target.addEventListener('input', recordShopperInput, true);
   target.addEventListener('change', recordShopperInput, true);
@@ -1352,8 +1357,11 @@ function mayHoldEmail(input: HTMLInputElement): boolean {
   return input.type === 'email' || input.getAttribute('autocomplete') === 'email' || input.value.includes('@');
 }
 
+// A committed field the shopper re-edited stays unsettled until a change commits it, unless they blurred it and it
+// can't hold an email: a re-edit that ends where it started fires no change, and a name field left that way would
+// otherwise hide the shopper's email for the rest of the page.
 function isUnsettledEmailInput(input: HTMLInputElement): boolean {
-  return mayHoldEmail(input) || (committedInputs.has(input) && !shopperInputs.has(input));
+  return mayHoldEmail(input) || (committedInputs.has(input) && !shopperInputs.has(input) && !blurredInputs.has(input));
 }
 
 // One pass over the candidates. Collects the shopper-filled emails keyed in lower case; with testUnfilled, also says
