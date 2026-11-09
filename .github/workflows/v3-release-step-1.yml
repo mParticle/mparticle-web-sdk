@@ -434,17 +434,21 @@ jobs:
                   name: npm-logs-test-jest-${{ matrix.node-version }}
                   path: ~/.npm/_logs
 
-    # Only Core test requires bundle, but we want to make sure
-    # that tests only run when the bundle is successfully built
+    # Each test job checks out the frozen candidate and builds what it tests on
+    # its own runner, so it needs only confirm-staging-branch and starts with
+    # Build Distribution Bundle and Test Jest. Create release branch still
+    # waits for every test job. A kit recovery run tests nothing, so each test
+    # job carries the same if as Build Distribution Bundle.
+    # ESLint and Prettier in Build Distribution Bundle no longer stop the test
+    # jobs from starting; a lint failure still blocks Create release branch.
+    # Do not add build-bundle back to needs as an optimisation.
     test-core:
         name: Core Tests
+        if: ${{ inputs.resumeKitReleaseTag == '' }}
         permissions:
             contents: read
         uses: mParticle/mparticle-workflows/.github/workflows/web-run-test.yml@a78c8b34f5811be7c046a27cae900a844094f1cf # main
-        needs:
-            - confirm-staging-branch
-            - test-jest
-            - build-bundle
+        needs: confirm-staging-branch
         with:
             test_command_label: Core SDK Tests
             test_command: npm run test
@@ -454,12 +458,9 @@ jobs:
     # Test Sub can be run independent of other tests
     test-stub:
         name: 'Test Stub'
+        if: ${{ inputs.resumeKitReleaseTag == '' }}
         runs-on: ubuntu-latest
-        needs:
-            - confirm-staging-branch
-            - test-core
-            - test-jest
-            - build-bundle
+        needs: confirm-staging-branch
         permissions:
             contents: read
         steps:
@@ -497,14 +498,11 @@ jobs:
 
     test-integrations-require-js:
         name: 'Integration Tests: Require JS'
+        if: ${{ inputs.resumeKitReleaseTag == '' }}
         permissions:
             contents: read
         uses: mParticle/mparticle-workflows/.github/workflows/web-run-test.yml@a78c8b34f5811be7c046a27cae900a844094f1cf # main
-        needs:
-            - confirm-staging-branch
-            - test-core
-            - test-jest
-            - build-bundle
+        needs: confirm-staging-branch
         with:
             test_command_label: Require JS Test
             test_command: npm run test:requirejs
@@ -512,14 +510,11 @@ jobs:
 
     test-integrations-common-js-browserfy:
         name: 'Integration Tests: Browserfy Common JS'
+        if: ${{ inputs.resumeKitReleaseTag == '' }}
         permissions:
             contents: read
         uses: mParticle/mparticle-workflows/.github/workflows/web-run-test.yml@a78c8b34f5811be7c046a27cae900a844094f1cf # main
-        needs:
-            - confirm-staging-branch
-            - test-core
-            - test-jest
-            - build-bundle
+        needs: confirm-staging-branch
         with:
             test_command_label: Browserfy CJS Test
             test_command: npm run test:integrations:cjs:browserfy
@@ -528,14 +523,11 @@ jobs:
 
     test-integrations-common-js-webpack:
         name: 'Integration Tests: webpack Common JS'
+        if: ${{ inputs.resumeKitReleaseTag == '' }}
         permissions:
             contents: read
         uses: mParticle/mparticle-workflows/.github/workflows/web-run-test.yml@a78c8b34f5811be7c046a27cae900a844094f1cf # main
-        needs:
-            - confirm-staging-branch
-            - test-core
-            - test-jest
-            - build-bundle
+        needs: confirm-staging-branch
         with:
             test_command_label: webpack CJS Test
             test_command: npm run test:integrations:cjs:webpack
@@ -544,14 +536,11 @@ jobs:
 
     test-integrations-common-js-rollup:
         name: 'Integration Tests: Rollup Common JS'
+        if: ${{ inputs.resumeKitReleaseTag == '' }}
         permissions:
             contents: read
         uses: mParticle/mparticle-workflows/.github/workflows/web-run-test.yml@a78c8b34f5811be7c046a27cae900a844094f1cf # main
-        needs:
-            - confirm-staging-branch
-            - test-core
-            - test-jest
-            - build-bundle
+        needs: confirm-staging-branch
         with:
             test_command_label: Rollup CJS Test
             test_command: npm run test:integrations:cjs:rollup
@@ -560,14 +549,11 @@ jobs:
 
     test-integrations-module-js-webpack:
         name: 'Integration Tests: webpack Module JS'
+        if: ${{ inputs.resumeKitReleaseTag == '' }}
         permissions:
             contents: read
         uses: mParticle/mparticle-workflows/.github/workflows/web-run-test.yml@a78c8b34f5811be7c046a27cae900a844094f1cf # main
-        needs:
-            - confirm-staging-branch
-            - test-core
-            - test-jest
-            - build-bundle
+        needs: confirm-staging-branch
         with:
             test_command_label: webpack Module Test
             test_command: npm run test:integrations:module:webpack
@@ -576,14 +562,11 @@ jobs:
 
     test-integrations-module-js-rollup:
         name: 'Integration Tests: Rollup Module JS'
+        if: ${{ inputs.resumeKitReleaseTag == '' }}
         permissions:
             contents: read
         uses: mParticle/mparticle-workflows/.github/workflows/web-run-test.yml@a78c8b34f5811be7c046a27cae900a844094f1cf # main
-        needs:
-            - confirm-staging-branch
-            - test-core
-            - test-jest
-            - build-bundle
+        needs: confirm-staging-branch
         with:
             test_command_label: Rollup Module Test
             test_command: npm run test:integrations:module:rollup
@@ -628,13 +611,13 @@ jobs:
                   fi
                   echo "matrix=$(jq -c . "$MATRIX_FILE")" >> "$GITHUB_OUTPUT"
 
+    # The kit list comes from Load V3 kit test matrix, so the kit tests also
+    # wait for that job. A kit recovery run skips it, and the kit tests with it.
     run-kit-tests:
         name: 'Kit Tests: ${{ matrix.kit.name }}'
         needs:
             - confirm-staging-branch
             - load-kit-matrix
-            - build-bundle
-            - test-jest
         runs-on: ubuntu-latest
         strategy:
             fail-fast: false
