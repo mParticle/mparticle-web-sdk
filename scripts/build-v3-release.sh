@@ -72,20 +72,24 @@ run_kit_step() {
 }
 
 stop_kit_step() {
+    trap '' 1 15
     if [ -z "$STEP_PID" ] && [ "${STEP_ACTIVE:-false}" = true ] && [ "${!:-}" != "${LAST_STEP_PID:-}" ]; then
         STEP_PID=${!:-}
     fi
     if [ -n "$STEP_PID" ]; then
         STOP_TIMEOUT_TICKS=$((${V3_RELEASE_STOP_TIMEOUT_S:-10} * 20))
+        STOP_DEADLINE_S=$(($(date +%s) + ${V3_RELEASE_STOP_TIMEOUT_S:-10}))
         WAIT_TICKS=0
         if [ "$HAS_SETSID" = true ]; then
             kill -TERM "-$STEP_PID" 2>/dev/null || kill -TERM "$STEP_PID" 2>/dev/null || :
             # sleep 0.05 is non-POSIX but supported on Linux and macOS runners;
             # sleep 1 is the strict POSIX backup. Poll before wait so a group
             # leader that ignores TERM still escalates to SIGKILL after
-            # ~V3_RELEASE_STOP_TIMEOUT_S (default 10s).
+            # ~V3_RELEASE_STOP_TIMEOUT_S (default 10s). Whole-second date +%s
+            # uses -gt so fractional start seconds still get the full timeout
+            # while slow 0.05s ticks under load cannot overrun the deadline.
             while kill -0 "-$STEP_PID" 2>/dev/null || kill -0 "$STEP_PID" 2>/dev/null; do
-                if [ "$WAIT_TICKS" -ge "$STOP_TIMEOUT_TICKS" ]; then
+                if [ "$WAIT_TICKS" -ge "$STOP_TIMEOUT_TICKS" ] || [ "$(date +%s)" -gt "$STOP_DEADLINE_S" ]; then
                     kill -KILL "-$STEP_PID" 2>/dev/null || :
                     kill -KILL "$STEP_PID" 2>/dev/null || :
                     break
@@ -99,7 +103,8 @@ stop_kit_step() {
             done
             wait "$STEP_PID" 2>/dev/null || :
             REAP_TICKS=0
-            while kill -0 "-$STEP_PID" 2>/dev/null && [ "$REAP_TICKS" -lt 20 ]; do
+            REAP_DEADLINE_S=$(($(date +%s) + 1))
+            while kill -0 "-$STEP_PID" 2>/dev/null && [ "$REAP_TICKS" -lt 20 ] && [ "$(date +%s)" -le "$REAP_DEADLINE_S" ]; do
                 if sleep 0.05 2>/dev/null; then
                     REAP_TICKS=$(($REAP_TICKS + 1))
                 else
@@ -110,7 +115,7 @@ stop_kit_step() {
         else
             kill -TERM "$STEP_PID" 2>/dev/null || :
             while kill -0 "$STEP_PID" 2>/dev/null; do
-                if [ "$WAIT_TICKS" -ge "$STOP_TIMEOUT_TICKS" ]; then
+                if [ "$WAIT_TICKS" -ge "$STOP_TIMEOUT_TICKS" ] || [ "$(date +%s)" -gt "$STOP_DEADLINE_S" ]; then
                     kill -KILL "$STEP_PID" 2>/dev/null || :
                     break
                 fi
@@ -129,9 +134,9 @@ stop_kit_step() {
 
 build_kit() {
     STEP_PID=
-    LAST_STEP_PID=
+    LAST_STEP_PID=${!:-}
     STEP_ACTIVE=false
-    trap stop_kit_step 15
+    trap stop_kit_step 1 15
     KIT_START=$(date +%s)
     echo "$1: npm ci" >&3
     echo "Installing dependencies for $1"
