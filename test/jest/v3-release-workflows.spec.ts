@@ -1858,4 +1858,32 @@ describe('V3 Step 1 test jobs', () => {
             expect({ job: name, unlisted }).toEqual({ job: name, unlisted: [] });
         }
     });
+
+    // The slowest kit normally finishes in under 2 minutes (with ~4-6 minutes
+    // worst-case startup), so every kit test and coverage job bounds execution
+    // at 15 minutes rather than GitHub Actions' 6-hour default when Karma or
+    // Vitest hangs.
+    it('bounds run-kit-tests and coverage-rokt-kit to 15 minutes across pull-request, v3-release-step-1, and staging-step-1', () => {
+        for (const workflowFile of ['pull-request.yml', 'v3-release-step-1.yml', 'staging-step-1.yml']) {
+            const workflow = load(`${WORKFLOW_DIRECTORY}/${workflowFile}`);
+            expect({
+                workflow: workflowFile,
+                timeoutMinutes: workflow.jobs['run-kit-tests']['timeout-minutes'],
+            }).toEqual({
+                workflow: workflowFile,
+                timeoutMinutes: 15,
+            });
+        }
+
+        const pullRequestWorkflow = load(`${WORKFLOW_DIRECTORY}/pull-request.yml`);
+        expect({
+            workflow: 'pull-request.yml',
+            job: 'coverage-rokt-kit',
+            timeoutMinutes: pullRequestWorkflow.jobs['coverage-rokt-kit']['timeout-minutes'],
+        }).toEqual({
+            workflow: 'pull-request.yml',
+            job: 'coverage-rokt-kit',
+            timeoutMinutes: 15,
+        });
+    });
 });

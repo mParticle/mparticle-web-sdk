@@ -113,6 +113,10 @@ jobs:
                   echo "matrix=[]" >> "$GITHUB_OUTPUT"
                 fi
 
+    # The slowest kit normally finishes in under 2 minutes (Adobe ~1m47s,
+    # Google Analytics 4 ~1m31s, Braze 4 ~1m14s, Rokt ~1m08s; worst-case
+    # npm/Firefox/Karma startup ~4-6 minutes), so 15 minutes leaves ample
+    # margin while stopping a Karma/Firefox hang from running for 6 hours.
     run-kit-tests:
         name: 'Kit Tests: ${{ matrix.kit.name }}'
         needs:
@@ -120,6 +124,7 @@ jobs:
             - test-jest
             - build-bundle
         runs-on: ubuntu-latest
+        timeout-minutes: 15
         strategy:
             fail-fast: false
             matrix:
@@ -257,6 +262,7 @@ jobs:
     coverage-rokt-kit:
         name: Rokt Kit Coverage
         runs-on: ubuntu-latest
+        timeout-minutes: 15
         permissions:
             contents: read
         steps:
