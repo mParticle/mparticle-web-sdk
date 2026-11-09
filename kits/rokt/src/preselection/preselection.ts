@@ -1270,7 +1270,8 @@ function isEmailCandidate(target: EventTarget | null): target is HTMLInputElemen
 }
 
 // Records an input on a trusted change event while it is a candidate, and drops it on any other, whatever its
-// type then. A trusted blur only drops a field no change committed. Reads no value.
+// type then. A trusted blur drops a field no change committed, and settles a committed one that can't hold an
+// email. Reads a value only to test it for @.
 export function recordShopperInput(event: Event): void {
   const target = event.target;
   if (!(target instanceof HTMLInputElement)) return;
@@ -1280,6 +1281,10 @@ export function recordShopperInput(event: Event): void {
     if (event.isTrusted !== true) return;
     if (!isEmailCandidate(target) || !committedInputs.has(target)) {
       shopperInputs.delete(target);
+      touchedInputs.delete(target);
+    } else if (!shopperInputs.has(target) && !mayHoldEmail(target)) {
+      // A re-edit that ends where it started fires no change, so a name field left that way would otherwise
+      // stay unsettled and hide the shopper's email for the rest of the page.
       touchedInputs.delete(target);
     }
     return;
@@ -1343,13 +1348,12 @@ type EmailMissReason =
 // Longer values are never emails, and skipping them bounds the pattern's backtracking on fields the shopper didn't fill.
 const MAX_EMAIL_LENGTH = 254;
 
+function mayHoldEmail(input: HTMLInputElement): boolean {
+  return input.type === 'email' || input.getAttribute('autocomplete') === 'email' || input.value.includes('@');
+}
+
 function isUnsettledEmailInput(input: HTMLInputElement): boolean {
-  return (
-    input.type === 'email' ||
-    input.getAttribute('autocomplete') === 'email' ||
-    (committedInputs.has(input) && !shopperInputs.has(input)) ||
-    input.value.includes('@')
-  );
+  return mayHoldEmail(input) || (committedInputs.has(input) && !shopperInputs.has(input));
 }
 
 // One pass over the candidates. Collects the shopper-filled emails keyed in lower case; with testUnfilled, also says

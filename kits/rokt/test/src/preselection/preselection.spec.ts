@@ -8081,6 +8081,47 @@ describe('preselection', () => {
         expect(selectPlacementsCalls).toHaveLength(0);
       });
 
+      it('reads the email after a committed name field is re-edited back to its value and blurred without a change', () => {
+        addInput('guest@example.com', 'email');
+        const nameInput = addInput('Jane Shopper', 'text');
+        nameInput.focus();
+        shopperTouch(nameInput, 'input');
+        shopperTouch(nameInput, 'blur');
+
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+        expect(selectPlacementsCalls).toHaveLength(1);
+        expect(selectPlacementsCalls[0].attributes).toEqual(tagged({ email: 'guest@example.com' }));
+      });
+
+      it('still treats a re-edited name field as ambiguous while it holds focus', () => {
+        addInput('guest@example.com', 'email');
+        const nameInput = addInput('Jane Shopper', 'text');
+        nameInput.focus();
+        shopperTouch(nameInput, 'input');
+
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+      });
+
+      it.each([
+        { label: 'a text field that holds @', value: 'recipient@example', type: 'text', autocomplete: false },
+        { label: 'an email field', value: 'recipient', type: 'email', autocomplete: false },
+        { label: 'an autocomplete="email" field', value: 'recipient', type: 'text', autocomplete: true },
+      ])('keeps $label ambiguous after a re-edit and blur without a change', ({ value, type, autocomplete }) => {
+        addInput('guest@example.com', 'email');
+        const second = addInput(value, type);
+        if (autocomplete) second.setAttribute('autocomplete', 'email');
+        second.focus();
+        shopperTouch(second, 'input');
+        shopperTouch(second, 'blur');
+
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+      });
+
       it('still reads the email on autofill when a focused name text field stays focused during the email change', () => {
         listenLikeTheKit();
         const nameInput = addInput('Jane Shopper', 'text', false);
