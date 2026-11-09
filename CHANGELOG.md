@@ -1,3 +1,22 @@
+# [3.31.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.30.0...v3.31.0) (2026-11-09)
+
+
+### Bug Fixes
+
+* **button-tracking:** count a bare Japanese purchase-procedure button as a checkout step ([#1765](https://github.com/mParticle/mparticle-web-sdk/issues/1765)) ([88c189d](https://github.com/mParticle/mparticle-web-sdk/commit/88c189dfde1fc9b89a15642ea460fc3035433770))
+* **button-tracking:** keep a confirm label a commit when a checkout-step selector matches ([#1777](https://github.com/mParticle/mparticle-web-sdk/issues/1777)) ([f39b38b](https://github.com/mParticle/mparticle-web-sdk/commit/f39b38bd3a460895744808be54a393da93598d43))
+* **kits:** load the AdWords, Inspectlet and SimpleReach scripts over https ([#1733](https://github.com/mParticle/mparticle-web-sdk/issues/1733)) ([22a636a](https://github.com/mParticle/mparticle-web-sdk/commit/22a636af7682637ce988b689f725f2f28a26eefd))
+* **rokt:** drop a waiting selectPlacements call when its logged-in user changes ([#1766](https://github.com/mParticle/mparticle-web-sdk/issues/1766)) ([09f81d4](https://github.com/mParticle/mparticle-web-sdk/commit/09f81d4b3ca29a1f36c31e7038cdd694e66dfa56))
+* **rokt:** read form email only once committed, and require two-letter TLD ([#1778](https://github.com/mParticle/mparticle-web-sdk/issues/1778)) ([ccdc985](https://github.com/mParticle/mparticle-web-sdk/commit/ccdc985f4afcf925846ea69459210bb4748c4b8e))
+* **rokt:** skip the cart page view on another entry's route ([#1770](https://github.com/mParticle/mparticle-web-sdk/issues/1770)) ([9d21fe2](https://github.com/mParticle/mparticle-web-sdk/commit/9d21fe253bf81ff9c0402d9515406852533eb313))
+* **rokt:** skip the selectPlacements event if its user changed before resolving ([#1776](https://github.com/mParticle/mparticle-web-sdk/issues/1776)) ([73a29a4](https://github.com/mParticle/mparticle-web-sdk/commit/73a29a44f3c97aea8a68c297926e6252cc2f8720))
+
+
+### Features
+
+* **button-tracking:** let the Rokt kit name confirm and checkout-step buttons by CSS selector ([#1769](https://github.com/mParticle/mparticle-web-sdk/issues/1769)) ([f8440c0](https://github.com/mParticle/mparticle-web-sdk/commit/f8440c03048c6a7477225ba3db43fa83dc693f9e))
+* **rokt:** stop selectPlacements waiting for an identity request in flight ([#1709](https://github.com/mParticle/mparticle-web-sdk/issues/1709)) ([4685bf5](https://github.com/mParticle/mparticle-web-sdk/commit/4685bf5f53235c92913f8de3e2a57c63ab2cbffc))
+
 # [3.30.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.29.1...v3.30.0) (2026-11-05)
 
 
