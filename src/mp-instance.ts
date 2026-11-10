@@ -246,6 +246,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
                 !config.hasOwnProperty('requestConfig') ||
                 config.requestConfig
             ) {
+                const initStore = this._Store;
                 const configApiClient = new ConfigAPIClient(
                     apiKey,
                     config,
@@ -253,6 +254,9 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
                 );
 
                 configApiClient.getSDKConfiguration().then(result => {
+                    if (this._Store !== initStore) {
+                        return;
+                    }
                     const mergedConfig = extend(
                         {},
                         config,

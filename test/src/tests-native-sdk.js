@@ -53,7 +53,7 @@ describe('native-sdk methods', function() {
             delete mParticle.isIOS;
 
             mParticle.init(apiKey, window.mParticle.config);
-            mParticle.config = {};
+            mParticle.config = { requestConfig: false };
             window.mParticleAndroid = null;
             window.mParticle.isIOS = null;
         });
@@ -780,7 +780,7 @@ describe('native-sdk methods', function() {
                     window.mParticleAndroid_bridgeName_v2;
 
                 window.mParticle.init(apiKey, window.mParticle.config);
-                mParticle.config = {};
+                mParticle.config = { requestConfig: false };
             });
 
             afterEach(function() {
@@ -1043,7 +1043,7 @@ describe('native-sdk methods', function() {
 
                 mParticle.enableWebviewBridge = true;
                 window.mParticle.init(apiKey, window.mParticle.config);
-                mParticle.config = {};
+                mParticle.config = { requestConfig: false };
                 mParticleIOSV2Bridge.reset();
             });
 
