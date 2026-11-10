@@ -204,7 +204,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "3.32.1";
+    var version = "3.32.2";
 
     var Constants = {
       sdkVersion: version,
@@ -7758,10 +7758,11 @@ var mParticle = (function () {
     var Messages$3 = Constants.Messages;
     function Events(mpInstance) {
       var self = this;
-      this.logEvent = function (event, options) {
+      this.logEvent = function (event, options, capturedAt) {
         mpInstance.Logger.verbose(Messages$3.InformationMessages.StartingLogEvent + ': ' + event.name);
         if (mpInstance._Helpers.canLog()) {
-          var uploadObject = mpInstance._ServerModel.createEventObject(event);
+          var createEventObject = mpInstance._ServerModel.createEventObject;
+          var uploadObject = createEventObject(event, undefined, capturedAt);
           mpInstance._APIClient.sendEventToServer(uploadObject, options);
         } else {
           mpInstance.Logger.verbose(Messages$3.InformationMessages.AbandonLogEvent);
@@ -8689,7 +8690,7 @@ var mParticle = (function () {
         }
         return jsonObject;
       };
-      this.createEventObject = function (event, user) {
+      this.createEventObject = function (event, user, capturedAt) {
         var _a, _b, _c;
         var uploadObject = {};
         var eventObject = {};
@@ -8777,7 +8778,9 @@ var mParticle = (function () {
             mpInstance._Store.currentSessionMPIDs = [];
             mpInstance._Store.sessionStartDate = null;
           }
-          uploadObject.Timestamp = mpInstance._Store.dateLastEventSent.getTime();
+          var now = mpInstance._Store.dateLastEventSent.getTime();
+          var sessionStartTime = mpInstance._Store.sessionStartDate ? mpInstance._Store.sessionStartDate.getTime() : 0;
+          uploadObject.Timestamp = typeof capturedAt === 'number' && Number.isFinite(capturedAt) && capturedAt <= now && capturedAt >= sessionStartTime ? capturedAt : now;
           return extend({}, eventObject, uploadObject);
         }
         return null;
@@ -14154,7 +14157,7 @@ var mParticle = (function () {
               if (box && event.defaultPrevented) {
                 click.checked = box.type === 'checkbox' ? !click.checked : box.checked;
               }
-              _this.logClick(click, pathname, asLink);
+              _this.logClick(click, pathname, asLink, t);
             }
             // Ahead of the intent, so a pre-selection it fires goes out
             // with this pick.
@@ -14174,7 +14177,7 @@ var mParticle = (function () {
         });
       };
       // Every real click is one event, repeats included, up to a ceiling per page.
-      ButtonTracker.prototype.logClick = function (click, pathname, asLink) {
+      ButtonTracker.prototype.logClick = function (click, pathname, asLink, t) {
         if (!this.eventsEnabled() || this.hasTargetingOptOut()) {
           return;
         }
@@ -14190,7 +14193,8 @@ var mParticle = (function () {
         this.mpInstance._SessionManager.resetSessionTimer();
         // No upload of its own, which a click that opens another page would
         // cancel: with batching on, the next batch or the exit upload sends it.
-        this.mpInstance._Events.logEvent(asLink ? buildLinkClickEvent(click, pathname) : buildButtonClickEvent(click, pathname));
+        var logEvent = this.mpInstance._Events.logEvent;
+        logEvent(asLink ? buildLinkClickEvent(click, pathname) : buildButtonClickEvent(click, pathname), undefined, t);
       };
       ButtonTracker.prototype.emit = function (kind, source, layer, t, pathname, adds) {
         if (this.isKitSuppressed()) {
