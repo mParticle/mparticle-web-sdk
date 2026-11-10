@@ -616,5 +616,51 @@ describe('feature-flags', () => {
             expect(earlier.isActive).to.equal(false);
             expect(activeTracker()).to.equal(undefined);
         });
+
+        it('ignores a stale config response from an earlier init after a re-init enables button tracking', async () => {
+            let resolveFirstConfig: (value: { status: number; body: string }) => void;
+            const firstConfigPromise = new Promise(resolve => {
+                resolveFirstConfig = resolve;
+            });
+            fetchMock.get(urls.config, () => firstConfigPromise);
+
+            window.mParticle.init(apiKey, {
+                ...window.mParticle.config,
+                requestConfig: true,
+                flags: { autoButtonTracking: 'False' },
+            });
+            expect(typeof resolveFirstConfig).to.equal('function');
+
+            const started = initAndExpectTracker({
+                ...window.mParticle.config,
+                requestConfig: false,
+                flags: { autoButtonTracking: 'True' },
+                kitConfigs: [roktConfig],
+            });
+            await waitForCondition(hasIdentifyReturned);
+            expectTrackerKeptThroughWait(started);
+
+            resolveFirstConfig({
+                status: 200,
+                body: JSON.stringify({
+                    workspaceToken: 'stale-workspace',
+                    flags: { autoButtonTracking: 'False' },
+                }),
+            });
+            await firstConfigPromise;
+            await fetchMock.flush(true);
+            // Drain the full microtask chain (FetchUploader.upload -> getSDKConfiguration ->
+            // response.json() -> mp-instance .then) via a macrotask turn before asserting.
+            await new Promise(resolve => setTimeout(resolve, 0));
+
+            expectTrackerKeptThroughWait(started);
+            expect(activeTracker() && activeTracker().isActive).to.equal(true);
+            expect(
+                window.mParticle.getInstance()._Store.SDKConfig.flags.autoButtonTracking
+            ).to.equal(true);
+            expect(
+                window.mParticle.getInstance()._Store.SDKConfig.workspaceToken
+            ).to.not.equal('stale-workspace');
+        });
     });
 });

@@ -844,7 +844,7 @@ describe('core SDK', function() {
         }
     });
 
-    it('should use configUrl when specified on config object', () => {
+    it('should use configUrl when specified on config object', async () => {
         // Fetch mock converts the host portion to lowercase
         const expectedConfigUrl = 'https://testconfigurl/test_key/config?env=0';
         mParticle.config.configUrl = 'testConfigUrl/';
@@ -856,6 +856,7 @@ describe('core SDK', function() {
         mParticle.init(apiKey, window.mParticle.config);
 
         fetchMock.lastCall()[0].should.equal(expectedConfigUrl);
+        await waitForCondition(hasConfigurationReturned);
     });
 
     it('should use custom v3 endpoint when specified on config object', async () => {
@@ -892,7 +893,7 @@ describe('core SDK', function() {
         (typeof mParticle.getInstance()._Store.SDKConfig.onCreateBatch).should.equal('undefined');
     });
 
-    it('should hit url with query parameter of env=1 for debug mode for forwarders', () => {
+    it('should hit url with query parameter of env=1 for debug mode for forwarders', async () => {
         mParticle.config.isDevelopmentMode = true;
         mParticle.config.requestConfig = true;
         fetchMock.resetHistory();
@@ -903,13 +904,13 @@ describe('core SDK', function() {
         );
 
         mParticle.init(apiKey, window.mParticle.config);
-        // While config fetch is async, we are only testing what endpoint is hit here, and so we do not need to wait for anything to return
         (fetchMock.calls()[0][0].indexOf('?env=1') > 0).should.equal(
             true
         );
+        await waitForCondition(hasConfigurationReturned);
     });
 
-    it('should hit url with query parameter of env=0 for debug mode for forwarders', () => {
+    it('should hit url with query parameter of env=0 for debug mode for forwarders', async () => {
         mParticle.config.isDevelopmentMode = false;
         mParticle.config.requestConfig = true;
 
@@ -919,10 +920,10 @@ describe('core SDK', function() {
         fetchMock.resetHistory();
         mParticle.init(apiKey, window.mParticle.config);
 
-        // rob note - while config fetch is async, we are only testing what endpoint is hit here, and so we do not need to wait for anything to return
         (fetchMock.calls()[0][0].indexOf('?env=0') > 0).should.equal(
             true
         );
+        await waitForCondition(hasConfigurationReturned);
     });
 
     // TODO - there are no actual tests here....what's going on?
