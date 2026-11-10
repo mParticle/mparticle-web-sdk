@@ -614,12 +614,17 @@ jobs:
 
     # The kit list comes from Load V3 kit test matrix, so the kit tests also
     # wait for that job. A kit recovery run skips it, and the kit tests with it.
+    # The slowest kit normally finishes in under 2 minutes (Adobe ~1m47s,
+    # Google Analytics 4 ~1m31s, Braze 4 ~1m14s, Rokt ~1m08s; worst-case
+    # npm/Firefox/Karma startup ~4-6 minutes), so 15 minutes leaves ample
+    # margin while stopping a Karma/Firefox hang from running for 6 hours.
     run-kit-tests:
         name: 'Kit Tests: ${{ matrix.kit.name }}'
         needs:
             - confirm-staging-branch
             - load-kit-matrix
         runs-on: ubuntu-latest
+        timeout-minutes: 15
         strategy:
             fail-fast: false
             matrix:
