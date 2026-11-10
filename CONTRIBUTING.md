@@ -5,13 +5,13 @@ Thanks for contributing! Please read this document to follow our conventions for
 ## Setting Up
 
 -   Fork the repository and then clone down your fork
--   Commit your code per the conventions below, and PR into the mParticle SDK `master` branch
+-   Commit your code per the conventions below, and PR into the `main` branch (V3; `master` carries V2)
 -   Your PR title will be checked automatically against the below convention (view the commit history to see examples of a proper commit/PR title). If it fails, you must update your title.
 -   Our engineers will work with you to get your code change implemented once a PR is up
 
 ## PR Title and Commit Convention
 
-PR titles should follow [conventional commit standards](https://www.conventionalcommits.org/). This helps automate the release process.
+PR titles should follow [conventional commit standards](https://www.conventionalcommits.org/). Release Please reads them to cut V3 releases from `main`.
 
 The standard format for commit messages is as follows:
 
@@ -25,8 +25,8 @@ The standard format for commit messages is as follows:
 
 The following lists the different `types` allowed in the commit message:
 
--   feat: A new feature (automatic minor release)
--   fix: A bug fix (automatic patch release)
+-   feat: A new feature (minor release)
+-   fix: A bug fix (patch release)
 -   docs: Documentation only changes
 -   style: Changes that do not affect the meaning of the code (white-space, formatting, missing semi-colons, etc)
 -   refactor: A code change that neither fixes a bug nor adds a feature

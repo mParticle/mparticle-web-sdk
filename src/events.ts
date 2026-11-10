@@ -20,7 +20,7 @@ import {
     SDKEventOptions,
     TransactionAttributes,
 } from '@mparticle/web-sdk';
-import { getHref, valueof } from './utils';
+import { getHref, valueof, isObject } from './utils';
 import {
     allowedQueryParams,
     autoPageViewAttribute,
@@ -48,19 +48,33 @@ export default function Events(
     mpInstance: IMParticleWebSDKInstance
 ): void {
     const self = this;
-    this.logEvent = function(event: BaseEvent, options?: SDKEventOptions): void {
+    this.logEvent = function(
+        event: BaseEvent,
+        options?: SDKEventOptions,
+        capturedAt?: number
+    ): void {
         mpInstance.Logger.verbose(
             Messages.InformationMessages.StartingLogEvent + ': ' + event.name
         );
         if (mpInstance._Helpers.canLog()) {
-            const uploadObject = mpInstance._ServerModel.createEventObject(event);
+            const createEventObject = mpInstance._ServerModel
+                .createEventObject as (
+                event: BaseEvent,
+                user?: undefined,
+                capturedAt?: number
+            ) => SDKEvent;
+            const uploadObject = createEventObject(
+                event,
+                undefined,
+                capturedAt
+            );
             mpInstance._APIClient.sendEventToServer(uploadObject, options);
         } else {
             mpInstance.Logger.verbose(
                 Messages.InformationMessages.AbandonLogEvent
             );
         }
-    };
+    } as IEvents['logEvent'];
 
     this.startTracking = function(callback: TrackingCallback): void {
         if (!mpInstance._Store.isTracking) {
@@ -242,7 +256,7 @@ export default function Events(
                 );
             }
 
-            if (mpInstance._Helpers.isObject(transactionAttributes)) {
+            if (isObject(transactionAttributes)) {
                 mpInstance._Ecommerce.convertTransactionAttributesToProductAction(
                     transactionAttributes,
                     event.ProductAction

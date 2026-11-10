@@ -1,6 +1,14 @@
-import { describeButtonClick } from '../../../src/buttonTracking/buttonDescription';
+import {
+    describeButtonClick,
+    describeCheckedPaymentChoice,
+    describePaymentChoice,
+    isLinkClick,
+    isPicked,
+    LinkType,
+} from '../../../src/buttonTracking/buttonDescription';
 import { classifyIntentControl } from '../../../src/buttonTracking/checkoutIntent';
 import { findControl } from '../../../src/buttonTracking/controls';
+import { pagePath } from '../../../src/pathMasking';
 
 // Describes and classifies the control a click path lands on, as the tracker does.
 const describeClick = (path: Array<EventTarget | null>) => {
@@ -13,6 +21,18 @@ const classify = (path: Array<EventTarget | null>, pathname: string) => {
 };
 
 describe('describeButtonClick', () => {
+    // jsdom lays nothing out, so every text node stands in as drawn here; the
+    // Karma suite checks what a browser leaves undrawn.
+    const drawnBox = [{ width: 8, height: 8 }];
+    beforeAll(() => {
+        (Range.prototype as any).getClientRects = () => drawnBox;
+        (Element.prototype as any).checkVisibility = () => true;
+    });
+    afterAll(() => {
+        delete (Range.prototype as any).getClientRects;
+        delete (Element.prototype as any).checkVisibility;
+    });
+
     const control = (html: string) => {
         const parent = document.createElement('div');
         parent.innerHTML = html;
@@ -32,6 +52,10 @@ describe('describeButtonClick', () => {
         ['a plus sign', '<button>+</button>', '+', 'text'],
         ['a material icon ligature', '<button><span class="material-icons">add_shopping_cart</span></button>', 'add_shopping_cart', 'text'],
         ['an inner image alt', '<button><img src="/x.svg" alt="Remove"></button>', 'remove', 'alt'],
+        ['an inline icon\'s aria-label', '<button><svg aria-label="Close icon"></svg></button>', 'close icon', 'alt'],
+        ['an image role\'s aria-label', '<button><span role="img" aria-label="Favorite"></span></button>', 'favorite', 'alt'],
+        ['an image alt past a blank icon label', '<button><svg aria-label=" "></svg><img src="/x.svg" alt="Remove"></button>', 'remove', 'alt'],
+        ['no hidden icon\'s aria-label', '<button><svg aria-hidden="true" aria-label="Close icon"></svg></button>', undefined, 'none'],
         ['a title attribute', '<button title="Remove"><svg></svg></button>', 'remove', 'title'],
         ['an image input', '<input type="image" src="/c.png" alt="Add to bag">', 'add to bag', 'alt'],
         ['a submit input value', '<input type="submit" value="Continue">', 'continue', 'value'],
@@ -450,6 +474,48 @@ describe('describeButtonClick', () => {
         );
     });
 
+    it('reads the form around a role control, such as a styled radio box', () => {
+        document.body.innerHTML =
+            '<form id="shipment-selection"><div role="radiogroup">' +
+            '<div role="radio" aria-checked="false"><input type="radio" name="radio-group" value="pickup" class="sr-only"><label>Pickup</label></div>' +
+            '<div role="radio" aria-checked="true"><input type="radio" name="radio-group" value="ship" class="sr-only"><label>Shipping</label></div>' +
+            '</div></form>';
+        const box = document.querySelector('[role="radio"]');
+        expect(describeButtonClick(box, [box.querySelector('label'), box])).toEqual(
+            expect.objectContaining({
+                element: 'role',
+                type: 'radio',
+                label: undefined,
+                form: 'shipment-selection',
+            })
+        );
+        document.body.innerHTML =
+            '<form id="promo-form"><div role="button">Apply</div></form>';
+        expect(describeClick([document.querySelector('[role="button"]')])).toEqual(
+            expect.objectContaining({ form: 'promo-form' })
+        );
+    });
+
+    it.each([
+        ['an anchor', '<form id="sign-in-form"><a href="/forgot-password" id="target">Forgot password?</a></form>'],
+        ['a link run by script', '<form id="sign-in-form"><div role="link" id="target">Forgot password?</div></form>'],
+    ])('reads no form for %s inside one', (_name, html) => {
+        document.body.innerHTML = html;
+        const link = document.getElementById('target');
+        expect(describeButtonClick(link, [link])).toEqual(
+            expect.objectContaining({ element: 'link', form: undefined })
+        );
+    });
+
+    it('reads the form around an anchor that acts as a button', () => {
+        document.body.innerHTML =
+            '<form id="promo-form"><a href="#" role="button">Apply</a></form>';
+        const anchor = document.querySelector('a');
+        expect(describeButtonClick(anchor, [anchor])).toEqual(
+            expect.objectContaining({ element: 'role', form: 'promo-form' })
+        );
+    });
+
     it('keeps controls and form only when hand-written', () => {
         document.body.innerHTML =
             '<form id="form-12345678"><button aria-controls="radix-:r1:">Go</button></form>';
@@ -519,6 +585,8 @@ describe('describeButtonClick', () => {
         ['an empty href', '<a href="">Open menu</a>', { linkType: 'same_page' }],
         ['a javascript link', '<a href="JavaScript:void(0)">More</a>', { linkType: 'same_page' }],
         ['the current page', '<a href="/">Home</a>', { linkType: 'same_page' }],
+        ['navigation within the site', '<a href="/help">Help</a>', { linkType: 'internal', linkPath: '/help' }],
+        ['the same path with another query', '<a href="/?page=2">Next</a>', { linkType: 'internal', linkPath: '/' }],
         ['an outbound link', '<a href="https://Example.org/help">Help</a>', { linkType: 'outbound', linkDomain: 'example.org' }],
         ['a download attribute', '<a href="/files/menu" download>Menu</a>', { linkType: 'download' }],
         ['a file link', '<a href="/files/menu.PDF">Menu</a>', { linkType: 'download', fileExtension: 'pdf' }],
@@ -527,24 +595,85 @@ describe('describeButtonClick', () => {
             '<a href="https://cdn.example.org/menu.docx?v=2">Menu</a>',
             { linkType: 'download', linkDomain: 'cdn.example.org', fileExtension: 'docx' },
         ],
-    ])('describes a link page views cannot see: %s', (_name, html, expected) => {
+    ])('describes a link with its link type: %s', (_name, html, expected) => {
         const description = describe1(html);
         expect(description).toEqual(expect.objectContaining({ element: 'link', type: 'button', ...expected }));
         expect(description.linkDomain).toBe((expected as { linkDomain?: string }).linkDomain);
         expect(description.fileExtension).toBe((expected as { fileExtension?: string }).fileExtension);
+        expect(description.linkPath).toBe((expected as { linkPath?: string }).linkPath);
     });
 
     it.each([
-        ['navigation within the site', '<a href="/help">Help</a>'],
-        ['the same path with another query', '<a href="/?page=2">Next</a>'],
+        ['without its query or fragment', '/checkout/review?token=abc#pay', '/checkout/review'],
+        ['with numbers masked', '/items/123456/sizes/2', '/items/#/sizes/#'],
+        ['with an order hidden', '/orders/123456/items/2', '/orders/*/items/#'],
+        ['with an amount masked as one number', '/gift/25.00', '/gift/#'],
+        ['decoded', '/caf%C3%A9/menu', '/café/menu'],
+        ['with digits of other scripts masked', '/items/%D9%A1%D9%A2%D9%A3/%EF%BC%94%EF%BC%95', '/items/#/#'],
+        ['dropped when it holds an email address', '/account/jane%40example.com', undefined],
+        ['dropped when it holds an email address encoded twice', '/account/jane%2540example.com', undefined],
+        ['dropped when an email follows a literal percent sign', '/sale/100%25-cotton/p/jane%2540example.com', undefined],
+        ['with a name after an empty segment hidden', '/profile//jane-smith', '/profile//*'],
+        ['with a token cut into short mixed pieces hidden', '/checkout/a1b2-c3d4-e5f6-g7h8/review', '/checkout/*/review'],
+        ['dropped when an email follows a literal percent sign in the same segment', '/p/100%25-x%2540y.com', undefined],
+        ['dropped when it carries a session id', '/cart;jsessionid=A1B2C3D4E5F6', undefined],
+        ['dropped when it carries a parameter', '/search/q=boots', undefined],
+        ['with a token segment hidden', '/invite/A1B2C3D4E5F6/accept', '/invite/*/accept'],
+        ['with a uuid segment hidden', '/orders/550e8400-e29b-41d4-a716-446655440000', '/orders/*'],
+        ['with a hex id hidden', '/u/a8f3e2c1', '/u/*'],
+        ['with a dated slug kept', '/sale/boots-2024-collection', '/sale/boots-#-collection'],
+        ['with a short model number kept', '/shop/size-10w', '/shop/size-#w'],
+        ['with a random letter code hidden', '/go/xKpQzRtV', '/go/*'],
+        ['with a camel-case route kept', '/help/ShippingAndReturns', '/help/ShippingAndReturns'],
+        ['with the segment after a reset route hidden', '/reset/abcdefgh', '/reset/*'],
+        ['with a profile name hidden', '/profile/jane-smith/orders', '/profile/*/orders'],
+        ['with a user name hidden', '/user/jsmith', '/user/*'],
+        ['with a user name under u hidden', '/u/jsmith', '/u/*'],
+        ['with a uuid after a word hidden whole', '/p/parcel-550e8400-e29b-41d4-a716-446655440000', '/p/*'],
+        ['with a name beside an id hidden whole', '/registry/jane-smith-a1b2c3d4', '/registry/*'],
+        ['with a code cut into short pieces hidden after a word', '/p/parcel-VIx-RjIRiLs-zq7Kd93Lm41', '/p/parcel-*'],
+        ['with a code that only shows joined hidden between words', '/p/parcel-VIx-RjIRiLs-trail-zq7Kd93Lm41', '/p/parcel-*-trail-*'],
+        ['with a uuid whose last group is letters hidden', '/p/parcel-550e8400-e29b-41d4-a716-abcdefabcdef', '/p/*'],
+        ['with a uuid with an escaped hyphen hidden', '/p/550e8400%2De29b-41d4-a716-abcdefabcdef', '/p/*'],
+        ['with an account page under u kept', '/u/login', '/u/login'],
+        ['with only the token hidden in a product name', '/p/trail-runner-gtx-zq7Kd93Lm41', '/p/trail-runner-gtx-*'],
+        ['with an account route kept', '/account/orders', '/account/orders'],
+        ['with a route word at the end kept', '/help/verify', '/help/verify'],
+        ['dropped when it cannot be decoded', '/bad%E0%A4%A', undefined],
+        ['dropped when it is too long to be a route', '/' + 'a'.repeat(200), undefined],
+    ])('sends the destination path of a link to another page of the site %s', (_name, href, expected) => {
+        expect(describe1(`<a href="${href}">Go</a>`).linkPath).toBe(expected);
+    });
+
+    it.each([
+        ['an outbound link', '<a href="https://example.org/orders/1">Help</a>'],
+        ['a download', '<a href="/invoices/jane.pdf">Invoice</a>'],
+        ['a same-page anchor', '<a href="#reviews">Reviews</a>'],
+    ])('sends no destination path for %s', (_name, html) => {
+        expect(describe1(html).linkPath).toBeUndefined();
+    });
+
+    it.each([
         ['a mail link', '<a href="mailto:help@example.com">Email us</a>'],
         ['a phone link', '<a href="tel:5551234">Call us</a>'],
-    ])('leaves %s to page views', (_name, html) => {
+    ])('skips %s', (_name, html) => {
         expect(describe1(html)).toBeUndefined();
     });
 
+    it.each([
+        ['same_page', false],
+        ['internal', true],
+        ['outbound', true],
+        ['download', true],
+        [undefined, false],
+    ])('logs a click with link type %s as a link click: %s', (linkType, expected) => {
+        expect(
+            isLinkClick({ labelSource: 'none', element: 'link', type: 'button', linkType: linkType as LinkType })
+        ).toBe(expected);
+    });
+
     describe('cart controls', () => {
-        it('describes a bag icon button as any button, and classifies it as cart', () => {
+        it('describes a bag icon button as any button, and no cart click when it leads to the cart page', () => {
             expect(
                 describe1(
                     '<button title="Shopping bag" aria-label="1 item in bag" data-testid="header-cart"><svg></svg></button>'
@@ -563,22 +692,25 @@ describe('describeButtonClick', () => {
                 type: 'submit',
                 linkType: undefined,
                 linkDomain: undefined,
+                linkPath: undefined,
                 fileExtension: undefined,
                 checked: undefined,
             });
-            expect(classify([document.body.firstElementChild], '/')).toBe('cart');
+            expect(classify([document.body.firstElementChild], '/')).toBeUndefined();
         });
 
-        it('names a title-only bag button from its title, and classifies it as cart', () => {
+        it('names a title-only bag button from its title, and no cart click when it leads to the cart page', () => {
             expect(describe1('<button title="Shopping bag"><svg></svg></button>')).toEqual(
                 expect.objectContaining({ label: 'shopping bag', labelSource: 'title', element: 'button' })
             );
-            expect(classify([document.body.firstElementChild], '/')).toBe('cart');
+            expect(classify([document.body.firstElementChild], '/')).toBeUndefined();
         });
 
-        it('leaves a cart link to page views, though it still classifies as cart', () => {
-            expect(describe1('<a href="/bag" title="Shopping bag"><svg></svg></a>')).toBeUndefined();
-            expect(classify([document.body.firstElementChild], '/')).toBe('cart');
+        it('describes a cart link as an internal link, and never classifies it as cart', () => {
+            expect(describe1('<a href="/bag" title="Shopping bag"><svg></svg></a>')).toEqual(
+                expect.objectContaining({ element: 'link', linkType: 'internal', label: 'shopping bag' })
+            );
+            expect(classify([document.body.firstElementChild], '/')).toBeUndefined();
         });
 
         it('describes a cart checkbox with its checked state, and never counts it as intent', () => {
@@ -627,10 +759,21 @@ describe('describeButtonClick', () => {
         );
     });
 
-    it('keeps a link with role="button" a role button without a link type', () => {
-        expect(describe1('<a role="button" href="/next">Next</a>')).toEqual(
-            expect.objectContaining({ element: 'role', linkType: undefined })
-        );
+    it.each([
+        ['a same-page href', '<a role="button" href="#next">Next</a>'],
+        ['a javascript href', '<a role="button" href="javascript:void(0)">Next</a>'],
+        ['the current page', '<a role="button" href="/">Next</a>'],
+        ['a mail link', '<a role="button" href="mailto:help@example.com">Email us</a>'],
+    ])('keeps a link with role="button" and %s a role button without a link type', (_name, html) => {
+        expect(describe1(html)).toEqual(expect.objectContaining({ element: 'role', linkType: undefined }));
+    });
+
+    it.each([
+        ['another page of the site', '<a role="button" href="/next">Next</a>', { linkType: 'internal' }],
+        ['another site', '<a role="button" href="https://example.org/next">Next</a>', { linkType: 'outbound', linkDomain: 'example.org' }],
+        ['a file', '<a role="button" href="/menu.pdf">Menu</a>', { linkType: 'download', fileExtension: 'pdf' }],
+    ])('gives a link with role="button" that leaves for %s its link type', (_name, html, expected) => {
+        expect(describe1(html)).toEqual(expect.objectContaining({ element: 'role', ...expected }));
     });
 
     it('masks the label and drops an unsafe one', () => {
@@ -830,6 +973,437 @@ describe('describeButtonClick', () => {
             );
         });
 
+        it.each([
+            ['a swatch named for its product', '<input type="radio" name="color-swatches-48213907">', 'color-swatches'],
+            ['a size tile named for its product', '<input type="radio" name="size-tiles-v-2-48213907">', 'size-tiles-v-2'],
+            ['a filter named for its product', '<input type="checkbox" name="size_1234567">', 'size'],
+            ['a short number, kept as written', '<input type="radio" name="step-2">', 'step-2'],
+            ['an id with no question left', '<input type="radio" name="12345678">', undefined],
+            ['a generated name', '<input type="radio" name="ember1234-48213907">', undefined],
+            ['two product numbers', '<input type="radio" name="color-1234-48213907">', undefined],
+            ['a name built with a React id', '<input type="radio" name="pdp_variant_group__R_1mn59b9ilelubsnqbtb__0">', 'pdp_variant_group_0'],
+            ['a name ending in a client React id', '<input type="radio" name="size-_r_1a_">', 'size'],
+            ['a name with an older React id', '<input type="radio" name="color:R2kq:">', 'color'],
+            ['a name with a guillemet React id', '<input type="radio" name="fit-\u00abr3\u00bb">', 'fit'],
+            ['a name with a later server React id', '<input type="radio" name="color:R1H1:">', 'color'],
+            ['a name with a later server React id in the newest form', '<input type="radio" name="size-_R_1mnH2_">', 'size'],
+            ['a name with a later server guillemet React id', '<input type="radio" name="fit-\u00abR1H1\u00bb">', 'fit'],
+            ['a React id and nothing else', '<input type="radio" name=":r1:">', undefined],
+            ['a library prefix and a React id', '<input type="radio" name="radix-:r1:">', undefined],
+            ['a library prefix and a server React id', '<input type="radio" name="react-aria-:R1:">', undefined],
+            ['a library prefix and the newest React id', '<input type="radio" name="react-aria-_R_1_">', undefined],
+            ['a plain name that matches a library prefix, kept as written', '<input type="radio" name="reach">', 'reach'],
+            ['another plain name that matches a library prefix, kept as written', '<input type="radio" name="ark">', 'ark'],
+            ['a colon-namespaced word that starts with r', '<input type="radio" name="orderForm:region:0">', undefined],
+            ['an underscored word that starts with r, kept whole', '<input type="radio" name="pick_r_size_">', 'pick_r_size'],
+            ['a React id beside a generated name', '<input type="radio" name="ember1234_R_1mn_">', undefined],
+        ])('names the question of %s without its product number', (_, html, expected) => {
+            document.body.innerHTML = html;
+
+            expect(describeClick([document.body.firstElementChild, document.body]).elementName).toBe(expected);
+        });
+
+        it('still drops a numbered name from a button that is not a picker', () => {
+            document.body.innerHTML = '<button name="add-48213907">Add to bag</button>';
+
+            expect(describeClick([document.body.firstElementChild, document.body]).elementName).toBeUndefined();
+        });
+
+        it.each([
+            ['an aria-label', '<div role="radiogroup" aria-label="Delivery"><input type="radio" name="speed"><input type="radio" name="speed"></div>', 'delivery'],
+            ['aria-labelledby', '<h3 id="q">Pick a size</h3><div role="radiogroup" aria-labelledby="q"><input type="radio" name="size"><input type="radio" name="size"></div>', 'pick a size'],
+            ['a legend, cut at the pick it repeats', '<fieldset><legend>Color: Navy</legend><input type="radio" name="color"><input type="radio" name="color"></fieldset>', 'color'],
+            ['a list box', '<div role="listbox" aria-label="State"><div role="option" id="state-ca">California</div><div role="option">Oregon</div></div>', 'state'],
+            ['no group', '<input type="radio" name="speed">', undefined],
+            ['a label that is an option, never', '<div role="listbox" aria-labelledby="o"><div role="option" id="o">Jane Doe</div><div role="option">John Doe</div></div>', undefined],
+            ['a label an option shares, never', '<span id="s">Jane Doe</span><div role="radiogroup" aria-labelledby="s"><div role="radio" aria-labelledby="s"></div><div role="radio"></div></div>', undefined],
+            ['a label inside an option, never', '<div role="radiogroup" aria-labelledby="t"><label><input type="radio" name="to"><span id="t">Jane Doe</span></label><input type="radio" name="to"></div>', undefined],
+            ['the button that opens a list box, never', '<button id="b" aria-haspopup="listbox">12 Oak St</button><div role="listbox" aria-labelledby="b"><div role="option">12 Oak St</div><div role="option">9 Elm St</div></div>', undefined],
+            ['a combobox, never', '<div role="combobox" id="c">Jane Doe</div><div role="listbox" aria-labelledby="c"><div role="option">Jane Doe</div><div role="option">John Doe</div></div>', undefined],
+            ['a group around one option, never', '<div role="radiogroup"><div role="group" aria-label="Jane Doe, 12 Oak St"><input type="radio" name="address"></div><div role="group" aria-label="John Doe"><input type="radio" name="address"></div></div>', undefined],
+            ['the group around more than one option, past a group around one', '<div role="radiogroup" aria-label="Ship to"><div role="group" aria-label="Jane Doe"><input type="radio" name="address"></div><div role="group"><input type="radio" name="address"></div></div>', 'ship to'],
+            ['a heading beside one option in its own group, never', '<div role="group" aria-labelledby="a1"><h3 id="a1">Jane Doe</h3><input type="radio" name="address"></div>', undefined],
+            ['a group around a role option wrapping its own input, never', '<div role="group" aria-label="Jane Doe"><div role="radio"><input type="radio" name="address"></div></div>', undefined],
+            ['a label holding what an option is named by, never', '<div id="card"><span id="n">Jane Doe</span></div><div role="radiogroup" aria-labelledby="card"><div role="radio" aria-labelledby="n"></div><div role="radio"></div></div>', undefined],
+            ['a label inside what an option is named by, never', '<div id="row"><span id="g">Jane Doe</span></div><div role="radiogroup" aria-labelledby="g"><div role="radio" aria-labelledby="row"></div><div role="radio"></div></div>', undefined],
+            ['a label inside a native option\'s label, never', '<label for="r1"><span id="g">Jane Doe</span></label><div role="radiogroup" aria-labelledby="g"><input type="radio" id="r1" name="to"><input type="radio" name="to"></div>', undefined],
+            ['a link, never', '<a href="/account" id="l">Jane Doe</a><div role="listbox" aria-labelledby="l"><div role="option">A</div><div role="option">B</div></div>', undefined],
+            ['a role link, never', '<div role="link" id="l">Jane Doe</div><div role="listbox" aria-labelledby="l"><div role="option">A</div><div role="option">B</div></div>', undefined],
+            ['a tab, never', '<div role="tab" id="t">12 Oak St</div><div role="listbox" aria-labelledby="t"><div role="option">A</div><div role="option">B</div></div>', undefined],
+            ['a group around a role option beside its hidden input, never', '<div role="group" aria-label="Jane Doe"><div role="radio"></div><input type="radio" name="address" hidden></div>', undefined],
+            ['a group around one option and an unrelated toggle, never', '<div role="group" aria-label="Jane Doe, 12 Oak St"><input type="radio" name="address"><input type="checkbox" name="default"></div>', undefined],
+            ['a card beside a transparent radio of the same name, never', '<div role="group" aria-label="Jane Doe, 12 Oak St"><input type="radio" name="address"><input type="radio" name="address" style="opacity:0"></div>', undefined],
+            ['a card beside a radio of the same name in a transparent wrapper, never', '<div role="group" aria-label="Jane Doe, 12 Oak St"><input type="radio" name="address"><span style="opacity: 0"><input type="radio" name="address"></span></div>', undefined],
+            ['hidden radios shown by their labels', '<div role="radiogroup" aria-label="Select a Size"><input type="radio" name="_1" id="s1" style="display:none"><label for="s1">2T</label><input type="radio" name="_1" id="s2" style="display:none"><label for="s2">3T</label></div>', 'select a size'],
+            ['hidden radios inside the labels that show them', '<fieldset><legend>Color</legend><label><input type="radio" name="c" hidden><span>Navy</span></label><label><input type="radio" name="c" hidden><span>Red</span></label></fieldset>', 'color'],
+            ['a card beside a hidden radio whose label is hidden too, never', '<div role="group" aria-label="Jane Doe, 12 Oak St"><input type="radio" name="ship" id="a1"><input type="radio" name="ship" id="a2" style="display:none"><label for="a2" style="display:none">Home</label></div>', undefined],
+            ['a card beside a hidden radio whose label is transparent, never', '<div role="group" aria-label="Jane Doe, 12 Oak St"><input type="radio" name="ship"><input type="radio" name="ship" id="a2" style="display:none"><label for="a2" style="opacity:0">Home</label></div>', undefined],
+            ['a card beside a hidden radio with an empty label, never', '<div role="group" aria-label="Jane Doe"><input type="radio" name="to"><label><input type="radio" name="to" style="opacity:0"></label></div>', undefined],
+            ['a card beside a hidden radio whose label text is hidden, never', '<div role="group" aria-label="Jane Doe"><input type="radio" name="to"><input type="radio" name="to" id="a2" style="display:none"><label for="a2"><span style="display:none">Home</span></label></div>', undefined],
+            ['a card beside a hidden radio whose label text is opted out, never', '<div role="group" aria-label="Jane Doe"><input type="radio" name="to"><input type="radio" name="to" id="a2" style="display:none"><label for="a2"><span data-mp-no-track>Home</span></label></div>', undefined],
+            ['a card beside an opted-out hidden radio with a shown label, never', '<div role="group" aria-label="Jane Doe, 12 Oak St"><input type="radio" name="ship"><span data-mp-no-track><input type="radio" name="ship" id="a2" style="display:none"></span><label for="a2">Home</label></div>', undefined],
+            ['a card beside a hidden radio whose label is opted out, never', '<div role="group" aria-label="Jane Doe, 12 Oak St"><input type="radio" name="ship"><input type="radio" name="ship" id="a2" style="display:none"><label for="a2" data-mp-no-track>Home</label></div>', undefined],
+            ['a card beside a hidden radio inside an opted-out wrapping label, never', '<div role="group" aria-label="Jane Doe, 12 Oak St"><input type="radio" name="ship"><div data-mp-no-track><label><input type="radio" name="ship" hidden>Home</label></div></div>', undefined],
+            ['a card beside a hidden radio labelled outside it, never', '<div role="group" aria-label="Jane Doe, 12 Oak St"><input type="radio" name="ship"><input type="radio" name="ship" id="a2" style="display:none"></div><label for="a2">Home</label>', undefined],
+            ['a card beside a hidden radio of the same name, never', '<div role="group" aria-label="Jane Doe, 12 Oak St"><input type="radio" name="ship"><input type="radio" name="ship" style="visibility:hidden"></div>', undefined],
+            ['a radio group whose other radios sit in a nested group, never', '<div role="radiogroup" aria-label="Jane Doe"><div role="radio"></div><div role="radiogroup" aria-label="Speed"><div role="radio"></div><div role="radio"></div></div></div>', undefined],
+            ['a list box whose other options sit in a nested list box, never', '<div role="listbox" aria-label="Jane Doe"><div role="option"></div><div role="listbox" aria-label="Size"><div role="option"></div><div role="option"></div></div></div>', undefined],
+            ['a card around shipping and billing radios, never', '<div role="group" aria-label="Jane Doe, 12 Oak St"><input type="radio" name="shipping"><input type="radio" name="billing"></div>', undefined],
+            ['the question around cards of shipping and billing radios', '<fieldset><legend>Addresses</legend><div role="group" aria-label="Jane Doe, 12 Oak St"><input type="radio" name="shipping"><input type="radio" name="billing"></div><div role="group" aria-label="John Doe"><input type="radio" name="shipping"><input type="radio" name="billing"></div></fieldset>', 'addresses'],
+            ['a card around default shipping and billing checkboxes, never', '<div role="group" aria-label="Jane Doe"><input type="checkbox" name="default-shipping"><input type="checkbox" name="default-billing"></div>', undefined],
+            ['a card around radios of the same name in different forms, never', '<div role="group" aria-label="Jane Doe"><form><input type="radio" name="address"></form><form><input type="radio" name="address"></form></div>', undefined],
+            ['a card around a role radio beside its visually hidden input, never', '<div role="radiogroup" aria-label="Jane Doe"><div role="radio"></div><input type="radio" name="address" style="opacity: 0"></div>', undefined],
+            ['a card around default shipping and billing switches, never', '<div role="group" aria-label="Jane Doe"><div role="switch"></div><div role="switch"></div></div>', undefined],
+            ['a card around default shipping and billing role checkboxes, never', '<fieldset><legend>Jane Doe</legend><div role="checkbox"></div><div role="checkbox"></div></fieldset>', undefined],
+            ['the radiogroup around role radios, past a card', '<div role="radiogroup" aria-label="Ship to"><div role="group" aria-label="Jane Doe"><div role="radio"></div></div><div role="radio"></div></div>', 'ship to'],
+            ['a button listed with fallback roles, never', '<div role="button presentation" id="b">12 Oak St</div><div role="listbox" aria-labelledby="b"><div role="option">A</div><div role="option">B</div></div>', undefined],
+            ['a named region', '<div role="region" aria-label="Sauce"><input type="radio" name="sauce"><input type="radio" name="sauce"></div>', 'sauce'],
+            ['an accordion header\'s first heading', '<div role="tab" id="h"><h6>Tender Type</h6><h6>Required</h6></div><div role="region" aria-labelledby="h"><input type="radio" name="tender"><input type="radio" name="tender"></div>', 'tender type'],
+            ['an opted-out accordion header, never', '<div role="tab" id="h" data-mp-no-track><h6>Jane Doe</h6></div><div role="region" aria-labelledby="h"><input type="radio" name="to"><input type="radio" name="to"></div>', undefined],
+            ['an accordion header with an opted-out heading, never', '<div role="tab" id="h"><h6 data-mp-no-track>Jane Doe</h6></div><div role="region" aria-labelledby="h"><input type="radio" name="to"><input type="radio" name="to"></div>', undefined],
+            ['an accordion header with no heading, never', '<div role="tab" id="h">12 Oak St</div><div role="region" aria-labelledby="h"><input type="radio" name="to"><input type="radio" name="to"></div>', undefined],
+            ['a tab in a tab list, never', '<div role="tablist"><div role="tab" id="h"><h6>Jane Doe</h6></div></div><div role="region" aria-labelledby="h"><input type="radio" name="to"><input type="radio" name="to"></div>', undefined],
+            ['a tab in a tab list with a fallback role, never', '<div role="tablist presentation"><div role="tab" id="h"><h6>Jane Doe</h6></div></div><div role="region" aria-labelledby="h"><input type="radio" name="to"><input type="radio" name="to"></div>', undefined],
+            ['a header that is also an option, never', '<div role="tab radio" id="h"><h6>Jane Doe</h6></div><div role="region" aria-labelledby="h"><input type="radio" name="to"><input type="radio" name="to"></div>', undefined],
+            ['an accordion header holding a button, never', '<div role="tab" id="h"><h6>Size</h6><button>12 Oak St</button></div><div role="region" aria-labelledby="h"><input type="radio" name="to"><input type="radio" name="to"></div>', undefined],
+            ['an unnamed region, past to the fieldset around it', '<fieldset><legend>Size</legend><div role="region"><input type="radio" name="size"><input type="radio" name="size"></div></fieldset>', 'size'],
+            ['a region named by a button, past to the fieldset around it', '<fieldset><legend>Sauce</legend><h3><button id="b" aria-expanded="true">Sauces</button></h3><div role="region" aria-labelledby="b"><input type="radio" name="s"><input type="radio" name="s"></div></fieldset>', 'sauce'],
+            ['a region with a blank name, past to the fieldset around it', '<fieldset><legend>Size</legend><div role="region" aria-label=" "><input type="radio" name="size"><input type="radio" name="size"></div></fieldset>', 'size'],
+            ['a region labelled by a missing element, past to the fieldset around it', '<fieldset><legend>Size</legend><div role="region" aria-labelledby="nope"><input type="radio" name="size"><input type="radio" name="size"></div></fieldset>', 'size'],
+            ['a tab in a tab list, past to the group around it', '<div role="group" aria-label="Size"><div role="tablist"><div role="tab" id="h"><h6>Jane Doe</h6></div></div><div role="region" aria-labelledby="h"><input type="radio" name="size"><input type="radio" name="size"></div></div>', 'size'],
+            ['transparent radios in shown option rows', '<div role="radiogroup" aria-label="Tender type"><div role="button"><input type="radio" name="tender" style="opacity:0"><span>Cash</span></div><div role="button"><input type="radio" name="tender" style="opacity:0"><span>Card</span></div></div>', 'tender type'],
+            ['unnamed checkboxes in shown option rows of a fieldset', '<fieldset><legend>Toppings</legend><div role="button"><input type="checkbox"><span>Pickles</span></div><div role="button"><input type="checkbox"><span>Onions</span></div></fieldset>', 'toppings'],
+            ['unnamed checkboxes in option rows under an accordion header', '<div role="tab" id="h"><h6>Add-ons:</h6></div><div role="region" aria-labelledby="h"><div role="button"><input type="checkbox"><span>Pickles</span></div><div role="button"><input type="checkbox"><span>Onions</span></div></div>', 'add-ons'],
+            ['unnamed checkboxes with a blank name in shown option rows', '<fieldset><legend>Toppings</legend><div role="button"><input type="checkbox" name=""><span>Pickles</span></div><div role="button"><input type="checkbox" name=""><span>Onions</span></div></fieldset>', 'toppings'],
+            ['a card named for a person around setting rows, never', '<div role="group" aria-label="Jane Doe"><div role="button"><input type="checkbox"><span>Default shipping</span></div><div role="button"><input type="checkbox"><span>Default billing</span></div></div>', undefined],
+            ['a labelled region around unnamed rows, never', '<div role="region" aria-label="Jane Doe"><div role="button"><input type="checkbox"><span>Home</span></div><div role="button"><input type="checkbox"><span>Work</span></div></div>', undefined],
+            ['a region labelled by a heading, not a header, around unnamed rows, never', '<h3 id="h">Jane Doe</h3><div role="region" aria-labelledby="h"><div role="button"><input type="checkbox"><span>Home</span></div><div role="button"><input type="checkbox"><span>Work</span></div></div>', undefined],
+            ['a card around unnamed checkboxes outside rows, never', '<div role="group" aria-label="Jane Doe"><input type="checkbox"><input type="checkbox"></div>', undefined],
+            ['a card around unnamed checkboxes sharing one row, never', '<div role="group" aria-label="Jane Doe"><div role="button"><input type="checkbox"><input type="checkbox"><span>Home</span></div></div>', undefined],
+            ['a card beside an unnamed checkbox in a row, never', '<div role="group" aria-label="Jane Doe"><input type="checkbox"><div role="button"><input type="checkbox"><span>Home</span></div></div>', undefined],
+            ['an unnamed checkbox in a row with no text of its own, never', '<div role="group" aria-label="Jane Doe"><div role="button"><input type="checkbox"></div><div role="button"><input type="checkbox"><span>Home</span></div></div>', undefined],
+            ['an unnamed checkbox beside a named one in rows, never', '<div role="group" aria-label="Jane Doe"><div role="button"><input type="checkbox"><span>Home</span></div><div role="button"><input type="checkbox" name="default"><span>Work</span></div></div>', undefined],
+            ['an unnamed checkbox beside an unnamed radio in rows, never', '<div role="group" aria-label="Jane Doe"><div role="button"><input type="checkbox"><span>Home</span></div><div role="button"><input type="radio"><span>Work</span></div></div>', undefined],
+            ['unnamed checkboxes in rows of different forms, never', '<div role="group" aria-label="Jane Doe"><form><div role="button"><input type="checkbox"><span>Home</span></div></form><form><div role="button"><input type="checkbox"><span>Work</span></div></form></div>', undefined],
+            ['unnamed checkboxes in rows of different nested groups, never', '<div role="group" aria-label="Jane Doe"><div role="group" aria-label="Home"><div role="button"><input type="checkbox"><span>Home</span></div></div><div role="group" aria-label="Work"><div role="button"><input type="checkbox"><span>Work</span></div></div></div>', undefined],
+            ['a card beside a shown row holding only a transparent radio, never', '<div role="group" aria-label="Jane Doe"><input type="radio" name="to"><div role="button"><input type="radio" name="to" style="opacity:0"></div></div>', undefined],
+            ['a card beside a row whose only text is transparent, never', '<div role="group" aria-label="Jane Doe"><input type="radio" name="to"><div role="button"><input type="radio" name="to" style="opacity:0"><span style="opacity:0">Home</span></div></div>', undefined],
+            ['a card beside a row whose only text is hidden, never', '<div role="group" aria-label="Jane Doe"><input type="radio" name="to"><div role="button"><input type="radio" name="to" style="opacity:0"><span style="display:none">Home</span></div></div>', undefined],
+            ['a card beside a row whose only text is opted out, never', '<div role="group" aria-label="Jane Doe"><input type="radio" name="to"><div role="button"><input type="radio" name="to" style="opacity:0"><span data-mp-no-track>Home</span></div></div>', undefined],
+            ['a card beside a row whose only text is editable, never', '<div role="group" aria-label="Jane Doe"><input type="radio" name="to"><div role="button"><input type="radio" name="to" style="opacity:0"><span contenteditable="true">Home</span></div></div>', undefined],
+            ['a card beside a row whose only text is in a text area, never', '<div role="group" aria-label="Jane Doe"><input type="radio" name="to"><div role="button"><input type="radio" name="to" style="opacity:0"><textarea>Home</textarea></div></div>', undefined],
+            ['a card beside a row whose only text is in a select, never', '<div role="group" aria-label="Jane Doe"><input type="radio" name="to"><div role="button"><input type="radio" name="to" style="opacity:0"><select><option>Home</option></select></div></div>', undefined],
+            ['a card beside a row whose only text is an SVG title, never', '<div role="group" aria-label="Jane Doe"><input type="radio" name="to"><div role="button"><input type="radio" name="to" style="opacity:0"><svg><title>Home</title><desc>Home</desc></svg></div></div>', undefined],
+            ['option rows that draw SVG text', '<div role="radiogroup" aria-label="Tender type"><div role="button"><input type="radio" name="tender" style="opacity:0"><svg><text>Cash</text></svg></div><div role="button"><input type="radio" name="tender" style="opacity:0"><svg><text>Card</text></svg></div></div>', 'tender type'],
+            ['a card beside a row whose only text is an SVG definition, never', '<div role="group" aria-label="Jane Doe"><input type="radio" name="to"><div role="button"><input type="radio" name="to" style="opacity:0"><svg><defs><text>Home</text></defs></svg></div></div>', undefined],
+            ['a card beside a row whose only text is in closed details, never', '<div role="group" aria-label="Jane Doe"><input type="radio" name="to"><div role="button"><input type="radio" name="to" style="opacity:0"><details><summary></summary>Home</details></div></div>', undefined],
+            ['a card beside a row whose summary sits in closed details, never', '<div role="group" aria-label="Jane Doe"><input type="radio" name="to"><div role="button"><input type="radio" name="to" style="opacity:0"><details><summary></summary><details><summary>Home</summary></details></details></div></div>', undefined],
+            ['a card beside a row whose closed details summary draws text', '<div role="group" aria-label="Jane Doe"><input type="radio" name="to"><div role="button"><input type="radio" name="to" style="opacity:0"><details><summary>Home</summary>More</details></div></div>', 'jane doe'],
+            ['a card beside a row whose only text is canvas fallback, never', '<div role="group" aria-label="Jane Doe"><input type="radio" name="to"><div role="button"><input type="radio" name="to" style="opacity:0"><canvas>Home</canvas></div></div>', undefined],
+            ['a person card of setting rows inside a fieldset, never', '<fieldset><legend>Saved addresses</legend><div role="group" aria-label="Jane Doe"><div role="button"><input type="checkbox"><span>Default shipping</span></div><div role="button"><input type="checkbox"><span>Default billing</span></div></div></fieldset>', undefined],
+            ['a person card of setting rows inside an accordion section, never', '<div role="tab" id="h"><h6>Saved addresses</h6></div><div role="region" aria-labelledby="h"><div role="group" aria-label="Jane Doe"><div role="button"><input type="checkbox"><span>Default shipping</span></div><div role="button"><input type="checkbox"><span>Default billing</span></div></div></div>', undefined],
+            ['a fieldset named for a person around setting rows, never', '<fieldset aria-label="Jane Doe"><div role="button"><input type="checkbox"><span>Default shipping</span></div><div role="button"><input type="checkbox"><span>Default billing</span></div></fieldset>', undefined],
+            ['a fieldset labelled by a person heading around setting rows, never', '<h3 id="p">Jane Doe</h3><fieldset aria-labelledby="p"><div role="button"><input type="checkbox"><span>Default shipping</span></div><div role="button"><input type="checkbox"><span>Default billing</span></div></fieldset>', undefined],
+            ['a fieldset whose aria-label overrides its legend around setting rows, never', '<fieldset aria-label="Jane Doe"><legend>Toppings</legend><div role="button"><input type="checkbox"><span>Default shipping</span></div><div role="button"><input type="checkbox"><span>Default billing</span></div></fieldset>', undefined],
+            ['a fieldset with no legend around setting rows, never', '<fieldset><div role="button"><input type="checkbox"><span>Default shipping</span></div><div role="button"><input type="checkbox"><span>Default billing</span></div></fieldset>', undefined],
+            ['an accordion section whose aria-label overrides its header around setting rows, never', '<div role="tab" id="h"><h6>Add-ons</h6></div><div role="region" aria-label="Jane Doe" aria-labelledby="h"><div role="button"><input type="checkbox"><span>Default shipping</span></div><div role="button"><input type="checkbox"><span>Default billing</span></div></div>', undefined],
+            ['a fieldset acting as an accordion section with no legend around setting rows, never', '<div role="tab" id="h"><h6>Add-ons</h6></div><fieldset role="region" aria-labelledby="h"><div role="button"><input type="checkbox"><span>Default shipping</span></div><div role="button"><input type="checkbox"><span>Default billing</span></div></fieldset>', undefined],
+            ['a fieldset section named for a person under an accordion header, never', '<div role="tab" id="h"><h6>Add-ons</h6></div><fieldset role="region" aria-label="Jane Doe" aria-labelledby="h"><div role="button"><input type="checkbox"><span>Default shipping</span></div><div role="button"><input type="checkbox"><span>Default billing</span></div></fieldset>', undefined],
+            ['a fieldset labelled by its own legend', '<fieldset aria-labelledby="q"><legend id="q">Toppings</legend><div role="button"><input type="checkbox"><span>Pickles</span></div><div role="button"><input type="checkbox"><span>Onions</span></div></fieldset>', 'toppings'],
+            ['a fieldset labelled by a heading beside its legend around setting rows, never', '<h3 id="p">Jane Doe</h3><fieldset aria-labelledby="p"><legend>Toppings</legend><div role="button"><input type="checkbox"><span>Pickles</span></div><div role="button"><input type="checkbox"><span>Onions</span></div></fieldset>', undefined],
+            ['a fieldset whose rows sit in an unnamed wrapper group, never', '<fieldset><legend>Toppings</legend><div role="group"><div role="button"><input type="checkbox"><span>Pickles</span></div><div role="button"><input type="checkbox"><span>Onions</span></div></div></fieldset>', undefined],
+            ['a fieldset with a blank aria-label, named by its legend', '<fieldset aria-label=" "><legend>Toppings</legend><div role="button"><input type="checkbox"><span>Pickles</span></div><div role="button"><input type="checkbox"><span>Onions</span></div></fieldset>', 'toppings'],
+            ['a card beside a row too large to check, never', '<div role="group" aria-label="Jane Doe"><input type="radio" name="to"><div role="button"><input type="radio" name="to" style="opacity:0">' + '<i></i>'.repeat(64) + '<span>Home</span></div></div>', undefined],
+            ['a card beside a row whose radio is opted out, never', '<div role="group" aria-label="Jane Doe"><input type="radio" name="to"><div role="button"><input type="radio" name="to" style="opacity:0" data-mp-no-track><span>Home</span></div></div>', undefined],
+            ['a card beside a row with a slot, never', '<div role="group" aria-label="Jane Doe"><input type="radio" name="to"><div role="button"><input type="radio" name="to" style="opacity:0"><slot>Home</slot></div></div>', undefined],
+            ['a card beside a custom element row, never', '<div role="group" aria-label="Jane Doe"><input type="radio" name="to"><div role="button"><input type="radio" name="to" style="opacity:0"><x-label>Home</x-label></div></div>', undefined],
+            ['a card beside an opted-out row with text, never', '<div role="group" aria-label="Jane Doe"><input type="radio" name="to"><div role="button" data-mp-no-track><input type="radio" name="to" style="opacity:0"><span>Home</span></div></div>', undefined],
+            ['a card beside a transparent radio in a transparent row, never', '<div role="group" aria-label="Jane Doe"><input type="radio" name="to"><div role="button" style="opacity:0"><input type="radio" name="to" style="opacity:0"></div></div>', undefined],
+            ['a card beside a transparent radio sharing its row, never', '<div role="group" aria-label="Jane Doe"><div role="button"><input type="radio" name="to"><input type="radio" name="to" style="opacity:0"></div></div>', undefined],
+        ])('names the group of a picker from %s', (_, html, expected) => {
+            document.body.innerHTML = html;
+            const choice = document.body.querySelector('input, [role="option"], [role="radio"], [role="switch"], [role="checkbox"]')!;
+
+            expect(describeButtonClick(choice, [choice, document.body]).group).toBe(expected);
+        });
+
+        it('counts no option row that is a shadow host showing only its slotted radio', () => {
+            document.body.innerHTML =
+                '<div role="group" aria-label="Jane Doe"><input type="radio" name="to">' +
+                '<div role="button" id="row"><input type="radio" name="to" style="opacity:0" slot="r">Home</div></div>';
+            document.getElementById('row')!.attachShadow({ mode: 'open' }).innerHTML = '<slot name="r"></slot>';
+            const choice = document.querySelector('input')!;
+            expect(describeButtonClick(choice, [choice, document.body]).group).toBeUndefined();
+        });
+
+        describe('with option rows the browser does not draw', () => {
+            const rows =
+                '<div role="radiogroup" aria-label="Tender type"><div role="button"><input type="radio" name="tender" style="opacity:0"><span>Cash</span></div>' +
+                '<div role="button"><input type="radio" name="tender" style="opacity:0"><span>Card</span></div></div>';
+            const group = () => {
+                document.body.innerHTML = rows;
+                const choice = document.querySelector('input')!;
+                return describeButtonClick(choice, [choice, document.body]).group;
+            };
+            afterEach(() => {
+                (Range.prototype as any).getClientRects = () => drawnBox;
+            });
+
+            it('counts no row whose text has no box', () => {
+                (Range.prototype as any).getClientRects = () => [{ width: 0, height: 0 }];
+
+                expect(group()).toBeUndefined();
+            });
+
+            it('counts no row whose text the browser reports hidden', () => {
+                (Element.prototype as any).checkVisibility = () => false;
+
+                expect(group()).toBeUndefined();
+                (Element.prototype as any).checkVisibility = () => true;
+            });
+
+            it('asks the browser for opacity and visibility under both option names', () => {
+                const check = jest.fn(() => true);
+                (Element.prototype as any).checkVisibility = check;
+
+                group();
+
+                expect(check).toHaveBeenCalledWith({
+                    checkOpacity: true,
+                    checkVisibilityCSS: true,
+                    opacityProperty: true,
+                    visibilityProperty: true,
+                });
+                (Element.prototype as any).checkVisibility = () => true;
+            });
+
+            it('counts no row where boxes cannot be read', () => {
+                delete (Range.prototype as any).getClientRects;
+
+                expect(group()).toBeUndefined();
+            });
+        });
+
+        describe('with option labels the browser does not draw', () => {
+            const sizes =
+                '<div role="radiogroup" aria-label="Select a Size"><input type="radio" name="_1" id="s1" style="display:none"><label for="s1">2T</label>' +
+                '<input type="radio" name="_1" id="s2" style="display:none"><label for="s2">3T</label></div>';
+            const group = () => {
+                document.body.innerHTML = sizes;
+                const choice = document.querySelector('input')!;
+                return describeButtonClick(choice, [choice, document.body]).group;
+            };
+            afterEach(() => {
+                (Element.prototype as any).checkVisibility = () => true;
+                (Range.prototype as any).getClientRects = () => drawnBox;
+            });
+
+            it('counts no label the browser reports hidden', () => {
+                (Element.prototype as any).checkVisibility = () => false;
+
+                expect(group()).toBeUndefined();
+            });
+
+            it('counts no label where the browser cannot say', () => {
+                delete (Element.prototype as any).checkVisibility;
+
+                expect(group()).toBeUndefined();
+            });
+
+            it('counts no label whose text has no box', () => {
+                (Range.prototype as any).getClientRects = () => [{ width: 0, height: 0 }];
+
+                expect(group()).toBeUndefined();
+            });
+
+            it('counts a label the browser draws', () => {
+                expect(group()).toBe('select a size');
+            });
+        });
+
+        it('reads a named region\'s label once per click', () => {
+            document.body.innerHTML =
+                '<div role="tab" id="h"><h6>Tender Type</h6></div><div role="region" aria-labelledby="h">' +
+                '<input type="radio" name="tender"><input type="radio" name="tender"></div>';
+            const lookUp = jest.spyOn(document, 'getElementById');
+            const choice = document.querySelector('input')!;
+
+            expect(describeButtonClick(choice, [choice, document.body]).group).toBe('tender type');
+            expect(lookUp.mock.calls.filter(([id]) => id === 'h')).toHaveLength(1);
+            lookUp.mockRestore();
+        });
+
+        it('resolves a group label inside its own shadow root, not a same-id element on the page', () => {
+            document.body.innerHTML = '<span id="q">Jane Doe</span><div id="host"></div>';
+            const root = document.getElementById('host')!.attachShadow({ mode: 'open' });
+            root.innerHTML = '<span id="q">Size</span><div role="radiogroup" aria-labelledby="q"><input type="radio" name="size"><input type="radio" name="size"></div>';
+            const radio = root.querySelector('input')!;
+
+            expect(describeButtonClick(radio, [radio]).group).toBe('size');
+        });
+
+        it('reads no group name through a slot, which shows whatever is assigned to it', () => {
+            document.body.innerHTML = '<div id="host"><button slot="q">Jane Doe</button></div>';
+            const root = document.getElementById('host')!.attachShadow({ mode: 'open' });
+            root.innerHTML = '<slot name="q" id="q"></slot><div role="radiogroup" aria-labelledby="q"><input type="radio" name="to"><input type="radio" name="to"></div>';
+            const radio = root.querySelector('input')!;
+
+            expect(describeButtonClick(radio, [radio]).group).toBeUndefined();
+        });
+
+        it('reads no group name from a span slotted into a button', () => {
+            document.body.innerHTML =
+                '<div id="host"><span id="q">Jane Doe</span></div><div role="radiogroup" aria-labelledby="q"><input type="radio" name="to"><input type="radio" name="to"></div>';
+            document.getElementById('host')!.attachShadow({ mode: 'open' }).innerHTML = '<button><slot></slot></button>';
+            const radio = document.querySelector('input')!;
+
+            expect(describeButtonClick(radio, [radio]).group).toBeUndefined();
+        });
+
+        it('reads no group name from an accordion header slotted into a button', () => {
+            document.body.innerHTML =
+                '<div id="host"><div role="tab" id="h"><h6>Jane Doe</h6></div></div>' +
+                '<div role="region" aria-labelledby="h"><input type="radio" name="to"><input type="radio" name="to"></div>';
+            document.getElementById('host')!.attachShadow({ mode: 'open' }).innerHTML = '<button><slot></slot></button>';
+            const radio = document.querySelector('input')!;
+
+            expect(describeButtonClick(radio, [radio]).group).toBeUndefined();
+        });
+
+        it('names an option row of an accordion by its question, never its text', () => {
+            document.body.innerHTML =
+                '<div role="tab" id="h"><h6>Tender Type</h6></div><div role="region" aria-labelledby="h">' +
+                '<div role="button" data-testid="option-row"><span>10 Original</span><input type="radio" name="g-9r3qs" style="opacity:0"></div>' +
+                '<div role="button" data-testid="option-row"><span>10 Spicy</span><input type="radio" name="g-9r3qs" style="opacity:0"></div></div>';
+            const text = document.querySelector('span')!;
+
+            expect(describeClick([text, text.parentElement, document.body])).toEqual(
+                expect.objectContaining({
+                    label: undefined,
+                    labelSource: 'none',
+                    testId: undefined,
+                    element: 'role',
+                    group: 'tender type',
+                })
+            );
+        });
+
+        it('sends no name with an input acting as an option', () => {
+            document.body.innerHTML = '<div role="listbox"><input type="checkbox" role="option" name="jane-doe"></div>';
+            const option = document.querySelector('input')!;
+
+            expect(describeButtonClick(option, [option, document.body]).elementName).toBeUndefined();
+        });
+
+        it('sends an option of a list box with its type and group, never its text or identifiers', () => {
+            document.body.innerHTML =
+                '<div role="listbox" aria-label="Title"><div role="option" id="title-mrs" data-testid="title-mrs">Mrs</div><div role="option">Ms</div></div>';
+            const option = document.body.querySelector('[role="option"]')!;
+
+            expect(describeButtonClick(option, [option, document.body])).toEqual(
+                expect.objectContaining({
+                    label: undefined,
+                    labelSource: 'none',
+                    elementId: undefined,
+                    testId: undefined,
+                    type: 'option',
+                    group: 'title',
+                })
+            );
+        });
+
+        it.each([
+            ['a tab', '<div role="tab">Reviews</div>', 'tab'],
+            ['a link run by script', '<div role="link">See all</div>', 'link'],
+            ['a fallback role list', '<div role="tab button">Reviews</div>', 'button'],
+            ['a role list split by tabs', '<div role="presentation\ttab">Reviews</div>', 'tab'],
+        ])('types %s by its role', (_, html, type) => {
+            document.body.innerHTML = html;
+
+            expect(describeButtonClick(document.body.firstElementChild!, []).type).toBe(type);
+        });
+
+        it('names a card whose text runs too long by its heading', () => {
+            document.body.innerHTML =
+                '<div role="button"><h3>Breakfast Burrito</h3><p>' + 'Eggs, potatoes, cheese and salsa. '.repeat(5) + '</p><span>$13.50</span></div>';
+
+            expect(describeButtonClick(document.body.firstElementChild!, [])).toEqual(
+                expect.objectContaining({ label: 'breakfast burrito', labelSource: 'heading' })
+            );
+        });
+
+        it('names a card with too many parts to read by its heading', () => {
+            document.body.innerHTML =
+                '<div role="button"><img alt=""><span>New</span><h2>Trail Runner</h2><span>4.5</span><span>$80</span></div>';
+
+            expect(describeButtonClick(document.body.firstElementChild!, [])).toEqual(
+                expect.objectContaining({ label: 'trail runner', labelSource: 'heading' })
+            );
+        });
+
+        it('sends a link run by script without its text, which can name the shopper', () => {
+            document.body.innerHTML = '<div role="link" aria-label="Account for Jane" id="account-link">Hi, Jane</div>';
+
+            expect(describeButtonClick(document.body.firstElementChild!, [])).toEqual(
+                expect.objectContaining({
+                    element: 'link',
+                    label: undefined,
+                    labelSource: 'none',
+                    ariaLabel: undefined,
+                    elementId: 'account-link',
+                })
+            );
+        });
+
+        it('sends a field acting as a link without its text', () => {
+            document.body.innerHTML = '<input type="text" role="link" aria-label="Account for Jane" value="Jane">';
+
+            expect(describeButtonClick(document.body.firstElementChild!, [])).toEqual(
+                expect.objectContaining({ label: undefined, labelSource: 'none', ariaLabel: undefined })
+            );
+        });
+
+        it('keeps the name of a native button acting as a link, as before', () => {
+            document.body.innerHTML = '<button role="link">See all</button>';
+
+            expect(describeButtonClick(document.body.firstElementChild!, []).label).toBe('see all');
+        });
+
+        it('reports a link role listed with others as a link', () => {
+            document.body.innerHTML = '<div role="link presentation">Pay with PayPal</div>';
+
+            expect(describeButtonClick(document.body.firstElementChild!, []).element).toBe('link');
+        });
+
+        it('reads no heading from a card that takes in slotted content', () => {
+            document.body.innerHTML = '<div id="card" role="button"><h3>Jane Doe</h3><p>' + 'x '.repeat(80) + '</p></div>';
+            const card = document.getElementById('card')!;
+            card.attachShadow({ mode: 'open' }).innerHTML = '<slot></slot>';
+
+            expect(describeButtonClick(card, []).label).toBeUndefined();
+        });
+
+        it('reads no heading from a card holding a shadow root, whose fields it cannot check', () => {
+            document.body.innerHTML = '<div role="button"><h3>Jane Doe</h3><div id="field"></div><p>' + 'x '.repeat(80) + '</p></div>';
+            document.getElementById('field')!.attachShadow({ mode: 'open' }).innerHTML = '<input value="jane@example.com">';
+
+            expect(describeButtonClick(document.body.firstElementChild!, []).label).toBeUndefined();
+        });
+
+        it('reads no heading from a card holding a custom element, whose shadow root may be closed', () => {
+            document.body.innerHTML = '<div id="card" role="button"><h3>Jane Doe</h3><account-field></account-field><p>' + 'x '.repeat(80) + '</p></div>';
+            document.querySelector('account-field')!.attachShadow({ mode: 'closed' }).innerHTML = '<input value="jane@example.com">';
+
+            expect(describeButtonClick(document.getElementById('card')!, []).label).toBeUndefined();
+        });
+
+        it('reads no heading from a card that holds a form field', () => {
+            document.body.innerHTML =
+                '<div role="button"><h3>Jane Doe</h3><input value="jane@example.com"><p>' + 'x '.repeat(80) + '</p></div>';
+
+            expect(describeButtonClick(document.body.firstElementChild!, []).label).toBeUndefined();
+        });
+
         it('keeps the identifiers of a checkbox, which name its question', () => {
             document.body.innerHTML =
                 '<input type="checkbox" id="gift-wrap" name="gift" data-testid="gift-wrap" aria-controls="gift-note">';
@@ -965,5 +1539,332 @@ describe('describeButtonClick', () => {
             expect(classify([radio, document.body], '/checkout')).toBeUndefined();
             expect(classify([box, document.body], '/checkout')).toBeUndefined();
         });
+    });
+});
+
+describe('describePaymentChoice', () => {
+    // The choice a click on this element reads, along the path the browser gives.
+    const choiceAt = (target: Element) => {
+        const path: Array<EventTarget | null> = [];
+        for (let node: Element | null = target; node; node = node.parentElement) {
+            path.push(node);
+        }
+        path.push(document);
+        const control = findControl(path);
+        return control ? describePaymentChoice(control, path) : undefined;
+    };
+    const byId = (id: string) => document.getElementById(id)!;
+
+    afterEach(() => {
+        document.body.innerHTML = '';
+    });
+
+    it('names a payment radio by the text and image of the label around it, and its id', () => {
+        document.body.innerHTML =
+            '<label><input type="radio" name="payment_method" id="paypal-option"> Pay with PayPal <img src="/p.svg" alt="PayPal logo"></label>';
+
+        expect(choiceAt(byId('paypal-option'))).toEqual({
+            radio: byId('paypal-option'),
+            names: ['pay with paypal', 'paypal logo', 'paypal-option'],
+        });
+    });
+
+    it.each([
+        ['its input name', '<input type="radio" name="checkout[payment_gateway]" id="opt"><label for="opt">Credit card</label>'],
+        ['its input name in one word', '<input type="radio" name="paymentmethod" id="opt"><label for="opt">Credit card</label>'],
+        ['the fieldset of a radio with no name', '<fieldset id="payment-options"><input type="radio" id="opt"><label for="opt">Credit card</label></fieldset>'],
+        ['the group of a radio with no name', '<div role="radiogroup" aria-label="Tender type"><input type="radio" id="opt"><label for="opt">Credit card</label></div>'],
+    ])('reads a payment question from %s', (_, html) => {
+        document.body.innerHTML = html;
+
+        expect(choiceAt(byId('opt'))).toEqual(
+            expect.objectContaining({ names: ['credit card', 'opt'] })
+        );
+    });
+
+    it('names a button acting as a payment radio by its own text and test id', () => {
+        document.body.innerHTML =
+            '<div role="radiogroup" aria-label="Payment method"><button role="radio" aria-checked="true" data-testid="venmo-option">Venmo</button></div>';
+        const row = document.querySelector('button')!;
+
+        expect(choiceAt(row)).toEqual({ radio: row, names: ['venmo', 'venmo-option'] });
+    });
+
+    it('masks the names like a label', () => {
+        document.body.innerHTML =
+            '<input type="radio" name="paymentMethod" id="saved"><label for="saved">Visa ending 4242</label>' +
+            '<input type="radio" name="paymentMethod" id="mail"><label for="mail">jane@example.test</label>';
+
+        expect(choiceAt(byId('saved')).names).toEqual(['visa ending #', 'saved']);
+        expect(choiceAt(byId('mail')).names).toEqual(['mail']);
+    });
+
+    it('reads no text from a label that holds another field', () => {
+        document.body.innerHTML =
+            '<label><input type="radio" name="payment" id="other"> Other <input type="text" value="Jane Doe"></label>';
+
+        expect(choiceAt(byId('other')).names).toEqual(['other']);
+    });
+
+    it.each([
+        ['a radio whose question is not about payment', '<input type="radio" name="disability" id="target"><label for="target">Wheelchair access</label>'],
+        ['a checkbox in a payment form', '<form id="payment-form"><input type="checkbox" name="payment_save" id="target"><label for="target">Save my card</label></form>'],
+        ['a payment radio nothing names', '<input type="radio" name="payment">'],
+        ['a radio in a payment form whose question is not', '<form id="payment-form"><fieldset id="billing-address"><input type="radio" name="billing_address" id="target"><label for="target">Card address</label></fieldset></form>'],
+        ['a named radio in a payment fieldset whose question is not', '<fieldset id="payment"><input type="radio" name="shipping_speed" id="target"><label for="target">Card delivery</label></fieldset>'],
+        ['a question that only starts like pay', '<input type="radio" name="payee" id="target"><label for="target">Card</label><input type="radio" name="payroll_period">'],
+        ['a button that is not a radio', '<form id="payment-form"><button id="target">Pay with PayPal</button></form>'],
+    ])('describes nothing for %s', (_, html) => {
+        document.body.innerHTML = html;
+        const target = document.getElementById('target') || document.querySelector('input')!;
+
+        expect(choiceAt(target)).toBeUndefined();
+    });
+
+    it.each([
+        ['a row', '<div role="button" id="target">PayPal <span data-mp-no-track><input type="radio" name="payment_method" id="paypal"></span></div>'],
+        ['a label', '<label id="target" for="paypal">PayPal</label><span data-mp-no-track><input type="radio" name="payment_method" id="paypal"></span>'],
+    ])('describes nothing for a payment radio under data-mp-no-track, clicked through %s outside it', (_, html) => {
+        document.body.innerHTML = html;
+
+        expect(choiceAt(byId('target'))).toBeUndefined();
+    });
+
+    it('reads no text from a label under data-mp-no-track', () => {
+        document.body.innerHTML =
+            '<input type="radio" name="payment_method" id="opt"><span data-mp-no-track><label for="opt">Card ending 4242</label></span>' +
+            '<label for="opt" data-mp-no-track>Jane Doe</label>';
+
+        expect(choiceAt(byId('opt')).names).toEqual(['opt']);
+    });
+
+    it('reads whether the click left the radio picked', () => {
+        document.body.innerHTML =
+            '<input type="radio" name="payment" id="native"><button role="radio" aria-checked="false" id="role">Card</button>';
+        const native = byId('native') as HTMLInputElement;
+        const role = byId('role');
+
+        expect(isPicked(native)).toBe(false);
+        expect(isPicked(role)).toBe(false);
+        native.checked = true;
+        role.setAttribute('aria-checked', 'true');
+        expect(isPicked(native)).toBe(true);
+        expect(isPicked(role)).toBe(true);
+    });
+});
+
+describe('describeCheckedPaymentChoice', () => {
+    const byId = (id: string) => document.getElementById(id)!;
+
+    afterEach(() => {
+        document.body.innerHTML = '';
+    });
+
+    it('names the payment radio the page holds checked', () => {
+        document.body.innerHTML =
+            '<input type="radio" name="payment_method" id="card" checked><label for="card">Credit card</label>' +
+            '<input type="radio" name="payment_method" id="paypal"><label for="paypal">PayPal</label>';
+
+        expect(describeCheckedPaymentChoice()).toEqual({
+            radio: byId('card'),
+            names: ['credit card', 'card'],
+        });
+    });
+
+    it('names a checked button acting as a payment radio', () => {
+        document.body.innerHTML =
+            '<div role="radiogroup" aria-label="Payment method">' +
+            '<button role="radio" aria-checked="false" data-testid="card-option">Card</button>' +
+            '<button role="radio" aria-checked="true" data-testid="venmo-option">Venmo</button></div>';
+
+        expect(describeCheckedPaymentChoice()).toEqual({
+            radio: document.querySelector('[data-testid="venmo-option"]'),
+            names: ['venmo', 'venmo-option'],
+        });
+    });
+
+    it('counts a role radio and the hidden input a component library keeps beside it as one option', () => {
+        document.body.innerHTML =
+            '<div role="radiogroup" aria-label="Payment method">' +
+            '<button role="radio" aria-checked="true" data-testid="paypal-option">PayPal</button>' +
+            '<input type="radio" aria-hidden="true" tabindex="-1" name="payment_method" value="paypal" checked></div>';
+
+        expect(describeCheckedPaymentChoice()).toEqual({
+            radio: document.querySelector('[data-testid="paypal-option"]'),
+            names: ['paypal', 'paypal-option'],
+        });
+    });
+
+    it('counts a role radio wrapping its checked native input as one option', () => {
+        document.body.innerHTML =
+            '<fieldset name="payment"><div role="radio" aria-checked="true" id="wrapper">' +
+            '<input type="radio" name="payment_method" id="card" checked><label for="card">Credit card</label></div></fieldset>';
+
+        expect(describeCheckedPaymentChoice()).toEqual({
+            radio: byId('card'),
+            names: ['credit card', 'card'],
+        });
+    });
+
+    it('counts one payment group rendered for two layouts as one option', () => {
+        const group =
+            '<form><label><input type="radio" name="payment_method" checked> Klarna</label></form>';
+        document.body.innerHTML = group + group;
+
+        expect(describeCheckedPaymentChoice()).toEqual({
+            radio: document.querySelector('input'),
+            names: ['klarna'],
+        });
+    });
+
+    it('counts one payment group rendered for two layouts as one option when their ids differ', () => {
+        document.body.innerHTML =
+            '<form><input type="radio" name="payment_method" id="card-desktop" checked><label for="card-desktop">Credit card</label></form>' +
+            '<form><input type="radio" name="payment_method" id="card-mobile" checked><label for="card-mobile">Credit card</label></form>';
+
+        expect(describeCheckedPaymentChoice()).toEqual({
+            radio: byId('card-desktop'),
+            names: ['credit card', 'card-desktop'],
+        });
+    });
+
+    it('passes over a native radio whose stale aria-checked still says it is checked', () => {
+        document.body.innerHTML =
+            '<input type="radio" role="radio" aria-checked="true" name="payment_method" id="card"><label for="card">Card</label>' +
+            '<input type="radio" name="payment_method" id="paypal" checked><label for="paypal">PayPal</label>';
+
+        expect(describeCheckedPaymentChoice()).toEqual(
+            expect.objectContaining({ radio: byId('paypal') })
+        );
+    });
+
+    it('passes over a checked radio whose question is not about payment', () => {
+        document.body.innerHTML =
+            '<input type="radio" name="shipping_speed" id="express" checked><label for="express">Express</label>' +
+            '<input type="radio" name="paymentMethod" id="klarna" checked><label for="klarna">Klarna</label>';
+
+        expect(describeCheckedPaymentChoice()).toEqual(
+            expect.objectContaining({ radio: byId('klarna') })
+        );
+    });
+
+    it.each([
+        ['no payment radio is checked', '<input type="radio" name="payment_method" id="card"><label for="card">Card</label>'],
+        ['only a radio whose question is not about payment is checked', '<input type="radio" name="disability" id="target" checked><label for="target">PayPal</label>'],
+        [
+            'two payment radios are checked',
+            '<input type="radio" name="payment_method" id="card" checked><label for="card">Card</label>' +
+                '<input type="radio" name="payment_plan" id="later" checked><label for="later">Klarna</label>',
+        ],
+        ['the checked payment radio is under data-mp-no-track', '<span data-mp-no-track><input type="radio" name="payment_method" id="card" checked><label for="card">Card</label></span>'],
+        ['nothing names the checked payment radio', '<input type="radio" name="payment" checked>'],
+        [
+            'two checked payment options share only their accessible name',
+            '<input type="radio" name="payment_method" id="card" aria-label="Select" checked><label for="card">Credit card</label>' +
+                '<input type="radio" name="payment_plan" id="paypal" aria-label="Select" checked><label for="paypal">PayPal</label>',
+        ],
+        [
+            'two checked payment options are named only by their ids',
+            '<input type="radio" name="payment_method" id="card" checked><input type="radio" name="payment_plan" id="paypal" checked>',
+        ],
+        [
+            'nothing names one of two checked payment options',
+            '<input type="radio" name="payment" checked>' +
+                '<input type="radio" name="payment_plan" id="later" checked><label for="later">Klarna</label>',
+        ],
+        ['a payment checkbox is checked', '<input type="checkbox" name="payment_save" id="save" checked><label for="save">Save my card</label>'],
+    ])('describes nothing when %s', (_, html) => {
+        document.body.innerHTML = html;
+
+        expect(describeCheckedPaymentChoice()).toBeUndefined();
+    });
+});
+
+describe('pagePath', () => {
+    it.each([
+        ['a plain route', '/checkout/review', '/checkout/review'],
+        ['only the token in a product name', '/p/trail-runner-gtx-zq7Kd93Lm41', '/p/trail-runner-gtx-*'],
+        ['only the token among words, kept as written', '/p/caf%C3%A9-blend-zq7Kd93Lm41', '/p/caf%C3%A9-blend-*'],
+        ['a token with no word beside it whole', '/checkout/qWeRtYuIoPaSdFgHjK_Zx/review', '/checkout/*/review'],
+        ['a uuid whole', '/track/550e8400-e29b-41d4-a716-446655440000', '/track/*'],
+        ['a token cut into pieces whole, beside a word', '/go/order-a1b2-c3d4-e5f6', '/go/*'],
+        ['a token behind an encoded separator as one piece', '/p/trail-runner-zq7%2DKd93Lm41xy', '/p/trail-runner-*'],
+        ['an account page under u', '/u/login', '/u/login'],
+        ['a sign-in step under u', '/u/mfa-sms-challenge', '/u/mfa-sms-challenge'],
+        ['a user name under u', '/u/jsmith', '/u/*'],
+        ['a numeric user id under u', '/u/12345678', '/u/*'],
+        ['a uuid beside a word whole, outside a product page', '/track/parcel-550e8400-e29b-41d4-a716-446655440000', '/track/*'],
+        ['a uuid after a word whole on a product page', '/p/parcel-550e8400-e29b-41d4-a716-446655440000', '/p/*'],
+        ['a uuid whose last group is letters', '/track/550e8400-e29b-41d4-a716-abcdefabcdef', '/track/*'],
+        ['a uuid whose last group is letters after a word', '/p/parcel-550e8400-e29b-41d4-a716-abcdefabcdef', '/p/*'],
+        ['a uuid with an escaped hyphen', '/p/550e8400%2De29b-41d4-a716-abcdefabcdef', '/p/*'],
+        ['a uuid with a hyphen escaped twice', '/p/parcel-550e8400-e29b%252D41d4-a716-abcdefabcdef', '/p/*'],
+        ['a uuid with an escaped letter', '/p/550e8400-e29b-41d4-a716-%61bcdefabcdef', '/p/*'],
+        ['a uuid with an escaped letter after a word', '/p/parcel-550e8400-e29b-41d4-a716-%61bcdefabcdef', '/p/*'],
+        ['a code that only shows joined, between words', '/p/parcel-VIx-RjIRiLs-trail-zq7Kd93Lm41', '/p/parcel-*-trail-*'],
+        ['a code cut into short pieces after a word', '/p/parcel-VIx-RjIRiLs-zq7Kd93Lm41', '/p/parcel-*'],
+        ['a name beside an id whole, outside a product page', '/registry/jane-smith-a1b2c3d4', '/registry/*'],
+        ['a grouped gift code whole', '/giftcard/ABCD-EFGH-1J2K-3L4M', '/giftcard/*'],
+        ['a grouped code whole, even on a product page', '/p/ABCD-EFGH-1J2K-3L4M', '/p/*'],
+        ['a short code piece with the token on a product page', '/p/trail-Kq3-runner-zq7Kd93Lm41', '/p/trail-*-runner-*'],
+        ['only the token after a product route', '/shop/product/trail-runner-gtx-zq7Kd93Lm41', '/shop/product/trail-runner-gtx-*'],
+        ['a token between words', '/p/trail-zq7Kd93Lm41-runner', '/p/trail-*-runner'],
+        ['a product id as written', '/product/trail-runner/509585', '/product/trail-runner/509585'],
+        ['an encoded segment as written', '/caf%C3%A9/menu', '/caf%C3%A9/menu'],
+        ['a camel-case route', '/help/ShippingAndReturns', '/help/ShippingAndReturns'],
+        ['a checkout token', '/checkout/qWeRtYuIoPaSdFgHjK_Zx/review', '/checkout/*/review'],
+        ['an order id after an order route', '/account/order-tracking/550e8400-e29b-41d4-a716-446655440000', '/account/order-tracking/*'],
+        ['a numeric order number', '/orders/12345678', '/orders/*'],
+        ['a mixed id', '/invite/A1B2C3D4E5F6/accept', '/invite/*/accept'],
+        ['a profile name', '/profile/jane-smith/orders', '/profile/*/orders'],
+        ['an email address', '/account/jane%40example.com/settings', '/account/*/settings'],
+        ['a session id', '/cart;jsessionid=A1B2C3D4E5F6', '/*'],
+        ['a segment that cannot be decoded, and the one after it', '/bad%E0%A4%A/next', '/*/*'],
+        ['a token behind an encoded slash', '/checkout/a1b2c3d4%2Freview', '/checkout/*'],
+        ['a name behind an encoded slash', '/profile%2Fjane-smith', '/*'],
+        ['a name after a route behind an encoded slash', '/account%2Fprofile/jane-smith', '/*/*'],
+        ['an order after a route behind an encoded slash', '/account%2Forders/12345678', '/*/*'],
+        ['an order after a view-order route', '/my-account/view-order/1234/', '/my-account/view-order/*/'],
+        ['an order after an order-received route', '/checkout/order-received/1234/', '/checkout/order-received/*/'],
+        ['an order after an order_id route', '/sales/order/view/order_id/123/', '/sales/order/*/order_id/*/'],
+        ['a route word with order inside another word as written', '/product/recorder/509585', '/product/recorder/509585'],
+        ['an order after a route with a session id', '/orders;jsessionid=A1B2C3D4E5F6/12345678', '/*/*'],
+        ['a name after a route with a matrix parameter', '/profile;v=1/jane-smith', '/*/*'],
+        ['an order after a route whose parameter holds an encoded slash', '/orders;next=%2Fcart/12345678', '/*/*'],
+        ['a name after a route whose parameter holds an encoded slash', '/profile;next=%2Fhome/jane-smith', '/*/*'],
+        ['an order after a route whose parameter cannot be decoded', '/orders;v=%ZZ/12345678', '/*/*'],
+        ['a name after a route whose parameter cannot be decoded', '/profile;v=%ZZ/jane-smith', '/*/*'],
+        ['an order after a route with an encoded parameter', '/orders%3Bjsessionid%3DA1B2C3D4E5F6/12345678', '/*/*'],
+        ['an order after an encoded parameter holding an encoded slash', '/orders%3Bnext=%2Fcart/12345678', '/*/*'],
+        ['a name after an encoded parameter holding an encoded slash', '/profile%3bnext=%2Fhome/jane-smith', '/*/*'],
+        ['an order after an encoded parameter that cannot be decoded', '/orders%3Bv=%ZZ/12345678', '/*/*'],
+        ['a token cut short by hyphens', '/checkout/VIx-RjIRiLs/review', '/checkout/*/review'],
+        ['a token holding a plus', '/t/Rj+C847p0AXu', '/t/*'],
+        ['Title-Case words joined by hyphens as written', '/tours/New-York-City-Tour', '/tours/New-York-City-Tour'],
+        ['an order after an empty segment', '/orders//12345678', '/orders//*'],
+        ['an order after a route whose separator is encoded twice', '/orders%253Bnext%3DABC/12345678', '/*/*'],
+        ['an email encoded twice', '/p/a%2540b.example/c', '/p/*/c'],
+        ['a product id after pre-order', '/product/pre-order/509585', '/product/pre-order/509585'],
+        ['a product id after made-to-order', '/shop/made-to-order/509585', '/shop/made-to-order/509585'],
+        ['a product id after on-order', '/catalog/on-order/509585', '/catalog/on-order/509585'],
+        ['a literal percent sign as written', '/sale/100%25-cotton', '/sale/100%25-cotton'],
+        ['an order after return-to-order', '/return-to-order/12345678', '/return-to-order/*'],
+        ['a product id after back-order', '/shop/back-order/509585', '/shop/back-order/509585'],
+        ['an email behind a literal percent sign', '/sale/100%25-%2540x/jane%2540example.com', '/sale/*/*'],
+        ['an order after a twice-encoded separator with a bad escape', '/orders%253Bv=%ZZ/12345678', '/*/*'],
+        ['a name after a twice-encoded separator with a bad escape', '/profile%253Bv=%ZZ/jane-smith', '/*/*'],
+        ['a split token with digits', '/checkout/VIx-RjI-7Ls/review', '/checkout/*/review'],
+        ['a token cut into short mixed pieces', '/checkout/a1b2-c3d4-e5f6-g7h8/review', '/checkout/*/review'],
+        ['a slug with one numbered piece as written', '/product/acmephone-15-pro-max-256gb', '/product/acmephone-15-pro-max-256gb'],
+        ['a plain slug with digits as written', '/product/iphone-15-pro/509585', '/product/iphone-15-pro/509585'],
+        ['an order after pre-order-status', '/pre-order-status/12345678', '/pre-order-status/*'],
+        ['an order after a route still encoded after every decode', '/%25252525256Frders/12345678', '/*/*'],
+        ['a name behind a literal percent sign and an encoded slash', '/p/100%25-%252Fprofile%252Fjane-smith', '/p/*'],
+        ['an email behind a literal percent sign and a nested encoding', '/p/100%25-jane%2525%2534%2530example.com', '/p/*'],
+        ['an order after a separator with encoded hex digits', '/orders%25%33Bv=%ZZ/12345678', '/*/*'],
+        ['a name after a separator with encoded hex digits', '/profile%25%33Bv=%ZZ/jane-smith', '/*/*'],
+        ['a name after an encoded parameter that cannot be decoded', '/profile%3Bv=%ZZ/jane-smith', '/*/*'],
+    ])('logs %s', (_name, pathname, expected) => {
+        expect(pagePath(pathname)).toBe(expected);
     });
 });

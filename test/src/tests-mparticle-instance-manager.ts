@@ -243,6 +243,12 @@ describe('mParticle instance manager', () => {
                 'path'
             )
         ).to.equal('https://shop.example.com/a');
+        expect(
+            mParticle._cleanUrl(
+                'https://shop.example.com/orders/12345678?page=2',
+                'path'
+            )
+        ).to.equal('https://shop.example.com/orders/*');
     });
 
     describe('multiple instances testing', () => {

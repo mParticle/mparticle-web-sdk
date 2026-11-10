@@ -82,6 +82,7 @@ export interface IFeatureFlags {
     astBackgroundEvents?: boolean;
     autoLogPageView?: boolean;
     autoButtonTracking?: boolean;
+    autoLinkTracking?: boolean;
 }
 export interface IStore {
     isEnabled: boolean;

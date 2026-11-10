@@ -7,6 +7,7 @@ import {
     isWalletNamedControl,
     vendorButtonKind,
 } from './controls';
+import { IButtonClick, TEST_ID_ATTRIBUTES } from './buttonDescription';
 
 // Classifies a click, submit or frame focus as checkout intent for the Rokt kit.
 // Reads only short control labels, never form field values, and stores nothing.
@@ -17,7 +18,25 @@ export type CheckoutIntentKind =
     | 'frame'
     | 'cart';
 
-const checkoutPath = /(?:^|\/)(?:checkouts?|payment|order|kasse|paiement|commander?|pago)(?:\/|$)/i;
+// A checkout segment may name its kind or its version, as /express-checkout, /checkout-v2 and /checkout-external do.
+// Other hyphenated words make it a content slug, such as /help/checkout-faq or /products/self-checkout-kiosk.
+const CHECKOUT_SEGMENT =
+    '(?:(?:express|guest|quick|secure|complete|one-?page|single-?page|mobile)-)?checkouts?' +
+    '(?:-(?:v\\d+|\\d+|flow|external|process|step(?:-\\d+)?))?';
+const checkoutPath = new RegExp(
+    '(?:^|\\/)(?:' + CHECKOUT_SEGMENT + '|payment|order|kasse|paiement|commander?|pago)(?:\\/|$)',
+    'i'
+);
+// A route with a checkout segment itself, not just a payment or order one, which account pages also use.
+const checkoutSegmentPath = new RegExp('(?:^|\\/)' + CHECKOUT_SEGMENT + '(?:\\/|$)', 'i');
+// A confirmation page under a checkout route, such as /checkout/thankyou/<order> or /checkouts/<token>/thank_you, comes
+// after the confirm click. "Complete" and "success" mark one only as the last word of a segment, so /complete-checkout
+// and /checkout/complete-registration stay checkout routes.
+const confirmationPath = /(?:^|[\/_-])(?:thank[-_]?you|thanks|confirmation|confirmed|receipt|received)(?:[\/_-]|$)|(?:^|[\/_-])(?:complete|completed|success)(?:\/|$)/i;
+// A bare "Register" creates an account, rather than placing the order, on a checkout's sign-in or account step or in a
+// form that asks for a password.
+const bareRegister = /^register(?: now)?$/;
+const accountStepPath = /(?:^|\/)(?:register|registration|login|log-in|signin|sign-in|signup|sign-up|account|create-account)(?:\/|$)/i;
 // English look-alikes are whole words; the other languages stay substring
 // matches, since several of them do not separate words with spaces.
 const englishExclusions = new RegExp(
@@ -63,7 +82,7 @@ const linkCommits = new RegExp(
         ')$'
 );
 const routeGatedCommits = new RegExp(
-    '^(?:buy now|purchase|jetzt kaufen|kaufen|commander|(?:passer|valider) (?:la |ma )?commande|finalizar (?:la |mi )?compra|' +
+    '^(?:buy now|purchase|register(?: now)?|complete (?:my |your )?registration|jetzt kaufen|kaufen|commander|(?:passer|valider) (?:la |ma )?commande|finalizar (?:la |mi )?compra|' +
         'comprar ahora|acquista ora|nu kopen|今すぐ購入|購入する|この内容で申し込む)$'
 );
 const steps = new RegExp(
@@ -77,16 +96,20 @@ const steps = new RegExp(
             'ir a caja|continuar al pago|tramitar pedido',
             "procedi al checkout|procedi all'acquisto|procedi al pagamento|vai alla cassa",
             'afrekenen|verder naar betalen|doorgaan naar betalen',
-            'レジに進む|ご?(?:購入|注文)手続き(?:へ|に)(?:進む)?|お?支払い(?:へ|に)進む|(?:ご注文内容の)?確認画面へ(?:進む)?',
+            'レジに進む|ご?(?:購入|注文)手続き(?:(?:へ|に)(?:進む)?)?|お?支払い(?:へ|に)進む|(?:ご注文内容の)?確認画面へ(?:進む)?',
         ].join('|') +
         ')$'
 );
+// "Save and continue" also saves profile, address and card forms, so it is a step only on a checkout segment's route
+// that isn't an account or confirmation page.
+const routeGatedSteps = /^save and continue$/;
 const CART_NOUN = '(?:(?:my|your|the) )?(?:shopping )?(?:cart|bag|basket)';
-// "Add to bag", "View cart", "Shopping bag", "Bag", and a count badge such as
-// "1 item in bag", which reads "item in bag" once digits are stripped.
-const cartLabels = new RegExp(
-    '^(?:add(?: [^ ]+){0,5} to ' + CART_NOUN +
-        '|(?:(?:view|open|go to) )?' + CART_NOUN + '(?: items?)?' +
+// "Add to bag" and "Add 2 to cart": a click that puts something in the cart.
+const addToCartLabels = new RegExp('^add(?: [^ ]+){0,5} to ' + CART_NOUN + '$');
+// "View cart", "Shopping bag", "Bag", and a count badge such as "1 item in bag",
+// which reads "item in bag" once digits are stripped: a click that opens the cart.
+const openCartLabels = new RegExp(
+    '^(?:(?:(?:view|open|go to) )?' + CART_NOUN + '(?: items?)?' +
         '|items? in ' + CART_NOUN + ')$'
 );
 const WALLET_NAMES =
@@ -104,20 +127,38 @@ const walletBrands = new RegExp(
     '^(?:' + WALLET_NAMES + ')(?: (?:checkout|check out|express(?: checkout)?|express pay|buy now|pay now|pay|now)' +
         '| (?:logo|icon|mark|button)(?: (?:logo|icon|mark|button))*)?$'
 );
+// The wallets the Rokt kit reads from a click's label or identifiers, as words:
+// "Place order with PayPal!" and "paypal-pay-button" both name PayPal.
+const KIT_WALLET_WORDS = /(?:^| )(?:apple ?pay|google ?pay|g ?pay|android ?pay|venmo|pay ?pal|amazon ?pay|shop ?pay|klarna|after ?pay|clear ?pay|affirm|cash ?app|sezzle|samsung ?pay)(?= |$)/;
+// The payment method a frame's focus picks, in the Rokt kit's family names.
+export type PaymentFrameFamily =
+    | 'apple_pay'
+    | 'google_pay'
+    | 'amazon_pay'
+    | 'shop_pay'
+    | 'card';
 // Exact HTTPS hosts of hosted wallet button frames.
-const walletFrameHosts = new Set([
-    'pay.google.com',
-    'applepay.cdn-apple.com',
-    'payments.amazon.com',
-    'pay.shopify.com',
-]);
+const walletFrameFamilies: { [host: string]: PaymentFrameFamily } = {
+    'pay.google.com': 'google_pay',
+    'applepay.cdn-apple.com': 'apple_pay',
+    'payments.amazon.com': 'amazon_pay',
+    'pay.shopify.com': 'shop_pay',
+};
 // PayPal serves its buttons and its card fields and pay-later messages from
 // the same hosts; only the button frames are wallet taps.
 const paypalFrameHosts = new Set(['www.paypal.com', 'www.sandbox.paypal.com']);
 const PAYPAL_BUTTON_FRAME = /^\/smart\/(?:buttons|menu)(?:\/|$)/;
+const PAYPAL_CARD_FRAME = /^\/smart\/card-fields?(?:\/|$)/;
+// PayPal's JS SDK, used directly or wrapped by a processor, leaves its frames
+// without a src and names them __zoid__paypal_<component>__ instead.
+const PAYPAL_SDK_FRAME = /^__zoid__paypal_/;
+const PAYPAL_SDK_BUTTON_FRAME = /^__zoid__paypal_(?:buttons|menu)__/;
 // Stripe's quick-pay button frames; its other frames are card and form fields.
 const STRIPE_WALLET_FRAME = /\/elements-inner-(?:payment-request|express-checkout)-/;
+const STRIPE_CARD_FRAME = /\/elements-inner-card\b/;
 // Hosted card-entry and fingerprint frames: focus there is typing card details.
+// Some of these hosts also serve gift card and bank account fields, so none
+// names a family.
 const CARD_FRAME_DOMAINS = [
     'adyen.com',
     'braintreegateway.com',
@@ -140,7 +181,9 @@ const EDGE =
 const EDGE_SYMBOLS = new RegExp('^' + EDGE + '|' + EDGE + '$', 'g');
 
 function getIntentRouteClass(pathname: string): 'checkout_path' | 'other' {
-    return checkoutPath.test(pathname) ? 'checkout_path' : 'other';
+    return checkoutPath.test(pathname) && !confirmationPath.test(pathname)
+        ? 'checkout_path'
+        : 'other';
 }
 
 const SEPARATORS = /[-_|·•]/g;
@@ -211,10 +254,19 @@ function labels(element: Element): string[] {
 }
 
 // A cart button is often a bare icon, so its title names it when nothing else
-// does. Only the cart rule reads the title.
-function isCartControl(control: Element, cores: string[]): boolean {
+// does. Only the cart rule reads the title. Opening the cart counts only for a
+// control that opens it on the page, such as a flyout: one that leads to the cart
+// page unloads before a call made on the click can return.
+function cartControlAction(control: Element, cores: string[]): 'add' | 'open' | undefined {
     const title = cores.length ? undefined : normalize(control.getAttribute('title'));
-    return (title ? [coreLabel(title)] : cores).some(text => cartLabels.test(text));
+    const texts = title ? [coreLabel(title)] : cores;
+    if (texts.some(text => addToCartLabels.test(text))) {
+        return 'add';
+    }
+    return (control.hasAttribute('aria-expanded') || control.hasAttribute('aria-haspopup')) &&
+        texts.some(text => openCartLabels.test(text))
+        ? 'open'
+        : undefined;
 }
 
 // Which rule recognised the intent: a vendor's own markup, a phrase in the
@@ -228,35 +280,92 @@ export type CheckoutIntentSource =
     | 'frame'
     | 'submit'
     | 'name'
-    | 'api';
+    | 'api'
+    | 'selector';
+
+// CSS selectors a kit supplies for the page's own confirm and checkout-step
+// buttons. A control matching one counts as that kind before any label rule,
+// except that a confirm, wallet or add-to-cart label beats a checkout-step
+// selector.
+export interface ICheckoutIntentSelectors {
+    commit?: readonly string[];
+    checkout_step?: readonly string[];
+}
+
+// A selector the browser can't parse is skipped rather than thrown.
+function matchesAnySelector(
+    control: Element,
+    selectors: readonly string[] | undefined
+): boolean {
+    if (!selectors) {
+        return false;
+    }
+    return selectors.some(selector => {
+        try {
+            return control.matches(selector);
+        } catch (e) {
+            return false;
+        }
+    });
+}
 
 export interface ICheckoutIntent {
     kind: Exclude<CheckoutIntentKind, 'frame'>;
     source: CheckoutIntentSource;
+    // Set on a cart click that puts something in the cart, not one that opens it.
+    adds?: true;
 }
 
-// "Buy now" and "Purchase" count only on a checkout route, and never on a plain
-// link, which is navigation.
-function isCommitLabel(text: string, isLink: boolean, pathname: string): boolean {
+// Every field the browser counts as the form's own, form-attribute fields included. Read through the native getter
+// where the browser has one, since a field named "elements" shadows the form's own property.
+function formFields(form: HTMLFormElement): ArrayLike<Element> {
+    const descriptor = Object.getOwnPropertyDescriptor(HTMLFormElement.prototype, 'elements');
+    return descriptor && descriptor.get ? descriptor.get.call(form) : form.elements;
+}
+
+// The form a button or input submits, which its form attribute can name from outside it.
+function createsAccount(control: Element, pathname: string): boolean {
+    const form =
+        control instanceof HTMLButtonElement || control instanceof HTMLInputElement
+            ? control.form
+            : control.closest('form');
+    return (
+        accountStepPath.test(pathname) ||
+        (!!form &&
+            Array.prototype.some.call(
+                formFields(form),
+                (field: Element) => field instanceof HTMLInputElement && field.type === 'password'
+            ))
+    );
+}
+
+// "Buy now", "Purchase" and "Register" count only on a checkout route that isn't a
+// confirmation page, and never on a plain link, which is navigation.
+function isCommitLabel(text: string, isLink: boolean, pathname: string, control: Element): boolean {
     if (isLink) {
         return linkCommits.test(text);
     }
     return (
         commits.test(text) ||
         (routeGatedCommits.test(text) &&
-            getIntentRouteClass(pathname) === 'checkout_path')
+            getIntentRouteClass(pathname) === 'checkout_path' &&
+            !(bareRegister.test(text) && createsAccount(control, pathname)))
     );
 }
 
 // Classifies a clicked or submitting control found by findControl, in order:
 // pickers, toggles and pay-later messages never count; a vendor's own wallet
-// button counts before any label rule; a confirm label on any source counts
-// before the look-alike exclusions veto; then a wallet-named control, wallet
-// phrases and steps. A cart label, links included, counts only where none of
-// those do.
+// button keeps its vendor kind; a control matching a kit-supplied commit
+// selector counts as a commit before any label rule, and one matching a
+// checkout-step selector as a step unless its labels make it a confirm, a
+// wallet or an add-to-cart click; a confirm label on any source
+// counts before the look-alike exclusions veto; then a wallet-named control,
+// wallet phrases and steps. An add-to-cart label, links included, or a control
+// that opens the cart on the page counts only where none of those do.
 export function classifyIntent(
     control: Element,
-    pathname: string
+    pathname: string,
+    selectors?: ICheckoutIntentSelectors
 ): ICheckoutIntent | undefined {
     const vendor = vendorButtonKind(control);
     if (vendor === 'none') {
@@ -267,11 +376,39 @@ export function classifyIntent(
             ? undefined
             : { kind: vendor, source: 'vendor' };
     }
+    if (selectors && !isQuietIntentControl(control, false)) {
+        if (matchesAnySelector(control, selectors.commit)) {
+            return { kind: 'commit', source: 'selector' };
+        }
+        if (matchesAnySelector(control, selectors.checkout_step)) {
+            // A confirm, wallet or add-to-cart label still wins, so a class those
+            // buttons share with a step button can't turn their clicks into steps.
+            const byLabel = classifyLabels(control, pathname);
+            return byLabel &&
+                (byLabel.kind === 'commit' ||
+                    byLabel.kind === 'wallet' ||
+                    byLabel.adds === true)
+                ? byLabel
+                : { kind: 'checkout_step', source: 'selector' };
+        }
+    }
+    return classifyLabels(control, pathname);
+}
+
+// The label rules, read once the vendor and selector checks have passed.
+function classifyLabels(
+    control: Element,
+    pathname: string
+): ICheckoutIntent | undefined {
     const texts = labels(control);
     const cores = texts.map(coreLabel);
-    const cart: ICheckoutIntent | undefined = isCartControl(control, cores)
-        ? { kind: 'cart', source: 'label' }
-        : undefined;
+    const cartAction = cartControlAction(control, cores);
+    let cart: ICheckoutIntent | undefined;
+    if (cartAction === 'add') {
+        cart = { kind: 'cart', source: 'label', adds: true };
+    } else if (cartAction === 'open') {
+        cart = { kind: 'cart', source: 'label' };
+    }
     if (isQuietIntentControl(control, false, !!cart)) {
         return undefined;
     }
@@ -280,7 +417,7 @@ export function classifyIntent(
         return cart;
     }
     const isLink = control.matches('a[href]:not([role="button"])');
-    if (cores.some(text => isCommitLabel(text, isLink, pathname))) {
+    if (cores.some(text => isCommitLabel(text, isLink, pathname, control))) {
         return { kind: 'commit', source: 'label' };
     }
     if (
@@ -301,11 +438,50 @@ export function classifyIntent(
         if (isButton && walletBrands.test(text)) {
             return { kind: 'wallet', source: 'brand' };
         }
-        if (steps.test(text)) {
+        if (
+            steps.test(text) ||
+            (isButton &&
+                routeGatedSteps.test(text) &&
+                checkoutSegmentPath.test(pathname) &&
+                !confirmationPath.test(pathname) &&
+                !accountStepPath.test(pathname))
+        ) {
             return { kind: 'checkout_step', source: 'label' };
         }
     }
     return cart;
+}
+
+// The Rokt kit's own word split, so "PayPal!" and "paypal2" both read as
+// "paypal" here as they do there.
+function kitWords(value: string | null | undefined): string {
+    return (value || '')
+        .replace(/([a-z])([A-Z])/g, '$1 $2')
+        .toLowerCase()
+        .replace(/[^a-z]+/g, ' ')
+        .trim();
+}
+
+// A confirm control may name its wallet, so "Place order with PayPal" and a
+// "Place order" button with id paypal-pay-button are confirm clicks that still
+// name their own method. A logged click is judged on the fields the kit reads
+// a method from; a click that isn't logged, on the control's own label and
+// identifiers.
+export function namesWallet(control: Element, click?: IButtonClick): boolean {
+    const values = click
+        ? [
+              click.label,
+              click.ariaLabel,
+              click.elementId,
+              click.elementName,
+              click.testId,
+          ]
+        : labelSources(control).concat(
+              ['id', 'name']
+                  .concat(TEST_ID_ATTRIBUTES)
+                  .map(attribute => control.getAttribute(attribute))
+          );
+    return values.some(value => KIT_WALLET_WORDS.test(kitWords(value)));
 }
 
 export function classifyIntentControl(
@@ -325,12 +501,20 @@ function isOnDomain(host: string, domain: string): boolean {
     );
 }
 
+export interface IPaymentFrame {
+    kind: 'wallet' | 'frame';
+    family?: PaymentFrameFamily;
+}
+
 // Focus moving into a visible hosted wallet button counts as a wallet click;
-// focus into hosted card fields or messages is only a frame.
-export function classifyIntentFrame(
+// focus into hosted card fields or messages is only a frame. A family comes
+// only from a frame that can draw no other method: PayPal's button frame also
+// draws Pay Later, Venmo and its card form, Stripe's quick-pay frame draws
+// Apple Pay or Google Pay by browser, and its payment form holds several.
+export function classifyPaymentFrame(
     target: EventTarget | null,
     win: Window
-): 'wallet' | 'frame' | undefined {
+): IPaymentFrame | undefined {
     if (
         win.document.visibilityState !== 'visible' ||
         !(target instanceof HTMLIFrameElement)
@@ -343,20 +527,39 @@ export function classifyIntentFrame(
     ) {
         return undefined;
     }
+    // A frame that has its own src is judged by that address, never by its name.
+    if (
+        (!target.src || target.src === 'about:blank') &&
+        PAYPAL_SDK_FRAME.test(target.name)
+    ) {
+        return PAYPAL_SDK_BUTTON_FRAME.test(target.name)
+            ? { kind: 'wallet' }
+            : { kind: 'frame' };
+    }
     try {
         const url = new URL(target.src);
         const host = url.protocol === 'https:' ? url.hostname : '';
         if (paypalFrameHosts.has(host)) {
-            return PAYPAL_BUTTON_FRAME.test(url.pathname) ? 'wallet' : 'frame';
+            if (PAYPAL_BUTTON_FRAME.test(url.pathname)) {
+                return { kind: 'wallet' };
+            }
+            return PAYPAL_CARD_FRAME.test(url.pathname)
+                ? { kind: 'frame', family: 'card' }
+                : { kind: 'frame' };
         }
-        if (walletFrameHosts.has(host)) {
-            return 'wallet';
+        if (Object.prototype.hasOwnProperty.call(walletFrameFamilies, host)) {
+            return { kind: 'wallet', family: walletFrameFamilies[host] };
         }
         if (host === 'js.stripe.com') {
-            return STRIPE_WALLET_FRAME.test(url.pathname) ? 'wallet' : 'frame';
+            if (STRIPE_WALLET_FRAME.test(url.pathname)) {
+                return { kind: 'wallet' };
+            }
+            return STRIPE_CARD_FRAME.test(url.pathname)
+                ? { kind: 'frame', family: 'card' }
+                : { kind: 'frame' };
         }
         if (CARD_FRAME_DOMAINS.some(domain => isOnDomain(host, domain))) {
-            return 'frame';
+            return { kind: 'frame' };
         }
     } catch (e) {
         // An unparseable frame src is not a wallet frame.

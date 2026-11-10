@@ -2,6 +2,7 @@ import { IMParticleWebSDKInstance } from './mp-instance';
 import { BaseEvent } from './sdkRuntimeModels';
 import { EventType, MessageType } from './types';
 import { Dictionary, getHref, hasOwnProp, queryStringParser } from './utils';
+import { pagePath, pageUrlPath } from './pathMasking';
 import {
     subscribeToRouteChange,
     supportsHistoryTracking,
@@ -318,7 +319,8 @@ export const buildPageViewEvent = ({
         ...paramsToAttributes(params),
         hostname,
         title,
-        path,
+        // Masked here, not in the page snapshot, whose raw path tells one page from the next.
+        path: pageUrlPath(path),
         ...autoPageViewAttribute(isAutoPageView),
     },
     eventType: EventType.Unknown,
@@ -422,7 +424,9 @@ const describePage = (page: IPageSnapshot | null): string => {
     }
 
     const names = page.params.map(({ name }) => name);
-    return names.length ? `${page.path} (params: ${names.join()})` : page.path;
+    // A log line is read by no output, so it takes the click path's fuller rules.
+    const path = pagePath(page.path);
+    return names.length ? `${path} (params: ${names.join()})` : path;
 };
 
 // ---------------------------------------------------------------------------
@@ -657,10 +661,12 @@ export class PageViewTracker {
             isAutoPageView: this.isAutoPageView,
         });
 
+        // A title can name the shopper or an order, so it stays out of the log
+        // line, for the same reason describePage omits param values.
         this.log(
             `[fire] deferred flush -> _Events.logEvent(PageView) (page: ${describePage(
                 page
-            )}, title: ${title})`
+            )})`
         );
 
         this.mpInstance._Events.logEvent(event);

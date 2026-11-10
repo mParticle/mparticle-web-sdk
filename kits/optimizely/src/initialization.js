@@ -4,6 +4,9 @@ var helpers = require('./helpers');
 
 var optimizelyFsSdkUrl =
         'https://unpkg.com/@optimizely/optimizely-sdk@3.5.0/dist/optimizely.browser.umd.min.js',
+    // The Subresource Integrity hash of the file above. Update both together.
+    optimizelyFsSdkIntegrity =
+        'sha256-7xlyPsgKmldoP2Wgc+c48o92PeZn4vvrbO4JVh/ikAQ=',
     dataFilePrefix = 'https://cdn.optimizely.com/datafiles/',
     dataFileURLending = '.json/tag.js';
 
@@ -83,12 +86,18 @@ var initialization = {
                     });
                 };
 
-                helpers.loadScript(optimizelyFsSdkUrl, function() {
+                var loadDatafile = function() {
                     helpers.loadScript(
                         dataFilePrefix + settings.projectId + dataFileURLending,
                         instantiateFSClient
                     );
-                });
+                };
+
+                helpers.loadScript(
+                    optimizelyFsSdkUrl,
+                    loadDatafile,
+                    optimizelyFsSdkIntegrity
+                );
             } else {
                 isInitialized = true;
                 common.userIdField = settings.userIdField;
