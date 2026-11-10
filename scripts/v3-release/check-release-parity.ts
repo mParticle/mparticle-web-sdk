@@ -18,13 +18,27 @@
 // npm parity: each package's tarball SRI (metadata npmIntegrity, which the
 // uploader checks against the tarball bytes) must equal
 // `npm view <name>@<version> dist.integrity`. A version npm does not have yet
-// is "pending", not a failure.
+// is "pending", not a failure. A read of the packages stops at the first one
+// that differs, since one that differs fails npm parity whatever the rest
+// read. Each `npm view` gets at most 30 seconds, and a read of every package
+// at most 2 minutes: a package left when the 2 minutes run out reads
+// "unavailable" without an `npm view`, so a hung registry cannot hold the job
+// until its timeout.
+//
+// --npm-retry-seconds N (release-gate mode passes 600): npm can take minutes to
+// show a version it has accepted, so while npm parity reads pending or
+// unavailable, npm is read again with a doubling backoff (15 seconds at first,
+// at most 2 minutes apart) until N seconds have passed since the first read,
+// with a last read when the window runs out. A fail reading, or a git parity
+// problem, stops the wait at once, and so does a `sleep` that fails, instead
+// of reading npm again with no wait. Without it (or with 0), npm is read once.
 //
 // node --experimental-strip-types scripts/v3-release/check-release-parity.ts \
-//     --candidate <dir> --tag vX.Y.Z [--npm] [--report <file>] \
-//     [--summary <file>] [--github-output <file>]
+//     --candidate <dir> --tag vX.Y.Z [--npm [--npm-retry-seconds <n>]] \
+//     [--report <file>] [--summary <file>] [--github-output <file>]
 
 type CandidateMetadata = import('./release-contract').CandidateMetadata;
+type CandidatePackage = import('./release-contract').CandidatePackage;
 type ReleaseContract = import('./release-contract').ReleaseContract;
 
 const childProcess: typeof import('node:child_process') = require('node:child_process');
@@ -55,6 +69,7 @@ export interface ParityReport {
     tag: string;
     git: ParityStatus;
     npm: ParityStatus;
+    npmReads: number;
     problems: string[];
     files: GitFileResult[];
     packages: NpmPackageResult[];
@@ -63,14 +78,25 @@ export interface ParityReport {
 export type CommandRunner = (
     command: string,
     args: string[],
-    encoding: 'utf8' | 'buffer'
+    encoding: 'utf8' | 'buffer',
+    timeoutMilliseconds?: number
 ) => { status: number; stdout: string | Buffer; stderr: string };
+
+// The part of spawnSync's result that the sleep between npm reads checks.
+type SleepRunner = (
+    command: string,
+    args: string[]
+) => { error?: Error; status: number | null; signal: string | null };
 
 export interface ParityOptions {
     candidate: string;
     tag: string;
     npm: boolean;
+    npmRetrySeconds?: number;
     run?: CommandRunner;
+    sleep?: (milliseconds: number) => void;
+    now?: () => number;
+    log?: (line: string) => void;
 }
 
 const TAG_PATTERN = /^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/;
@@ -78,16 +104,55 @@ const BUNDLE_PATTERN = /\.js(?:\.map)?$/;
 const MAX_OUTPUT_BYTES = 256 * 1024 * 1024;
 // A registry reply is short; anything else is treated as unavailable.
 const NPM_INTEGRITY_PATTERN = /^sha512-[A-Za-z0-9+/]{86}==$/;
+// The wait between npm reads doubles from the first delay up to the cap.
+const NPM_RETRY_FIRST_DELAY_MS = 15 * 1000;
+const NPM_RETRY_MAX_DELAY_MS = 120 * 1000;
+const NPM_RETRY_MAX_SECONDS = 3600;
+// One npm view normally answers in a second or two. A hung registry gets 30
+// seconds per package, and one read of every package ends within 2 minutes,
+// so the release-gate window and its last read end within 12 minutes.
+const NPM_VIEW_TIMEOUT_MS = 30 * 1000;
+const NPM_READ_MAX_MS = 2 * 60 * 1000;
+const COMMAND_TIMEOUT_MS = 5 * 60 * 1000;
+
+// checkParity is synchronous, so the wait runs sleep(1) instead of
+// scheduling a timer. If sleep cannot run, or exits with an error, the check
+// fails: going on would read npm again at once, in a tight loop.
+function defaultSleep(
+    milliseconds: number,
+    spawn: SleepRunner = childProcess.spawnSync
+): void {
+    const seconds = String(milliseconds / 1000);
+    const result = spawn('sleep', [seconds]);
+    let cause = '';
+    if (result.error) {
+        cause = result.error.message;
+    } else if (result.signal) {
+        cause = `signal ${result.signal}`;
+    } else if (result.status !== 0) {
+        cause = `exit status ${result.status}`;
+    }
+    if (cause) {
+        throw new Error(
+            `sleep ${seconds} failed (${cause}), so the npm parity wait stops`
+        );
+    }
+}
+
+function defaultLog(line: string): void {
+    process.stderr.write(`${line}\n`);
+}
 
 function defaultRun(
     command: string,
     args: string[],
-    encoding: 'utf8' | 'buffer'
+    encoding: 'utf8' | 'buffer',
+    timeoutMilliseconds: number = COMMAND_TIMEOUT_MS
 ): { status: number; stdout: string | Buffer; stderr: string } {
     const result = childProcess.spawnSync(command, args, {
         encoding: encoding === 'utf8' ? 'utf8' : 'buffer',
         maxBuffer: MAX_OUTPUT_BYTES,
-        timeout: 5 * 60 * 1000,
+        timeout: timeoutMilliseconds,
         env: { ...process.env, GIT_TERMINAL_PROMPT: '0' },
     });
     return {
@@ -298,61 +363,91 @@ function checkCdnArchive(
     }
 }
 
+// Reads the packages in order and stops at the first one that differs. Each
+// npm view gets at most NPM_VIEW_TIMEOUT_MS, and no more than is left of
+// NPM_READ_MAX_MS from the start of the read. A package with no time left
+// reads unavailable without an npm view.
 function checkNpm(
     run: CommandRunner,
-    metadata: CandidateMetadata
+    metadata: CandidateMetadata,
+    now: () => number
 ): NpmPackageResult[] {
-    return metadata.packages.map(item => {
-        const result = run(
-            'npm',
-            [
-                'view',
-                `${item.name}@${metadata.version}`,
-                'dist.integrity',
-                '--json',
-                '--registry',
-                'https://registry.npmjs.org/',
-            ],
-            'utf8'
+    const readEnd = now() + NPM_READ_MAX_MS;
+    const packages: NpmPackageResult[] = [];
+    for (const item of metadata.packages) {
+        const result = readNpmPackage(
+            run,
+            metadata.version,
+            item,
+            readEnd - now()
         );
-        const base = {
-            name: item.name,
-            version: metadata.version,
-            expected: item.npmIntegrity,
-        };
-        if (result.status !== 0) {
-            const notPublished = /\bE404\b/.test(
-                `${result.stderr}${String(result.stdout)}`
-            );
-            return {
-                ...base,
-                published: null,
-                status: notPublished ? 'pending' : 'unavailable',
-            };
+        packages.push(result);
+        if (result.status === 'differs') {
+            break;
         }
-        let published: unknown = null;
-        try {
-            published = JSON.parse(String(result.stdout) || 'null');
-        } catch {
-            published = null;
-        }
-        if (
-            typeof published !== 'string' ||
-            !NPM_INTEGRITY_PATTERN.test(published)
-        ) {
-            // npm prints nothing for a version it has never seen.
-            return {
-                ...base,
-                published: null,
-                status: published === null ? 'pending' : 'unavailable',
-            };
-        }
+    }
+    return packages;
+}
+
+function readNpmPackage(
+    run: CommandRunner,
+    version: string,
+    item: CandidatePackage,
+    timeLeft: number
+): NpmPackageResult {
+    const base = {
+        name: item.name,
+        version,
+        expected: item.npmIntegrity,
+    };
+    if (timeLeft <= 0) {
+        return { ...base, published: null, status: 'unavailable' };
+    }
+    const result = run(
+        'npm',
+        [
+            'view',
+            `${item.name}@${version}`,
+            'dist.integrity',
+            '--json',
+            '--registry',
+            'https://registry.npmjs.org/',
+        ],
+        'utf8',
+        Math.min(NPM_VIEW_TIMEOUT_MS, timeLeft)
+    );
+    if (result.status !== 0) {
+        const notPublished = /\bE404\b/.test(
+            `${result.stderr}${String(result.stdout)}`
+        );
         return {
             ...base,
-            published,
-            status: published === item.npmIntegrity ? 'match' : 'differs',
+            published: null,
+            status: notPublished ? 'pending' : 'unavailable',
         };
-    });
+    }
+    let published: unknown = null;
+    try {
+        published = JSON.parse(String(result.stdout) || 'null');
+    } catch {
+        published = null;
+    }
+    if (
+        typeof published !== 'string' ||
+        !NPM_INTEGRITY_PATTERN.test(published)
+    ) {
+        // npm prints nothing for a version it has never seen.
+        return {
+            ...base,
+            published: null,
+            status: published === null ? 'pending' : 'unavailable',
+        };
+    }
+    return {
+        ...base,
+        published,
+        status: published === item.npmIntegrity ? 'match' : 'differs',
+    };
 }
 
 function overallNpm(packages: NpmPackageResult[]): ParityStatus {
@@ -399,13 +494,53 @@ function checkParity(options: ParityOptions): ParityReport {
             );
         }
     }
-    const packages = options.npm ? checkNpm(run, metadata) : [];
+    let packages: NpmPackageResult[] = [];
+    let npm: ParityStatus = 'pending';
+    let npmReads = 0;
+    if (options.npm) {
+        const retrySeconds = options.npmRetrySeconds || 0;
+        if (
+            !Number.isInteger(retrySeconds) ||
+            retrySeconds < 0 ||
+            retrySeconds > NPM_RETRY_MAX_SECONDS
+        ) {
+            throw new Error(
+                `--npm-retry-seconds must be a whole number from 0 to ${NPM_RETRY_MAX_SECONDS}`
+            );
+        }
+        const sleep = options.sleep || defaultSleep;
+        const now = options.now || Date.now;
+        const log = options.log || defaultLog;
+        const deadline = now() + retrySeconds * 1000;
+        let delay = NPM_RETRY_FIRST_DELAY_MS;
+        for (;;) {
+            packages = checkNpm(run, metadata, now);
+            npm = overallNpm(packages);
+            npmReads++;
+            if (npm === 'pass' || npm === 'fail' || problems.length > 0) {
+                break;
+            }
+            const remaining = deadline - now();
+            if (remaining <= 0) {
+                break;
+            }
+            const wait = Math.min(delay, remaining);
+            const waitSeconds = Math.ceil(wait / 1000);
+            const leftSeconds = Math.ceil(remaining / 1000);
+            log(
+                `npm parity reads ${npm} after read ${npmReads}; reading again in ${waitSeconds} s (${leftSeconds} s left).`
+            );
+            sleep(wait);
+            delay = Math.min(delay * 2, NPM_RETRY_MAX_DELAY_MS);
+        }
+    }
     return {
         version: metadata.version,
         buildId: metadata.buildId,
         tag: options.tag,
         git: problems.length === 0 ? 'pass' : 'fail',
-        npm: options.npm ? overallNpm(packages) : 'pending',
+        npm,
+        npmReads,
         problems,
         files,
         packages,
@@ -420,11 +555,13 @@ function isUploadable(report: ParityReport): boolean {
 
 function renderSummary(report: ParityReport): string {
     const matched = report.files.filter(file => file.status === 'match').length;
+    const npmReads =
+        report.npmReads > 1 ? ` after ${report.npmReads} reads` : '';
     const lines = [
         `### V3 shadow parity: ${report.version} build ${report.buildId}`,
         '',
         `- Git parity against \`${report.tag}\`: **${report.git}** (${matched}/${report.files.length} bundles identical)`,
-        `- npm parity: **${report.npm}**`,
+        `- npm parity: **${report.npm}**${npmReads}`,
         `- Upload allowed: **${isUploadable(report) ? 'yes' : 'no'}**`,
         '',
         'Candidate `core/<path>` is compared with `<path>` at the tag, and `kits/<path>` with the same path.',
@@ -479,12 +616,22 @@ function parseArguments(
             options.summary = value;
         } else if (argument === '--github-output') {
             options.githubOutput = value;
+        } else if (argument === '--npm-retry-seconds') {
+            if (!/^(?:0|[1-9][0-9]{0,3})$/.test(value)) {
+                throw new Error(
+                    '--npm-retry-seconds must be a whole number of seconds'
+                );
+            }
+            options.npmRetrySeconds = Number(value);
         } else {
             throw new Error(`Unknown argument: ${argument}`);
         }
     }
     if (!options.candidate || !options.tag) {
         throw new Error('--candidate and --tag are required');
+    }
+    if (options.npmRetrySeconds && !options.npm) {
+        throw new Error('--npm-retry-seconds requires --npm');
     }
     return options;
 }
@@ -525,6 +672,7 @@ if (require.main === module) {
 
 const releaseParity = {
     checkParity,
+    defaultSleep,
     gitBlobId,
     isUploadable,
     main,

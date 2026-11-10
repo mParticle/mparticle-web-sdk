@@ -1,4 +1,5 @@
 import { IMParticleWebSDKInstance } from '../mp-instance';
+import { BaseEvent } from '../sdkRuntimeModels';
 import { isFunction } from '../utils';
 import { buildButtonClickEvent, buildLinkClickEvent } from './buttonClickEvent';
 import {
@@ -15,6 +16,7 @@ import {
     CheckoutIntentSource,
     classifyIntent,
     classifyPaymentFrame,
+    ICheckoutIntentSelectors,
     namesWallet,
     PaymentFrameFamily,
 } from './checkoutIntent';
@@ -162,8 +164,9 @@ export class ButtonTracker {
     // Bumped on reset so classification queued before it is dropped.
     private generation = 0;
     private lastCommitClick = -Infinity;
-    // The latest trusted click: whether the page excluded it, and the intent it
-    // already carries to the kit, with its source, if any.
+    // The latest trusted click: whether the page excluded it or it was withheld
+    // from the kit, and the intent it already carries to the kit, with its
+    // source, if any.
     private lastClick: {
         t: number;
         excluded: boolean;
@@ -408,15 +411,26 @@ export class ButtonTracker {
                     ? undefined
                     : findControl(path, true, PATH_LIMIT) ||
                       findRoleControl(path, PATH_LIMIT));
+            // A click that link tracking logs as Auto Link Click gives the kit no
+            // intent when the Rokt connection does not receive those events.
+            let withheld = false;
             if (logged) {
                 // With links alone, only an anchor can be logged.
-                click =
+                const logsThis =
                     logsEvents &&
-                    (this.logButtons || logged.matches('a[href]'))
+                    (this.logButtons || logged.matches('a[href]'));
+                const linksWithheld =
+                    signalsKit && this.logLinks && !this.linkClicksReachKit();
+                const described =
+                    logsThis || linksWithheld
                         ? describeButtonClick(logged, path)
                         : undefined;
+                const linkClick =
+                    this.logLinks && !!described && isLinkClick(described);
+                withheld = linksWithheld && linkClick;
+                click = logsThis ? described : undefined;
                 if (click) {
-                    asLink = this.logLinks && isLinkClick(click);
+                    asLink = linkClick;
                     // Without link tracking, a link that leaves the page stays a
                     // button click, except a plain link to another page of the
                     // site, which button tracking never logged.
@@ -435,10 +449,14 @@ export class ButtonTracker {
                     box = logged as HTMLInputElement;
                 }
             }
-            if (control) {
+            if (control && !withheld) {
                 // Checkout intent is only worked out when the kit can use it.
                 const intent = signalsKit
-                    ? classifyIntent(control, pathname)
+                    ? classifyIntent(
+                          control,
+                          pathname,
+                          this.checkoutIntentSelectors()
+                      )
                     : undefined;
                 kind = intent ? intent.kind : undefined;
                 source = intent ? intent.source : undefined;
@@ -460,7 +478,14 @@ export class ButtonTracker {
                     checkedNames = checked ? checked.names : undefined;
                 }
             }
-            this.lastClick = { t, excluded, kind, source };
+            // A withheld click cannot start an Apple Pay session for the kit
+            // either.
+            this.lastClick = {
+                t,
+                excluded: excluded || withheld,
+                kind,
+                source,
+            };
         } else if (layer === 'submit') {
             const submitter = (event as Event & { submitter?: Element | null })
                 .submitter;
@@ -471,7 +496,11 @@ export class ButtonTracker {
                 kind = 'commit';
                 source = 'submit';
             } else if (control) {
-                const intent = classifyIntent(control, pathname);
+                const intent = classifyIntent(
+                    control,
+                    pathname,
+                    this.checkoutIntentSelectors()
+                );
                 kind = intent ? intent.kind : undefined;
                 source = intent ? intent.source : undefined;
                 adds = intent ? intent.adds : undefined;
@@ -513,7 +542,7 @@ export class ButtonTracker {
                                 ? !click.checked
                                 : box.checked;
                     }
-                    this.logClick(click, pathname, asLink);
+                    this.logClick(click, pathname, asLink, t);
                 }
                 // Ahead of the intent, so a pre-selection it fires goes out
                 // with this pick.
@@ -537,7 +566,8 @@ export class ButtonTracker {
     private logClick(
         click: IButtonClick,
         pathname: string,
-        asLink: boolean
+        asLink: boolean,
+        t: number
     ): void {
         if (!this.eventsEnabled() || this.hasTargetingOptOut()) {
             return;
@@ -554,10 +584,17 @@ export class ButtonTracker {
         this.mpInstance._SessionManager.resetSessionTimer();
         // No upload of its own, which a click that opens another page would
         // cancel: with batching on, the next batch or the exit upload sends it.
-        this.mpInstance._Events.logEvent(
+        const logEvent = this.mpInstance._Events.logEvent as (
+            event: BaseEvent,
+            eventOptions?: undefined,
+            capturedAt?: number
+        ) => void;
+        logEvent(
             asLink
                 ? buildLinkClickEvent(click, pathname)
-                : buildButtonClickEvent(click, pathname)
+                : buildButtonClickEvent(click, pathname),
+            undefined,
+            t
         );
     }
 
@@ -641,6 +678,18 @@ export class ButtonTracker {
             !roktManager ||
             roktManager.isCheckoutIntentSuppressed()
         );
+    }
+
+    private checkoutIntentSelectors(): ICheckoutIntentSelectors | undefined {
+        const roktManager = this.mpInstance._RoktManager;
+        return roktManager
+            ? roktManager.getCheckoutIntentSelectors()
+            : undefined;
+    }
+
+    private linkClicksReachKit(): boolean {
+        const roktManager = this.mpInstance._RoktManager;
+        return !!roktManager && roktManager.areAutoLinkClicksForwarded();
     }
 
     private log(message: string): void {

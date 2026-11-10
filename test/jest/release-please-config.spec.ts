@@ -80,9 +80,24 @@ describe('Release Please config', () => {
         expect(config['include-component-in-tag']).toBe(false);
     });
 
-    it('tags on merge and leaves the GitHub Release as a draft', () => {
-        expect(config.draft).toBe(true);
-        expect(config['force-tag-creation']).toBe(true);
+    it('publishes the GitHub Release, and with it the tag, when the release PR merges', () => {
+        // A published release creates its tag, so no draft and no forced tag.
+        for (const settings of [config, config.packages['.']]) {
+            expect(settings).not.toHaveProperty('draft');
+            expect(settings).not.toHaveProperty('force-tag-creation');
+            expect(settings).not.toHaveProperty('skip-github-release');
+            expect(settings).not.toHaveProperty('prerelease');
+        }
+    });
+
+    it('rewrites the release PR from main on every push to main', () => {
+        // Without always-update, Release Please leaves the release PR alone
+        // when its notes do not change (a hidden build: commit, for one).
+        // Its bundles were then built from older source than main holds.
+        // Rewriting the PR from main's tip makes v3-release-please-dist.yml
+        // rebuild them and V3 release bundles match version check them again.
+        expect(config['always-update']).toBe(true);
+        expect(config.packages['.']).not.toHaveProperty('always-update');
     });
 
     it('keeps every semantic-release releasable type visible except build', () => {

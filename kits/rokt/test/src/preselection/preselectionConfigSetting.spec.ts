@@ -106,6 +106,38 @@ describe('parsePreselectionConfigSetting', () => {
     });
   });
 
+  it('parses intentSelectors with either or both kinds', () => {
+    const both = { ...ENTRY, intentSelectors: { commit: ['button.place-order'], checkoutStep: ['#to-checkout'] } };
+    const commitOnly = {
+      ...ENTRY,
+      targetPageIdentifier: 'other_page',
+      intentSelectors: { commit: ['[data-test-id="submit"]'] },
+    };
+
+    expect(parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([both, commitOnly]))).toEqual({
+      entries: [
+        { accountId: ACCOUNT_ID, ...both },
+        { accountId: ACCOUNT_ID, ...commitOnly },
+      ],
+    });
+  });
+
+  it('ignores an intentSelectors kind this kit does not know when a known kind is set', () => {
+    const entry = { ...ENTRY, intentSelectors: { commit: ['#buy'], cart: [1] } };
+
+    expect(parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([entry]))).toEqual({
+      entries: [{ accountId: ACCOUNT_ID, ...entry }],
+    });
+  });
+
+  it('keeps a selector the browser could not parse, since it is skipped when a click is matched', () => {
+    const entry = { ...ENTRY, intentSelectors: { commit: ['button[['] } };
+
+    expect(parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([entry]))).toEqual({
+      entries: [{ accountId: ACCOUNT_ID, ...entry }],
+    });
+  });
+
   it('parses triggerEventNames', () => {
     const entry = { ...ENTRY, triggerEventNames: ['Ready to Checkout'] };
 
@@ -314,6 +346,18 @@ describe('parsePreselectionConfigSetting', () => {
       { ...BARE_ENTRY, identityKeys: ['email'], preselectAttributeOverrides: { email: 'x' } },
       'preselectAttributeOverrides',
     ],
+    ['a list as intentSelectors', { ...ENTRY, intentSelectors: ['button'] }, 'intentSelectors'],
+    ['empty intentSelectors', { ...ENTRY, intentSelectors: {} }, 'intentSelectors'],
+    ['only an unknown intentSelectors kind', { ...ENTRY, intentSelectors: { wallet: ['button'] } }, 'intentSelectors'],
+    ['an empty selector list', { ...ENTRY, intentSelectors: { commit: [] } }, 'intentSelectors'],
+    ['a blank selector', { ...ENTRY, intentSelectors: { commit: [' '] } }, 'intentSelectors'],
+    ['a non-string selector', { ...ENTRY, intentSelectors: { checkoutStep: [1] } }, 'intentSelectors'],
+    [
+      'more than 10 selectors for a kind',
+      { ...ENTRY, intentSelectors: { commit: Array.from({ length: 11 }, (_, i) => `#b${i}`) } },
+      'intentSelectors',
+    ],
+    ['a selector over 256 characters', { ...ENTRY, intentSelectors: { commit: ['#' + 'a'.repeat(256)] } }, 'intentSelectors'],
     ['a string checkoutStepIntent', { ...ENTRY, checkoutStepIntent: 'true' }, 'checkoutStepIntent'],
     ['a null checkoutStepIntent', { ...ENTRY, checkoutStepIntent: null }, 'checkoutStepIntent'],
     [
@@ -366,6 +410,16 @@ describe('parsePreselectionConfigSetting', () => {
         placementType: 'overlay',
         segment: { value: 'standard', byClientType: { DesktopWeb: 'corporate', MobileWeb: 'skip' } },
         experience: { byHostname: { 'shop.example.com': 'alternate' }, skipRemembered: true, skipValues: ['none'] },
+      };
+
+      expect(
+        parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([{ ...DEFAULTS_ENTRY, preselectAttributeDefaults }])),
+      ).toEqual({ entries: [{ accountId: ACCOUNT_ID, ...DEFAULTS_ENTRY, preselectAttributeDefaults }] });
+    });
+
+    it('parses a default that fills only from the payment family the shopper picked', () => {
+      const preselectAttributeDefaults = {
+        placementType: { byPaymentPick: { paypal: 'PayPal', apple_pay: 'applepay' }, matchGroups: [['PayPal', 'paypal']] },
       };
 
       expect(
@@ -430,6 +484,15 @@ describe('parsePreselectionConfigSetting', () => {
       ['a host in upper case', { placementType: { byHostname: { 'Shop.example.com': 'overlay' } } }],
       ['an empty host', { placementType: { byHostname: { '': 'overlay' } } }],
       ['a non-string host value', { placementType: { byHostname: { 'shop.example.com': 1 } } }],
+      ['a byPaymentPick that is not an object', { placementType: { byPaymentPick: 'PayPal' } }],
+      ['an empty byPaymentPick', { placementType: { byPaymentPick: {} } }],
+      ['a payment family the kit does not know', { placementType: { byPaymentPick: { bitcoin: 'crypto' } } }],
+      ['an empty payment pick value', { placementType: { byPaymentPick: { paypal: '' } } }],
+      ['a non-string payment pick value', { placementType: { byPaymentPick: { paypal: 1 } } }],
+      [
+        'a skip value the default fills on a payment pick',
+        { placementType: { value: 'visa', byPaymentPick: { paypal: 'PayPal' }, skipValues: ['paypal'] } },
+      ],
       ['a non-boolean skipRemembered', { placementType: { value: 'overlay', skipRemembered: 'true' } }],
       ['skipValues that are not an array', { placementType: { value: 'overlay', skipValues: 'embed' } }],
       ['empty skipValues', { placementType: { value: 'overlay', skipValues: [] } }],

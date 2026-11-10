@@ -12,25 +12,25 @@ describe('mParticle instance manager', () => {
     });     
 
     it('sets sdkStart event timing', async () => {
-        mParticle.init("testApiKey", {});
+        mParticle.init("testApiKey", { requestConfig: false });
         expect(mockPerformanceMark).toHaveBeenCalledWith(PerformanceMarkType.SdkStart);
     });
 
     it('does not capture timing if window.performance.mark is not available', () => {
         (globalThis as any).performance.mark = undefined;
-        mParticle.init("testApiKey", {});
+        mParticle.init("testApiKey", { requestConfig: false });
         expect(mockPerformanceMark).not.toHaveBeenCalled();
     });
 
     it('sets rokt launcher instance guid', async () => {
-        mParticle.init("testApiKey", {});
+        mParticle.init("testApiKey", { requestConfig: false });
         expect(globalThis).toHaveProperty(Constants.Rokt.LauncherInstanceGuidKey);
         expect(typeof globalThis[Constants.Rokt.LauncherInstanceGuidKey]).toBe('string');
     });
 
     it('does not set rokt launcher instance guid if it already exists', () => {
         globalThis[Constants.Rokt.LauncherInstanceGuidKey] = 'testGuid';
-        mParticle.init("testApiKey", {});
+        mParticle.init("testApiKey", { requestConfig: false });
         expect(globalThis).toHaveProperty(Constants.Rokt.LauncherInstanceGuidKey);
         expect(typeof globalThis[Constants.Rokt.LauncherInstanceGuidKey]).toBe('string');
         expect(globalThis[Constants.Rokt.LauncherInstanceGuidKey]).toBe('testGuid');
