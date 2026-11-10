@@ -1,5 +1,22 @@
 # Changelog
 
+## [3.32.2](https://github.com/mParticle/mparticle-web-sdk/compare/v3.32.1...v3.32.2) (2026-11-10)
+
+
+### Bug Fixes
+
+* keep payment picks across checkouts and stamp auto clicks with their click time ([#1808](https://github.com/mParticle/mparticle-web-sdk/issues/1808)) ([cccd4b0](https://github.com/mParticle/mparticle-web-sdk/commit/cccd4b0075d975d1f9243b6e35081f04f330ef82))
+* **web SDK:** trap SIGHUP, guard inherited PID, and bound stop poll ([#1804](https://github.com/mParticle/mparticle-web-sdk/issues/1804)) ([d649d51](https://github.com/mParticle/mparticle-web-sdk/commit/d649d513c752c47e793d6a5386ff8a0545d4ceb5))
+
+
+### Miscellaneous
+
+* **web SDK:** add always-run Required checks aggregator job ([#1803](https://github.com/mParticle/mparticle-web-sdk/issues/1803)) ([921a615](https://github.com/mParticle/mparticle-web-sdk/commit/921a615b554973de3787a142a3473f79bdff841b))
+* **web SDK:** kill each kit step's process group on cancellation ([#1789](https://github.com/mParticle/mparticle-web-sdk/issues/1789)) ([bca96c5](https://github.com/mParticle/mparticle-web-sdk/commit/bca96c512e7062b8260d1f5e55267ee513fc4be7))
+* **web SDK:** pin BrowserStack actions and add github-actions Dependabot entry ([#1797](https://github.com/mParticle/mparticle-web-sdk/issues/1797)) ([6afd452](https://github.com/mParticle/mparticle-web-sdk/commit/6afd45214dd5e20a7bd811751f084db3a6516b04))
+* **web SDK:** remove the V3 Step 1 kit audit job ([#1791](https://github.com/mParticle/mparticle-web-sdk/issues/1791)) ([57698df](https://github.com/mParticle/mparticle-web-sdk/commit/57698dfd592cc6d1ef6baf318b176f72807162f4))
+* **web SDK:** set 15-minute timeout on kit test jobs ([#1806](https://github.com/mParticle/mparticle-web-sdk/issues/1806)) ([f081ab3](https://github.com/mParticle/mparticle-web-sdk/commit/f081ab31517adb001c3a3ccb10c691173abfeb53))
+
 ## [3.32.1](https://github.com/mParticle/mparticle-web-sdk/compare/v3.32.0...v3.32.1) (2026-11-09)
 
 

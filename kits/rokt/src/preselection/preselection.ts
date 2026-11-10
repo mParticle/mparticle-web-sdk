@@ -558,11 +558,12 @@ function paymentPickAccount(host: PreselectHost): string | undefined {
   return accountId;
 }
 
-function recordPaymentFamily(accountId: string, family: PaymentFamily | undefined): void {
+function recordPaymentFamily(accountId: string, family: PaymentFamily | undefined, t?: number): void {
   if (!family) return;
   const identifiers = new Set(getPreselectionEntries(accountId).map((entry) => entry.targetPageIdentifier));
-  const t = Date.now();
-  identifiers.forEach((identifier) => recordPreselectPaymentPick(accountId, identifier, family, t));
+  const now = Date.now();
+  const pickedAt = typeof t === 'number' && Number.isFinite(t) && t <= now ? t : now;
+  identifiers.forEach((identifier) => recordPreselectPaymentPick(accountId, identifier, family, pickedAt));
 }
 
 // Shadow only: remembers the payment method an auto click picked, so the target page's arrival
@@ -570,7 +571,11 @@ function recordPaymentFamily(accountId: string, family: PaymentFamily | undefine
 export function recordPreselectPaymentClick(host: PreselectHost, event: SDKEvent): void {
   const accountId = isAutoClickEvent(event) ? paymentPickAccount(host) : undefined;
   if (accountId) {
-    recordPaymentFamily(accountId, paymentFamilyFromClick(event.EventAttributes as Record<string, unknown> | undefined));
+    recordPaymentFamily(
+      accountId,
+      paymentFamilyFromClick(event.EventAttributes as Record<string, unknown> | undefined),
+      event.Timestamp,
+    );
   }
 }
 
@@ -579,7 +584,7 @@ export function recordPreselectPaymentClick(host: PreselectHost, event: SDKEvent
 export function handlePreselectPaymentPick(host: PreselectHost, signal: PreselectPaymentPickSignal): void {
   const accountId = paymentPickAccount(host);
   if (accountId) {
-    recordPaymentFamily(accountId, paymentFamilyFromPick(signal));
+    recordPaymentFamily(accountId, paymentFamilyFromPick(signal), signal?.t);
   }
 }
 
