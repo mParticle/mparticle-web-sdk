@@ -60,10 +60,12 @@ const clickWithEveryField: Required<IButtonClick> = {
     testId: 'checkout',
     controls: 'menu',
     form: 'payment',
+    group: 'delivery',
     element: 'link',
     type: 'submit',
     linkType: 'download',
     linkDomain: 'example.com',
+    linkPath: '/checkout',
     fileExtension: 'pdf',
     checked: false,
 };
@@ -106,9 +108,9 @@ describe('buildButtonClickEvent and buildLinkClickEvent', () => {
         });
     });
 
-    it('sends a link to another page of the site without its label or aria label', () => {
+    it('sends a link to another page of the site with its destination path, without its label or aria label', () => {
         const { data } = buildLinkClickEvent(
-            { ...outbound, linkType: 'internal', linkDomain: undefined, ariaLabel: 'hi jane', elementId: 'account' },
+            { ...outbound, linkType: 'internal', linkDomain: undefined, linkPath: '/account', ariaLabel: 'hi jane', elementId: 'account' },
             '/help'
         );
 
@@ -117,6 +119,7 @@ describe('buildButtonClickEvent and buildLinkClickEvent', () => {
             element: 'link',
             type: 'button',
             link_type: 'internal',
+            link_path: '/account',
             element_id: 'account',
             path: '/help',
             hostname: window.location.hostname,
@@ -132,6 +135,10 @@ describe('buildButtonClickEvent and buildLinkClickEvent', () => {
 
         expect(data.label).toBe('paypal');
         expect(data.label_source).toBe('text');
+    });
+
+    it('logs the page path with a shopper token hidden', () => {
+        expect(buildButtonClickEvent(outbound, '/checkout/qWeRtYuIoPaSdFgHjK_Zx/review').data.path).toBe('/checkout/*/review');
     });
 
     it('builds a button click with the same attributes and the button marker', () => {

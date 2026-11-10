@@ -2,6 +2,7 @@ import { valueof } from './utils';
 export declare const UrlMode: {
     readonly Path: "path";
     readonly Full: "full";
+    readonly Report: "report";
 };
 export type UrlMode = valueof<typeof UrlMode>;
 export declare const EXCLUDED_URL_QUERY_PARAMS: string[];

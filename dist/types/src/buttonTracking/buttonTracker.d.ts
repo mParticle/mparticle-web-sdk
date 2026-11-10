@@ -20,9 +20,6 @@ export declare class ButtonTracker {
     private pagePath;
     private pageEvents;
     private pending;
-    private uploadTimerId;
-    private uploadHeld;
-    private leaving;
     constructor(mpInstance: IMParticleWebSDKInstance);
     get isActive(): boolean;
     init(options: IButtonTrackerOptions): void;
@@ -37,13 +34,12 @@ export declare class ButtonTracker {
     private readonly onEvent;
     private observe;
     private logClick;
-    private queuedForUpload;
-    private uploadNow;
-    private cancelUpload;
     private emit;
     private pickPayment;
     private eventsEnabled;
     private hasTargetingOptOut;
     private isKitSuppressed;
+    private checkoutIntentSelectors;
+    private linkClicksReachKit;
     private log;
 }

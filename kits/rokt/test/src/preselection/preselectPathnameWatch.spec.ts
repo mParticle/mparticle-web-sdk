@@ -1,12 +1,12 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import '../../src/Rokt-Kit';
-import { PRESELECTION_CONFIG } from '../../src/preselectionConfig';
-import { applyPreselectionConfigSetting } from '../../src/preselection';
+import '../../../src/Rokt-Kit';
+import { PRESELECTION_CONFIG } from '../../../src/preselection/preselectionConfig';
+import { applyPreselectionConfigSetting } from '../../../src/preselection/preselection';
 import {
   buildActivePreselectFieldKey,
   getActivePreselect,
-} from '../../src/activePreselectStorage';
-import { djb2 } from '../../src/utils';
+} from '../../../src/preselection/activePreselectStorage';
+import { djb2 } from '../../../src/utils';
 
 // The digest also carries the email the call will send, here the user's email identity.
 const digestWithEmail = (attributes: Record<string, unknown>): number =>

@@ -172,7 +172,7 @@ describe('utils: cleanReportingUrl', () => {
     win.mParticle = originalMParticle;
   });
 
-  it('delegates to the core SDK in path mode', () => {
+  it('delegates to the core SDK in report mode', () => {
     const calls: Array<[string, string]> = [];
     win.mParticle = {
       _cleanUrl: (href: string, mode: string) => {
@@ -184,7 +184,7 @@ describe('utils: cleanReportingUrl', () => {
     expect(cleanReportingUrl('https://shop.example.com/checkout#token=abc123')).toBe(
       'https://shop.example.com/checkout',
     );
-    expect(calls).toEqual([['https://shop.example.com/checkout#token=abc123', 'path']]);
+    expect(calls).toEqual([['https://shop.example.com/checkout#token=abc123', 'report']]);
   });
 
   describe('when the core SDK predates _cleanUrl', () => {

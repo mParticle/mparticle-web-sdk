@@ -1,13 +1,18 @@
 import { isAllowedQueryParam } from './pageViewTracker';
+import { pagePath, pageUrlPath } from './pathMasking';
 import { getHref, valueof } from './utils';
 
 // The one rule for a URL that leaves the SDK, shared with kits through
-// `mParticle._cleanUrl`. `path` keeps scheme, host and path. `full` adds the
+// `mParticle._cleanUrl`. `path` keeps scheme, host and path, with any path
+// segment that can single out one shopper as `*` (see pageUrlPath). `full` adds the
 // query params an auto page view captures by default and the campaign
-// attribution params, then the fragment.
+// attribution params, then the fragment, a hash route's path masked the same way.
 export const UrlMode = {
     Path: 'path',
     Full: 'full',
+    // A path for a log or an error report, masked with the click path's fuller
+    // rules, since no output reads it as a page.
+    Report: 'report',
 } as const;
 
 export type UrlMode = valueof<typeof UrlMode>;
@@ -79,6 +84,37 @@ export const EXCLUDED_URL_FRAGMENT_PARAMS: string[] = EXCLUDED_URL_QUERY_PARAMS.
 const URL_VALUED_QUERY_PARAMS: string[] = ['ref', 'referrer'];
 
 const USERINFO = /^((?:[a-z][a-z0-9+.-]*:)?\/\/)[^/]*@/i;
+const ORIGIN = /^(?:[a-z][a-z0-9+.-]*:)?\/\/[^/]*/i;
+
+// Only a URL or a path is masked. A bare value, such as `ref=spring2024`, is a
+// code rather than a page, and stays as written.
+const maskPath = (
+    url: string,
+    mask: (pathname: string) => string = pageUrlPath
+): string => {
+    const origin = ORIGIN.exec(url);
+    if (origin) {
+        return origin[0] + mask(url.slice(origin[0].length));
+    }
+    return url.charAt(0) === '/' ? mask(url) : url;
+};
+
+// A hash route keeps its `#` or `#!` and has its path masked as the URL's own.
+// The `&` pairs or flags after the path lose the OAuth/OIDC ones, as a bare
+// fragment's pairs do.
+const maskRoute = (route: string): string => {
+    const prefix = /^#!?/.exec(route)[0];
+    const pairsStart = route.indexOf('&');
+    const pathEnd = pairsStart === -1 ? route.length : pairsStart;
+    const pairs = route
+        .slice(pathEnd)
+        .split('&')
+        .slice(1)
+        .filter(keepsFragmentPair)
+        .map(pair => `&${pair}`)
+        .join('');
+    return prefix + pageUrlPath(route.slice(prefix.length, pathEnd)) + pairs;
+};
 
 const decodeQueryComponent = (component: string): string =>
     decodeURIComponent(component.replace(/\+/g, ' '));
@@ -140,21 +176,31 @@ const keepsFragmentPair = (pair: string): boolean => {
 const cleanFragment = (hash: string): string => {
     const queryStart = hash.indexOf('?');
     const route = queryStart === -1 ? hash : hash.slice(0, queryStart);
+    // `#/…`, `#!…`, or a fragment with a `/` before any `&` or `?`, as
+    // `#orders/12345678` is in routers that drop the leading slash.
+    // A `/` counts only before any `=`, so a bare pair such as
+    // `#access_token=abc/def` is never read as a route.
+    const isHashRoute = /^#!|^#[^?&=]*\//.test(hash);
     const isRoute =
-        /^#[/!]/.test(hash) || (queryStart !== -1 && route.indexOf('=') === -1);
+        isHashRoute || (queryStart !== -1 && route.indexOf('=') === -1);
 
     if (isRoute && queryStart !== -1) {
         const query = cleanQuery(hash.slice(queryStart + 1));
-        return route + (query ? `?${query}` : '');
+        return maskRoute(route) + (query ? `?${query}` : '');
     }
 
+    // A plain anchor such as `#reviews` names a part of the page, not a route.
     if (hash.indexOf('=') === -1) {
-        return hash;
+        return isHashRoute ? maskRoute(hash) : hash;
     }
 
+    // A hash route's path leads its pairs, as in `#/cb&tab=2`.
     const pairs = hash
         .slice(1)
         .split('&')
+        .map((pair, i) =>
+            i === 0 && isHashRoute ? maskRoute(`#${pair}`).slice(1) : pair
+        )
         .filter(keepsFragmentPair)
         .join('&');
     return pairs ? `#${pairs}` : '';
@@ -172,10 +218,13 @@ export const cleanUrl = (href: string, mode: UrlMode): string => {
     const hash = hashStart === -1 ? '' : href.slice(hashStart);
     const beforeHash = hashStart === -1 ? href : href.slice(0, hashStart);
     const queryStart = beforeHash.indexOf('?');
-    const path = (queryStart === -1
-        ? beforeHash
-        : beforeHash.slice(0, queryStart)
-    ).replace(USERINFO, '$1');
+    const path = maskPath(
+        (queryStart === -1
+            ? beforeHash
+            : beforeHash.slice(0, queryStart)
+        ).replace(USERINFO, '$1'),
+        mode === UrlMode.Report ? pagePath : pageUrlPath
+    );
 
     if (mode !== UrlMode.Full) {
         return path;

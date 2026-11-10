@@ -138,6 +138,20 @@ describe('BatchUploader', () => {
 
             expect(storedIds()).toEqual(['second']);
         });
+        it.each([
+            ['refused', false, ['exit']],
+            ['accepted', true, []],
+        ])('stores the batch for the next page only when its exit beacon is refused (%s)', async (_, accepted, expected) => {
+            (navigator as any).sendBeacon = jest.fn().mockReturnValue(accepted);
+            const store = jest.spyOn((uploader as any).batchVault, 'store');
+            (uploader as any).batchesQueuedForProcessing = [batch('exit', 1000)];
+
+            await (uploader as any).prepareAndUpload(false, true);
+
+            expect(storedIds()).toEqual(expected);
+            expect(store).toHaveBeenCalledTimes(accepted ? 0 : 1);
+            delete (navigator as any).sendBeacon;
+        });
     });
 
     describe('shouldDebounceAST', () => {
@@ -225,6 +239,75 @@ describe('BatchUploader', () => {
             const notUploaded = await batchUploader['uploadBatches']([batch], false);
 
             expect(notUploaded).toEqual([batch]);
+        });
+    });
+
+    describe('exit beacon', () => {
+        const batch = (id: string) =>
+            ({ source_request_id: id, events: [{ event_type: 'custom_event' }] } as any);
+        let sendBeacon: jest.Mock;
+
+        beforeEach(() => {
+            sendBeacon = jest.fn().mockReturnValue(true);
+            (navigator as any).sendBeacon = sendBeacon;
+        });
+
+        afterEach(() => {
+            delete (navigator as any).sendBeacon;
+        });
+
+        it('sends every batch and keeps none when the browser accepts them', async () => {
+            const notSent = await batchUploader['uploadBatches']([batch('a'), batch('b')], true);
+
+            expect(sendBeacon).toHaveBeenCalledTimes(2);
+            expect(notSent).toBeNull();
+            expect(mockMPInstance.Logger.warning).not.toHaveBeenCalled();
+        });
+
+        it('keeps only a refused batch and still sends the ones after it, and logs it', async () => {
+            sendBeacon.mockReturnValueOnce(true).mockReturnValueOnce(false).mockReturnValueOnce(true);
+            const batches = [batch('a'), batch('b'), batch('c')];
+
+            const notSent = await batchUploader['uploadBatches'](batches, true);
+
+            expect(sendBeacon).toHaveBeenCalledTimes(3);
+            expect(notSent).toEqual([batches[1]]);
+            expect(global.fetch).not.toHaveBeenCalled();
+            expect(mockMPInstance.Logger.warning).toHaveBeenCalledTimes(1);
+            expect(mockMPInstance.Logger.warning).toHaveBeenCalledWith(
+                expect.stringContaining('refused the exit upload of 1 batch(es)')
+            );
+        });
+
+        it('keeps every refused batch in order', async () => {
+            sendBeacon.mockReturnValueOnce(false).mockReturnValueOnce(true).mockReturnValueOnce(false);
+            const batches = [batch('a'), batch('b'), batch('c')];
+
+            const notSent = await batchUploader['uploadBatches'](batches, true);
+
+            expect(notSent).toEqual([batches[0], batches[2]]);
+        });
+
+        it('treats only false as a refusal, so a wrapper returning nothing still counts as sent', async () => {
+            sendBeacon.mockReturnValue(undefined);
+
+            const notSent = await batchUploader['uploadBatches']([batch('a')], true);
+
+            expect(notSent).toBeNull();
+            expect(mockMPInstance.Logger.warning).not.toHaveBeenCalled();
+        });
+
+        it('requeues a refused batch for the next upload', async () => {
+            sendBeacon.mockReturnValue(false);
+            (batchUploader as any).batchesQueuedForProcessing = [batch('a')];
+
+            await batchUploader.prepareAndUpload(false, true);
+
+            expect(
+                (batchUploader as any).batchesQueuedForProcessing.map(
+                    (queued: { source_request_id: string }) => queued.source_request_id
+                )
+            ).toEqual(['a']);
         });
     });
 }); 

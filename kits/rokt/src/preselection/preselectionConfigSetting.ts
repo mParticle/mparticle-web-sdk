@@ -1,5 +1,6 @@
-import type { PreselectionConfigEntry } from './preselectionConfig';
-import { isObject, isString, parseKitSettingJson } from './utils';
+import { PRESELECT_SKIP_DEFAULT, type PreselectionConfigEntry } from './preselectionConfig';
+import { isObject, isString, parseKitSettingJson } from '../utils';
+import { isPaymentFamily } from '../paymentFamily';
 
 const SUPPORTED_SCHEMA_VERSION = 1;
 
@@ -18,6 +19,52 @@ function isNonEmptyString(value: unknown): value is string {
 
 const CLIENT_TYPES = ['DesktopWeb', 'MobileWeb'];
 
+// Matches the launcher, which reads at most this many values for a key.
+const MAX_MATCH_GROUP_VALUES = 50;
+
+// Two or more values to a group, each value in one group only and never one the default skips, at most 50 in all.
+function isMatchGroups(matchGroups: unknown, skipValues: unknown): boolean {
+  if (!Array.isArray(matchGroups) || matchGroups.length === 0) {
+    return false;
+  }
+  if (!matchGroups.every((group) => isStringArray(group) && group.length >= 2 && group.every(isNonEmptyString))) {
+    return false;
+  }
+  const values = (matchGroups as string[][]).flat();
+  if (values.length > MAX_MATCH_GROUP_VALUES || new Set(values).size !== values.length) {
+    return false;
+  }
+  const skipped = isStringArray(skipValues) ? skipValues.map((skipValue) => skipValue.toLowerCase()) : [];
+  return !values.some((value) => skipped.includes(value.toLowerCase()));
+}
+
+// Matches the limits enforced when the setting is saved. A selector the browser can't parse is skipped when a click
+// is matched, so only the shape is checked here.
+const MAX_INTENT_SELECTORS = 10;
+const MAX_INTENT_SELECTOR_LENGTH = 256;
+const INTENT_SELECTOR_KINDS = ['commit', 'checkoutStep'];
+
+// An object holding commit or checkoutStep, each a list of 1-10 non-empty selectors of at most 256 characters. Other
+// keys are ignored so a later kit can add a kind, but at least one known kind must be set.
+function isIntentSelectors(value: unknown): boolean {
+  if (!isObject(value)) {
+    return false;
+  }
+  const kinds = INTENT_SELECTOR_KINDS.filter((kind) => value[kind] !== undefined);
+  return (
+    kinds.length > 0 &&
+    kinds.every((kind) => {
+      const selectors = value[kind];
+      return (
+        isStringArray(selectors) &&
+        selectors.length > 0 &&
+        selectors.length <= MAX_INTENT_SELECTORS &&
+        selectors.every((selector) => selector.trim() !== '' && selector.length <= MAX_INTENT_SELECTOR_LENGTH)
+      );
+    })
+  );
+}
+
 // Fields this kit does not know are ignored, as they are on the entry, so a later kit can add one.
 function isAttributeDefault(value: unknown): boolean {
   if (isNonEmptyString(value)) {
@@ -27,7 +74,7 @@ function isAttributeDefault(value: unknown): boolean {
     return false;
   }
 
-  const { byClientType, byHostname, skipRemembered } = value;
+  const { byClientType, byHostname, byPaymentPick, skipRemembered, skipValues, matchGroups } = value;
   if (value.value !== undefined && !isNonEmptyString(value.value)) {
     return false;
   }
@@ -50,10 +97,47 @@ function isAttributeDefault(value: unknown): boolean {
   ) {
     return false;
   }
+  // Keyed by the kit's payment family names only, since a pick is only ever stored as one of them.
+  if (
+    byPaymentPick !== undefined &&
+    (!isObject(byPaymentPick) ||
+      Object.keys(byPaymentPick).length === 0 ||
+      !Object.entries(byPaymentPick).every(
+        ([family, familyValue]) => isPaymentFamily(family) && isNonEmptyString(familyValue),
+      ))
+  ) {
+    return false;
+  }
   if (skipRemembered !== undefined && typeof skipRemembered !== 'boolean') {
     return false;
   }
-  return value.value !== undefined || byClientType !== undefined || byHostname !== undefined;
+  if (
+    skipValues !== undefined &&
+    (!isStringArray(skipValues) || skipValues.length === 0 || !skipValues.every(isNonEmptyString))
+  ) {
+    return false;
+  }
+  // A value the default fills can't also be one it skips, or a shopper with none would be called on a value that
+  // stops the call for a shopper who holds it.
+  if (isStringArray(skipValues)) {
+    const skipped = skipValues.map((skipValue) => skipValue.toLowerCase());
+    // Only a device's "skip" is the no-fill sentinel; as a plain or host value it is filled like any other.
+    const filled = [
+      value.value,
+      ...Object.values(byClientType ?? {}).filter((fill) => fill !== PRESELECT_SKIP_DEFAULT),
+      ...Object.values(byHostname ?? {}),
+      ...Object.values(byPaymentPick ?? {}),
+    ];
+    if (filled.some((fill) => isString(fill) && skipped.includes(fill.toLowerCase()))) {
+      return false;
+    }
+  }
+  if (matchGroups !== undefined && !isMatchGroups(matchGroups, skipValues)) {
+    return false;
+  }
+  return (
+    value.value !== undefined || byClientType !== undefined || byHostname !== undefined || byPaymentPick !== undefined
+  );
 }
 
 // Reasons name the field only, never its value, since they ship over the logging pipeline.
@@ -64,7 +148,7 @@ function parseEntry(accountId: string, raw: unknown): PreselectionConfigEntry | 
 
   const { pathname, targetPageIdentifier, attributeKeys, optionalAttributeKeys, identityKeys, dispatchDelayMs } = raw;
   const { triggerEventNames, releaseHoldOnRouteChange, readEmailInput, cartIntent, cartUserAttribute } = raw;
-  const { checkoutStepIntent } = raw;
+  const { checkoutStepIntent, intentSelectors } = raw;
   // The older name for the same field, read until every setting has moved to the new one.
   const legacyDefaults = raw.preselectAttributeOverrides;
   const defaults = raw.preselectAttributeDefaults !== undefined ? raw.preselectAttributeDefaults : legacyDefaults;
@@ -128,6 +212,9 @@ function parseEntry(accountId: string, raw: unknown): PreselectionConfigEntry | 
   }
   if (cartIntent !== undefined && typeof cartIntent !== 'boolean') {
     return 'cartIntent';
+  }
+  if (intentSelectors !== undefined && !isIntentSelectors(intentSelectors)) {
+    return 'intentSelectors';
   }
   if (
     readEmailInput !== undefined &&
@@ -198,6 +285,9 @@ function parseEntry(accountId: string, raw: unknown): PreselectionConfigEntry | 
   }
   if (checkoutStepIntent !== undefined) {
     entry.checkoutStepIntent = checkoutStepIntent;
+  }
+  if (intentSelectors !== undefined) {
+    entry.intentSelectors = intentSelectors as PreselectionConfigEntry['intentSelectors'];
   }
   if (readEmailInput !== undefined) {
     entry.readEmailInput = readEmailInput;

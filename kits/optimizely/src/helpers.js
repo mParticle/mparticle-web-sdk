@@ -6,10 +6,15 @@ var helpers = {
         }, {});
         return newObj;
     },
-    loadScript: function(src, callback) {
+    loadScript: function(src, callback, integrity) {
         var script = document.createElement('script');
         script.type = 'text/javascript';
         script.onload = callback;
+        if (integrity) {
+            // The browser runs the script only if its bytes match this hash.
+            script.integrity = integrity;
+            script.crossOrigin = 'anonymous';
+        }
         script.src = src;
         document.head.appendChild(script);
     },
