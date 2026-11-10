@@ -203,13 +203,13 @@ jobs:
               run: node scripts/check-cdn-minifier.js test/fixtures/cdn-minifier/computed-binding-key.js
 
             - name: Download core bundle
-              uses: actions/download-artifact@v7
+              uses: actions/download-artifact@v8
               with:
                   name: bundle-local
                   path: cdn-minifier-input/dist
 
             - name: Download kit bundles
-              uses: actions/download-artifact@v7
+              uses: actions/download-artifact@v8
               with:
                   pattern: cdn-minifier-input-*
                   merge-multiple: true
@@ -486,7 +486,7 @@ jobs:
               run: npm ci
 
             - name: Download Local Bundle
-              uses: actions/download-artifact@v7
+              uses: actions/download-artifact@v8
               with:
                   name: bundle-local
 
