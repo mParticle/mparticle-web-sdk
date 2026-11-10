@@ -574,9 +574,24 @@ function planStep1(
         })),
         tagRun ? [STEP1_BRANCH, run.head_branch as string] : [STEP1_BRANCH]
     );
-    if (tagRun && releaseTag !== undefined && releaseTag !== run.head_branch) {
-        fail(
-            'The candidate release_tag must equal the Step 1 run head_branch'
+    let resolvedReleaseTag: string | undefined;
+    if (tagRun) {
+        const headBranch = run.head_branch as string;
+        if (!releaseTag) {
+            process.stderr.write(
+                `::warning::release_tag was not passed; caller predates release_tag, using Step 1 head_branch (${headBranch})\n`
+            );
+            resolvedReleaseTag = headBranch;
+        } else if (releaseTag !== headBranch) {
+            fail(
+                'The candidate release_tag must equal the Step 1 run head_branch'
+            );
+        } else {
+            resolvedReleaseTag = releaseTag;
+        }
+    } else if (releaseTag) {
+        process.stderr.write(
+            `::warning::release_tag (${releaseTag}) was passed for a branch-origin Step 1 run (${run.head_branch as string}) and is ignored\n`
         );
     }
     // The source check accepted the path, so it names one of STEP1_FILES.
@@ -612,7 +627,7 @@ function planStep1(
             runAttempt,
             buildId: gatedBuildId,
             artifactName: `v3-candidate-${gatedBuildId}`,
-            ...(tagRun ? { releaseTag: run.head_branch as string } : {}),
+            ...(resolvedReleaseTag ? { releaseTag: resolvedReleaseTag } : {}),
         };
     }
     // The shadow package job names both the build and its artifact this way.
@@ -641,7 +656,7 @@ function planStep1(
         runAttempt,
         buildId,
         artifactName: `v3-candidate-${buildId}`,
-        ...(tagRun ? { releaseTag: run.head_branch as string } : {}),
+        ...(resolvedReleaseTag ? { releaseTag: resolvedReleaseTag } : {}),
     };
 }
 

@@ -534,7 +534,9 @@ describe('V3 shadow release trigger', () => {
                         'workflow_dispatch',
                         gateJobs(),
                         [gateArtifact(1)],
-                        true
+                        true,
+                        false,
+                        'v3.29.1'
                     )
                 ).toMatchObject({
                     skip: false,
@@ -703,6 +705,63 @@ describe('V3 shadow release trigger', () => {
                 ).toThrow(
                     'The candidate release_tag must equal the Step 1 run head_branch'
                 );
+
+                for (const missingReleaseTag of [undefined, '']) {
+                    const stderr = jest
+                        .spyOn(process.stderr, 'write')
+                        .mockImplementation(() => true);
+                    try {
+                        expect(
+                            trigger.planStep1(
+                                v3InProgressRun({ head_branch: 'v3.32.0' }),
+                                REPOSITORY,
+                                STEP1_IDS,
+                                'workflow_dispatch',
+                                gateJobs(),
+                                [gateArtifact(1)],
+                                true,
+                                true,
+                                missingReleaseTag
+                            )
+                        ).toMatchObject({
+                            skip: false,
+                            buildId: '36618522123-1',
+                            releaseTag: 'v3.32.0',
+                        });
+                        expect(stderr).toHaveBeenCalledWith(
+                            '::warning::release_tag was not passed; caller predates release_tag, using Step 1 head_branch (v3.32.0)\n'
+                        );
+                    } finally {
+                        stderr.mockRestore();
+                    }
+                }
+
+                const branchStderr = jest
+                    .spyOn(process.stderr, 'write')
+                    .mockImplementation(() => true);
+                try {
+                    const branchPlan = trigger.planStep1(
+                        v3InProgressRun({ head_branch: 'v3-staging' }),
+                        REPOSITORY,
+                        STEP1_IDS,
+                        'workflow_dispatch',
+                        gateJobs(),
+                        [gateArtifact(1)],
+                        true,
+                        true,
+                        'v3.32.0'
+                    );
+                    expect(branchPlan).toMatchObject({
+                        skip: false,
+                        buildId: '36618522123-1',
+                    });
+                    expect(branchPlan.releaseTag).toBeUndefined();
+                    expect(branchStderr).toHaveBeenCalledWith(
+                        '::warning::release_tag (v3.32.0) was passed for a branch-origin Step 1 run (v3-staging) and is ignored\n'
+                    );
+                } finally {
+                    branchStderr.mockRestore();
+                }
             });
 
             it('rejects a staging-step-1.yml parent in release-gate mode while keeping non-gate behaviour', () => {
@@ -1904,6 +1963,73 @@ describe('V3 shadow release trigger', () => {
             ).toThrow(
                 'The candidate release_tag must equal the Step 1 run head_branch'
             );
+            const jobsFile = path.join(directory, 'gate-jobs.json');
+            const artifactsFile = path.join(directory, 'gate-artifacts.json');
+            fs.writeFileSync(
+                jobsFile,
+                JSON.stringify(
+                    step1Jobs({ 'Publish V3 kits': 'success' }).map(job => ({
+                        ...job,
+                        run_id: 42638277207,
+                        run_attempt: 1,
+                        ...(job.name === 'Package V3 candidate (shadow)'
+                            ? {
+                                  started_at: '2026-01-02T10:00:00Z',
+                                  completed_at: '2026-01-02T10:01:00Z',
+                              }
+                            : {}),
+                    }))
+                )
+            );
+            fs.writeFileSync(
+                artifactsFile,
+                JSON.stringify(
+                    step1Artifacts(['v3-candidate-42638277207-1'], {
+                        created_at: '2026-01-02T10:00:30Z',
+                        workflow_run: { id: 42638277207 },
+                    })
+                )
+            );
+            const stderr = jest
+                .spyOn(process.stderr, 'write')
+                .mockImplementation(() => true);
+            try {
+                expect(
+                    trigger.main([
+                        'step1',
+                        '--run',
+                        tagRunFile,
+                        '--repository',
+                        REPOSITORY,
+                        '--workflow-id',
+                        STEP1_ID,
+                        '--v3-workflow-id',
+                        V3_STEP1_ID,
+                        '--trigger',
+                        'workflow_dispatch',
+                        '--release-gate',
+                        'true',
+                        '--release-please-mode',
+                        'true',
+                        '--jobs',
+                        jobsFile,
+                        '--artifacts',
+                        artifactsFile,
+                    ])
+                ).toEqual([
+                    'skip=false',
+                    'run_id=42638277207',
+                    'run_attempt=1',
+                    'build_id=42638277207-1',
+                    'artifact_name=v3-candidate-42638277207-1',
+                    'release_tag=v3.32.0',
+                ]);
+                expect(stderr).toHaveBeenCalledWith(
+                    '::warning::release_tag was not passed; caller predates release_tag, using Step 1 head_branch (v3.32.0)\n'
+                );
+            } finally {
+                stderr.mockRestore();
+            }
             expect(() => trigger.main(args('false'))).toThrow(
                 'The release run must be dispatched from v3-staging'
             );

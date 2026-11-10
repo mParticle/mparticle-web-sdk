@@ -70,6 +70,11 @@ on:
                 required: true
                 type: boolean
                 default: false
+            release_tag:
+                description: Expected release tag (v3.X.Y) for a tag-origin recovery run
+                required: false
+                type: string
+                default: ''
 
 permissions: {}
 
@@ -131,6 +136,7 @@ jobs:
                   STEP1_RUN_ID: ${{ inputs.step1_run_id }}
                   RELEASE_GATE: ${{ github.event_name == 'workflow_dispatch' && inputs.release_gate && 'true' || 'false' }}
                   RELEASE_PLEASE_ENABLED: ${{ vars.V3_RELEASE_PLEASE_ENABLED }}
+                  RELEASE_TAG: ${{ inputs.release_tag }}
               run: |
                   set -euo pipefail
                   case "${RELEASE_GATE:-false}" in
@@ -168,7 +174,7 @@ jobs:
                   JOBS_FILE="$RUNNER_TEMP/step1-jobs.json"
                   gh api --paginate "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/attempts/${RUN_ATTEMPT}/jobs?per_page=100" |
                       jq -s '[.[].jobs[]]' > "$JOBS_FILE"
-                  node --experimental-strip-types scripts/v3-release/shadow-release-trigger.ts step1 \
+                  set -- \
                       --run "$RUN_FILE" \
                       --repository "$GITHUB_REPOSITORY" \
                       --workflow-id "$WORKFLOW_ID" \
@@ -177,7 +183,12 @@ jobs:
                       --release-gate "${RELEASE_GATE:-false}" \
                       --release-please-mode "$RELEASE_PLEASE_MODE" \
                       --artifacts "$ARTIFACTS_FILE" \
-                      --jobs "$JOBS_FILE" | tee -a "$GITHUB_OUTPUT" > "$RUNNER_TEMP/step1-plan.txt"
+                      --jobs "$JOBS_FILE"
+                  if [ -n "${RELEASE_TAG:-}" ]; then
+                      set -- "$@" --release-tag "$RELEASE_TAG"
+                  fi
+                  node --experimental-strip-types scripts/v3-release/shadow-release-trigger.ts step1 \
+                      "$@" | tee -a "$GITHUB_OUTPUT" > "$RUNNER_TEMP/step1-plan.txt"
                   cat "$RUNNER_TEMP/step1-plan.txt"
                   if grep -qx 'skip=true' "$RUNNER_TEMP/step1-plan.txt"; then
                       if [ "${RELEASE_GATE:-false}" = 'true' ]; then

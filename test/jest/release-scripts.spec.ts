@@ -19,8 +19,10 @@ const {
     appendCoreRecoverySummary,
     appendRecoverySummary,
     assertDistTagWillNotMoveBackward,
+    auditMain,
     auditRemotePackages,
     compareStableVersions,
+    main,
     packPackage,
     preflightKitArtifacts,
     publishKitArtifacts,
@@ -102,8 +104,11 @@ describe('kit release scripts', () => {
         expect(
             jobs['publish-kits'].steps.map((step: {run?: string}) => step.run)
         ).toContain('node scripts/publish-kits.js');
-        // The release gate's npm parity check (check-release-parity.ts with
-        // --npm-retry-seconds 600) reads npm in the candidate workflow instead.
+        // publish-kits.js runs a strict audit at the end of main() reusing the
+        // packed tarballs, and the release gate's npm parity check
+        // (check-release-parity.ts with --npm-retry-seconds 600) reads npm in
+        // the candidate workflow as well; there is no separate --audit step or
+        // audit-kits job.
         expect(jobs['audit-kits']).toBeUndefined();
         expect(workflow).not.toContain('publish-kits.js --audit');
         expect(jobs['upload-v3-candidate'].needs).toEqual([
@@ -1291,6 +1296,12 @@ describe('kit release scripts', () => {
             stderr: '',
             error: Object.assign(new Error('spawnSync npm ETIMEDOUT'), {code: 'ETIMEDOUT'}),
         };
+        const spawnError = {
+            status: null,
+            stdout: '',
+            stderr: '',
+            error: Object.assign(new Error('spawnSync npm ENOENT'), {code: 'ENOENT'}),
+        };
         const spawnSync = jest
             .fn()
             .mockReturnValueOnce({status: 0, stdout: '"sha512-x"\n', stderr: ''})
@@ -1298,7 +1309,8 @@ describe('kit release scripts', () => {
             .mockReturnValueOnce({status: 1, stdout: '', stderr: 'npm error code ETIMEDOUT'})
             .mockReturnValueOnce({status: 1, stdout: '', stderr: 'npm error code ETIMEDOUT'})
             // A budget too small for a retry gets one attempt.
-            .mockReturnValueOnce(timedOut);
+            .mockReturnValueOnce(timedOut)
+            .mockReturnValueOnce(spawnError);
         jest.isolateModules(() => {
             jest.doMock('node:child_process', () => ({
                 ...jest.requireActual('node:child_process'),
@@ -1335,6 +1347,16 @@ describe('kit release scripts', () => {
             );
             expect(spawnSync).toHaveBeenCalledTimes(4);
             expect(spawnSync.mock.calls[3][2]).toMatchObject({timeout: 1500});
+            expect(() => npmView('example-kit', 'dist-tags.next', 1500)).toThrow(
+                expect.objectContaining({
+                    code: 'NPM_VIEW_FAILED',
+                    message: `npm view failed for example-kit dist-tags.next (${path.join(
+                        path.dirname(process.execPath),
+                        'npm'
+                    )}: ENOENT: spawnSync npm ENOENT)`,
+                })
+            );
+            expect(spawnSync).toHaveBeenCalledTimes(5);
         });
         jest.dontMock('node:child_process');
     });
@@ -2109,6 +2131,28 @@ describe('kit release scripts', () => {
             expect(summary).toContain('resumeKitReleaseTag=v3.0.1');
 
             fs.writeFileSync(summaryPath, '');
+            appendAuditSummary(
+                '3.0.1',
+                'next',
+                {
+                    verified: ['@mparticle/web-sdk'],
+                    lagging: [
+                        {name: '@mparticle/web-late-kit', message: 'not | yet'},
+                    ],
+                    mismatched: [],
+                },
+                {strict: true}
+            );
+            const strictSummary = fs.readFileSync(summaryPath, 'utf8');
+            expect(strictSummary).toContain(
+                '| `@mparticle/web-late-kit` | not confirmed yet (failed in strict mode): not   yet |'
+            );
+            expect(strictSummary).toContain(
+                'Under `--audit --strict`, any unconfirmed package fails the audit and fails the release recovery run.'
+            );
+            expect(strictSummary).not.toContain('Neither fails the release');
+
+            fs.writeFileSync(summaryPath, '');
             appendAuditSummary('3.0.1', 'next', {
                 verified: ['@mparticle/web-sdk'],
                 lagging: [],
@@ -2165,6 +2209,649 @@ describe('kit release scripts', () => {
         }
     });
 
+    it('fails on both missing and mismatched kits under --audit --strict', () => {
+        const tempDirectory = fs.mkdtempSync(
+            path.join(os.tmpdir(), 'mparticle-audit-strict-')
+        );
+        const coreVersion = JSON.parse(
+            fs.readFileSync(path.join(__dirname, '../../package.json'), 'utf8')
+        ).version;
+        const summaryPath = path.join(tempDirectory, 'summary.md');
+        const previousVersion = process.env.RELEASE_VERSION;
+        const previousDistTag = process.env.NPM_DIST_TAG;
+        const previousSummary = process.env.GITHUB_STEP_SUMMARY;
+
+        try {
+            process.env.RELEASE_VERSION = coreVersion;
+            process.env.NPM_DIST_TAG = 'next';
+            process.env.GITHUB_STEP_SUMMARY = summaryPath;
+            const fakeArtifacts = [
+                {name: '@mparticle/web-sdk', integrity: 'sha512-core'},
+                {name: '@mparticle/web-kit-a', integrity: 'sha512-kit-a'},
+            ];
+            let clockMs = 1_000_000;
+            const now = () => clockMs;
+            const wait = jest.fn((ms: number) => {
+                clockMs += ms;
+            });
+
+            // Plain --audit treats a missing kit (still lagging at the deadline) as a warning.
+            fs.writeFileSync(summaryPath, '');
+            expect(() =>
+                auditMain({
+                    strict: false,
+                    inventory: {publishEntries: []},
+                    packReleaseArtifacts: () => fakeArtifacts,
+                    auditOptions: {
+                        now,
+                        wait,
+                        verifyRemotePackage: (pkg: {name: string}) => {
+                            if (pkg.name === '@mparticle/web-kit-a') {
+                                const error = new Error(
+                                    '@mparticle/web-kit-a@3.0.1 is not visible on npm yet'
+                                ) as Error & {code?: string};
+                                error.code = 'NOT_VISIBLE';
+                                throw error;
+                            }
+                        },
+                    },
+                })
+            ).not.toThrow();
+            expect(wait).toHaveBeenCalledTimes(59);
+            expect(clockMs).toBe(1_000_000 + 295_000);
+            expect(fs.readFileSync(summaryPath, 'utf8')).toContain(
+                'Neither fails the release'
+            );
+
+            // Strict mode (--audit --strict): missing at first, visible before the deadline: passes.
+            clockMs = 1_000_000;
+            wait.mockClear();
+            fs.writeFileSync(summaryPath, '');
+            expect(() =>
+                auditMain({
+                    strict: true,
+                    inventory: {publishEntries: []},
+                    packReleaseArtifacts: () => fakeArtifacts,
+                    auditOptions: {
+                        now,
+                        wait,
+                        verifyRemotePackage: (pkg: {name: string}) => {
+                            if (
+                                pkg.name === '@mparticle/web-kit-a' &&
+                                clockMs < 1_000_000 + 30_000
+                            ) {
+                                const error = new Error(
+                                    '@mparticle/web-kit-a@3.0.1 is not visible on npm yet'
+                                ) as Error & {code?: string};
+                                error.code = 'NOT_VISIBLE';
+                                throw error;
+                            }
+                        },
+                    },
+                })
+            ).not.toThrow();
+            expect(wait).toHaveBeenCalledTimes(6);
+            expect(clockMs).toBe(1_000_000 + 30_000);
+            expect(fs.readFileSync(summaryPath, 'utf8')).toContain(
+                '| `@mparticle/web-kit-a` | verified |'
+            );
+
+            // Strict mode (--audit --strict): still missing at the deadline: fails.
+            clockMs = 1_000_000;
+            wait.mockClear();
+            fs.writeFileSync(summaryPath, '');
+            expect(() =>
+                auditMain({
+                    strict: true,
+                    inventory: {publishEntries: []},
+                    packReleaseArtifacts: () => fakeArtifacts,
+                    auditOptions: {
+                        now,
+                        wait,
+                        verifyRemotePackage: (pkg: {name: string}) => {
+                            if (pkg.name === '@mparticle/web-kit-a') {
+                                const error = new Error(
+                                    '@mparticle/web-kit-a@3.0.1 is not visible on npm yet'
+                                ) as Error & {code?: string};
+                                error.code = 'NOT_VISIBLE';
+                                throw error;
+                            }
+                        },
+                    },
+                })
+            ).toThrow(
+                'npm audit found 1 unverified package(s): @mparticle/web-kit-a: @mparticle/web-kit-a@3.0.1 is not visible on npm yet'
+            );
+            expect(wait).toHaveBeenCalledTimes(59);
+            expect(clockMs).toBe(1_000_000 + 295_000);
+            const strictAuditSummary = fs.readFileSync(summaryPath, 'utf8');
+            expect(strictAuditSummary).toContain(
+                'Under `--audit --strict`, any unconfirmed package fails the audit and fails the release recovery run.'
+            );
+            expect(strictAuditSummary).not.toContain(
+                'Neither fails the release'
+            );
+
+            // Strict mode also fails at once (without retrying) when a kit has a mismatched integrity on npm.
+            clockMs = 1_000_000;
+            wait.mockClear();
+            expect(() =>
+                auditMain({
+                    strict: true,
+                    inventory: {publishEntries: []},
+                    packReleaseArtifacts: () => fakeArtifacts,
+                    auditOptions: {
+                        now,
+                        wait,
+                        verifyRemotePackage: (pkg: {name: string}) => {
+                            if (pkg.name === '@mparticle/web-kit-a') {
+                                throw new Error(
+                                    '@mparticle/web-kit-a@3.0.1 integrity mismatch'
+                                );
+                            }
+                        },
+                    },
+                })
+            ).toThrow(
+                'npm audit found 1 unverified package(s): @mparticle/web-kit-a: @mparticle/web-kit-a@3.0.1 integrity mismatch'
+            );
+            expect(wait).not.toHaveBeenCalled();
+
+            // CLI spawns: stub child_process.spawnSync before requiring publish-kits.js so npmView never hits live npm.
+            const runCli = (args: string[], mode: string) =>
+                spawnSync(
+                    process.execPath,
+                    [
+                        '-e',
+                        `
+                        const childProcess = require('node:child_process');
+                        Atomics.wait = () => 'ok';
+                        let kitViewCalls = 0;
+                        childProcess.spawnSync = (_file, args) => {
+                            const spec = String(args[1] || '');
+                            const field = args[2];
+                            if (spec.startsWith('@mparticle/web-sdk')) {
+                                return {
+                                    status: 0,
+                                    stdout:
+                                        field === 'dist.integrity'
+                                            ? '"sha512-local"\\n'
+                                            : JSON.stringify(process.env.RELEASE_VERSION) + '\\n',
+                                    stderr: '',
+                                };
+                            }
+                            if (process.env.FAKE_NPM_MODE === 'mismatch') {
+                                return {
+                                    status: 0,
+                                    stdout:
+                                        field === 'dist.integrity'
+                                            ? '"sha512-other"\\n'
+                                            : JSON.stringify(process.env.RELEASE_VERSION) + '\\n',
+                                    stderr: '',
+                                };
+                            }
+                            kitViewCalls += 1;
+                            if (
+                                process.env.FAKE_NPM_MODE === 'lag-recover' &&
+                                kitViewCalls >= 3
+                            ) {
+                                return {
+                                    status: 0,
+                                    stdout:
+                                        field === 'dist.integrity'
+                                            ? '"sha512-local"\\n'
+                                            : JSON.stringify(process.env.RELEASE_VERSION) + '\\n',
+                                    stderr: '',
+                                };
+                            }
+                            return {
+                                status: 1,
+                                stdout: '',
+                                stderr: 'npm ERR! code E404',
+                            };
+                        };
+                        const pk = require(${JSON.stringify(
+                            path.join(__dirname, '../../scripts/publish-kits.js')
+                        )});
+                        process.argv = ['node', 'publish-kits.js', ...${JSON.stringify(
+                            args
+                        )}];
+                        let clockMs = 1000000;
+                        try {
+                            pk.auditMain({
+                                strict: process.argv.includes('--strict'),
+                                inventory: {
+                                    publishEntries: [
+                                        {
+                                            name: '@mparticle/web-kit-a',
+                                            local_path: '.',
+                                        },
+                                    ],
+                                },
+                                packReleaseArtifacts: () => [
+                                    {
+                                        name: '@mparticle/web-sdk',
+                                        integrity: 'sha512-local',
+                                    },
+                                    {
+                                        name: '@mparticle/web-kit-a',
+                                        integrity: 'sha512-local',
+                                    },
+                                ],
+                                auditOptions: {
+                                    now: () => clockMs,
+                                    wait: ms => {
+                                        clockMs += ms;
+                                    },
+                                },
+                            });
+                        } catch (err) {
+                            console.error(err.message);
+                            process.exit(1);
+                        }
+                        `,
+                    ],
+                    {
+                        encoding: 'utf8',
+                        env: {
+                            ...process.env,
+                            RELEASE_VERSION: coreVersion,
+                            NPM_DIST_TAG: 'next',
+                            FAKE_NPM_MODE: mode,
+                        },
+                    }
+                );
+
+            const lagRecoverResult = runCli(
+                ['--audit', '--strict'],
+                'lag-recover'
+            );
+            expect(lagRecoverResult.status).toBe(0);
+            expect(lagRecoverResult.stdout).toContain(
+                `Verified 2 of 2 packages at ${coreVersion} with dist-tag next`
+            );
+
+            const missingResult = runCli(['--audit', '--strict'], 'missing');
+            expect(missingResult.status).toBe(1);
+            expect(missingResult.stderr).toContain(
+                'npm audit found 1 unverified package(s): @mparticle/web-kit-a'
+            );
+
+            const mismatchResult = runCli(['--audit', '--strict'], 'mismatch');
+            expect(mismatchResult.status).toBe(1);
+            expect(mismatchResult.stderr).toContain(
+                'npm audit found 1 unverified package(s): @mparticle/web-kit-a'
+            );
+        } finally {
+            if (previousVersion === undefined) {
+                delete process.env.RELEASE_VERSION;
+            } else {
+                process.env.RELEASE_VERSION = previousVersion;
+            }
+            if (previousDistTag === undefined) {
+                delete process.env.NPM_DIST_TAG;
+            } else {
+                process.env.NPM_DIST_TAG = previousDistTag;
+            }
+            if (previousSummary === undefined) {
+                delete process.env.GITHUB_STEP_SUMMARY;
+            } else {
+                process.env.GITHUB_STEP_SUMMARY = previousSummary;
+            }
+            fs.rmSync(tempDirectory, {force: true, recursive: true});
+        }
+    });
+
+    it('runs auditRemotePackages in strict mode at the end of publish-kits reusing the packed tarballs and exits non-zero when a kit is missing after publish', async () => {
+        const tempDirectory = fs.mkdtempSync(
+            path.join(os.tmpdir(), 'mparticle-publish-strict-audit-')
+        );
+        const coreVersion = JSON.parse(
+            fs.readFileSync(path.join(__dirname, '../../package.json'), 'utf8')
+        ).version;
+        const summaryPath = path.join(tempDirectory, 'summary.md');
+        const packCountFile = path.join(tempDirectory, 'pack-count.txt');
+        const preloadPath = path.join(tempDirectory, 'preload.js');
+        const previousVersion = process.env.RELEASE_VERSION;
+        const previousDistTag = process.env.NPM_DIST_TAG;
+        const previousSummary = process.env.GITHUB_STEP_SUMMARY;
+
+        try {
+            process.env.RELEASE_VERSION = coreVersion;
+            process.env.NPM_DIST_TAG = 'next';
+            process.env.GITHUB_STEP_SUMMARY = summaryPath;
+
+            const fakeInventory = {
+                publishEntries: [
+                    {name: '@mparticle/web-rokt-kit', local_path: 'kits/rokt'},
+                    {
+                        name: '@mparticle/web-adobe-target-kit',
+                        local_path: 'kits/adobe-target',
+                    },
+                ],
+            };
+            const fakeArtifacts = [
+                {name: '@mparticle/web-sdk', integrity: 'sha512-core'},
+                {name: '@mparticle/web-rokt-kit', integrity: 'sha512-rokt'},
+                {
+                    name: '@mparticle/web-adobe-target-kit',
+                    integrity: 'sha512-adobe-target',
+                },
+            ];
+            const packArtifacts = jest.fn(() => fakeArtifacts);
+            const publishKits = jest.fn(
+                async (
+                    artifacts: Array<{name: string}>,
+                    _version: string,
+                    _distTag: string,
+                    options: {results: Array<{name: string; result: string}>}
+                ) => {
+                    for (const artifact of artifacts) {
+                        options.results.push({
+                            name: artifact.name,
+                            result: 'published',
+                        });
+                    }
+                }
+            );
+
+            let clockMs = 1_000_000;
+            const now = () => clockMs;
+            const wait = jest.fn((ms: number) => {
+                clockMs += ms;
+            });
+
+            // Missing at first, visible before the 5-minute deadline: passes.
+            fs.writeFileSync(summaryPath, '');
+            await expect(
+                main({
+                    inventory: fakeInventory,
+                    packReleaseArtifacts: packArtifacts,
+                    viewTag: () => '3.0.0',
+                    waitForPublishedCore: () => undefined,
+                    publishKitArtifacts: publishKits,
+                    auditOptions: {
+                        now,
+                        wait,
+                        verifyRemotePackage: (pkg: {name: string}) => {
+                            if (
+                                pkg.name === '@mparticle/web-rokt-kit' &&
+                                clockMs < 1_000_000 + 30_000
+                            ) {
+                                const error = new Error(
+                                    `@mparticle/web-rokt-kit@${coreVersion} is not yet visible on npm`
+                                ) as Error & {code?: string};
+                                error.code = 'NOT_VISIBLE';
+                                throw error;
+                            }
+                        },
+                    },
+                })
+            ).resolves.toBeUndefined();
+            expect(packArtifacts).toHaveBeenCalledTimes(1);
+            expect(wait).toHaveBeenCalledTimes(6);
+            expect(clockMs).toBe(1_000_000 + 30_000);
+            const recoveredSummary = fs.readFileSync(summaryPath, 'utf8');
+            expect(recoveredSummary).toContain(
+                '| `@mparticle/web-rokt-kit` | verified |'
+            );
+            expect(recoveredSummary).not.toContain(
+                'Kits not yet recorded successful'
+            );
+
+            // Still missing at the 5-minute deadline: fails.
+            clockMs = 1_000_000;
+            wait.mockClear();
+            packArtifacts.mockClear();
+            fs.writeFileSync(summaryPath, '');
+            await expect(
+                main({
+                    inventory: fakeInventory,
+                    packReleaseArtifacts: packArtifacts,
+                    viewTag: () => '3.0.0',
+                    waitForPublishedCore: () => undefined,
+                    publishKitArtifacts: publishKits,
+                    auditOptions: {
+                        now,
+                        wait,
+                        verifyRemotePackage: (pkg: {name: string}) => {
+                            if (pkg.name === '@mparticle/web-rokt-kit') {
+                                const error = new Error(
+                                    `@mparticle/web-rokt-kit@${coreVersion} is not yet visible on npm`
+                                ) as Error & {code?: string};
+                                error.code = 'NOT_VISIBLE';
+                                throw error;
+                            }
+                        },
+                    },
+                })
+            ).rejects.toThrow(
+                `npm audit found 1 unverified package(s): @mparticle/web-rokt-kit: @mparticle/web-rokt-kit@${coreVersion} is not yet visible on npm`
+            );
+            expect(packArtifacts).toHaveBeenCalledTimes(1);
+            expect(wait).toHaveBeenCalledTimes(59);
+            expect(clockMs).toBe(1_000_000 + 295_000);
+            const missingSummary = fs.readFileSync(summaryPath, 'utf8');
+            expect(missingSummary).toContain(
+                '| `@mparticle/web-rokt-kit` | not confirmed yet (failed in strict mode):'
+            );
+            expect(missingSummary).toContain(
+                'Kits not yet recorded successful: `@mparticle/web-rokt-kit`'
+            );
+
+            fs.writeFileSync(
+                preloadPath,
+                [
+                    "const fs = require('node:fs');",
+                    "const path = require('node:path');",
+                    "const { EventEmitter } = require('node:events');",
+                    "const childProcess = require('node:child_process');",
+                    'let fakeNow = 1000000;',
+                    'Date.now = () => fakeNow;',
+                    'Atomics.wait = (_arr, _idx, _val, ms) => {',
+                    '  fakeNow += Number(ms) || 0;',
+                    "  return 'ok';",
+                    '};',
+                    'const version = process.env.RELEASE_VERSION;',
+                    "const missingKit = process.env.FAKE_MISSING_KIT || '';",
+                    'const visibleAfterMs = Number(process.env.FAKE_VISIBLE_AFTER_MS || 0);',
+                    "const packCountFile = process.env.FAKE_PACK_COUNT_FILE || '';",
+                    'const tarballs = new Map();',
+                    'const published = new Set();',
+                    'let packCount = 0;',
+                    'let spawnCount = 0;',
+                    'let auditStartTime = null;',
+                    'childProcess.execFileSync = (file, args) => {',
+                    "  if (Array.isArray(args) && args[0] === 'pack') {",
+                    '    packCount += 1;',
+                    '    if (packCountFile) {',
+                    '      fs.writeFileSync(packCountFile, String(packCount));',
+                    '    }',
+                    '    const pkgDir = args[1];',
+                    '    const destDir = args[args.length - 1];',
+                    '    const { name } = JSON.parse(',
+                    "      fs.readFileSync(path.join(pkgDir, 'package.json'), 'utf8')",
+                    '    );',
+                    "    const filename = `${name.replace(/[@/]/g, '-')}.tgz`;",
+                    "    fs.writeFileSync(path.join(destDir, filename), 'tarball');",
+                    '    tarballs.set(filename, name);',
+                    '    return JSON.stringify([',
+                    '      { filename, integrity: `sha512-${name}@${version}` },',
+                    '    ]);',
+                    '  }',
+                    '  throw new Error(`Unexpected execFileSync: ${file} ${args}`);',
+                    '};',
+                    'childProcess.spawn = (_file, args) => {',
+                    '  spawnCount += 1;',
+                    '  const tarballName = path.basename(args[1]);',
+                    '  const pkgName = tarballs.get(tarballName);',
+                    '  if (pkgName && pkgName !== missingKit) {',
+                    '    published.add(pkgName);',
+                    '  }',
+                    '  const child = new EventEmitter();',
+                    '  child.stdout = new EventEmitter();',
+                    '  child.stderr = new EventEmitter();',
+                    '  child.stdout.setEncoding = () => undefined;',
+                    '  child.stderr.setEncoding = () => undefined;',
+                    "  setTimeout(() => child.emit('close', 0, null), 0);",
+                    '  return child;',
+                    '};',
+                    'childProcess.spawnSync = (_file, args) => {',
+                    '  const spec = args[1];',
+                    '  const field = args[2];',
+                    "  const atIndex = spec.lastIndexOf('@');",
+                    '  const hasVersion = atIndex > 0;',
+                    '  const pkgName = hasVersion ? spec.slice(0, atIndex) : spec;',
+                    '  if (pkgName === missingKit && visibleAfterMs > 0 && spawnCount >= 33) {',
+                    '    if (auditStartTime === null) {',
+                    '      auditStartTime = fakeNow;',
+                    '    }',
+                    '    if (fakeNow - auditStartTime >= visibleAfterMs) {',
+                    '      published.add(pkgName);',
+                    '    }',
+                    '  }',
+                    '  const isPublished =',
+                    "    pkgName === '@mparticle/web-sdk' || published.has(pkgName);",
+                    "  if (field === 'dist.integrity') {",
+                    '    if (!isPublished) {',
+                    "      return { status: 1, stdout: '', stderr: 'npm error code E404' };",
+                    '    }',
+                    '    return {',
+                    '      status: 0,',
+                    '      stdout: `${JSON.stringify(`sha512-${pkgName}@${version}`)}\\n`,',
+                    "      stderr: '',",
+                    '    };',
+                    '  }',
+                    "  if (field === 'dist-tags.next') {",
+                    '    if (!isPublished) {',
+                    '      return { status: 0, stdout: \'"3.0.0"\\n\', stderr: \'\' };',
+                    '    }',
+                    '    return {',
+                    '      status: 0,',
+                    '      stdout: `${JSON.stringify(version)}\\n`,',
+                    "      stderr: '',",
+                    '    };',
+                    '  }',
+                    "  return { status: 1, stdout: '', stderr: 'npm error code E404' };",
+                    '};',
+                    '',
+                ].join('\n')
+            );
+
+            // CLI: missing at first, visible before the deadline: passes.
+            fs.writeFileSync(summaryPath, '');
+            const cliLagRecover = spawnSync(
+                process.execPath,
+                [
+                    '-r',
+                    preloadPath,
+                    path.join(__dirname, '../../scripts/publish-kits.js'),
+                ],
+                {
+                    encoding: 'utf8',
+                    env: {
+                        ...process.env,
+                        RELEASE_VERSION: coreVersion,
+                        NPM_DIST_TAG: 'next',
+                        GITHUB_STEP_SUMMARY: summaryPath,
+                        FAKE_MISSING_KIT: '@mparticle/web-rokt-kit',
+                        FAKE_VISIBLE_AFTER_MS: '30000',
+                        FAKE_PACK_COUNT_FILE: packCountFile,
+                    },
+                }
+            );
+            expect(cliLagRecover.status).toBe(0);
+            expect(cliLagRecover.stdout).toContain(
+                `Verified 34 of 34 packages at ${coreVersion} with dist-tag next`
+            );
+            expect(fs.readFileSync(packCountFile, 'utf8')).toBe('34');
+            expect(fs.readFileSync(summaryPath, 'utf8')).toContain(
+                '| `@mparticle/web-rokt-kit` | verified |'
+            );
+
+            // CLI: still missing at the deadline: fails.
+            fs.writeFileSync(summaryPath, '');
+            const cliMissing = spawnSync(
+                process.execPath,
+                [
+                    '-r',
+                    preloadPath,
+                    path.join(__dirname, '../../scripts/publish-kits.js'),
+                ],
+                {
+                    encoding: 'utf8',
+                    env: {
+                        ...process.env,
+                        RELEASE_VERSION: coreVersion,
+                        NPM_DIST_TAG: 'next',
+                        GITHUB_STEP_SUMMARY: summaryPath,
+                        FAKE_MISSING_KIT: '@mparticle/web-rokt-kit',
+                        FAKE_PACK_COUNT_FILE: packCountFile,
+                    },
+                }
+            );
+            expect(cliMissing.status).toBe(1);
+            expect(cliMissing.stderr).toContain(
+                `npm audit found 1 unverified package(s): @mparticle/web-rokt-kit: @mparticle/web-rokt-kit@${coreVersion} is not yet visible on npm`
+            );
+            // Core + 33 kits are packed once; the end-of-publish strict audit reuses them.
+            expect(fs.readFileSync(packCountFile, 'utf8')).toBe('34');
+            const cliMissingSummary = fs.readFileSync(summaryPath, 'utf8');
+            expect(cliMissingSummary).toContain(
+                '| `@mparticle/web-rokt-kit` | not confirmed yet (failed in strict mode):'
+            );
+            expect(cliMissingSummary).toContain(
+                'Kits not yet recorded successful: `@mparticle/web-rokt-kit`'
+            );
+
+            fs.writeFileSync(summaryPath, '');
+            const cliSuccess = spawnSync(
+                process.execPath,
+                [
+                    '-r',
+                    preloadPath,
+                    path.join(__dirname, '../../scripts/publish-kits.js'),
+                ],
+                {
+                    encoding: 'utf8',
+                    env: {
+                        ...process.env,
+                        RELEASE_VERSION: coreVersion,
+                        NPM_DIST_TAG: 'next',
+                        GITHUB_STEP_SUMMARY: summaryPath,
+                        FAKE_MISSING_KIT: '',
+                        FAKE_PACK_COUNT_FILE: packCountFile,
+                    },
+                }
+            );
+            expect(cliSuccess.status).toBe(0);
+            expect(cliSuccess.stdout).toContain(
+                `Published every kit at ${coreVersion} with dist-tag next`
+            );
+            expect(cliSuccess.stdout).toContain(
+                `Verified 34 of 34 packages at ${coreVersion} with dist-tag next`
+            );
+            expect(fs.readFileSync(packCountFile, 'utf8')).toBe('34');
+        } finally {
+            if (previousVersion === undefined) {
+                delete process.env.RELEASE_VERSION;
+            } else {
+                process.env.RELEASE_VERSION = previousVersion;
+            }
+            if (previousDistTag === undefined) {
+                delete process.env.NPM_DIST_TAG;
+            } else {
+                process.env.NPM_DIST_TAG = previousDistTag;
+            }
+            if (previousSummary === undefined) {
+                delete process.env.GITHUB_STEP_SUMMARY;
+            } else {
+                process.env.GITHUB_STEP_SUMMARY = previousSummary;
+            }
+            fs.rmSync(tempDirectory, {force: true, recursive: true});
+        }
+    });
+
     it('refuses an unknown option instead of running the publish', () => {
         const tempDirectory = fs.mkdtempSync(
             path.join(os.tmpdir(), 'mparticle-unknown-option-cli-')
@@ -2216,6 +2903,13 @@ describe('kit release scripts', () => {
             expect(summary).toContain(
                 'Do not start a newer release or run Step 2 or Step 3'
             );
+            expect(summary).toContain(
+                '**Tag mode (Release Please, dispatched from `v3.0.1`)**: use **Re-run failed jobs** on the original **V3 Release - Step 1** run'
+            );
+            expect(summary).toContain('release_tag=v3.0.1');
+            expect(summary).toContain(
+                '**Branch mode (dispatched from `v3-staging` before Release Please)**: dispatch **V3 Release - Step 1** from `v3-staging`'
+            );
             expect(summary).toContain('resumeKitReleaseTag=v3.0.1');
             expect(summary).toContain('core and all 33 kits');
             expect(summary).toContain('**V3 Release - Step 1**');
@@ -2223,6 +2917,31 @@ describe('kit release scripts', () => {
                 'dispatch **Staging Release - Step 1** from `v3-staging` instead, with `track=v3`'
             );
             expect(summary).toContain('@mparticle/web-example-kit');
+
+            const readme = fs.readFileSync(
+                path.join(__dirname, '../../README.md'),
+                'utf8'
+            );
+            const step1Section = readme.slice(
+                readme.indexOf('1. **Step 1: Prepare CDN Pre-Release, Publish NPM**:'),
+                readme.indexOf('2. **Step 2: Publish SDK Release to Release Order Branch**')
+            );
+            expect(step1Section).toContain(
+                'runs `auditRemotePackages` in\n   strict mode at the end of `publish-kits.js`, reusing the tarballs it already\n   packed'
+            );
+            expect(step1Section).toContain(
+                'npm is then checked a second\n   time by the release gate in **Upload and stage V3 candidate** described below:\n   `check-release-parity.ts`'
+            );
+            expect(step1Section).toContain(
+                'in tag mode (Release Please, dispatched from `v3.X.Y`), use **Re-run failed'
+            );
+            expect(step1Section).toContain('`release_tag` set to the');
+            expect(step1Section).toContain(
+                'In branch mode (dispatched from `v3-staging` before'
+            );
+            expect(readme).toContain(
+                'Any rollback of this change on `main` must keep the\n`release_tag` input declaration on `v3-shadow-candidate.yml`'
+            );
         } finally {
             if (previousSummaryPath === undefined) {
                 delete process.env.GITHUB_STEP_SUMMARY;

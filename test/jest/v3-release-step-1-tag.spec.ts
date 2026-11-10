@@ -857,18 +857,22 @@ describe('V3 Step 1 from a release tag: release jobs', () => {
         }
     });
 
-    it('fast-forwards v3-staging once core and the kits are on npm, before uploading and staging the candidate', () => {
+    it('fast-forwards v3-staging once core and the kits are on npm and the candidate is packaged, before uploading and staging the candidate', () => {
         const job = workflow.jobs['advance-staging'];
         expect(job.needs).toEqual([
             'confirm-staging-branch',
             'release',
+            'package-v3-candidate',
             'publish-kits',
         ]);
         const condition = job.if.replace(/\s+/g, ' ');
         for (const part of [
             TAG_MODE,
+            "github.repository == 'mParticle/mparticle-web-sdk'",
             "github.event.inputs.dryRun == 'false'",
+            "needs.confirm-staging-branch.result == 'success'",
             "needs.release.result == 'success'",
+            "needs.package-v3-candidate.result == 'success'",
             "needs.publish-kits.result == 'success'",
         ]) {
             expect(condition).toContain(part);
@@ -881,6 +885,93 @@ describe('V3 Step 1 from a release tag: release jobs', () => {
         expect(script).toContain(
             'git push origin "${RELEASE_SHA}:refs/heads/${STAGING_BRANCH}"'
         );
+        expect(script).toContain(
+            'Wait for Upload and stage V3 candidate to succeed before running Steps 2 and 3 for this tag.'
+        );
+        expect(script).not.toContain('Steps 2 and 3 can run for this tag.');
+
+        const evaluateAdvanceStagingIf = (overrides: {
+            repository?: string;
+            dryRun?: string;
+            releaseMode?: string;
+            confirmResult?: string;
+            releaseResult?: string;
+            packageResult?: string;
+            publishKitsResult?: string;
+        } = {}): boolean => {
+            const expression = job.if
+                .replace(/^\s*\$\{\{|\}\}\s*$/g, '')
+                .replace(/\bneeds\.([a-z0-9-]+)\b/g, "needs['$1']");
+            const evaluate = new Function(
+                'always',
+                'cancelled',
+                'needs',
+                'github',
+                `return Boolean(${expression});`
+            );
+            return evaluate(
+                () => true,
+                () => false,
+                {
+                    'confirm-staging-branch': {
+                        result: overrides.confirmResult ?? 'success',
+                        outputs: {
+                            release_mode: overrides.releaseMode ?? 'tag',
+                        },
+                    },
+                    release: {
+                        result: overrides.releaseResult ?? 'success',
+                    },
+                    'package-v3-candidate': {
+                        result: overrides.packageResult ?? 'success',
+                    },
+                    'publish-kits': {
+                        result: overrides.publishKitsResult ?? 'success',
+                    },
+                },
+                {
+                    repository:
+                        overrides.repository ?? 'mParticle/mparticle-web-sdk',
+                    event: {
+                        inputs: { dryRun: overrides.dryRun ?? 'false' },
+                    },
+                }
+            );
+        };
+        expect(evaluateAdvanceStagingIf()).toBe(true);
+        expect(
+            evaluateAdvanceStagingIf({
+                repository: 'mParticle/web-sdk-release-testing',
+            })
+        ).toBe(false);
+        expect(evaluateAdvanceStagingIf({ confirmResult: 'failure' })).toBe(
+            false
+        );
+        expect(evaluateAdvanceStagingIf({ confirmResult: 'skipped' })).toBe(
+            false
+        );
+        expect(evaluateAdvanceStagingIf({ releaseResult: 'failure' })).toBe(
+            false
+        );
+        expect(evaluateAdvanceStagingIf({ releaseResult: 'skipped' })).toBe(
+            false
+        );
+        expect(evaluateAdvanceStagingIf({ packageResult: 'failure' })).toBe(
+            false
+        );
+        expect(evaluateAdvanceStagingIf({ packageResult: 'skipped' })).toBe(
+            false
+        );
+        expect(evaluateAdvanceStagingIf({ publishKitsResult: 'failure' })).toBe(
+            false
+        );
+        expect(evaluateAdvanceStagingIf({ publishKitsResult: 'skipped' })).toBe(
+            false
+        );
+        expect(
+            evaluateAdvanceStagingIf({ releaseMode: 'semantic-release' })
+        ).toBe(false);
+        expect(evaluateAdvanceStagingIf({ dryRun: 'true' })).toBe(false);
 
         const upload = workflow.jobs['upload-v3-candidate'];
         expect(upload.needs).toEqual([
@@ -896,7 +987,8 @@ describe('V3 Step 1 from a release tag: release jobs', () => {
 
         const evaluateUploadIf = (
             releaseMode: string,
-            advanceStagingResult: string
+            advanceStagingResult: string,
+            repository = 'mParticle/mparticle-web-sdk'
         ): boolean => {
             const expression = upload.if
                 .replace(/^\s*\$\{\{|\}\}\s*$/g, '')
@@ -924,13 +1016,23 @@ describe('V3 Step 1 from a release tag: release jobs', () => {
                     'publish-kits': { result: 'success' },
                     'advance-staging': { result: advanceStagingResult },
                 },
-                { event: { inputs: { dryRun: 'false' } } }
+                {
+                    repository,
+                    event: { inputs: { dryRun: 'false' } },
+                }
             );
         };
         expect(evaluateUploadIf('tag', 'success')).toBe(true);
         expect(evaluateUploadIf('tag', 'failure')).toBe(false);
         expect(evaluateUploadIf('tag', 'skipped')).toBe(false);
         expect(evaluateUploadIf('semantic-release', 'skipped')).toBe(true);
+        expect(
+            evaluateUploadIf(
+                'tag',
+                'success',
+                'mParticle/web-sdk-release-testing'
+            )
+        ).toBe(false);
     });
 });
 
@@ -1324,6 +1426,11 @@ describe('V3 Step 1 from a release tag: v3-staging fast-forward', () => {
             expect(run(origin, checkout, origin.release).status).toBe(0);
             expect(lsRemote(origin, 'refs/heads/v3-staging')).toBe(
                 origin.release
+            );
+            expect(
+                fs.readFileSync(path.join(origin.root, 'summary.md'), 'utf8')
+            ).toContain(
+                'Wait for Upload and stage V3 candidate to succeed before running Steps 2 and 3 for this tag.'
             );
             const again = run(origin, checkout, origin.release);
             expect(again.status).toBe(0);
