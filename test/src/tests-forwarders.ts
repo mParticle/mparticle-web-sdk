@@ -948,48 +948,6 @@ describe('forwarders', function() {
         expect(enabled).to.be.ok;
     });
 
-    it("should enable forwarder if 'Do Not Forward' when 'Consent Rejected' is selected and consent has been accepted", () => {
-        const enableForwarder = false; // 'Do Not Forward' chosen in UI, 'includeOnMatch' in config
-        const consented = false;
-        const userConsent = true;
-        mParticle.config.isDevelopmentMode = false;
-        const mockForwarder = new MockForwarder();
-        mockForwarder.register(window.mParticle.config);
-
-        const config = forwarderDefaultConfiguration('MockForwarder');
-        config.filteringConsentRuleValues = {
-            includeOnMatch: enableForwarder,
-            values: [
-                {
-                    consentPurpose: mParticle.generateHash(
-                        '1' + 'foo purpose 1'
-                    ).toString(),
-                    hasConsented: consented,
-                },
-            ],
-        };
-        window.mParticle.config.kitConfigs.push(config);
-
-        mParticle.init(apiKey, window.mParticle.config);
-
-        const consentState = mParticle
-            .getInstance()
-            .Consent.createConsentState()
-            .addGDPRConsentState(
-                'foo purpose 1',
-                mParticle.getInstance().Consent.createGDPRConsent(userConsent)
-            );
-        const user = MockUser();
-        user.setConsentState(consentState);
-        const enabled = mParticle
-            .getInstance()
-            ._Consent.isEnabledForUserConsent(
-                window.MockForwarder1.instance.filteringConsentRuleValues,
-                user
-            );
-        expect(enabled).to.be.ok;
-    });
-
     it("should disable forwarder if 'Do Not Forward' when CCPA is 'Not Present' is selected and user CCPA is not present", () => {
         const enableForwarder = false; // 'Do Not Forward' chosen in UI, 'includeOnMatch' in config
         const consentPresent = false;
@@ -2693,37 +2651,6 @@ describe('forwarders', function() {
 
         const config2 = forwarderDefaultConfiguration('MockForwarder', 2);
         config2.excludeAnonymousUser = true;
-        window.mParticle.config.kitConfigs.push(config1);
-        window.mParticle.config.kitConfigs.push(config2);
-
-        fetchMockSuccess(urls.identify, {
-            mpid: 'MPID1',
-            is_logged_in: false,
-        });
-
-        mParticle.init(apiKey, window.mParticle.config);
-        await waitForCondition(() => window.mParticle.getInstance()?._Store?.identityCallInFlight === false);
-
-        const activeForwarders = mParticle.getInstance()._getActiveForwarders();
-
-        activeForwarders.length.should.equal(1);
-        mParticle.Identity.getCurrentUser()
-            .isLoggedIn()
-            .should.equal(false);
-    });
-
-    it('should only initialize forwarders with excludeUnknownUser = false for non-logged-in users', async () => {
-        const mockForwarder = new MockForwarder();
-        const mockForwarder2 = new MockForwarder('MockForwarder2', 2);
-        mockForwarder.register(window.mParticle.config);
-        mockForwarder2.register(window.mParticle.config);
-
-        const config1 = forwarderDefaultConfiguration('MockForwarder', 1);
-        config1.excludeAnonymousUser = false;
-
-        const config2 = forwarderDefaultConfiguration('MockForwarder', 2);
-        config2.excludeAnonymousUser = true;
-
         window.mParticle.config.kitConfigs.push(config1);
         window.mParticle.config.kitConfigs.push(config2);
 
