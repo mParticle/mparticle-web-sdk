@@ -695,6 +695,36 @@ function checkCdnArchive(
     });
 }
 
+function checkCoreBundleAscii(
+    files: Map<string, ListedFile>,
+    contents: Map<string, Buffer>,
+    errors: string[]
+): void {
+    files.forEach((_, filePath) => {
+        if (!coreBundlePattern.test(filePath)) {
+            return;
+        }
+
+        const bytes = contents.get(filePath);
+        if (!bytes) {
+            return;
+        }
+
+        for (let index = 0; index < bytes.length; index += 1) {
+            if (bytes[index] > 0x7f) {
+                const byte = bytes[index]
+                    .toString(16)
+                    .toUpperCase()
+                    .padStart(2, '0');
+                errors.push(
+                    `${filePath} contains non-ASCII byte 0x${byte} at offset ${index}`
+                );
+                break;
+            }
+        }
+    });
+}
+
 function checkCandidate(
     candidateDirectory: string,
     expectations: CheckExpectations = {}
@@ -712,6 +742,7 @@ function checkCandidate(
     const files = checkListedFiles(metadata.files, errors);
     checkLayout(files, errors);
     const contents = checkDiskFiles(candidateDirectory, files, errors);
+    checkCoreBundleAscii(files, contents, errors);
     checkPackages(metadata.packages, metadata.version, files, contents, errors);
     checkCdnArchive(files, contents, errors);
     return errors;

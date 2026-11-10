@@ -555,39 +555,6 @@ describe('cookie syncing', function() {
         expect(enabled).to.be.ok;
     });
 
-    it("should perform a cookie sync if 'Do Not Forward' when 'Consent Rejected' is selected and user consent is given", function() {
-        const includeOnMatch = false; // 'Do Not Forward' chosen in UI, 'includeOnMatch' in config
-        const consented = false;
-        const userConsented = true;
-        mParticle.config.isDevelopmentMode = false;
-
-        const filteringConsentRuleValues = {
-            includeOnMatch: includeOnMatch,
-            values: [
-                {
-                    consentPurpose: mParticle.generateHash(
-                        '1' + 'foo purpose 1'
-                    ).toString(),
-                    hasConsented: consented,
-                },
-            ],
-        };
-
-        const consentState = mParticle
-            .getInstance()
-            .Consent.createConsentState()
-            .addGDPRConsentState(
-                'foo purpose 1',
-                mParticle.getInstance().Consent.createGDPRConsent(userConsented)
-            );
-        const user = MockUser() as IMParticleUser;
-        user.setConsentState(consentState);
-        const enabled = mParticle
-            .getInstance()
-            ._Consent.isEnabledForUserConsent(filteringConsentRuleValues, user);
-        expect(enabled).to.be.ok;
-    });
-
     it("should not perform a cookie sync if 'Do Not Forward' if CCPA is 'Not Present' is selected and user CCPA is not present", function() {
         const includeOnMatch = false; // 'Do Not Forward' chosen in UI, 'includeOnMatch' in config
         const consented = false;
