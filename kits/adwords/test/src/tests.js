@@ -1859,4 +1859,35 @@ describe('Adwords forwarder', function () {
             });
         });
     });
+
+    describe('Legacy snippet', function () {
+        it('should load the conversion script over https', function () {
+            var head = document.getElementsByTagName('head')[0];
+            var originalAppendChild = head.appendChild;
+            var appended = [];
+            head.appendChild = function (element) {
+                appended.push(element);
+                return element;
+            };
+            try {
+                mParticle.forwarder.init(
+                    { conversionId: 'AW-123123123' },
+                    reportService.cb,
+                    false
+                );
+            } finally {
+                head.appendChild = originalAppendChild;
+                mParticle.forwarder.init(
+                    { conversionId: 'AW-123123123' },
+                    reportService.cb,
+                    true
+                );
+            }
+
+            appended.length.should.equal(1);
+            appended[0].src.should.equal(
+                'https://www.googleadservices.com/pagead/conversion_async.js'
+            );
+        });
+    });
 });

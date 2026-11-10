@@ -127,10 +127,7 @@ var constructor = function() {
                     insp.type = 'text/javascript';
                     insp.async = true;
                     insp.id = 'inspsync';
-                    insp.src =
-                        ('https:' == document.location.protocol
-                            ? 'https'
-                            : 'http') + '://cdn.inspectlet.com/inspectlet.js';
+                    insp.src = 'https://cdn.inspectlet.com/inspectlet.js';
                     var head = document.getElementsByTagName('head')[0];
                     head.appendChild(insp);
                 }

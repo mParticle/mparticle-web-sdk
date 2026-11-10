@@ -113,11 +113,18 @@ function writeRecord(fieldKey: string, record: PreselectArrivalRecord): boolean 
   return writeNamespacedField(STORAGE_NAMESPACE_KEY, fieldKey, record, sessionStorageBackend);
 }
 
-// A record whose arrival was already reported belongs to an earlier checkout, so a new trigger
-// or fire starts a fresh one.
+// A record whose arrival was already reported belongs to an earlier checkout, so a new trigger,
+// intent or fire starts a fresh one, carrying over any payment pick made since the arrival.
 function readOpenRecord(fieldKey: string): PreselectArrivalRecord {
   const record = readRecord(fieldKey);
-  return record.arrivedAt === undefined ? record : {};
+  if (record.arrivedAt === undefined) {
+    return record;
+  }
+  return record.paymentPick !== undefined &&
+    record.paymentPickAt !== undefined &&
+    record.paymentPickAt > record.arrivedAt
+    ? { paymentPick: record.paymentPick, paymentPickAt: record.paymentPickAt }
+    : {};
 }
 
 export function recordPreselectTrigger(accountId: string, targetPageIdentifier: string, hasIdentity: boolean): void {
@@ -192,7 +199,7 @@ export function forgetPreselectCartAdd(accountId: string, keepForgetTime: boolea
   }
 }
 
-// Unlike a trigger or fire, a near miss never reopens a reported arrival: the target page's own path
+// Unlike a trigger, intent or fire, a near miss never reopens a reported arrival: the target page's own path
 // can nearly match, and reopening would drop the fire that arrival already counted.
 export function recordPreselectNearMiss(accountId: string, targetPageIdentifier: string): void {
   const fieldKey = buildFieldKey(accountId, targetPageIdentifier);
@@ -343,15 +350,26 @@ export function recordPreselectPaymentPick(
 ): void {
   const fieldKey = buildFieldKey(accountId, targetPageIdentifier);
   const record = readRecord(fieldKey);
-  // A pick never reopens a reported arrival; the next trigger or fire opens a fresh record.
-  if (record.arrivedAt !== undefined || (record.paymentPickAt !== undefined && record.paymentPickAt > t)) {
+  // A pick never reopens a reported arrival; the next trigger, intent or fire carries a later pick into a fresh record.
+  if (
+    (record.arrivedAt !== undefined && t <= record.arrivedAt) ||
+    (record.paymentPickAt !== undefined && record.paymentPickAt > t)
+  ) {
     return;
   }
   writeRecord(fieldKey, { ...record, paymentPick: family, paymentPickAt: t });
 }
 
+// The payment family the shopper last picked in this tab for a target page, within the arrival window, or undefined.
+export function readPreselectPaymentPick(accountId: string, targetPageIdentifier: string): PaymentFamily | undefined {
+  const record = readOpenRecord(buildFieldKey(accountId, targetPageIdentifier));
+  return record.paymentPick !== undefined && record.paymentPickAt !== undefined && isWithinWindow(record.paymentPickAt)
+    ? record.paymentPick
+    : undefined;
+}
+
 // Returns what this tab recorded before its first arrival on the target page, and undefined for
-// every later arrival until a new trigger or fire opens a fresh record.
+// every later arrival until a new trigger, intent or fire opens a fresh record.
 export function markPreselectArrival(
   accountId: string,
   targetPageIdentifier: string,
@@ -361,7 +379,10 @@ export function markPreselectArrival(
   if (record.arrivedAt !== undefined) {
     return undefined;
   }
-  if (!writeRecord(fieldKey, { ...record, arrivedAt: Date.now() })) {
+  const arrived = { ...record, arrivedAt: Date.now() };
+  delete arrived.paymentPick;
+  delete arrived.paymentPickAt;
+  if (!writeRecord(fieldKey, arrived)) {
     return undefined;
   }
   return record;
@@ -372,7 +393,7 @@ function buildCartArrivalFieldKey(accountId: string, targetPageIdentifier: strin
 }
 
 // A hash of the cart this tab last reached the target page with, never the cart itself, and the mpid of the shopper
-// who did. Kept apart from the arrival record, which a later trigger or intent reopens. An arrival with no cart to hold
+// who did. Kept apart from the arrival record, which a later trigger, intent or fire reopens. An arrival with no cart to hold
 // removes the last one.
 export function recordPreselectCartArrival(
   accountId: string,

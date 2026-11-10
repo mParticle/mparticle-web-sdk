@@ -1710,6 +1710,437 @@ describe('Rokt Forwarder', () => {
       });
     });
 
+    describe('a user identified while the call waits', () => {
+      const makeUser = (
+        mpid: string,
+        userIdentities: Record<string, string> = {},
+        attributes: Record<string, unknown> = {},
+      ) => ({
+        getMPID: () => mpid,
+        getUserIdentities: () => ({ userIdentities }),
+        getAllUserAttributes: () => attributes,
+      });
+
+      let coreUser: { mpid: string; loggedIn: boolean; identities?: Record<string, string> };
+      let originalGetCurrentUser: unknown;
+      let finishSearch: () => void;
+
+      const identify = (
+        mpid: string,
+        loggedIn: boolean,
+        userIdentities: Record<string, string> = {},
+        attributes: Record<string, unknown> = {},
+      ) => {
+        coreUser = { mpid, loggedIn, identities: userIdentities };
+        (window as any).mParticle.forwarder.onUserIdentified(makeUser(mpid, userIdentities, attributes));
+      };
+
+      const callForA = () =>
+        (window as any).mParticle.forwarder.selectPlacements({
+          identifier: 'test-placement',
+          attributes: { email: 'a@example.com', firstname: 'call-for-A' },
+        });
+
+      beforeEach(async () => {
+        await (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {
+          tier: 'gold-A',
+        });
+        coreUser = { mpid: 'A', loggedIn: true, identities: { email: 'a@example.com', customerid: 'cust-A' } };
+        originalGetCurrentUser = (window as any).mParticle.Identity.getCurrentUser;
+        (window as any).mParticle.Identity.getCurrentUser = () =>
+          coreUser.mpid
+            ? {
+                getMPID: () => coreUser.mpid,
+                isLoggedIn: () => coreUser.loggedIn,
+                getUserIdentities: () => ({ userIdentities: coreUser.identities || {} }),
+              }
+            : null;
+        (window as any).mParticle.forwarder.filters.filteredUser = makeUser(
+          'A',
+          { email: 'a@example.com', customerid: 'cust-A' },
+          { tier: 'gold-A' },
+        );
+        (window as any).mParticle.forwarder._workspaceSearchInFlightPromise = new Promise<void>((resolve) => {
+          finishSearch = resolve;
+        });
+      });
+
+      afterEach(() => {
+        (window as any).mParticle.Identity.getCurrentUser = originalGetCurrentUser;
+        (window as any).mParticle.forwarder._workspaceSearchInFlightPromise = null;
+        (window as any).mParticle.forwarder.userIdentifiedInWorkspace = false;
+        (window as any).mParticle.forwarder.userAttributes = {};
+      });
+
+      it("drops the call when another logged-in user is identified during the search, and keeps that user's cache", async () => {
+        const kit = (window as any).mParticle.forwarder;
+        const logSpy = vi.spyOn(kit.loggingService, 'log');
+        const selection = callForA();
+        identify('B', true, { email: 'b@example.com', customerid: 'cust-B' }, { tier: 'gold-B' });
+        kit.userIdentifiedInWorkspace = true;
+        finishSearch();
+
+        expect(await selection).toBeUndefined();
+        expect((window as any).Rokt.selectPlacementsCalled).toBeFalsy();
+        expect((window as any).mParticle.loggedEvents).toEqual([]);
+        expect(kit.userAttributes).toEqual({ tier: 'gold-B' });
+        expect(logSpy).toHaveBeenCalledWith(expect.objectContaining({ code: 'SELECT_PLACEMENTS_USER_CHANGED' }));
+        logSpy.mockRestore();
+      });
+
+      // Core identifies with a passed email that differs from the current user's; here that identify lands during the wait.
+      it('sends the call for the new user when that user holds the email the call carries', async () => {
+        const kit = (window as any).mParticle.forwarder;
+        const selection = kit.selectPlacements({
+          identifier: 'test-placement',
+          attributes: { email: 'b@example.com', firstname: 'checkout' },
+        });
+        identify('B', true, { email: 'b@example.com', customerid: 'cust-B' }, { tier: 'gold-B' });
+        // The previous user's search answers last and sets the kit's one flag.
+        kit.userIdentifiedInWorkspace = true;
+        finishSearch();
+        await selection;
+
+        const attributes = (window as any).Rokt.selectPlacementsOptions.attributes;
+        expect(attributes).toEqual(
+          expect.objectContaining({
+            mpid: 'B',
+            email: 'b@example.com',
+            customerid: 'cust-B',
+            tier: 'gold-B',
+            firstname: 'checkout',
+          }),
+        );
+        expect(attributes).not.toHaveProperty('userIdentifiedInWorkspace');
+        expect(JSON.stringify(attributes)).not.toMatch(/a@example\.com|cust-A|gold-A/);
+        await waitForCondition(() => (window as any).mParticle.loggedEvents.length > 0);
+        expect((window as any).mParticle.loggedEvents[0].eventAttributes).toEqual(
+          expect.objectContaining({ mpid: 'B', email: 'b@example.com' }),
+        );
+      });
+
+      it('sends the call for the new user when that user holds the hashed email the call carries', async () => {
+        const kit = (window as any).mParticle.forwarder;
+        kit._mappedEmailSha256Key = 'other';
+        const selection = kit.selectPlacements({ identifier: 'test-placement', attributes: { emailsha256: 'sha256-B' } });
+        identify('B', true, { other: 'sha256-B', customerid: 'cust-B' });
+        finishSearch();
+        await selection;
+
+        expect((window as any).Rokt.selectPlacementsOptions.attributes).toEqual(
+          expect.objectContaining({ mpid: 'B', emailsha256: 'sha256-B', customerid: 'cust-B' }),
+        );
+      });
+
+      it('drops the call of a profile that holds an email but is not logged in when another user replaces it', async () => {
+        coreUser = { mpid: 'A', loggedIn: false, identities: { email: 'a@example.com' } };
+        const selection = callForA();
+        identify('C', false, { email: 'c@example.com' });
+        finishSearch();
+
+        expect(await selection).toBeUndefined();
+        expect((window as any).Rokt.selectPlacementsCalled).toBeFalsy();
+        expect((window as any).mParticle.loggedEvents).toEqual([]);
+        expect((window as any).mParticle.forwarder.userAttributes).toEqual({});
+      });
+
+      it('drops the call of a user with identities that carries no email when another user replaces it', async () => {
+        coreUser = { mpid: 'A', loggedIn: false, identities: { customerid: 'cust-A' } };
+        const selection = (window as any).mParticle.forwarder.selectPlacements({
+          identifier: 'test-placement',
+          attributes: { firstname: 'call-for-A' },
+        });
+        identify('C', true, { customerid: 'cust-C' });
+        finishSearch();
+
+        expect(await selection).toBeUndefined();
+        expect((window as any).Rokt.selectPlacementsCalled).toBeFalsy();
+      });
+
+      it('drops the call on a logout that keeps the email, under the same MPID or a new one', async () => {
+        const sameMpid = callForA();
+        coreUser = { mpid: 'A', loggedIn: false, identities: { email: 'a@example.com' } };
+        finishSearch();
+        expect(await sameMpid).toBeUndefined();
+
+        coreUser = { mpid: 'A', loggedIn: true, identities: { email: 'a@example.com' } };
+        (window as any).mParticle.forwarder._workspaceSearchInFlightPromise = new Promise<void>((resolve) => {
+          finishSearch = resolve;
+        });
+        const newMpid = callForA();
+        identify('logged-out', false, { email: 'a@example.com' });
+        finishSearch();
+        expect(await newMpid).toBeUndefined();
+        expect((window as any).Rokt.selectPlacementsCalled).toBeFalsy();
+      });
+
+      it('drops the call when the new user holds one email form it carries but not the other', async () => {
+        const kit = (window as any).mParticle.forwarder;
+        kit._mappedEmailSha256Key = 'other';
+        const plainMatches = kit.selectPlacements({
+          identifier: 'test-placement',
+          attributes: { email: 'b@example.com', emailsha256: 'sha256-A' },
+        });
+        identify('B', true, { email: 'b@example.com', other: 'sha256-B' });
+        finishSearch();
+        expect(await plainMatches).toBeUndefined();
+
+        coreUser = { mpid: 'A', loggedIn: true, identities: { email: 'a@example.com', other: 'sha256-A' } };
+        kit._workspaceSearchInFlightPromise = new Promise<void>((resolve) => {
+          finishSearch = resolve;
+        });
+        const hashMatches = kit.selectPlacements({
+          identifier: 'test-placement',
+          attributes: { email: 'a@example.com', emailsha256: 'sha256-B' },
+        });
+        identify('B', true, { email: 'b@example.com', other: 'sha256-B' });
+        finishSearch();
+        expect(await hashMatches).toBeUndefined();
+
+        coreUser = { mpid: 'A', loggedIn: true, identities: { email: 'a@example.com', other: 'sha256-A' } };
+        kit._workspaceSearchInFlightPromise = new Promise<void>((resolve) => {
+          finishSearch = resolve;
+        });
+        const hashNotHeld = kit.selectPlacements({
+          identifier: 'test-placement',
+          attributes: { email: 'b@example.com', emailsha256: 'sha256-A' },
+        });
+        identify('B', true, { email: 'b@example.com' });
+        finishSearch();
+        expect(await hashNotHeld).toBeUndefined();
+        expect((window as any).Rokt.selectPlacementsCalled).toBeFalsy();
+      });
+
+      it('drops the call when its logged-in user logs out during the search', async () => {
+        const selection = callForA();
+        identify('anonymous', false);
+        finishSearch();
+
+        expect(await selection).toBeUndefined();
+        expect((window as any).Rokt.selectPlacementsCalled).toBeFalsy();
+        expect((window as any).mParticle.loggedEvents).toEqual([]);
+      });
+
+      it('drops the call when its user is logged out under the same MPID during the search', async () => {
+        const selection = callForA();
+        coreUser = { mpid: 'A', loggedIn: false };
+        finishSearch();
+
+        expect(await selection).toBeUndefined();
+        expect((window as any).Rokt.selectPlacementsCalled).toBeFalsy();
+      });
+
+      it('drops the call when another logged-in user is identified while the launcher is recreated', async () => {
+        const kit = (window as any).mParticle.forwarder;
+        kit._workspaceSearchInFlightPromise = null;
+        kit.launcher.terminate = () => Promise.resolve();
+        await kit.terminate();
+        const selection = callForA();
+        identify('B', true, { email: 'b@example.com', customerid: 'cust-B' });
+
+        expect(await selection).toBeUndefined();
+        expect((window as any).Rokt.selectPlacementsCalled).toBeFalsy();
+
+        kit._workspaceSearchInFlightPromise = null;
+        await kit.selectPlacements({ identifier: 'test-placement', attributes: { firstname: 'call-for-B' } });
+        expect((window as any).Rokt.selectPlacementsOptions.attributes).toEqual(
+          expect.objectContaining({ mpid: 'B', customerid: 'cust-B', firstname: 'call-for-B' }),
+        );
+      });
+
+      it('sends a call made by an anonymous user for the user who logs in during the search', async () => {
+        const kit = (window as any).mParticle.forwarder;
+        coreUser = { mpid: 'anonymous', loggedIn: false };
+        kit.filters.filteredUser = makeUser('anonymous');
+        kit.userAttributes = {};
+        const selection = kit.selectPlacements({
+          identifier: 'test-placement',
+          attributes: { email: 'b@example.com', firstname: 'call-for-B' },
+        });
+        identify('B', true, { email: 'b@example.com', customerid: 'cust-B' }, { tier: 'gold-B' });
+        kit.userIdentifiedInWorkspace = true;
+        finishSearch();
+        await selection;
+
+        expect((window as any).Rokt.selectPlacementsOptions.attributes).toEqual(
+          expect.objectContaining({
+            mpid: 'B',
+            customerid: 'cust-B',
+            email: 'b@example.com',
+            firstname: 'call-for-B',
+            tier: 'gold-B',
+            userIdentifiedInWorkspace: true,
+          }),
+        );
+        expect(kit.userAttributes).toEqual(expect.objectContaining({ tier: 'gold-B', firstname: 'call-for-B' }));
+        await waitForCondition(() => (window as any).mParticle.loggedEvents.length > 0);
+        expect((window as any).mParticle.loggedEvents[0].eventAttributes).toEqual(
+          expect.objectContaining({ mpid: 'B', customerid: 'cust-B' }),
+        );
+      });
+
+      it("sends the call with the kit's current state when its logged-in user has not changed", async () => {
+        const kit = (window as any).mParticle.forwarder;
+        const selection = kit.selectPlacements({
+          identifier: 'test-placement',
+          attributes: { firstname: 'call-for-A' },
+        });
+        kit.userAttributes = { ...kit.userAttributes, plan: 'set-during-wait' };
+        kit.userIdentifiedInWorkspace = true;
+        finishSearch();
+        await selection;
+
+        expect((window as any).Rokt.selectPlacementsOptions.attributes).toEqual(
+          expect.objectContaining({
+            mpid: 'A',
+            customerid: 'cust-A',
+            tier: 'gold-A',
+            plan: 'set-during-wait',
+            userIdentifiedInWorkspace: true,
+          }),
+        );
+        expect(kit.userAttributes).toEqual(
+          expect.objectContaining({ tier: 'gold-A', plan: 'set-during-wait', firstname: 'call-for-A' }),
+        );
+      });
+
+      it('sends a call made before any user for the user identified during the wait', async () => {
+        const kit = (window as any).mParticle.forwarder;
+        coreUser = { mpid: '', loggedIn: false };
+        kit.filters.filteredUser = null;
+        kit.userAttributes = {};
+        const selection = kit.selectPlacements({
+          identifier: 'test-placement',
+          attributes: { email: 'b@example.com' },
+        });
+        identify('B', true, { email: 'b@example.com', customerid: 'cust-B' });
+        finishSearch();
+        await selection;
+
+        expect((window as any).Rokt.selectPlacementsOptions.attributes).toEqual(
+          expect.objectContaining({ mpid: 'B', customerid: 'cust-B', email: 'b@example.com' }),
+        );
+      });
+    });
+
+    describe('the selectPlacements event when the user changes before the selection resolves', () => {
+      let coreUser: { mpid: string; loggedIn: boolean; identities: Record<string, string> };
+      let originalGetCurrentUser: unknown;
+      let resolveSelection: () => void;
+
+      const setCoreUser = (mpid: string, loggedIn: boolean, identities: Record<string, string> = {}) => {
+        coreUser = { mpid, loggedIn, identities };
+        (window as any).mParticle.forwarder.onUserIdentified({
+          getMPID: () => mpid,
+          getUserIdentities: () => ({ userIdentities: identities }),
+          getAllUserAttributes: () => ({}),
+        });
+      };
+
+      beforeEach(async () => {
+        await (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {});
+        await waitForCondition(() => (window as any).mParticle.Rokt.attachKitCalled);
+        originalGetCurrentUser = (window as any).mParticle.Identity.getCurrentUser;
+        (window as any).mParticle.Identity.getCurrentUser = () =>
+          coreUser.mpid
+            ? {
+                getMPID: () => coreUser.mpid,
+                isLoggedIn: () => coreUser.loggedIn,
+                getUserIdentities: () => ({ userIdentities: coreUser.identities }),
+              }
+            : null;
+        setCoreUser('A', true, { email: 'a@example.com', customerid: 'cust-A' });
+        const kit = (window as any).mParticle.forwarder;
+        kit._workspaceSearchInFlightPromise = null;
+        kit.launcher.selectPlacements = () =>
+          new Promise((resolve) => {
+            resolveSelection = () => resolve({});
+          });
+      });
+
+      afterEach(() => {
+        (window as any).mParticle.Identity.getCurrentUser = originalGetCurrentUser;
+        (window as any).mParticle.forwarder._workspaceSearchInFlightPromise = null;
+        (window as any).mParticle.forwarder.userAttributes = {};
+      });
+
+      const settle = async (selection: unknown) => {
+        resolveSelection();
+        await selection;
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      };
+
+      it('does not log the event under a logged-in user who replaced the dispatch user', async () => {
+        const kit = (window as any).mParticle.forwarder;
+        const logSpy = vi.spyOn(kit.loggingService, 'log');
+        const selection = kit.selectPlacements({ identifier: 'test-placement', attributes: { email: 'a@example.com' } });
+        setCoreUser('B', true, { email: 'b@example.com', customerid: 'cust-B' });
+        await settle(selection);
+
+        expect((window as any).mParticle.loggedEvents).toEqual([]);
+        expect(logSpy).toHaveBeenCalledWith(expect.objectContaining({ code: 'SELECT_PLACEMENTS_EVENT_USER_CHANGED' }));
+        logSpy.mockRestore();
+      });
+
+      // The new user holding the email the call carried is not enough: the rest of the payload is the dispatch user's.
+      it('does not log the event when the dispatch user called with the email of the user who replaced it', async () => {
+        const kit = (window as any).mParticle.forwarder;
+        const logSpy = vi.spyOn(kit.loggingService, 'log');
+        kit.userAttributes = { tier: 'gold-A' };
+        let dispatched: Record<string, unknown> = {};
+        kit.launcher.selectPlacements = (options: Record<string, unknown>) => {
+          dispatched = options.attributes as Record<string, unknown>;
+          return new Promise((resolve) => {
+            resolveSelection = () => resolve({});
+          });
+        };
+        const selection = kit.selectPlacements({ identifier: 'test-placement', attributes: { email: 'b@example.com' } });
+        setCoreUser('B', true, { email: 'b@example.com', customerid: 'cust-B' });
+        await settle(selection);
+
+        expect(dispatched).toEqual(
+          expect.objectContaining({ mpid: 'A', customerid: 'cust-A', tier: 'gold-A', email: 'b@example.com' }),
+        );
+        expect((window as any).mParticle.loggedEvents).toEqual([]);
+        expect(logSpy).toHaveBeenCalledWith(expect.objectContaining({ code: 'SELECT_PLACEMENTS_EVENT_USER_CHANGED' }));
+        logSpy.mockRestore();
+      });
+
+      it('does not log the event after the dispatch user logs out', async () => {
+        const kit = (window as any).mParticle.forwarder;
+        const selection = kit.selectPlacements({ identifier: 'test-placement', attributes: { email: 'a@example.com' } });
+        setCoreUser('anonymous', false);
+        await settle(selection);
+
+        expect((window as any).mParticle.loggedEvents).toEqual([]);
+      });
+
+      it('logs the event when the user has not changed', async () => {
+        const kit = (window as any).mParticle.forwarder;
+        const selection = kit.selectPlacements({ identifier: 'test-placement', attributes: { email: 'a@example.com' } });
+        await settle(selection);
+
+        expect((window as any).mParticle.loggedEvents).toHaveLength(1);
+        expect((window as any).mParticle.loggedEvents[0].eventAttributes).toEqual(
+          expect.objectContaining({ mpid: 'A', email: 'a@example.com' }),
+        );
+      });
+
+      it('logs the event when an anonymous dispatch user logs in as a user who holds the call email', async () => {
+        const kit = (window as any).mParticle.forwarder;
+        setCoreUser('anonymous', false);
+        kit._workspaceSearchInFlightPromise = null;
+        const selection = kit.selectPlacements({ identifier: 'test-placement', attributes: { email: 'b@example.com' } });
+        setCoreUser('B', true, { email: 'b@example.com', customerid: 'cust-B' });
+        await settle(selection);
+
+        expect((window as any).mParticle.loggedEvents).toHaveLength(1);
+        expect((window as any).mParticle.loggedEvents[0].eventAttributes).toEqual(
+          expect.objectContaining({ email: 'b@example.com' }),
+        );
+      });
+    });
+
     describe('Identity handling', () => {
       beforeEach(() => {
         (window as any).Rokt = new (MockRoktForwarder as any)();
@@ -5753,6 +6184,25 @@ describe('Rokt Forwarder', () => {
         rokt.isCheckoutIntentLive = original;
       }
     });
+    it('reports link intent withheld only when the core SDK says link clicks are not forwarded', () => {
+      const rokt = (window as any).mParticle.Rokt;
+      const original = rokt.areAutoLinkClicksForwarded;
+      const isWithheld = () => (kit as any).buildPreselectHost().isLinkIntentWithheld();
+      try {
+        rokt.areAutoLinkClicksForwarded = () => false;
+        expect(isWithheld()).toBe(true);
+        rokt.areAutoLinkClicksForwarded = () => true;
+        expect(isWithheld()).toBe(false);
+        rokt.areAutoLinkClicksForwarded = () => {
+          throw new Error('boom');
+        };
+        expect(isWithheld()).toBe(false);
+        delete rokt.areAutoLinkClicksForwarded;
+        expect(isWithheld()).toBe(false);
+      } finally {
+        rokt.areAutoLinkClicksForwarded = original;
+      }
+    });
     it('keeps the delay on a core that only reports intent suppression', async () => {
       const rokt = (window as any).mParticle.Rokt;
       delete rokt.isCheckoutIntentLive;
@@ -5763,6 +6213,51 @@ describe('Rokt Forwarder', () => {
       expect(kit.onCheckoutIntent).toBeTypeOf('function');
       await reinit({ accountId: 'no-preselection-entries' });
       expect(kit.onCheckoutIntent).toBeUndefined();
+    });
+    it('hands the core its entry intent selectors, and none when the setting has none', async () => {
+      expect(kit.checkoutIntentSelectors).toBeUndefined();
+      await reinit(
+        buildSettings({ intentSelectors: { commit: ['button.place-order'], checkoutStep: ['#to-checkout'] } }),
+      );
+      expect(kit.checkoutIntentSelectors).toEqual({
+        commit: ['button.place-order'],
+        checkout_step: ['#to-checkout'],
+      });
+      await reinit({ accountId: 'no-preselection-entries' });
+      expect(kit.checkoutIntentSelectors).toBeUndefined();
+    });
+    it('merges intent selectors across entries without repeats', async () => {
+      await reinit({
+        accountId: 'intent-entry',
+        preselectionConfig: JSON.stringify({
+          schemaVersion: 1,
+          entries: [
+            {
+              pathname: '/intent-cart',
+              targetPageIdentifier: 'cart_page',
+              attributeKeys: ['tier'],
+              intentSelectors: { commit: ['#buy'], checkoutStep: ['#to-checkout'] },
+            },
+            {
+              pathname: '/intent-checkout',
+              targetPageIdentifier: 'confirmation',
+              attributeKeys: ['tier'],
+              intentSelectors: { commit: ['#buy', '.place-order'], checkoutStep: ['#to-checkout', '#next'] },
+            },
+          ],
+        }),
+      });
+      expect(kit.checkoutIntentSelectors).toEqual({
+        commit: ['#buy', '.place-order'],
+        checkout_step: ['#to-checkout', '#next'],
+      });
+    });
+    it('fires on a selector-matched commit the same as a label-matched one', async () => {
+      await reinit(buildSettings({ intentSelectors: { commit: ['button.place-order'] } }));
+      kit.onCheckoutIntent!({ kind: 'commit', t: Date.now(), source: 'selector', pathname: '/intent-checkout' });
+      await vi.advanceTimersByTimeAsync(1);
+      expect(placements).toHaveBeenCalledTimes(1);
+      expect(placements.mock.calls[0][0].attributes['rokt.preselecttrigger']).toBe('intent_commit|/intent-checkout');
     });
     it('sets onPaymentPick for any account with pre-selection entries', async () => {
       expect(kit.onPaymentPick).toBeTypeOf('function');
@@ -6370,6 +6865,277 @@ describe('Rokt Forwarder', () => {
         await vi.advanceTimersByTimeAsync(1);
         expect(placements).toHaveBeenCalledTimes(2);
         expect(placements.mock.calls[1][0].attributes.tier).toBe('silver');
+      });
+      it('fills byPaymentPick on a wallet tap after a reported arrival and counts each arrival once', async () => {
+        await reinit(
+          buildSettings({
+            attributeKeys: ['tier', 'paymenttype'],
+            preselectAttributeDefaults: {
+              paymenttype: {
+                value: 'card',
+                byPaymentPick: { paypal: 'PayPal', apple_pay: 'Apple Pay' },
+              },
+            },
+          }),
+        );
+        const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+        const preselectCalls = () =>
+          placements.mock.calls.map(([options]) => options).filter((options) => options.preselect === true);
+
+        kit.onPaymentPick(Object.freeze({ t: Date.now(), pathname: '/intent-product', family: 'paypal' }));
+        tap('wallet');
+        await vi.advanceTimersByTimeAsync(1);
+        expect(preselectCalls()).toHaveLength(1);
+        expect(preselectCalls()[0].attributes.paymenttype).toBe('PayPal');
+
+        await arriveOnTargetPage();
+        await arriveOnTargetPage();
+        expect(diagnosticLines(logSpy, 'intent_arrival')).toEqual([
+          'Rokt Kit: preselect arrived [reason=intent_arrival] [intent_seen=wallet] [lead=lt1s] [fired=true]' +
+            ' [payment_guess=paypal] [payment_pick=paypal] [payment_arrival=absent] [payment_match=n/a]',
+        ]);
+
+        await vi.advanceTimersByTimeAsync(60_001);
+        window.history.replaceState({}, '', '/intent-product');
+        kit.onPaymentPick(Object.freeze({ t: Date.now(), pathname: '/intent-product', family: 'apple_pay' }));
+        tap('wallet');
+        await vi.advanceTimersByTimeAsync(1);
+        expect(preselectCalls()).toHaveLength(2);
+        expect(preselectCalls()[1].attributes.paymenttype).toBe('Apple Pay');
+
+        await arriveOnTargetPage();
+        await arriveOnTargetPage();
+        expect(diagnosticLines(logSpy, 'intent_arrival')).toEqual([
+          'Rokt Kit: preselect arrived [reason=intent_arrival] [intent_seen=wallet] [lead=lt1s] [fired=true]' +
+            ' [payment_guess=paypal] [payment_pick=paypal] [payment_arrival=absent] [payment_match=n/a]',
+          'Rokt Kit: preselect arrived [reason=intent_arrival] [intent_seen=wallet] [lead=lt1s] [fired=true]' +
+            ' [payment_guess=apple_pay] [payment_pick=apple_pay] [payment_arrival=absent] [payment_match=n/a]',
+        ]);
+
+        await vi.advanceTimersByTimeAsync(60_001);
+        window.history.replaceState({}, '', '/intent-product');
+        tap('wallet');
+        await vi.advanceTimersByTimeAsync(1);
+        expect(preselectCalls()).toHaveLength(3);
+        expect(preselectCalls()[2].attributes.paymenttype).toBe('card');
+
+        await arriveOnTargetPage();
+        await arriveOnTargetPage();
+        expect(diagnosticLines(logSpy, 'intent_arrival')).toEqual([
+          'Rokt Kit: preselect arrived [reason=intent_arrival] [intent_seen=wallet] [lead=lt1s] [fired=true]' +
+            ' [payment_guess=paypal] [payment_pick=paypal] [payment_arrival=absent] [payment_match=n/a]',
+          'Rokt Kit: preselect arrived [reason=intent_arrival] [intent_seen=wallet] [lead=lt1s] [fired=true]' +
+            ' [payment_guess=apple_pay] [payment_pick=apple_pay] [payment_arrival=absent] [payment_match=n/a]',
+          'Rokt Kit: preselect arrived [reason=intent_arrival] [intent_seen=wallet] [lead=lt1s] [fired=true]',
+        ]);
+      });
+      it('falls back to the default on the next checkout when the router moves the page before the pick reaches the kit', async () => {
+        await reinit(
+          buildSettings({
+            attributeKeys: ['tier', 'paymenttype'],
+            preselectAttributeDefaults: {
+              paymenttype: {
+                value: 'card',
+                byPaymentPick: { paypal: 'PayPal', apple_pay: 'Apple Pay' },
+              },
+            },
+          }),
+        );
+        const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+        const processSpy = vi.spyOn(kit, 'process');
+        const paymentPickSpy = vi.spyOn(kit, 'onPaymentPick');
+        processSpy.mockClear();
+        paymentPickSpy.mockClear();
+        const preselectCalls = () =>
+          placements.mock.calls.map(([options]) => options).filter((options) => options.preselect === true);
+
+        try {
+          tap('wallet');
+          await vi.advanceTimersByTimeAsync(1);
+          expect(preselectCalls()).toHaveLength(1);
+          expect(preselectCalls()[0].attributes.paymenttype).toBe('card');
+
+          const pickedAt = Date.now();
+          const pickedPathname = window.location.pathname;
+          requestAnimationFrame(() => {
+            setTimeout(() => {
+              kit.process({
+                EventDataType: MessageType.PageEvent,
+                EventName: 'Auto Button Click',
+                Timestamp: pickedAt,
+                EventAttributes: {
+                  type: 'radio',
+                  checked: true,
+                  element_name: 'apple_pay',
+                  label: 'apple pay',
+                  is_auto_button_click: true,
+                },
+              } as any);
+              kit.onPaymentPick?.(
+                Object.freeze({
+                  t: pickedAt,
+                  pathname: pickedPathname,
+                  names: ['apple pay', 'pay-apple'],
+                }),
+              );
+            }, 0);
+          });
+
+          vi.setSystemTime(pickedAt + 10);
+          window.history.replaceState({}, '', '/intent-confirmation');
+          await kit.selectPlacements({ attributes: {}, identifier: 'confirmation' });
+          expect(processSpy).not.toHaveBeenCalled();
+          expect(paymentPickSpy).not.toHaveBeenCalled();
+
+          vi.setSystemTime(pickedAt + 20);
+          await vi.advanceTimersByTimeAsync(40);
+          expect(processSpy).toHaveBeenCalledWith(
+            expect.objectContaining({
+              EventName: 'Auto Button Click',
+              Timestamp: pickedAt,
+              EventAttributes: expect.objectContaining({
+                type: 'radio',
+                checked: true,
+                element_name: 'apple_pay',
+                is_auto_button_click: true,
+              }),
+            }),
+          );
+          expect(paymentPickSpy).toHaveBeenCalledWith(
+            expect.objectContaining({
+              t: pickedAt,
+              names: ['apple pay', 'pay-apple'],
+            }),
+          );
+
+          await vi.advanceTimersByTimeAsync(60_001);
+          window.history.replaceState({}, '', '/intent-product');
+          tap('wallet');
+          await vi.advanceTimersByTimeAsync(1);
+          expect(preselectCalls()).toHaveLength(2);
+          expect(preselectCalls()[1].attributes.paymenttype).toBe('card');
+
+          await arriveOnTargetPage();
+          expect(diagnosticLines(logSpy, 'intent_arrival')).toEqual([
+            'Rokt Kit: preselect arrived [reason=intent_arrival] [intent_seen=wallet] [lead=lt1s] [fired=true]',
+            'Rokt Kit: preselect arrived [reason=intent_arrival] [intent_seen=wallet] [lead=lt1s] [fired=true]',
+          ]);
+        } finally {
+          processSpy.mockRestore();
+          paymentPickSpy.mockRestore();
+        }
+      });
+      it('ignores a first-checkout Auto Link Click delivered after the arrival on the next checkout', async () => {
+        await reinit(
+          buildSettings({
+            attributeKeys: ['tier', 'paymenttype'],
+            preselectAttributeDefaults: {
+              paymenttype: {
+                value: 'card',
+                byPaymentPick: {
+                  paypal: 'PayPal',
+                  apple_pay: 'Apple Pay',
+                },
+              },
+            },
+          }),
+        );
+        const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+        const processSpy = vi.spyOn(kit, 'process');
+        const paymentPickSpy = vi.spyOn(kit, 'onPaymentPick');
+        processSpy.mockClear();
+        paymentPickSpy.mockClear();
+        const preselectCalls = () =>
+          placements.mock.calls.map(([options]) => options).filter((options) => options.preselect === true);
+
+        try {
+          tap('wallet');
+          await vi.advanceTimersByTimeAsync(1);
+          expect(preselectCalls()).toHaveLength(1);
+          expect(preselectCalls()[0].attributes.paymenttype).toBe('card');
+
+          const pickedAt = Date.now();
+          requestAnimationFrame(() => {
+            setTimeout(() => {
+              kit.process({
+                EventDataType: MessageType.PageEvent,
+                EventName: 'Auto Link Click',
+                Timestamp: pickedAt,
+                EventAttributes: {
+                  element: 'role',
+                  type: 'button',
+                  element_id: 'pay-paypal',
+                  link_type: 'internal',
+                  link_path: '/checkout/paypal',
+                  is_auto_link_click: true,
+                },
+              } as any);
+            }, 0);
+          });
+
+          vi.setSystemTime(pickedAt + 10);
+          window.history.replaceState({}, '', '/intent-confirmation');
+          await kit.selectPlacements({ attributes: {}, identifier: 'confirmation' });
+          expect(processSpy).not.toHaveBeenCalled();
+          expect(paymentPickSpy).not.toHaveBeenCalled();
+
+          vi.setSystemTime(pickedAt + 20);
+          await vi.advanceTimersByTimeAsync(40);
+          expect(processSpy).toHaveBeenCalledWith(
+            expect.objectContaining({
+              EventName: 'Auto Link Click',
+              Timestamp: pickedAt,
+              EventAttributes: expect.objectContaining({
+                element: 'role',
+                type: 'button',
+                element_id: 'pay-paypal',
+                link_type: 'internal',
+                link_path: '/checkout/paypal',
+                is_auto_link_click: true,
+              }),
+            }),
+          );
+          expect(paymentPickSpy).not.toHaveBeenCalled();
+
+          await vi.advanceTimersByTimeAsync(60_001);
+          window.history.replaceState({}, '', '/intent-product');
+          tap('wallet');
+          await vi.advanceTimersByTimeAsync(1);
+          expect(preselectCalls()).toHaveLength(2);
+          expect(preselectCalls()[1].attributes.paymenttype).toBe('card');
+
+          await arriveOnTargetPage();
+          expect(diagnosticLines(logSpy, 'intent_arrival')).toEqual([
+            'Rokt Kit: preselect arrived [reason=intent_arrival] [intent_seen=wallet] [lead=lt1s] [fired=true]',
+            'Rokt Kit: preselect arrived [reason=intent_arrival] [intent_seen=wallet] [lead=lt1s] [fired=true]',
+          ]);
+        } finally {
+          processSpy.mockRestore();
+          paymentPickSpy.mockRestore();
+        }
+      });
+      it('leaves an entry without byPaymentPick unchanged after a reported arrival', async () => {
+        await reinit(
+          buildSettings({
+            attributeKeys: ['tier', 'paymenttype'],
+            preselectAttributeDefaults: { paymenttype: 'card' },
+          }),
+        );
+        const preselectCalls = () =>
+          placements.mock.calls.map(([options]) => options).filter((options) => options.preselect === true);
+
+        kit.onPaymentPick(Object.freeze({ t: Date.now(), pathname: '/intent-product', family: 'paypal' }));
+        tap('wallet');
+        await vi.advanceTimersByTimeAsync(1);
+        await arriveOnTargetPage();
+
+        await vi.advanceTimersByTimeAsync(60_001);
+        window.history.replaceState({}, '', '/intent-product');
+        kit.onPaymentPick(Object.freeze({ t: Date.now(), pathname: '/intent-product', family: 'apple_pay' }));
+        tap('wallet');
+        await vi.advanceTimersByTimeAsync(1);
+
+        expect(preselectCalls().map((options) => options.attributes.paymenttype)).toEqual(['card', 'card']);
       });
     });
     it('ignores a replayed signal after re-init', async () => {
@@ -11911,7 +12677,7 @@ describe('Rokt Forwarder', () => {
 
       // jsdom marks every dispatched event untrusted, so this one is held trusted through its propagation, which
       // passes the kit's document listener and then the field. A script that dispatches it again gets it untrusted.
-      const dispatchShopperEvent = (target: EventTarget, type = 'input'): Event => {
+      const dispatchShopperEvent = (target: EventTarget, type = 'change'): Event => {
         const event = new Event(type, { bubbles: true });
         const impl = Object.getOwnPropertySymbols(event).find((key) => key.description === 'impl') as symbol;
         let trusted = true;
@@ -11979,7 +12745,7 @@ describe('Rokt Forwarder', () => {
 
       it('never carries a form email onto a later ordinary call', async () => {
         input.value = 'guest@example.com';
-        shopperChange(input, 'input');
+        shopperChange(input);
         firePreselectPageview();
         await waitForCondition(() => selectPlacementsCalls.length > 0);
         expect(selectPlacementsCalls[0].attributes.email).toBe('guest@example.com');
@@ -12167,18 +12933,57 @@ describe('Rokt Forwarder', () => {
       });
 
       it('ignores a change on any other input', async () => {
+        shopperChange(input);
         firePreselectPageview();
         input.value = 'guest@example.com';
-        shopperChange(input, 'input');
+        const flushSpy = vi.spyOn((window as any).mParticle.forwarder, 'flushPendingPreselectDispatches');
         const other = document.createElement('input');
         document.body.appendChild(other);
 
-        shopperChange(other);
-        other.remove();
-        await new Promise((resolve) => setTimeout(resolve, 0));
+        try {
+          shopperChange(other);
+          await new Promise((resolve) => setTimeout(resolve, 0));
 
-        expect(selectPlacementsCalls).toHaveLength(0);
-        expect((window as any).mParticle.forwarder._preselectState.pending).toHaveLength(1);
+          expect(flushSpy).not.toHaveBeenCalled();
+          expect(selectPlacementsCalls).toHaveLength(0);
+          expect((window as any).mParticle.forwarder._preselectState.pending).toHaveLength(1);
+        } finally {
+          other.remove();
+          flushSpy.mockRestore();
+        }
+      });
+
+      it('fires the queued guest dispatch with the email committed while the input had focus, not one a script writes later', async () => {
+        firePreselectPageview();
+        input.focus();
+        input.value = 'guest@example.com';
+        shopperChange(input);
+        await waitForCondition(() => selectPlacementsCalls.length > 0);
+        expect(selectPlacementsCalls[0].attributes.email).toBe('guest@example.com');
+
+        input.value = 'someone-else@example.com';
+        input.blur();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        expect(selectPlacementsCalls).toHaveLength(1);
+        expect((window as any).mParticle.forwarder._preselectState.pending).toHaveLength(0);
+      });
+
+      it('never flushes the queued guest dispatch on a trusted blur', async () => {
+        firePreselectPageview();
+        const flushSpy = vi.spyOn((window as any).mParticle.forwarder, 'flushPendingPreselectDispatches');
+        try {
+          input.focus();
+          input.value = 'guest@example.com';
+          shopperChange(input, 'input');
+          dispatchShopperEvent(input, 'blur');
+          await new Promise((resolve) => setTimeout(resolve, 0));
+
+          expect(flushSpy).not.toHaveBeenCalled();
+          expect(selectPlacementsCalls).toHaveLength(0);
+          expect((window as any).mParticle.forwarder._preselectState.pending).toHaveLength(1);
+        } finally {
+          flushSpy.mockRestore();
+        }
       });
 
       it('fires the queued guest dispatch once a type="text" field changes to hold an email', async () => {
@@ -12289,15 +13094,15 @@ describe('Rokt Forwarder', () => {
       });
 
       it('never reads a field a script overwrote after the shopper typed into it', async () => {
-        firePreselectPageview();
         const text = document.createElement('input');
         text.type = 'text';
         document.body.appendChild(text);
         try {
           text.value = 'guest@example.com';
-          shopperChange(text, 'input');
+          shopperChange(text);
           text.value = 'someone-else@example.com';
           text.dispatchEvent(new Event('change', { bubbles: true }));
+          firePreselectPageview();
 
           // The shopper's own, still empty, email field changes: the overwritten field no longer counts.
           shopperChange(input);
@@ -12310,17 +13115,17 @@ describe('Rokt Forwarder', () => {
       });
 
       it('never reads a field a script overwrote while it was detached from the page', async () => {
-        firePreselectPageview();
         const text = document.createElement('input');
         text.type = 'text';
         document.body.appendChild(text);
         try {
           text.value = 'guest@example.com';
-          shopperChange(text, 'input');
+          shopperChange(text);
           text.remove();
           text.value = 'someone-else@example.com';
           text.dispatchEvent(new Event('change'));
           document.body.appendChild(text);
+          firePreselectPageview();
 
           shopperChange(input);
           await new Promise((resolve) => setTimeout(resolve, 0));
@@ -12332,7 +13137,6 @@ describe('Rokt Forwarder', () => {
       });
 
       it("never reads a field a form capture handler overwrote during the shopper's own input event", async () => {
-        firePreselectPageview();
         const form = document.createElement('form');
         const text = document.createElement('input');
         text.type = 'text';
@@ -12343,11 +13147,12 @@ describe('Rokt Forwarder', () => {
           text.value = 'someone-else@example.com';
           text.dispatchEvent(new Event('change', { bubbles: true }));
         });
-        form.addEventListener('input', overwrite, true);
+        form.addEventListener('change', overwrite, { capture: true, once: true });
         try {
           text.value = 'guest@example.com';
           dispatchShopperEvent(text);
           expect(overwrite).toHaveBeenCalledTimes(1);
+          firePreselectPageview();
 
           // The shopper's own, still empty, email field changes: the overwritten field no longer counts.
           shopperChange(input);
@@ -12360,7 +13165,6 @@ describe('Rokt Forwarder', () => {
       });
 
       it("never reads a field a script overwrote and announced by redispatching the shopper's event", async () => {
-        firePreselectPageview();
         const text = document.createElement('input');
         text.type = 'text';
         document.body.appendChild(text);
@@ -12369,6 +13173,7 @@ describe('Rokt Forwarder', () => {
           const typing = dispatchShopperEvent(text);
           text.value = 'someone-else@example.com';
           text.dispatchEvent(typing);
+          firePreselectPageview();
 
           // The shopper's own, still empty, email field changes: the overwritten field no longer counts.
           shopperChange(input);
@@ -12416,26 +13221,33 @@ describe('Rokt Forwarder', () => {
           const listener = (window as any).mParticle.forwarder._preselectEmailInputListener;
           expect(addSpy).toHaveBeenCalledWith('input', listener, true);
           expect(addSpy).toHaveBeenCalledWith('change', listener, true);
+          expect(addSpy).toHaveBeenCalledWith('blur', listener, true);
         } finally {
           addSpy.mockRestore();
         }
       });
 
       it('ignores a change on a text field that does not hold an email', async () => {
+        shopperChange(input);
         firePreselectPageview();
         input.value = 'guest@example.com';
-        shopperChange(input, 'input');
+        const flushSpy = vi.spyOn((window as any).mParticle.forwarder, 'flushPendingPreselectDispatches');
         const text = document.createElement('input');
         text.type = 'text';
         text.value = 'Jane Shopper';
         document.body.appendChild(text);
 
-        shopperChange(text);
-        text.remove();
-        await new Promise((resolve) => setTimeout(resolve, 0));
+        try {
+          shopperChange(text);
+          await new Promise((resolve) => setTimeout(resolve, 0));
 
-        expect(selectPlacementsCalls).toHaveLength(0);
-        expect((window as any).mParticle.forwarder._preselectState.pending).toHaveLength(1);
+          expect(flushSpy).not.toHaveBeenCalled();
+          expect(selectPlacementsCalls).toHaveLength(0);
+          expect((window as any).mParticle.forwarder._preselectState.pending).toHaveLength(1);
+        } finally {
+          text.remove();
+          flushSpy.mockRestore();
+        }
       });
     });
 

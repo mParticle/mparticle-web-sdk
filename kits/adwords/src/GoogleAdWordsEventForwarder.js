@@ -630,8 +630,7 @@ var constructor = function() {
                 processQueue(eventQueue);
             };
             googleAdwords.src =
-                ('https:' == document.location.protocol ? 'https' : 'http') +
-                '://www.googleadservices.com/pagead/conversion_async.js';
+                'https://www.googleadservices.com/pagead/conversion_async.js';
             document.getElementsByTagName('head')[0].appendChild(googleAdwords);
         })();
     }

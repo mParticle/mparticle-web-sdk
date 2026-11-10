@@ -9,7 +9,8 @@ import { MPID } from "@mparticle/web-sdk";
 import { IErrorReportingService, ILoggingService } from "./reporting/types";
 import { IRoktLauncherOptions } from "./roktLauncherOptions";
 import IntegrationCapture from "./integrationCapture";
-import type { CheckoutIntentKind, CheckoutIntentSource, PaymentFrameFamily } from "./buttonTracking/checkoutIntent";
+import type { CheckoutIntentKind, CheckoutIntentSource, ICheckoutIntentSelectors, PaymentFrameFamily } from "./buttonTracking/checkoutIntent";
+export type { ICheckoutIntentSelectors } from "./buttonTracking/checkoutIntent";
 export type RoktAttributeValueArray = Array<string | number | boolean>;
 export type RoktAttributeValueType = string | number | boolean | undefined | null;
 export type RoktAttributeValue = RoktAttributeValueType | RoktAttributeValueArray;
@@ -75,6 +76,7 @@ export interface IRoktKit {
     terminate?: () => Promise<void>;
     onRouteChange?: () => void;
     onCheckoutIntent?: (signal: ICheckoutIntentSignal) => void;
+    checkoutIntentSelectors?: ICheckoutIntentSelectors;
     onPaymentPick?: (signal: IPaymentPickSignal) => void;
     launcherOptions?: Dictionary<any>;
     settings?: IRoktKitSettings;
@@ -111,6 +113,7 @@ export default class RoktManager {
     private stopRouteChangeWatch;
     private pendingCheckoutIntents;
     private autoButtonClicksForwarded;
+    private autoLinkClicksForwarded;
     constructor(instanceName?: string);
     /**
      * Sets a callback to be invoked when RoktManager becomes ready
@@ -137,10 +140,13 @@ export default class RoktManager {
     private watchRouteChanges;
     private notifyRouteChange;
     setAutoButtonClicksForwarded(forwarded: boolean): void;
+    setAutoLinkClicksForwarded(forwarded: boolean): void;
+    areAutoLinkClicksForwarded(): boolean;
     hasTargetingOptOut(): boolean;
     isCheckoutIntentSuppressed(): boolean;
     isCheckoutIntentLive(): boolean;
     notifyCheckoutIntent(signal: ICheckoutIntentSignal, pathname?: string): void;
+    getCheckoutIntentSelectors(): ICheckoutIntentSelectors | undefined;
     discardCheckoutIntents(): void;
     notifyPaymentPick(signal: IPaymentPickSignal): void;
     private flushCheckoutIntents;
