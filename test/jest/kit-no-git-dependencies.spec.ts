@@ -49,7 +49,8 @@ function loadNpmPackageArg(): NpaModule | null {
     return null;
 }
 
-const npa = loadNpmPackageArg();
+const loadedNpa = loadNpmPackageArg();
+let npa: NpaModule | null = loadedNpa;
 
 const EXPLICIT_GIT_SCHEME_PATTERN =
     /^(?:(?:git(?:\+(?:https?|ssh|file|ftp|rsync))?|ssh):\/\/|git\+(?:file|https?|ssh):|(?:github|gitlab|bitbucket|gist):)/i;
@@ -60,8 +61,9 @@ const HOSTED_GIT_HTTPS_REPO_PATTERN =
     /^https?:\/\/(?:www\.)?(?:github\.com|gitlab\.com|bitbucket\.org)\/[^/#?\s]+\/[^/#?\s]+(?:\.git)?(?:[#?].*)?$/i;
 const SCP_GIT_SPEC_PATTERN =
     /^(?:[^@/\s]+@)?[a-z0-9.-]+\.[a-z]{2,}:[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+(?:#.*)?$/i;
+const RELATIVE_OR_LOCAL_PATH_PATTERN = /^(?:\.\.?(?:\/|\\)|\/|~\/)/;
 const BARE_GITHUB_SHORTHAND_PATTERN =
-    /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+(?:#.*)?$/;
+    /^(?!\.\.?(?:\/|$))[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+(?:#.*)?$/;
 
 function normalizeSpecCandidate(rawSpec: string, pkgName?: string): string {
     const trimmed = rawSpec.trim();
@@ -129,7 +131,11 @@ function isGitDependencySpec(rawSpec: string, pkgName = 'dep'): boolean {
         return true;
     }
 
-    if (!npa && BARE_GITHUB_SHORTHAND_PATTERN.test(spec)) {
+    if (
+        !npa &&
+        !RELATIVE_OR_LOCAL_PATH_PATTERN.test(spec) &&
+        BARE_GITHUB_SHORTHAND_PATTERN.test(spec)
+    ) {
         return true;
     }
 
@@ -266,27 +272,42 @@ describe('Kit manifests and lockfiles avoid git dependencies that fail npm ci wi
     const matrix: KitMatrixEntry[] = readJson('kits/matrix.json');
     const kitsDir = path.join(repositoryRoot, 'kits');
 
+    const gitSpecs = [
+        'github:mparticle/mparticle-sdk-javascript',
+        'gitlab:mparticle/mparticle-sdk-javascript#v1.0.0',
+        'bitbucket:mparticle/mparticle-sdk-javascript',
+        'gist:11081aaa281',
+        'mparticle/mparticle-sdk-javascript',
+        'mparticle/mparticle-sdk-javascript#6f2e1eb9d1c8ad50f8d8b037d2d70032ef455879',
+        'git+file:///tmp/mparticle-sdk-javascript.git',
+        'git+file:../mparticle-sdk-javascript.git',
+        'git+https://github.com/mparticle/mparticle-sdk-javascript.git#c906742',
+        'git+http://git.example.com/mparticle/mparticle-sdk-javascript.git',
+        'git+ssh://git@github.com/mparticle/mparticle-sdk-javascript.git#c906742',
+        'git://github.com/mparticle/mparticle-sdk-javascript.git',
+        'ssh://git@github.com/mparticle/mparticle-sdk-javascript.git',
+        'https://github.com/mparticle/mparticle-sdk-javascript.git',
+        'https://git.example.com/mparticle/mparticle-sdk-javascript.git#main',
+        'git@github.com:mparticle/mparticle-sdk-javascript.git',
+        'npm:mparticle-sdk-javascript@github:mparticle/mparticle-sdk-javascript',
+        'mparticle-sdk-javascript@github:mparticle/mparticle-sdk-javascript',
+    ];
+
+    const nonGitSpecs = [
+        '^2.25.3',
+        '~1.0.0',
+        '1.0.0-rc9',
+        '2.x || 3.x || 4 || 5',
+        'latest',
+        'https://registry.npmjs.org/@mparticle/web-sdk/-/web-sdk-2.25.3.tgz',
+        'npm:string-width@^4.2.0',
+        'file:../packages/AdobeClient',
+        './local-package',
+        '../local-package',
+        '/tmp/local-package',
+    ];
+
     it('classifies git URLs, git+file:, git+https:, HTTPS .git URLs, and GitHub/GitLab/Bitbucket shorthands as git specs', () => {
-        const gitSpecs = [
-            'github:mparticle/mparticle-sdk-javascript',
-            'gitlab:mparticle/mparticle-sdk-javascript#v1.0.0',
-            'bitbucket:mparticle/mparticle-sdk-javascript',
-            'gist:11081aaa281',
-            'mparticle/mparticle-sdk-javascript',
-            'mparticle/mparticle-sdk-javascript#6f2e1eb9d1c8ad50f8d8b037d2d70032ef455879',
-            'git+file:///tmp/mparticle-sdk-javascript.git',
-            'git+file:../mparticle-sdk-javascript.git',
-            'git+https://github.com/mparticle/mparticle-sdk-javascript.git#c906742',
-            'git+http://git.example.com/mparticle/mparticle-sdk-javascript.git',
-            'git+ssh://git@github.com/mparticle/mparticle-sdk-javascript.git#c906742',
-            'git://github.com/mparticle/mparticle-sdk-javascript.git',
-            'ssh://git@github.com/mparticle/mparticle-sdk-javascript.git',
-            'https://github.com/mparticle/mparticle-sdk-javascript.git',
-            'https://git.example.com/mparticle/mparticle-sdk-javascript.git#main',
-            'git@github.com:mparticle/mparticle-sdk-javascript.git',
-            'npm:mparticle-sdk-javascript@github:mparticle/mparticle-sdk-javascript',
-            'mparticle-sdk-javascript@github:mparticle/mparticle-sdk-javascript',
-        ];
         for (const spec of gitSpecs) {
             expect({ spec, isGit: isGitDependencySpec(spec) }).toEqual({
                 spec,
@@ -294,22 +315,44 @@ describe('Kit manifests and lockfiles avoid git dependencies that fail npm ci wi
             });
         }
 
-        const nonGitSpecs = [
-            '^2.25.3',
-            '~1.0.0',
-            '1.0.0-rc9',
-            '2.x || 3.x || 4 || 5',
-            'latest',
-            'https://registry.npmjs.org/@mparticle/web-sdk/-/web-sdk-2.25.3.tgz',
-            'npm:string-width@^4.2.0',
-            'file:../packages/AdobeClient',
-            './local-package',
-        ];
         for (const spec of nonGitSpecs) {
             expect({ spec, isGit: isGitDependencySpec(spec) }).toEqual({
                 spec,
                 isGit: false,
             });
+        }
+    });
+
+    it('excludes relative and local paths while catching git specs when npm-package-arg fallback mode is forced', () => {
+        npa = null;
+        try {
+            for (const spec of gitSpecs) {
+                expect({ spec, isGit: isGitDependencySpec(spec) }).toEqual({
+                    spec,
+                    isGit: true,
+                });
+            }
+            for (const spec of nonGitSpecs) {
+                expect({ spec, isGit: isGitDependencySpec(spec) }).toEqual({
+                    spec,
+                    isGit: false,
+                });
+            }
+            expect(isGitDependencySpec('./local-package')).toBe(false);
+            expect(isGitDependencySpec('../local-package')).toBe(false);
+            expect(isGitDependencySpec('../../packages/AdobeClient')).toBe(
+                false
+            );
+            expect(isGitDependencySpec('/tmp/local-package')).toBe(false);
+            expect(
+                isGitDependencySpec('local-pkg@./local-package', 'local-pkg')
+            ).toBe(false);
+            expect(
+                isGitDependencySpec('local-pkg@../local-package', 'local-pkg')
+            ).toBe(false);
+            expect(isGitDependencySpec('owner/repo')).toBe(true);
+        } finally {
+            npa = loadedNpa;
         }
     });
 
