@@ -23,11 +23,13 @@ import { PARTNER_MODULE_IDS } from "./cookieSyncManager";
 import IntegrationCapture from "./integrationCapture";
 import Constants from "./constants";
 import { subscribeToRouteChange } from "./routeChangeMonitor";
-import type { CheckoutIntentKind, CheckoutIntentSource } from "./buttonTracking/checkoutIntent";
+import type { CheckoutIntentKind, CheckoutIntentSource, ICheckoutIntentSelectors, PaymentFrameFamily } from "./buttonTracking/checkoutIntent";
+export type { ICheckoutIntentSelectors } from "./buttonTracking/checkoutIntent";
 
 const PASSBACK_CONVERSION_TRACKING_ID = 'passbackconversiontrackingid';
-// One signal per kind (commit, wallet, checkout_step, frame and cart), so a new kind never evicts another.
-const CHECKOUT_INTENT_BUFFER_LIMIT = 5;
+// One signal per kind (commit, wallet, checkout_step, frame and cart), with an
+// add-to-cart click apart from a cart open, so a new one never evicts another.
+const CHECKOUT_INTENT_BUFFER_LIMIT = 6;
 const CHECKOUT_INTENT_MAX_AGE_MS = 30000;
 
 type AttributeTargetUser = Pick<IMParticleUser, 'getUserIdentities' | 'setUserAttributes'>;
@@ -83,6 +85,19 @@ export interface ICheckoutIntentSignal {
     t: number;
     source?: CheckoutIntentSource;
     pathname?: string;
+    // On a cart click that puts something in the cart. Older kits ignore it.
+    adds?: true;
+}
+
+// What a kit receives when the shopper picks a payment method: the names of a
+// payment radio's option, masked like a label, or the payment family of a
+// frame the shopper moved into. It is handed over in memory only: the kit
+// keeps the family it reads and nothing of the names.
+export interface IPaymentPickSignal {
+    t: number;
+    pathname: string;
+    names?: readonly string[];
+    family?: PaymentFrameFamily;
 }
 
 export interface IRoktKitSettings {
@@ -109,6 +124,11 @@ export interface IRoktKit {
     onRouteChange?: () => void;
     // Set by the kit only when it wants checkout intent signals.
     onCheckoutIntent?: (signal: ICheckoutIntentSignal) => void;
+    // Set by the kit when its config names the page's confirm or checkout-step
+    // buttons. Older kits leave it unset, and the label rules apply alone.
+    checkoutIntentSelectors?: ICheckoutIntentSelectors;
+    // Set by the kit only when it wants payment picks.
+    onPaymentPick?: (signal: IPaymentPickSignal) => void;
     launcherOptions?: Dictionary<any>;
     settings?: IRoktKitSettings;
     integrationName?: string;
@@ -159,6 +179,9 @@ export default class RoktManager {
     private pendingCheckoutIntents: Array<{ signal: ICheckoutIntentSignal; pathname: string }> = [];
     // Off until SDK init finds the Rokt connection receives auto button clicks.
     private autoButtonClicksForwarded = false;
+    // Off until SDK init finds the Rokt connection receives auto link clicks, or
+    // link tracking is off. Only link clicks lose their intent without it.
+    private autoLinkClicksForwarded = false;
 
     // Keys this manager's route subscription, so a re-executed bundle's manager replaces
     // it while a second named instance keeps its own.
@@ -315,6 +338,28 @@ export default class RoktManager {
         this.autoButtonClicksForwarded = forwarded;
     }
 
+    public setAutoLinkClicksForwarded(forwarded: boolean): void {
+        this.autoLinkClicksForwarded = forwarded;
+    }
+
+    // The Rokt kit reads this too: while false, its page views keep
+    // dispatchDelayMs, since a checkout link could never release the wait.
+    public areAutoLinkClicksForwarded(): boolean {
+        return this.autoLinkClicksForwarded;
+    }
+
+    // noTargeting (which noDeviceId implies), doNotShareOrSell or Global Privacy
+    // Control. Unlike noFunctional, these also stop auto button and link clicks
+    // from being logged.
+    public hasTargetingOptOut(): boolean {
+        const options = this.launcherOptions || {};
+        if (options.noTargeting || options.doNotShareOrSell) {
+            return true;
+        }
+        const nav = typeof navigator === 'undefined' ? undefined : (navigator as Navigator & { globalPrivacyControl?: boolean });
+        return !!nav && nav.globalPrivacyControl === true;
+    }
+
     // Checkout intent is off unless the flag is on, and under opt-out, any Rokt
     // privacy launcher option, Global Privacy Control, or a Rokt connection that
     // does not receive auto button clicks.
@@ -328,12 +373,7 @@ export default class RoktManager {
         ) {
             return true;
         }
-        const options = this.launcherOptions || {};
-        if (options.noFunctional || options.noTargeting || options.doNotShareOrSell) {
-            return true;
-        }
-        const nav = typeof navigator === 'undefined' ? undefined : (navigator as Navigator & { globalPrivacyControl?: boolean });
-        return !!nav && nav.globalPrivacyControl === true;
+        return !!this.launcherOptions?.noFunctional || this.hasTargetingOptOut();
     }
 
     // True when the kit can wait for the shopper's confirm click: signals are not
@@ -355,8 +395,14 @@ export default class RoktManager {
 
         const kit = this.kit;
         if (!kit) {
+            // One per kind, with an add-to-cart click kept apart from a
+            // click that opens the cart.
             this.pendingCheckoutIntents = this.pendingCheckoutIntents
-                .filter(pending => pending.signal.kind !== signal.kind)
+                .filter(
+                    pending =>
+                        pending.signal.kind !== signal.kind ||
+                        !!pending.signal.adds !== !!signal.adds
+                )
                 .concat({ signal, pathname })
                 .slice(-CHECKOUT_INTENT_BUFFER_LIMIT);
             return;
@@ -373,8 +419,35 @@ export default class RoktManager {
         }
     }
 
+    // Read at click time, so selectors from a kit that attaches later apply to
+    // the next click.
+    public getCheckoutIntentSelectors(): ICheckoutIntentSelectors | undefined {
+        const kit = this.kit;
+        return kit ? kit.checkoutIntentSelectors : undefined;
+    }
+
     public discardCheckoutIntents(): void {
         this.pendingCheckoutIntents = [];
+    }
+
+    // Under the same gates as checkout intent. A pick made before a kit
+    // attaches is not kept: the shopper is still choosing, and the next pick
+    // replaces it.
+    public notifyPaymentPick(signal: IPaymentPickSignal): void {
+        if (this.isCheckoutIntentSuppressed()) {
+            return;
+        }
+
+        const kit = this.kit;
+        try {
+            if (kit && isFunction(kit.onPaymentPick)) {
+                kit.onPaymentPick(signal);
+            }
+        } catch (e) {
+            this.logger?.error(
+                `RoktManager: Error in onPaymentPick: ${getErrorMessage(e)}`
+            );
+        }
     }
 
     // Replays recent buffered signals raised on the current page, oldest first.
@@ -422,9 +495,17 @@ export default class RoktManager {
     public async selectPlacements(options: IRoktSelectPlacementsOptions): Promise<IRoktSelection> {
         this.captureTiming?.(PerformanceMarkType.JointSdkSelectPlacements);
         
-        // Queue if kit isn't ready OR if identity is in flight
-        if (!this.isReady() || this.store?.identityCallInFlight) {
+        if (!this.isReady()) {
             return this.deferredCall<IRoktSelection>('selectPlacements', options);
+        }
+
+        // Like the iOS and Android SDKs, this does not wait for an identity request, so the
+        // selection can go out for the user from before it. The log counts how often that happens.
+        if (this.store?.identityCallInFlight) {
+            this.loggingService?.log({
+                message: 'RoktManager: selectPlacements ran while an identity request was in flight',
+                code: ErrorCodes.SELECT_PLACEMENTS_IDENTITY_IN_FLIGHT,
+            });
         }
 
         try {
@@ -508,10 +589,6 @@ export default class RoktManager {
                                 );
                             }
                             this.setUserAttributes(result?.getUser?.(), userAttributes, newIdentities);
-                            // Drain any selectPlacements calls that were deferred while
-                            // identify was in-flight. By the time this callback fires,
-                            // identityCallInFlight has already been reset to false.
-                            this.processMessageQueue();
                         }
                     );
                 } catch (error) {
@@ -834,7 +911,6 @@ export default class RoktManager {
     public onIdentityComplete(): void {
         if (this.isReady()) {
             this.currentUser = this.identityService.getCurrentUser();
-            // Process any queued selectPlacements calls that were waiting for identity
             this.processMessageQueue();
         }
     }

@@ -15,6 +15,11 @@ export interface ICookieConsentFlags {
      * Default: false (targeting is allowed)
      */
     noTargeting: boolean;
+    /**
+     * When true, indicates the user has opted out of the sale or sharing of their data.
+     * Default: false (sharing is allowed)
+     */
+    doNotShareOrSell?: boolean;
 }
 export interface ICookieConsentManager {
     /**
@@ -26,18 +31,22 @@ export interface ICookieConsentManager {
      */
     getNoFunctional: () => boolean;
     /**
+     * Sharing is allowed when doNotShareOrSell is false (default)
+     */
+    getDoNotShareOrSell: () => boolean;
+    /**
      * Syncs the $NoTargeting user attribute based on the current noTargeting flag.
      * Sets the attribute when noTargeting is true, removes it when false.
      */
     syncNoTargetingAttribute: (user: IMParticleUser | null) => void;
 }
 /**
- * CookieConsentManager handles storage and access of consent flags (noFunctional, noTargeting)
- * that are passed via launcherOptions during SDK initialization.
+ * CookieConsentManager handles storage and access of consent flags (noFunctional, noTargeting,
+ * doNotShareOrSell) that are passed via launcherOptions during SDK initialization.
  *
  * These flags allow Rokt integration to respect user privacy choices.
  *
- * Default behavior: Both flags default to false, meaning all features are allowed
+ * Default behavior: All flags default to false, meaning all features are allowed
  * unless explicitly opted out by the user.
  */
 export default class CookieConsentManager implements ICookieConsentManager {
@@ -53,5 +62,10 @@ export default class CookieConsentManager implements ICookieConsentManager {
      * Functional tracking is allowed when noFunctional is false (default).
      */
     getNoFunctional(): boolean;
+    /**
+     * Returns true if the user has opted out of the sale or sharing of their data.
+     * Sharing is allowed when doNotShareOrSell is false (default).
+     */
+    getDoNotShareOrSell(): boolean;
     syncNoTargetingAttribute(user: IMParticleUser | null): void;
 }

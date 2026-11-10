@@ -50,7 +50,7 @@ export function cleanPageUrl(href: string): string {
 // the ad-block probe, none of which need the query or a hash route.
 export function cleanReportingUrl(href: string): string {
   const coreCleanUrl = getCoreCleanUrl();
-  return coreCleanUrl ? coreCleanUrl(href, 'path') : href.split(/[?#]/)[0];
+  return coreCleanUrl ? coreCleanUrl(href, 'report') : href.split(/[?#]/)[0];
 }
 
 function getCoreCleanUrl(): ((href: string, mode: string) => string) | undefined {

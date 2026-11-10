@@ -992,4 +992,70 @@ describe('Mixpanel Forwarder', function () {
             done();
         });
     });
+
+    describe('Library URL', function () {
+        var inserted;
+
+        function initWithSnippet() {
+            // Run the loader snippet, and keep its script element out of the
+            // page so the test fetches nothing.
+            var scriptParent = document.getElementsByTagName('script')[0]
+                .parentNode;
+            inserted = [];
+            delete window.mixpanel;
+            scriptParent.insertBefore = function (node) {
+                inserted.push(node);
+                return node;
+            };
+            try {
+                mParticle.forwarder.init(
+                    {
+                        token: 'token123',
+                        baseUrl: API_HOST,
+                    },
+                    reportService.cb,
+                    false
+                );
+            } finally {
+                delete scriptParent.insertBefore;
+            }
+        }
+
+        it('should not load a script named by a page element with the MIXPANEL_CUSTOM_LIB_URL id', function (done) {
+            var link = document.createElement('a');
+            link.id = 'MIXPANEL_CUSTOM_LIB_URL';
+            link.href = 'https://attacker.example/x.js';
+            document.body.appendChild(link);
+
+            try {
+                initWithSnippet();
+            } finally {
+                document.body.removeChild(link);
+            }
+
+            inserted.length.should.equal(1);
+            inserted[0]
+                .getAttribute('src')
+                .should.equal('//cdn.mxpnl.com/libs/mixpanel-2-latest.min.js');
+
+            done();
+        });
+
+        it('should load the MIXPANEL_CUSTOM_LIB_URL string a page sets', function (done) {
+            window.MIXPANEL_CUSTOM_LIB_URL = 'https://example.com/mixpanel.js';
+
+            try {
+                initWithSnippet();
+            } finally {
+                delete window.MIXPANEL_CUSTOM_LIB_URL;
+            }
+
+            inserted.length.should.equal(1);
+            inserted[0]
+                .getAttribute('src')
+                .should.equal('https://example.com/mixpanel.js');
+
+            done();
+        });
+    });
 });

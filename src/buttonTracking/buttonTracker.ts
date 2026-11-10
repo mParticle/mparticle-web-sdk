@@ -1,14 +1,26 @@
 import { IMParticleWebSDKInstance } from '../mp-instance';
+import { BaseEvent } from '../sdkRuntimeModels';
 import { isFunction } from '../utils';
-import { buildButtonClickEvent } from './buttonClickEvent';
-import { describeButtonClick, IButtonClick } from './buttonDescription';
+import { buildButtonClickEvent, buildLinkClickEvent } from './buttonClickEvent';
+import {
+    describeButtonClick,
+    describeCheckedPaymentChoice,
+    describePaymentChoice,
+    IButtonClick,
+    IPaymentChoice,
+    isLinkClick,
+    isPicked,
+} from './buttonDescription';
 import {
     CheckoutIntentKind,
     CheckoutIntentSource,
     classifyIntent,
-    classifyIntentFrame,
+    classifyPaymentFrame,
+    ICheckoutIntentSelectors,
+    namesWallet,
+    PaymentFrameFamily,
 } from './checkoutIntent';
-import { findControl, isExcludedPath } from './controls';
+import { findControl, findRoleControl, isExcludedPath } from './controls';
 
 // State lives on `window`, like APV, so a re-executed bundle never doubles the
 // listeners. Inspect `window.__mpBtn__` in a console to see if one is live.
@@ -18,13 +30,12 @@ const THROTTLE_MS = 2000;
 const SUBMIT_AFTER_COMMIT_CLICK_MS = 1000;
 // Apple Pay must begin inside the tap's own handler, so the tap is this recent.
 const APPLE_PAY_AFTER_CLICK_MS = 1000;
-const PATH_LIMIT = 12;
+// How far up from the clicked element a control is looked for. Checkout intent
+// keeps findControl's own 12; logging looks further, past deep product cards.
+const PATH_LIMIT = 20;
 // A ceiling, not a dedupe: a held Enter key or browser automation fires a
 // trusted click per repeat, and each one is forwarded to every kit.
 const PAGE_EVENT_LIMIT = 100;
-// A click uploads at once. Taps that follow it this quickly are held and share
-// one upload once they stop.
-const UPLOAD_DEBOUNCE_MS = 100;
 
 interface IBtnState {
     tracker?: ButtonTracker;
@@ -37,6 +48,9 @@ type WindowWithBtn = Window & {
 export interface IButtonTrackerOptions {
     // The Rokt kit signal only runs when this init configures a Rokt kit.
     hasRoktKit: boolean;
+    // Button clicks and clicks on links that leave the page are logged apart.
+    logButtons: boolean;
+    logLinks: boolean;
 }
 
 const btnWindow = (): WindowWithBtn | null =>
@@ -137,17 +151,22 @@ const CAPTURE_PASSIVE: AddEventListenerOptions = {
 };
 const PASSIVE: AddEventListenerOptions = { passive: true };
 
-// Logs every button click as an mParticle event, and hands checkout intent to the
-// Rokt kit as a frozen {kind, t, source, pathname}. Submits and wallet frame focus feed the kit only.
+// Logs button clicks and clicks on links that leave the page as mParticle events, and hands checkout
+// intent to the Rokt kit as a frozen {kind, t, source, pathname}, with adds on an add-to-cart click.
+// Submits and wallet frame focus feed the kit only, and so do payment picks: a payment radio's option
+// names, or the payment family of a focused frame.
 export class ButtonTracker {
     private readonly mpInstance: IMParticleWebSDKInstance;
     private active = false;
     private hasRoktKit = false;
+    private logButtons = false;
+    private logLinks = false;
     // Bumped on reset so classification queued before it is dropped.
     private generation = 0;
     private lastCommitClick = -Infinity;
-    // The latest trusted click: whether the page excluded it, and the intent it
-    // already carries to the kit, with its source, if any.
+    // The latest trusted click: whether the page excluded it or it was withheld
+    // from the kit, and the intent it already carries to the kit, with its
+    // source, if any.
     private lastClick: {
         t: number;
         excluded: boolean;
@@ -159,10 +178,6 @@ export class ButtonTracker {
     private pageEvents = 0;
     // Clicks read at dispatch and waiting for the next paint.
     private pending: Array<() => void> = [];
-    private uploadTimerId: ReturnType<typeof setTimeout> | null = null;
-    private uploadHeld = false;
-    // Set while the page is left, when the SDK's exit upload sends the queue.
-    private leaving = false;
 
     constructor(mpInstance: IMParticleWebSDKInstance) {
         this.mpInstance = mpInstance;
@@ -186,8 +201,13 @@ export class ButtonTracker {
             this.teardown();
         }
         this.hasRoktKit = options.hasRoktKit;
+        this.logButtons = options.logButtons;
+        this.logLinks = options.logLinks;
 
-        if (!this.eventsEnabled() && this.isKitSuppressed()) {
+        if (
+            (!(this.logButtons || this.logLinks) || !this.eventsEnabled()) &&
+            this.isKitSuppressed()
+        ) {
             this.log('opted out, not starting');
             return;
         }
@@ -301,7 +321,6 @@ export class ButtonTracker {
         this.lastSent = {};
         this.pagePath = null;
         this.pageEvents = 0;
-        this.cancelUpload();
     }
 
     private enqueue(delivery: () => void): void {
@@ -327,14 +346,8 @@ export class ButtonTracker {
             event.type === 'pagehide' ||
             document.visibilityState === 'hidden'
         ) {
-            this.leaving = true;
-            try {
-                this.drain();
-            } finally {
-                this.leaving = false;
-            }
-            // The SDK's exit upload sends the queue, held taps included.
-            this.cancelUpload();
+            // The SDK's exit upload then sends these clicks with the queue.
+            this.drain();
         }
     };
 
@@ -358,7 +371,11 @@ export class ButtonTracker {
             return;
         }
         const layer = event.type;
-        const logsEvents = layer === 'click' && this.eventsEnabled();
+        const logsEvents =
+            layer === 'click' &&
+            (this.logButtons || this.logLinks) &&
+            this.eventsEnabled() &&
+            !this.hasTargetingOptOut();
         const signalsKit = !this.isKitSuppressed();
         if (!logsEvents && !signalsKit) {
             return;
@@ -372,9 +389,14 @@ export class ButtonTracker {
         // button that disables or relabels itself is seen as it was clicked.
         // Logging and the kit hand-off wait for the next paint.
         let click: IButtonClick | undefined;
+        let asLink = false;
         let box: HTMLInputElement | undefined;
         let kind: CheckoutIntentKind | undefined;
         let source: CheckoutIntentSource | undefined;
+        let adds: true | undefined;
+        let choice: IPaymentChoice | undefined;
+        let checkedNames: string[] | undefined;
+        let family: PaymentFrameFamily | undefined;
         let unconfirmedCommit = false;
         if (layer === 'click') {
             // The composed path is only populated during dispatch.
@@ -383,21 +405,87 @@ export class ButtonTracker {
                 : [];
             const excluded = isExcludedPath(path);
             const control = excluded ? undefined : findControl(path, true);
-            if (control) {
-                click = logsEvents
-                    ? describeButtonClick(control, path)
-                    : undefined;
-                if (click && click.checked !== undefined) {
-                    box = control as HTMLInputElement;
+            const logged =
+                control ||
+                (excluded
+                    ? undefined
+                    : findControl(path, true, PATH_LIMIT) ||
+                      findRoleControl(path, PATH_LIMIT));
+            // A click that link tracking logs as Auto Link Click gives the kit no
+            // intent when the Rokt connection does not receive those events.
+            let withheld = false;
+            if (logged) {
+                // With links alone, only an anchor can be logged.
+                const logsThis =
+                    logsEvents &&
+                    (this.logButtons || logged.matches('a[href]'));
+                const linksWithheld =
+                    signalsKit && this.logLinks && !this.linkClicksReachKit();
+                const described =
+                    logsThis || linksWithheld
+                        ? describeButtonClick(logged, path)
+                        : undefined;
+                const linkClick =
+                    this.logLinks && !!described && isLinkClick(described);
+                withheld = linksWithheld && linkClick;
+                click = logsThis ? described : undefined;
+                if (click) {
+                    asLink = linkClick;
+                    // Without link tracking, a link that leaves the page stays a
+                    // button click, except a plain link to another page of the
+                    // site, which button tracking never logged.
+                    const asButton =
+                        this.logButtons &&
+                        !asLink &&
+                        !(
+                            click.linkType === 'internal' &&
+                            logged.matches('a[href]:not([role="button"])')
+                        );
+                    if (!asLink && !asButton) {
+                        click = undefined;
+                    }
                 }
+                if (click && click.checked !== undefined) {
+                    box = logged as HTMLInputElement;
+                }
+            }
+            if (control && !withheld) {
                 // Checkout intent is only worked out when the kit can use it.
                 const intent = signalsKit
-                    ? classifyIntent(control, pathname)
+                    ? classifyIntent(
+                          control,
+                          pathname,
+                          this.checkoutIntentSelectors()
+                      )
                     : undefined;
                 kind = intent ? intent.kind : undefined;
                 source = intent ? intent.source : undefined;
+                adds = intent ? intent.adds : undefined;
+                choice = signalsKit
+                    ? describePaymentChoice(control, path)
+                    : undefined;
+                // A confirm or checkout-step click picks no radio itself, so it
+                // carries the one the page holds checked as read here. It is not
+                // read again at delivery: the page's own handlers may clear or
+                // replace it by then. A wallet tap names its own method, and
+                // so does a confirm that names a wallet.
+                if (
+                    !choice &&
+                    (kind === 'commit' || kind === 'checkout_step') &&
+                    !namesWallet(control, click)
+                ) {
+                    const checked = describeCheckedPaymentChoice();
+                    checkedNames = checked ? checked.names : undefined;
+                }
             }
-            this.lastClick = { t, excluded, kind, source };
+            // A withheld click cannot start an Apple Pay session for the kit
+            // either.
+            this.lastClick = {
+                t,
+                excluded: excluded || withheld,
+                kind,
+                source,
+            };
         } else if (layer === 'submit') {
             const submitter = (event as Event & { submitter?: Element | null })
                 .submitter;
@@ -408,9 +496,14 @@ export class ButtonTracker {
                 kind = 'commit';
                 source = 'submit';
             } else if (control) {
-                const intent = classifyIntent(control, pathname);
+                const intent = classifyIntent(
+                    control,
+                    pathname,
+                    this.checkoutIntentSelectors()
+                );
                 kind = intent ? intent.kind : undefined;
                 source = intent ? intent.source : undefined;
+                adds = intent ? intent.adds : undefined;
             }
             unconfirmedCommit = !submitter;
         }
@@ -424,7 +517,12 @@ export class ButtonTracker {
                 if (layer === 'blur') {
                     // Read after the blur settles: some browsers have not moved
                     // focus into the frame yet when the window blurs.
-                    kind = classifyIntentFrame(document.activeElement, window);
+                    const frame = classifyPaymentFrame(
+                        document.activeElement,
+                        window
+                    );
+                    kind = frame ? frame.kind : undefined;
+                    family = frame ? frame.family : undefined;
                     source = 'frame';
                 } else if (
                     unconfirmedCommit &&
@@ -444,10 +542,19 @@ export class ButtonTracker {
                                 ? !click.checked
                                 : box.checked;
                     }
-                    this.logClick(click, pathname);
+                    this.logClick(click, pathname, asLink, t);
+                }
+                // Ahead of the intent, so a pre-selection it fires goes out
+                // with this pick.
+                if (choice && isPicked(choice.radio)) {
+                    this.pickPayment(t, pathname, choice.names);
+                } else if (checkedNames) {
+                    this.pickPayment(t, pathname, checkedNames);
+                } else if (family) {
+                    this.pickPayment(t, pathname, undefined, family);
                 }
                 if (kind) {
-                    this.emit(kind, source, layer, t, pathname);
+                    this.emit(kind, source, layer, t, pathname, adds);
                 }
             } catch (e) {
                 this.log('[error] delivery threw: ' + e);
@@ -456,8 +563,13 @@ export class ButtonTracker {
     }
 
     // Every real click is one event, repeats included, up to a ceiling per page.
-    private logClick(click: IButtonClick, pathname: string): void {
-        if (!this.eventsEnabled()) {
+    private logClick(
+        click: IButtonClick,
+        pathname: string,
+        asLink: boolean,
+        t: number
+    ): void {
+        if (!this.eventsEnabled() || this.hasTargetingOptOut()) {
             return;
         }
         if (pathname !== this.pagePath) {
@@ -470,54 +582,20 @@ export class ButtonTracker {
         this.pageEvents++;
         // Restarts an expired session, as public logEvent() and page views do.
         this.mpInstance._SessionManager.resetSessionTimer();
-        const queued = this.queuedForUpload();
-        this.mpInstance._Events.logEvent(
-            buildButtonClickEvent(click, pathname)
+        // No upload of its own, which a click that opens another page would
+        // cancel: with batching on, the next batch or the exit upload sends it.
+        const logEvent = this.mpInstance._Events.logEvent as (
+            event: BaseEvent,
+            eventOptions?: undefined,
+            capturedAt?: number
+        ) => void;
+        logEvent(
+            asLink
+                ? buildLinkClickEvent(click, pathname)
+                : buildButtonClickEvent(click, pathname),
+            undefined,
+            t
         );
-        // Only a click waiting for the batch interval is sent early: a held
-        // one goes out when released, and with batching off it already has.
-        // A checkbox or radio waits for the batch, since choosing an option
-        // doesn't leave the page the way a confirm click can.
-        if (
-            !this.leaving &&
-            click.checked === undefined &&
-            this.queuedForUpload() > queued
-        ) {
-            this.uploadNow();
-        }
-    }
-
-    // Events waiting in the upload queue for the next batch interval.
-    private queuedForUpload(): number {
-        const uploader = this.mpInstance._APIClient.uploader;
-        return uploader ? uploader.eventsQueuedForProcessing.length : 0;
-    }
-
-    // Uploads a click without waiting for the batch interval. A tap inside the
-    // wait after the last one is held, and each restarts the wait, so a burst
-    // after the first click goes out in one request once the taps stop.
-    private uploadNow(): void {
-        if (this.uploadTimerId === null) {
-            this.mpInstance.upload();
-        } else {
-            clearTimeout(this.uploadTimerId);
-            this.uploadHeld = true;
-        }
-        this.uploadTimerId = setTimeout(() => {
-            this.uploadTimerId = null;
-            if (this.uploadHeld) {
-                this.uploadHeld = false;
-                this.mpInstance.upload();
-            }
-        }, UPLOAD_DEBOUNCE_MS);
-    }
-
-    private cancelUpload(): void {
-        if (this.uploadTimerId !== null) {
-            clearTimeout(this.uploadTimerId);
-            this.uploadTimerId = null;
-        }
-        this.uploadHeld = false;
     }
 
     private emit(
@@ -525,7 +603,8 @@ export class ButtonTracker {
         source: CheckoutIntentSource | undefined,
         layer: string,
         t: number,
-        pathname: string
+        pathname: string,
+        adds?: true
     ): void {
         if (this.isKitSuppressed()) {
             return;
@@ -534,15 +613,41 @@ export class ButtonTracker {
             this.lastCommitClick = t;
         }
 
-        const last = this.lastSent[kind];
+        // An add-to-cart click throttles apart from a click that opens the
+        // cart, so opening the cart first never drops the add.
+        const key = adds ? kind + ':adds' : kind;
+        const last = this.lastSent[key];
         if (last && last.pathname === pathname && t - last.t < THROTTLE_MS) {
             return;
         }
-        this.lastSent[kind] = { t, pathname };
+        this.lastSent[key] = { t, pathname };
 
         this.mpInstance._RoktManager.notifyCheckoutIntent(
-            Object.freeze({ kind, t, source, pathname }),
+            Object.freeze(
+                adds
+                    ? { kind, t, source, pathname, adds }
+                    : { kind, t, source, pathname }
+            ),
             pathname
+        );
+    }
+
+    private pickPayment(
+        t: number,
+        pathname: string,
+        names?: string[],
+        family?: PaymentFrameFamily
+    ): void {
+        if (this.isKitSuppressed()) {
+            return;
+        }
+        this.mpInstance._RoktManager.notifyPaymentPick(
+            Object.freeze({
+                t,
+                pathname,
+                names: names ? Object.freeze(names.slice()) : undefined,
+                family,
+            })
         );
     }
 
@@ -550,6 +655,18 @@ export class ButtonTracker {
     private eventsEnabled(): boolean {
         const store = this.mpInstance._Store;
         return !!store && store.isEnabled;
+    }
+
+    // Read per click, since the launcher options can arrive after the tracker
+    // starts. Only where this init configures a Rokt kit, so Global Privacy
+    // Control alone doesn't stop click logging elsewhere.
+    private hasTargetingOptOut(): boolean {
+        const roktManager = this.mpInstance._RoktManager;
+        return (
+            this.hasRoktKit &&
+            !!roktManager &&
+            roktManager.hasTargetingOptOut()
+        );
     }
 
     // The Rokt manager owns the kit's privacy gates: flag, opt-out, launcher
@@ -561,6 +678,18 @@ export class ButtonTracker {
             !roktManager ||
             roktManager.isCheckoutIntentSuppressed()
         );
+    }
+
+    private checkoutIntentSelectors(): ICheckoutIntentSelectors | undefined {
+        const roktManager = this.mpInstance._RoktManager;
+        return roktManager
+            ? roktManager.getCheckoutIntentSelectors()
+            : undefined;
+    }
+
+    private linkClicksReachKit(): boolean {
+        const roktManager = this.mpInstance._RoktManager;
+        return !!roktManager && roktManager.areAutoLinkClicksForwarded();
     }
 
     private log(message: string): void {

@@ -1,9 +1,16 @@
 import {
     classifyIntent,
     classifyIntentControl,
-    classifyIntentFrame,
+    classifyPaymentFrame,
+    namesWallet,
 } from '../../../src/buttonTracking/checkoutIntent';
+import { IButtonClick } from '../../../src/buttonTracking/buttonDescription';
 import { findControl } from '../../../src/buttonTracking/controls';
+
+const frameKind = (frame: Element) => {
+    const found = classifyPaymentFrame(frame, window);
+    return found ? found.kind : undefined;
+};
 
 // Classifies the control a click path lands on, as the tracker does.
 const classify = (path: Array<EventTarget | null>, pathname: string) => {
@@ -26,6 +33,172 @@ describe('checkoutIntent', () => {
         const inner = root.firstElementChild!;
         return [inner, root, host];
     };
+
+    describe('kit-supplied selectors', () => {
+        const selectors = {
+            commit: ['button.btnSubmitOrder', '[data-test-id="place-order"]'],
+            checkout_step: ['#go-to-checkout'],
+        };
+
+        it('counts a control matching a commit selector as a commit, whatever its label', () => {
+            const button = control(
+                '<button class="btn btnSubmitOrder">Weiter</button>'
+            );
+            expect(classifyIntent(button, '/cart', selectors)).toEqual({
+                kind: 'commit',
+                source: 'selector',
+            });
+        });
+
+        it('counts a control matching a checkout-step selector as a checkout step', () => {
+            const button = control(
+                '<button id="go-to-checkout">Sign in to continue</button>'
+            );
+            expect(classifyIntent(button, '/cart', selectors)).toEqual({
+                kind: 'checkout_step',
+                source: 'selector',
+            });
+        });
+
+        it('prefers the commit selector when a control matches both kinds', () => {
+            const button = control(
+                '<button id="go-to-checkout" class="btnSubmitOrder">Go</button>'
+            );
+            expect(classifyIntent(button, '/checkout', selectors)!.kind).toBe(
+                'commit'
+            );
+        });
+
+        it('keeps a confirm label a commit when a checkout-step selector also matches it', () => {
+            // A step selector written for one route can match the confirm
+            // button on another when both share a class.
+            const shared = { checkout_step: ['.btn-primary'] };
+            const placeOrder = control(
+                '<button class="btn-primary">Place order</button>'
+            );
+            expect(classifyIntent(placeOrder, '/checkout/review', shared)).toEqual({
+                kind: 'commit',
+                source: 'label',
+            });
+            const next = control('<button class="btn-primary">Continue</button>');
+            expect(classifyIntent(next, '/checkout/review', shared)).toEqual({
+                kind: 'checkout_step',
+                source: 'selector',
+            });
+        });
+
+        it('keeps an add-to-cart or wallet label when a checkout-step selector also matches it', () => {
+            const shared = { checkout_step: ['.btn-primary'] };
+            const add = control('<button class="btn-primary">Add to bag</button>');
+            expect(classifyIntent(add, '/product/123', shared)).toEqual({
+                kind: 'cart',
+                source: 'label',
+                adds: true,
+            });
+            const payWith = control(
+                '<button class="btn-primary">Pay with PayPal</button>'
+            );
+            expect(classifyIntent(payWith, '/checkout', shared)).toEqual({
+                kind: 'wallet',
+                source: 'label',
+            });
+            const brand = control('<button class="btn-primary">PayPal</button>');
+            expect(classifyIntent(brand, '/checkout', shared)).toEqual({
+                kind: 'wallet',
+                source: 'brand',
+            });
+            // Only a cart click that adds wins; one that opens the cart stays the step.
+            const opener = control(
+                '<button class="btn-primary" aria-haspopup="dialog">Bag</button>'
+            );
+            expect(classifyIntent(opener, '/product/123')).toEqual({
+                kind: 'cart',
+                source: 'label',
+            });
+            expect(classifyIntent(opener, '/product/123', shared)).toEqual({
+                kind: 'checkout_step',
+                source: 'selector',
+            });
+        });
+
+        it('lets a checkout-step selector keep a route-gated label off a checkout route', () => {
+            const shared = { checkout_step: ['.btn-primary'] };
+            const buyNow = control('<button class="btn-primary">Buy now</button>');
+            expect(classifyIntent(buyNow, '/product/123', shared)).toEqual({
+                kind: 'checkout_step',
+                source: 'selector',
+            });
+            expect(classifyIntent(buyNow, '/checkout', shared)).toEqual({
+                kind: 'commit',
+                source: 'label',
+            });
+        });
+
+        it('falls back to the label rules when no selector matches', () => {
+            const button = control('<button class="other">Place order</button>');
+            expect(classifyIntent(button, '/checkout', selectors)).toEqual({
+                kind: 'commit',
+                source: 'label',
+            });
+        });
+
+        it('skips a selector the browser cannot parse and keeps checking the rest', () => {
+            const button = control(
+                '<button data-test-id="place-order">Go</button>'
+            );
+            const withBadSelector = {
+                commit: ['button[[', '[data-test-id="place-order"]'],
+            };
+            expect(classifyIntent(button, '/checkout', withBadSelector)).toEqual({
+                kind: 'commit',
+                source: 'selector',
+            });
+        });
+
+        it('never counts a picker, even when a selector matches it', () => {
+            const radio = control(
+                '<input type="radio" name="pay" class="pay-choice">'
+            );
+            const matchingPicker = {
+                commit: ['.pay-choice'],
+                checkout_step: ['input[name="pay"]'],
+            };
+            expect(radio.matches('.pay-choice')).toBe(true);
+            expect(
+                classifyIntent(radio, '/checkout', matchingPicker)
+            ).toBeUndefined();
+        });
+
+        it('matches only the control itself, not a container around it', () => {
+            const parent = document.createElement('div');
+            parent.className = 'btnSubmitOrder';
+            parent.innerHTML = '<button>Weiter</button>';
+            const button = parent.firstElementChild!;
+            const containerOnly = { commit: ['.btnSubmitOrder'] };
+            expect(classifyIntent(button, '/checkout', containerOnly)).toBeUndefined();
+        });
+
+        it('keeps a vendor wallet button a wallet when a broad selector matches it', () => {
+            const gpay = control('<button id="gpay-button-online-api-id" class="pay-row-btn"></button>');
+            const broad = { commit: ['.pay-row-btn'], checkout_step: ['button'] };
+            expect(classifyIntent(gpay, '/checkout', broad)).toEqual({
+                kind: 'wallet',
+                source: 'vendor',
+            });
+        });
+
+        it('never counts a vendor set-up button, even when a selector matches it', () => {
+            const setUp = control('<apple-pay-button type="set-up" class="pay-row-btn"></apple-pay-button>');
+            expect(
+                classifyIntent(setUp, '/checkout', { commit: ['.pay-row-btn'] })
+            ).toBeUndefined();
+        });
+
+        it('behaves as before with no selectors', () => {
+            const button = control('<button class="btnSubmitOrder">Weiter</button>');
+            expect(classifyIntent(button, '/checkout')).toBeUndefined();
+        });
+    });
 
     describe('English grammar', () => {
         // [visible text, aria-label or null, expected kind]
@@ -97,6 +270,22 @@ describe('checkoutIntent', () => {
             expect(classify([control('<a href="/paypal-info">PayPal</a>')], '/checkout')).toBeUndefined();
             expect(classify([control('<a href="#" role="button">PayPal</a>')], '/checkout')).toBe('wallet');
         });
+        it('reads save and continue as a checkout step only on a checkout route', () => {
+            expect(classify([control('<button type="submit">Save &amp; Continue</button>')], '/checkout/billing')).toBe(
+                'checkout_step'
+            );
+            expect(classify([control('<button>Save and continue</button>')], '/checkout')).toBe('checkout_step');
+            expect(classify([control('<button>Save and continue</button>')], '/express-checkout/shipping')).toBe(
+                'checkout_step'
+            );
+            expect(classify([control('<button>Save and continue</button>')], '/account/profile')).toBeUndefined();
+            expect(classify([control('<button>Save and continue</button>')], '/account/payment')).toBeUndefined();
+            expect(classify([control('<button>Save and continue</button>')], '/my-account/payment/')).toBeUndefined();
+            expect(classify([control('<button>Save and continue</button>')], '/order/123/edit')).toBeUndefined();
+            expect(classify([control('<button>Save and continue</button>')], '/checkout/account')).toBeUndefined();
+            expect(classify([control('<button>Save and continue</button>')], '/checkout/confirmation')).toBeUndefined();
+            expect(classify([control('<a href="/checkout/review">Save and continue</a>')], '/checkout')).toBeUndefined();
+        });
         it('ignores labels longer than eight words, so they neither match nor veto', () => {
             const button = control(
                 '<button aria-label="Apply your gift card balance to this order before you continue">Checkout</button>'
@@ -156,6 +345,24 @@ describe('checkoutIntent', () => {
             ['Add 2 to cart'],
             ["Add Women's Crew Sweater to Bag"],
             ['Add to bag - $49.99'],
+        ])('reads "%s" as a cart click', text => {
+            const button = document.createElement('button');
+            button.textContent = text;
+            expect(classify([button], '/product/1')).toBe('cart');
+        });
+        it('marks a click that adds to the cart, and not one that opens it', () => {
+            const add = document.createElement('button');
+            add.textContent = 'Add to bag';
+            const icon = document.createElement('button');
+            icon.setAttribute('title', 'Add to cart');
+            const flyout = document.createElement('button');
+            flyout.textContent = 'My bag';
+            flyout.setAttribute('aria-expanded', 'false');
+            expect(classifyIntent(add, '/product/1')).toEqual({ kind: 'cart', source: 'label', adds: true });
+            expect(classifyIntent(icon, '/product/1')).toEqual({ kind: 'cart', source: 'label', adds: true });
+            expect(classifyIntent(flyout, '/product/1')).toEqual({ kind: 'cart', source: 'label' });
+        });
+        const openCart = [
             ['View cart'],
             ['View my bag'],
             ['View shopping basket'],
@@ -172,10 +379,21 @@ describe('checkoutIntent', () => {
             ['1 item in bag'],
             ['3 items in your bag'],
             ['Item(s) in cart'],
-        ])('reads "%s" as a cart click', text => {
+        ];
+        it.each(openCart)('reads "%s" as a cart click on a button that opens the cart on the page', text => {
+            const flyout = document.createElement('button');
+            flyout.textContent = text;
+            flyout.setAttribute('aria-expanded', 'false');
+            const dialog = document.createElement('button');
+            dialog.textContent = text;
+            dialog.setAttribute('aria-haspopup', 'dialog');
+            expect(classify([flyout], '/product/1')).toBe('cart');
+            expect(classify([dialog], '/product/1')).toBe('cart');
+        });
+        it.each(openCart)('does not read "%s" as a cart click on a button that leads to the cart page', text => {
             const button = document.createElement('button');
             button.textContent = text;
-            expect(classify([button], '/product/1')).toBe('cart');
+            expect(classify([button], '/product/1')).toBeUndefined();
         });
         it.each([
             ['Bags'],
@@ -198,23 +416,33 @@ describe('checkoutIntent', () => {
         });
         it('reads a bag icon by its aria-label, with the item count stripped', () => {
             const icon = control(
-                '<button title="Shopping bag" aria-label="1 item in bag" data-testid="header-cart"><svg></svg><span>1</span></button>'
+                '<button aria-expanded="false" title="Shopping bag" aria-label="1 item in bag" data-testid="header-cart"><svg></svg><span>1</span></button>'
             );
             expect(classify([icon], '/')).toBe('cart');
         });
+        it('does not count a bag icon that leads to the cart page', () => {
+            const icon = control(
+                '<button title="Shopping bag" aria-label="1 item in bag" data-testid="header-cart"><svg></svg><span>1</span></button>'
+            );
+            expect(classify([icon], '/')).toBeUndefined();
+        });
         it('reads the title of an icon button that has no other label', () => {
-            expect(classify([control('<button title="Shopping bag"><svg></svg></button>')], '/')).toBe('cart');
-            expect(classify([control('<button title="Shopping bag"><span>2</span></button>')], '/')).toBe('cart');
+            expect(classify([control('<button aria-expanded="false" title="Shopping bag"><svg></svg></button>')], '/')).toBe('cart');
+            expect(classify([control('<button aria-haspopup="dialog" title="Shopping bag"><span>2</span></button>')], '/')).toBe('cart');
+            expect(classify([control('<button title="Add to bag"><svg></svg></button>')], '/product/1')).toBe('cart');
         });
         it('reads no title once the button has a label of its own', () => {
             expect(classify([control('<button title="Shopping bag">Menu</button>')], '/')).toBeUndefined();
             expect(classify([control('<button title="Place order"><svg></svg></button>')], '/checkout')).toBeUndefined();
             expect(classify([control('<button title="PayPal"><svg></svg></button>')], '/checkout')).toBeUndefined();
         });
-        it('reads cart on a link', () => {
-            expect(classify([control('<a href="/bag">Bag</a>')], '/')).toBe('cart');
-            expect(classify([control('<a href="/cart" aria-label="Cart, 3 items"><svg></svg></a>')], '/')).toBe('cart');
-            expect(classify([control('<a href="/bag" title="Shopping bag"><svg></svg></a>')], '/')).toBe('cart');
+        it('never counts a link to the cart page, which leaves before a call can return', () => {
+            expect(classify([control('<a href="/bag">Bag</a>')], '/')).toBeUndefined();
+            expect(classify([control('<a href="/cart" aria-label="Cart, 3 items"><svg></svg></a>')], '/')).toBeUndefined();
+            expect(classify([control('<a href="/bag" title="Shopping bag"><svg></svg></a>')], '/')).toBeUndefined();
+        });
+        it('reads add to bag on a link', () => {
+            expect(classify([control('<a href="/bag?add=1">Add to bag</a>')], '/product/1')).toBe('cart');
         });
         it('counts a bag button that opens a flyout', () => {
             expect(classify([control('<button aria-expanded="false" aria-label="1 item in bag"><svg></svg></button>')], '/')).toBe('cart');
@@ -582,6 +810,11 @@ describe('checkoutIntent', () => {
         ['レジに進む', 'checkout_step'],
         ['ご購入手続きへ', 'checkout_step'],
         ['購入手続きに進む', 'checkout_step'],
+        ['購入手続き', 'checkout_step'],
+        ['ご購入手続き', 'checkout_step'],
+        ['注文手続き', 'checkout_step'],
+        ['購入手続きについて', undefined],
+        ['購入手続きを中止する', undefined],
         ['Check-out', 'checkout_step'],
         ['Auschecken', 'checkout_step'],
         ['Subscribe', undefined],
@@ -627,6 +860,12 @@ describe('checkoutIntent', () => {
         const button = document.createElement('button');
         button.textContent = text!;
         expect(classify([button], '/checkout')).toBe(expected);
+    });
+    it('classifies a bare purchase-procedure button on a cart route as a checkout step', () => {
+        const button = document.createElement('button');
+        button.setAttribute('aria-label', '購入手続き');
+        button.textContent = '購入手続き';
+        expect(classify([button], '/cart')).toBe('checkout_step');
     });
     it.each([
         ['Place order \u00B7 $43.95', 'commit'],
@@ -719,6 +958,111 @@ describe('checkoutIntent', () => {
         const button = control('<button>Buy now</button>');
         expect(classify([button], '/product')).toBeUndefined();
         expect(classify([button], '/checkout')).toBe('commit');
+    });
+    it.each(['Register', 'Register now', 'Complete registration', 'Complete your registration'])(
+        'reads %s as the confirm click only on a checkout path',
+        text => {
+            const button = document.createElement('button');
+            button.textContent = text;
+            expect(classify([button], '/checkout')).toBe('commit');
+            expect(classify([button], '/events/123')).toBeUndefined();
+            expect(classify([button], '/account/register')).toBeUndefined();
+        }
+    );
+    it('never reads register on a plain link or in a longer sign-up label', () => {
+        expect(classify([control('<a href="/account/new">Register</a>')], '/checkout')).toBeUndefined();
+        expect(classify([control('<button>Register for an account</button>')], '/checkout')).toBeUndefined();
+    });
+    it.each(['/checkout-v2', '/checkout-flow/step-2', '/express-checkout', '/en/guest-checkouts/abc', '/checkout-external'])(
+        'counts the hyphenated checkout segment %s as a checkout path',
+        pathname => {
+            expect(classify([control('<button>Register</button>')], pathname)).toBe('commit');
+            expect(classify([control('<button>Buy now</button>')], pathname)).toBe('commit');
+        }
+    );
+    it.each([
+        ['/checkouts/token', 'commit'],
+        ['/checkout/confirm', 'commit'],
+        ['/complete-checkout', 'commit'],
+        ['/checkout/complete-registration', 'commit'],
+        ['/checkoutpage', undefined],
+        ['/checkout_v2', undefined],
+    ])('still classes %s as a checkout route or not', (pathname, expected) => {
+        expect(classify([control('<button>Purchase</button>')], pathname)).toBe(expected);
+    });
+    it.each(['/products/self-checkout-kiosk', '/blog/fast-checkout-tips', '/help/checkout-faq', '/blog/10-checkout-best-practices'])(
+        'never counts a content slug with checkout in it, %s, as a checkout path',
+        pathname => {
+            expect(classify([control('<button>Register</button>')], pathname)).toBeUndefined();
+            expect(classify([control('<button>Buy now</button>')], pathname)).toBeUndefined();
+        }
+    );
+    it.each(['/checkout/register', '/checkout/login', '/checkout/sign-in', '/checkout/account'])(
+        "never reads a bare Register on a checkout's account step %s as a commit",
+        pathname => {
+            expect(classify([control('<button>Register</button>')], pathname)).toBeUndefined();
+            expect(classify([control('<button>Complete registration</button>')], pathname)).toBe('commit');
+        }
+    );
+    it('never reads a bare Register in a form that asks for a password as a commit', () => {
+        const form = document.createElement('form');
+        form.innerHTML = '<input type="email"><input type="password"><button>Register now</button>';
+        document.body.appendChild(form);
+        try {
+            expect(classify([form.querySelector('button')], '/checkout')).toBeUndefined();
+        } finally {
+            form.remove();
+        }
+    });
+    it.each([
+        ['a button outside the form that names it', '<form id="acct"><input type="password"></form><button form="acct">Register</button>'],
+        ['a password field outside the form that names it', '<form id="acct"><button>Register</button></form><input type="password" form="acct">'],
+    ])('never reads a bare Register with %s as a commit', (_name, html) => {
+        const root = document.createElement('div');
+        root.innerHTML = html;
+        document.body.appendChild(root);
+        try {
+            expect(classify([root.querySelector('button')], '/checkout')).toBeUndefined();
+        } finally {
+            root.remove();
+        }
+    });
+    it('finds the password field when a field named elements shadows the form property, as browsers do', () => {
+        const form = document.createElement('form');
+        form.innerHTML = '<input name="elements"><input type="password"><button>Register</button>';
+        Object.defineProperty(form, 'elements', { value: form.querySelector('input[name="elements"]') });
+        document.body.appendChild(form);
+        try {
+            expect(classify([form.querySelector('button')], '/checkout')).toBeUndefined();
+        } finally {
+            form.remove();
+        }
+    });
+    it('still reads Register in a checkout form with no password as a commit', () => {
+        const form = document.createElement('form');
+        form.innerHTML = '<input type="email"><button>Register</button>';
+        document.body.appendChild(form);
+        try {
+            expect(classify([form.querySelector('button')], '/checkout-external')).toBe('commit');
+        } finally {
+            form.remove();
+        }
+    });
+    it.each([
+        '/checkout/thankyou/1ABC2DE',
+        '/checkout/thank-you',
+        '/checkouts/abc123/thank_you',
+        '/checkout/order_received/1',
+        '/checkout/payment_success',
+        '/checkout/confirmation/42',
+        '/checkout-complete',
+        '/checkout/success',
+        '/order/received',
+    ])('never reads a route-gated label as a commit on the confirmation page %s', pathname => {
+        expect(classify([control('<button>Register</button>')], pathname)).toBeUndefined();
+        expect(classify([control('<button>Buy now</button>')], pathname)).toBeUndefined();
+        expect(classify([control('<button>Purchase</button>')], pathname)).toBeUndefined();
+        expect(classify([control('<button>Place order</button>')], pathname)).toBe('commit');
     });
     it.each([
         'apple-pay-button',
@@ -931,7 +1275,74 @@ describe('checkoutIntent', () => {
             value: 'visible',
         });
         const frame = control(`<iframe src="${src}"></iframe>`);
-        expect(classifyIntentFrame(frame, window)).toBe(expected);
+        expect(frameKind(frame)).toBe(expected);
+    });
+    // PayPal's JS SDK names each frame __zoid__<component>__<payload>__ and
+    // loads it by navigating the frame, so the frame has no src of its own.
+    const ZOID_PAYLOAD = 'eyJzZW5kZXIiOnsiZG9tYWluIjoiaHR0cHM6Ly9zaG9wLmV4YW1wbGUifX0=';
+    const zoidName = (component: string) => `__zoid__${component}__${ZOID_PAYLOAD}__`;
+    it.each([
+        ['a button frame with no src', zoidName('paypal_buttons'), null, 'wallet'],
+        ['a button frame with an about:blank src', zoidName('paypal_buttons'), 'about:blank', 'wallet'],
+        ['a button frame with its PayPal src', zoidName('paypal_buttons'), 'https://www.paypal.com/smart/buttons?style.label=paypal', 'wallet'],
+        ['a button frame with its sandbox src', zoidName('paypal_buttons'), 'https://www.sandbox.paypal.com/smart/buttons', 'wallet'],
+        ['a menu frame with no src', zoidName('paypal_menu'), null, 'wallet'],
+        ['a pay later message frame', zoidName('paypal_message'), null, 'frame'],
+        ['a pay later message frame with its PayPal src', zoidName('paypal_message'), 'https://www.paypal.com/credit-presentment/smart/message', 'frame'],
+        ['a pay later modal frame', zoidName('paypal_credit_modal'), null, 'frame'],
+        ['a card field frame', zoidName('paypal_card_number_field'), null, 'frame'],
+        ['a card fields frame', zoidName('paypal_card_fields'), 'about:blank', 'frame'],
+        ['a checkout overlay frame', zoidName('paypal_checkout'), null, 'frame'],
+        ['a button-named frame loading a message', zoidName('paypal_buttons'), 'https://www.paypal.com/credit-presentment/smart/message', 'frame'],
+        ['a button-named frame loading another host', zoidName('paypal_buttons'), 'https://example.test/smart/buttons', undefined],
+        ['a button-named frame loading over HTTP', zoidName('paypal_buttons'), 'http://www.paypal.com/smart/buttons', undefined],
+        ['a prerender placeholder frame', '__zoid_prerender_frame__paypal_buttons_uid_0123456789__', null, undefined],
+        ['another zoid component', zoidName('venmo_checkout'), null, undefined],
+        ['a frame named like the component without the zoid prefix', 'paypal_buttons', null, undefined],
+        ['an unnamed frame with no src', '', null, undefined],
+    ])('classifies focus into a PayPal SDK %s', (_, name, src, expected) => {
+        Object.defineProperty(document, 'visibilityState', {
+            configurable: true,
+            value: 'visible',
+        });
+        const frame = document.createElement('iframe');
+        frame.name = name;
+        if (src !== null) {
+            frame.setAttribute('src', src);
+        }
+        expect(frameKind(frame)).toBe(expected);
+    });
+    it('names no payment family for a PayPal SDK frame, which can draw more than one method', () => {
+        Object.defineProperty(document, 'visibilityState', {
+            configurable: true,
+            value: 'visible',
+        });
+        const frame = document.createElement('iframe');
+        frame.name = zoidName('paypal_buttons');
+        expect(classifyPaymentFrame(frame, window)).toEqual({ kind: 'wallet' });
+        frame.name = zoidName('paypal_card_fields');
+        expect(classifyPaymentFrame(frame, window)).toEqual({ kind: 'frame' });
+    });
+    it('ignores a PayPal SDK button frame while the page is hidden or marked no-track', () => {
+        const frame = control(
+            `<div data-mp-no-track><iframe name="${zoidName('paypal_buttons')}"></iframe></div>`
+        ).querySelector('iframe')!;
+        Object.defineProperty(document, 'visibilityState', {
+            configurable: true,
+            value: 'visible',
+        });
+        expect(frameKind(frame)).toBeUndefined();
+        frame.parentElement!.removeAttribute('data-mp-no-track');
+        expect(frameKind(frame)).toBe('wallet');
+        Object.defineProperty(document, 'visibilityState', {
+            configurable: true,
+            value: 'hidden',
+        });
+        expect(frameKind(frame)).toBeUndefined();
+        Object.defineProperty(document, 'visibilityState', {
+            configurable: true,
+            value: 'visible',
+        });
     });
     it.each([
         ['marked itself', '<iframe data-mp-no-track src="https://pay.google.com/frame"></iframe>'],
@@ -943,7 +1354,7 @@ describe('checkoutIntent', () => {
         });
         const element = control(html);
         const frame = element.querySelector('iframe') || element;
-        expect(classifyIntentFrame(frame, window)).toBeUndefined();
+        expect(frameKind(frame)).toBeUndefined();
     });
     it('accepts only visible HTTPS frames on the exact hosts or their own subdomains', () => {
         const frame = control(
@@ -953,16 +1364,122 @@ describe('checkoutIntent', () => {
             configurable: true,
             value: 'visible',
         });
-        expect(classifyIntentFrame(frame, window)).toBe('frame');
+        expect(frameKind(frame)).toBe('frame');
         frame.setAttribute('src', 'https://www.paypal.com/smart/buttons');
-        expect(classifyIntentFrame(frame, window)).toBe('wallet');
+        expect(frameKind(frame)).toBe('wallet');
         frame.setAttribute('src', 'https://www.paypal.com.example.test/smart/buttons');
-        expect(classifyIntentFrame(frame, window)).toBeUndefined();
+        expect(frameKind(frame)).toBeUndefined();
         frame.setAttribute('src', 'http://www.paypal.com/smart/buttons');
-        expect(classifyIntentFrame(frame, window)).toBeUndefined();
+        expect(frameKind(frame)).toBeUndefined();
         frame.setAttribute('src', 'https://evil-adyen.com/checkoutshopper');
-        expect(classifyIntentFrame(frame, window)).toBeUndefined();
+        expect(frameKind(frame)).toBeUndefined();
         frame.setAttribute('src', 'https://adyen.com.example.test/checkoutshopper');
-        expect(classifyIntentFrame(frame, window)).toBeUndefined();
+        expect(frameKind(frame)).toBeUndefined();
+    });
+    it.each([
+        ['https://pay.google.com/gp/p/ui/payframe', 'wallet', 'google_pay'],
+        ['https://applepay.cdn-apple.com/jsapi/frame', 'wallet', 'apple_pay'],
+        ['https://payments.amazon.com/checkout', 'wallet', 'amazon_pay'],
+        ['https://pay.shopify.com/frame', 'wallet', 'shop_pay'],
+        [`https://js.stripe.com/v3/elements-inner-card-${HASH}.html#k=v`, 'frame', 'card'],
+        ['https://www.paypal.com/smart/card-fields', 'frame', 'card'],
+        // Each draws or holds more than one method, so the frame alone names none.
+        ['https://www.paypal.com/smart/buttons?style=x', 'wallet', undefined],
+        ['https://www.paypal.com/smart/menu', 'wallet', undefined],
+        [`https://js.stripe.com/v3/elements-inner-payment-request-${HASH}.html#k=v`, 'wallet', undefined],
+        [`https://js.stripe.com/v3/elements-inner-express-checkout-${HASH}.html#k=v`, 'wallet', undefined],
+        [`https://js.stripe.com/v3/elements-inner-payment-${HASH}.html#k=v`, 'frame', undefined],
+        [`https://js.stripe.com/v3/elements-inner-address-${HASH}.html#k=v`, 'frame', undefined],
+        ['https://www.paypal.com/credit-presentment/smart/message', 'frame', undefined],
+        // Card hosts, some of which also serve gift card or bank account fields.
+        ['https://assets.braintreegateway.com/web/3.97.2/html/hosted-fields-frame.min.html', 'frame', undefined],
+        ['https://checkoutshopper-live.adyen.com/checkoutshopper/securedfields/live_KEY/5.0.0/securedFields.html', 'frame', undefined],
+        ['https://flex.cybersource.com/microform/bundle/v2/iframe.html', 'frame', undefined],
+        ['https://web.squarecdn.com/v1/square.js/card.html', 'frame', undefined],
+        ['https://checkout-web-components.checkout.com/index.html', 'frame', undefined],
+    ])('reads focus into %s as a %s naming %s', (src, kind, family) => {
+        Object.defineProperty(document, 'visibilityState', {
+            configurable: true,
+            value: 'visible',
+        });
+        const frame = control(`<iframe src="${src}"></iframe>`);
+        expect(classifyPaymentFrame(frame, window)).toEqual(
+            family ? { kind, family } : { kind }
+        );
+    });
+    it('names no payment method for a frame it does not classify', () => {
+        Object.defineProperty(document, 'visibilityState', {
+            configurable: true,
+            value: 'visible',
+        });
+        const frame = control(
+            '<iframe data-mp-no-track src="https://pay.google.com/frame"></iframe>'
+        );
+        expect(classifyPaymentFrame(frame, window)).toBeUndefined();
+        frame.removeAttribute('data-mp-no-track');
+        frame.setAttribute('src', 'http://pay.google.com/frame');
+        expect(classifyPaymentFrame(frame, window)).toBeUndefined();
+    });
+});
+
+describe('namesWallet', () => {
+    const control = (text: string) => {
+        const element = document.createElement('button');
+        element.textContent = text;
+        return element;
+    };
+    const loggedClick = (fields: Partial<IButtonClick>): IButtonClick => ({
+        labelSource: 'text',
+        element: 'button',
+        type: 'button',
+        ...fields,
+    });
+
+    // One sample per wallet family the Rokt kit reads from a click.
+    it.each([
+        'Apple Pay',
+        'Google Pay',
+        'GPay',
+        'Android Pay',
+        'Venmo',
+        'PayPal',
+        'Amazon Pay',
+        'Shop Pay',
+        'Klarna',
+        'Afterpay',
+        'Clearpay',
+        'Affirm',
+        'Cash App',
+        'Sezzle',
+        'Samsung Pay',
+    ])('reads %s from a confirm label, logged or not', wallet => {
+        expect(namesWallet(control(`Place order with ${wallet}`))).toBe(true);
+        expect(
+            namesWallet(
+                control('Place order'),
+                loggedClick({ label: `place order with ${wallet.toLowerCase()}` })
+            )
+        ).toBe(true);
+    });
+
+    it.each([
+        ['its label', { label: 'pay with paypal' }],
+        ['its aria-label', { ariaLabel: 'Pay with PayPal' }],
+        ['its id', { elementId: 'paypal2' }],
+        ['its name', { elementName: 'applePayCheckout' }],
+        ['its test id', { testId: 'venmo-place-order' }],
+    ])('reads a wallet from %s on a logged click', (_, fields) => {
+        expect(namesWallet(control('Place order'), loggedClick(fields))).toBe(true);
+    });
+
+    it('judges a logged click on its own fields, not the control it came from', () => {
+        const element = control('Place order with PayPal');
+
+        expect(namesWallet(element, loggedClick({ label: 'place order' }))).toBe(false);
+    });
+
+    it('reads no wallet from a plain confirm label', () => {
+        expect(namesWallet(control('Place order'))).toBe(false);
+        expect(namesWallet(control('Place order'), loggedClick({ label: 'place order', testId: 'place-order' }))).toBe(false);
     });
 });

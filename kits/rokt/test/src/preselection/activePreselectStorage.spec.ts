@@ -7,8 +7,8 @@ import {
   removeLegacyActivePreselects,
   restoreActivePreselect,
   setActivePreselect,
-} from '../../src/activePreselectStorage';
-import { setDevicePersistenceDisabled } from '../../src/storage';
+} from '../../../src/preselection/activePreselectStorage';
+import { setDevicePersistenceDisabled } from '../../../src/storage';
 
 const NAMESPACE_KEY = 'mp-rokt-kit';
 
