@@ -6,9 +6,17 @@ name: 'V3 shadow release: move release pointers'
 #                                       that release order
 #   Step 3 (tag -> main and every       promotes the v3-staging candidate to
 #          release order)               every release order, then ga
+# In Release Please mode (the repository variable V3_RELEASE_PLEASE_ENABLED is
+# 'true', as V3 Step 3 reads it), Step 3 moves only the release orders and
+# main can already be past the tag, so a Step 3 move checks only the three
+# release-order branches.
 # Only a release run that concluded with success is mirrored, and a pointer
 # moves only when the branches it shadows point at the release tag's commit,
-# so a dry run, a failed run or a V2 release changes nothing. The promoter
+# so a dry run, a failed run or a V2 release changes nothing. A Step 3 move
+# also needs the release run attempt's jobs to show that its push step
+# ("Atomically synchronize all destinations") ran and succeeded: real Step 2
+# runs have already put the release orders at the tag, and a Step 3 dry run
+# skips the push step yet concludes success. The promoter
 # waits up to thirty minutes for v3-staging to serve that version (a release
 # step can finish before the shadow upload has staged it), refuses unless it
 # then does, verifies the candidate in full, refuses to move a channel to an
@@ -156,7 +164,7 @@ jobs:
         runs-on: ubuntu-24.04
         timeout-minutes: 5
         permissions:
-            actions: read # Read the release run's workflow.
+            actions: read # Read the release run's workflow and its jobs.
             contents: read
         outputs:
             skip: ${{ steps.plan.outputs.skip }}
@@ -180,7 +188,7 @@ jobs:
                   ref: ${{ github.sha }}
 
             - name: Set up Node.js
-              uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+              uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
               with:
                   node-version: 24.19.0
                   package-manager-cache: false
@@ -207,6 +215,7 @@ jobs:
                   INPUT_ALLOW_DOWNGRADE: ${{ inputs.allow_downgrade }}
                   INPUT_ALLOW_REBUILD: ${{ inputs.allow_rebuild }}
                   INPUT_ALLOW_UPGRADE: ${{ inputs.allow_upgrade }}
+                  RELEASE_PLEASE_ENABLED: ${{ vars.V3_RELEASE_PLEASE_ENABLED }}
               run: |
                   set -euo pipefail
                   if [ "$GITHUB_EVENT_NAME" = 'workflow_dispatch' ]; then
@@ -274,18 +283,35 @@ jobs:
                   STEP3_ID="$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/staging-step-3.yml" --jq .id)"
                   V3_STEP2_ID="$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/v3-release-step-2.yml" --jq .id)"
                   V3_STEP3_ID="$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/v3-release-step-3.yml" --jq .id)"
+                  RELEASE_PLEASE_MODE=false
+                  if [ "${RELEASE_PLEASE_ENABLED:-}" = 'true' ]; then
+                      RELEASE_PLEASE_MODE=true
+                  fi
+                  RUN_ID="$(jq -r .id "$RUN_FILE")"
+                  RUN_ATTEMPT="$(jq -r .run_attempt "$RUN_FILE")"
+                  if [[ ! "$RUN_ID" =~ ^[1-9][0-9]{0,19}$ ]] || [[ ! "$RUN_ATTEMPT" =~ ^[1-9][0-9]{0,3}$ ]]; then
+                      echo 'The release run has an invalid ID or attempt.'
+                      exit 1
+                  fi
+                  # The attempt's jobs show whether a Step 3 run's push step ran:
+                  # a dry run skips it and still concludes success.
+                  JOBS_FILE="$RUNNER_TEMP/release-jobs.json"
+                  gh api --paginate "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/attempts/${RUN_ATTEMPT}/jobs?per_page=100" |
+                      jq -s '[.[].jobs[]]' > "$JOBS_FILE"
                   node --experimental-strip-types scripts/v3-release/shadow-release-trigger.ts release-step \
                       --run "$RUN_FILE" \
                       --repository "$GITHUB_REPOSITORY" \
                       --step2-workflow-id "$STEP2_ID" \
                       --step3-workflow-id "$STEP3_ID" \
                       --v3-step2-workflow-id "$V3_STEP2_ID" \
-                      --v3-step3-workflow-id "$V3_STEP3_ID" > "$RUNNER_TEMP/plan.txt"
+                      --v3-step3-workflow-id "$V3_STEP3_ID" \
+                      --release-please-mode "$RELEASE_PLEASE_MODE" \
+                      --jobs "$JOBS_FILE" > "$RUNNER_TEMP/plan.txt"
                   cat "$RUNNER_TEMP/plan.txt"
                   value() { sed -n "s/^$1=//p" "$RUNNER_TEMP/plan.txt"; }
                   if [ "$(value skip)" != 'false' ]; then
                       echo 'skip=true' >> "$GITHUB_OUTPUT"
-                      echo "::notice::The release run moved no V3 branch to its tag (unsuccessful, dry run, superseded or V2); no pointer changes."
+                      echo "::notice::The release run moved no V3 branch to its tag (unsuccessful, dry run, failed push, superseded or V2); no pointer changes."
                       exit 0
                   fi
                   case "$(value step)" in

@@ -1,4 +1,5 @@
 import { IMParticleWebSDKInstance } from '../mp-instance';
+import { BaseEvent } from '../sdkRuntimeModels';
 import { isFunction } from '../utils';
 import { buildButtonClickEvent, buildLinkClickEvent } from './buttonClickEvent';
 import {
@@ -15,6 +16,7 @@ import {
     CheckoutIntentSource,
     classifyIntent,
     classifyPaymentFrame,
+    ICheckoutIntentSelectors,
     namesWallet,
     PaymentFrameFamily,
 } from './checkoutIntent';
@@ -450,7 +452,11 @@ export class ButtonTracker {
             if (control && !withheld) {
                 // Checkout intent is only worked out when the kit can use it.
                 const intent = signalsKit
-                    ? classifyIntent(control, pathname)
+                    ? classifyIntent(
+                          control,
+                          pathname,
+                          this.checkoutIntentSelectors()
+                      )
                     : undefined;
                 kind = intent ? intent.kind : undefined;
                 source = intent ? intent.source : undefined;
@@ -490,7 +496,11 @@ export class ButtonTracker {
                 kind = 'commit';
                 source = 'submit';
             } else if (control) {
-                const intent = classifyIntent(control, pathname);
+                const intent = classifyIntent(
+                    control,
+                    pathname,
+                    this.checkoutIntentSelectors()
+                );
                 kind = intent ? intent.kind : undefined;
                 source = intent ? intent.source : undefined;
                 adds = intent ? intent.adds : undefined;
@@ -532,7 +542,7 @@ export class ButtonTracker {
                                 ? !click.checked
                                 : box.checked;
                     }
-                    this.logClick(click, pathname, asLink);
+                    this.logClick(click, pathname, asLink, t);
                 }
                 // Ahead of the intent, so a pre-selection it fires goes out
                 // with this pick.
@@ -556,7 +566,8 @@ export class ButtonTracker {
     private logClick(
         click: IButtonClick,
         pathname: string,
-        asLink: boolean
+        asLink: boolean,
+        t: number
     ): void {
         if (!this.eventsEnabled() || this.hasTargetingOptOut()) {
             return;
@@ -573,10 +584,17 @@ export class ButtonTracker {
         this.mpInstance._SessionManager.resetSessionTimer();
         // No upload of its own, which a click that opens another page would
         // cancel: with batching on, the next batch or the exit upload sends it.
-        this.mpInstance._Events.logEvent(
+        const logEvent = this.mpInstance._Events.logEvent as (
+            event: BaseEvent,
+            eventOptions?: undefined,
+            capturedAt?: number
+        ) => void;
+        logEvent(
             asLink
                 ? buildLinkClickEvent(click, pathname)
-                : buildButtonClickEvent(click, pathname)
+                : buildButtonClickEvent(click, pathname),
+            undefined,
+            t
         );
     }
 
@@ -660,6 +678,13 @@ export class ButtonTracker {
             !roktManager ||
             roktManager.isCheckoutIntentSuppressed()
         );
+    }
+
+    private checkoutIntentSelectors(): ICheckoutIntentSelectors | undefined {
+        const roktManager = this.mpInstance._RoktManager;
+        return roktManager
+            ? roktManager.getCheckoutIntentSelectors()
+            : undefined;
     }
 
     private linkClicksReachKit(): boolean {

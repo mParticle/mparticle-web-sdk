@@ -9,11 +9,13 @@ import {
 import * as checkoutIntent from '../../../src/buttonTracking/checkoutIntent';
 import * as buttonDescription from '../../../src/buttonTracking/buttonDescription';
 import * as controls from '../../../src/buttonTracking/controls';
+import Events from '../../../src/events';
 import { IMParticleWebSDKInstance } from '../../../src/mp-instance';
 import RoktManager, { IRoktKit } from '../../../src/roktManager';
 import { IKitConfigs } from '../../../src/configAPIClient';
 import { IMParticleUser } from '../../../src/identity-user-interfaces';
 import { SDKIdentityApi } from '../../../src/identity.interfaces';
+import ServerModel from '../../../src/serverModel';
 import { IStore } from '../../../src/store';
 import { BaseEvent, SDKEvent } from '../../../src/sdkRuntimeModels';
 
@@ -452,6 +454,36 @@ describe('ButtonTracker', () => {
         afterPaint();
 
         expect(notify).toHaveBeenCalledWith(expect.objectContaining({ kind: 'commit', t: 1000000 }));
+    });
+
+    it("applies the kit's checkout intent selectors to clicks and submits", () => {
+        roktManager.attachKit(({
+            filters: {},
+            launcher: {},
+            onCheckoutIntent: notify,
+            checkoutIntentSelectors: { commit: ['.confirm-order'] },
+        } as unknown) as IRoktKit);
+        startTracker();
+        const confirm = button('Weiter');
+        confirm.className = 'confirm-order';
+
+        click(confirm);
+        jest.advanceTimersByTime(5000);
+        listener(docAdd, 'submit')(trustedSubmit(confirm));
+        afterPaint();
+
+        expect(notify.mock.calls.map(call => [call[0].kind, call[0].source])).toEqual([
+            ['commit', 'selector'],
+            ['commit', 'selector'],
+        ]);
+    });
+
+    it('reads no selectors when the kit sets none', () => {
+        startTracker();
+
+        click(button('Weiter'));
+
+        expect(notify).not.toHaveBeenCalled();
     });
 
     it('ignores a submit whose submitter is not a checkout control', () => {
@@ -1068,7 +1100,7 @@ describe('ButtonTracker', () => {
                     hostname: window.location.hostname,
                     [AUTO_BUTTON_ATTRIBUTE]: true,
                 },
-            });
+            }, undefined, 1000000);
         });
 
         it('records a button as it was clicked, even if the page disables or relabels it', () => {
@@ -1079,10 +1111,13 @@ describe('ButtonTracker', () => {
             // The page's own handler runs after this capture listener.
             target.disabled = true;
             target.textContent = 'Processing';
+            jest.setSystemTime(1000025);
             afterPaint();
 
             expect(logEvent).toHaveBeenCalledTimes(1);
             expect(logEvent.mock.calls[0][0].data.label).toBe('place order');
+            expect(logEvent.mock.calls[0][1]).toBeUndefined();
+            expect(logEvent.mock.calls[0][2]).toBe(1000000);
             expect(notify).toHaveBeenCalledWith(expect.objectContaining({ kind: 'commit', t: 1000000 }));
         });
 
@@ -1120,6 +1155,123 @@ describe('ButtonTracker', () => {
             expect(resetSessionTimer.mock.invocationCallOrder[0]).toBeLessThan(
                 logEvent.mock.invocationCallOrder[0]
             );
+        });
+
+        describe('with Events and ServerModel', () => {
+            let sendEventToServer: jest.Mock;
+            let sessionStore: {
+                sessionId: string;
+                sessionStartDate: Date | null;
+                dateLastEventSent?: Date;
+                isEnabled: boolean;
+                SDKConfig: {
+                    isDevelopmentMode: boolean;
+                    flags: Record<string, unknown>;
+                };
+            };
+
+            const startRealEventsTracker = (
+                logs = { logButtons: true, logLinks: true }
+            ): ButtonTracker => {
+                sendEventToServer = jest.fn();
+                sessionStore = {
+                    sessionId: 'test-session-id',
+                    sessionStartDate: new Date(900000),
+                    isEnabled: true,
+                    SDKConfig: {
+                        isDevelopmentMode: false,
+                        flags: { autoButtonTracking: true },
+                    },
+                };
+                const mpInstance = ({
+                    _Store: sessionStore,
+                    _Helpers: {
+                        canLog: () => true,
+                        getFeatureFlag: () => false,
+                        sanitizeAttributes: (
+                            attributes: Record<string, unknown>
+                        ) => ({
+                            ...attributes,
+                        }),
+                        generateUniqueId: () => 'source-message-id',
+                    },
+                    _APIClient: { sendEventToServer },
+                    _RoktManager: roktManager,
+                    _SessionManager: { resetSessionTimer },
+                    _ServerModel: {},
+                    _Events: {},
+                    Identity: { getCurrentUser: () => null },
+                    Logger: { verbose: jest.fn() },
+                    getAppVersion: () => undefined,
+                    getAppName: () => undefined,
+                } as unknown) as IMParticleWebSDKInstance;
+                ServerModel.call(mpInstance._ServerModel, mpInstance);
+                Events.call(mpInstance._Events, mpInstance);
+                const tracker = new ButtonTracker(mpInstance);
+                tracker.init({ hasRoktKit: true, ...logs });
+                return tracker;
+            };
+
+            it('stamps queued Auto Button Click and Auto Link Click events with the click capture time on next-paint delivery', () => {
+                startRealEventsTracker();
+                const btn = button('Place order');
+                const link = document.createElement('a');
+                link.href = '/checkout/paypal';
+                link.setAttribute('role', 'button');
+                link.id = 'pay-paypal';
+                link.textContent = 'Continue';
+                document.body.appendChild(link);
+
+                listener(docAdd, 'click')(trustedClick(btn));
+                jest.setSystemTime(1000025);
+                afterPaint();
+
+                expect(sendEventToServer).toHaveBeenCalledTimes(1);
+                expect(sendEventToServer.mock.calls[0][0]).toEqual(
+                    expect.objectContaining({
+                        EventName: 'Auto Button Click',
+                        Timestamp: 1000000,
+                    })
+                );
+
+                jest.setSystemTime(1000100);
+                listener(docAdd, 'click')(trustedClick(link));
+                jest.setSystemTime(1000125);
+                afterPaint();
+
+                expect(sendEventToServer).toHaveBeenCalledTimes(2);
+                expect(sendEventToServer.mock.calls[1][0]).toEqual(
+                    expect.objectContaining({
+                        EventName: 'Auto Link Click',
+                        Timestamp: 1000100,
+                    })
+                );
+            });
+
+            it('falls back to the delivery time when resetSessionTimer starts a new session before the click is logged', () => {
+                startRealEventsTracker();
+                const clickedAt = Date.now();
+                let deliveredAt = 0;
+                resetSessionTimer.mockImplementation(() => {
+                    deliveredAt = Date.now();
+                    sessionStore.sessionStartDate = new Date(deliveredAt);
+                });
+
+                listener(docAdd, 'click')(trustedClick(button('Place order')));
+                jest.setSystemTime(1000025);
+                afterPaint();
+
+                expect(resetSessionTimer).toHaveBeenCalledTimes(1);
+                expect(deliveredAt).toBeGreaterThan(clickedAt);
+                expect(sendEventToServer).toHaveBeenCalledTimes(1);
+                expect(sendEventToServer.mock.calls[0][0]).toEqual(
+                    expect.objectContaining({
+                        EventName: 'Auto Button Click',
+                        Timestamp: deliveredAt,
+                        SessionStartDate: deliveredAt,
+                    })
+                );
+            });
         });
 
         it('logs every button the same way and sends only checkout intent to the kit', () => {
@@ -1166,7 +1318,9 @@ describe('ButtonTracker', () => {
                 click(document.querySelector('[data-testid="header-cart"]')!);
 
                 expect(logEvent).toHaveBeenCalledWith(
-                    expect.objectContaining({ name: 'Auto Button Click' })
+                    expect.objectContaining({ name: 'Auto Button Click' }),
+                    undefined,
+                    1000000
                 );
                 expect(notify).not.toHaveBeenCalled();
             });
@@ -1195,7 +1349,7 @@ describe('ButtonTracker', () => {
                         hostname: window.location.hostname,
                         [AUTO_BUTTON_ATTRIBUTE]: true,
                     },
-                });
+                }, undefined, 1000000);
                 expect(notify).toHaveBeenCalledTimes(1);
                 expect(notify.mock.calls[0][0]).toEqual({
                     kind: 'cart',
@@ -1397,7 +1551,7 @@ describe('ButtonTracker', () => {
                         hostname: window.location.hostname,
                         [AUTO_LINK_ATTRIBUTE]: true,
                     },
-                });
+                }, undefined, 1000000);
             });
 
             it.each([
@@ -1538,7 +1692,7 @@ describe('ButtonTracker', () => {
                     hostname: window.location.hostname,
                     [AUTO_BUTTON_ATTRIBUTE]: true,
                 },
-            });
+            }, undefined, 1000000);
             expect(notify).not.toHaveBeenCalled();
         });
 
@@ -1713,13 +1867,19 @@ describe('ButtonTracker', () => {
         let originalFetch: typeof global.fetch;
 
         // Stands in for createEventObject with the fields an upload carries.
-        const toSDKEvent = (event: BaseEvent): SDKEvent =>
+        const toSDKEvent = (
+            event: BaseEvent,
+            capturedAt?: number
+        ): SDKEvent =>
             (({
                 EventName: event.name,
                 EventCategory: event.eventType,
                 EventDataType: event.messageType,
                 EventAttributes: event.data,
-                Timestamp: Date.now(),
+                Timestamp:
+                    typeof capturedAt === 'number'
+                        ? capturedAt
+                        : Date.now(),
                 SessionId: 'session-id',
                 MPID: 'test-mpid',
             } as unknown) as SDKEvent);
@@ -1750,8 +1910,9 @@ describe('ButtonTracker', () => {
                 intervalMillis
             );
             apiClient.uploader = uploader;
-            logEvent.mockImplementation((event: BaseEvent) =>
-                uploader.queueEvent(toSDKEvent(event))
+            logEvent.mockImplementation(
+                (event: BaseEvent, _options?: unknown, capturedAt?: number) =>
+                    uploader.queueEvent(toSDKEvent(event, capturedAt))
             );
             upload.mockImplementation(() =>
                 uploader.prepareAndUpload(false, false)

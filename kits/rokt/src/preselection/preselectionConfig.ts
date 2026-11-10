@@ -1,3 +1,5 @@
+import type { PaymentFamily } from '../paymentFamily';
+
 export type PreselectClientType = 'DesktopWeb' | 'MobileWeb';
 
 export const PRESELECT_SKIP_DEFAULT = 'skip';
@@ -8,6 +10,9 @@ export interface PreselectAttributeDefault {
   byClientType?: Partial<Record<PreselectClientType, string>>;
   // Keyed by the exact, lowercase host of the page the call fires from.
   byHostname?: Record<string, string>;
+  // Keyed by the payment family the shopper last picked on the page in this tab (a payment radio, frame or wallet
+  // button), within the arrival window. Beats byHostname, byClientType and value; a device's skip still wins.
+  byPaymentPick?: Partial<Record<PaymentFamily, string>>;
   // Fill even over a value saved from an earlier call, which the kit cannot tell from this page's own.
   skipRemembered?: boolean;
   // No speculative call while the shopper's own value for the key is one of these, in any casing. A fill never counts.
@@ -15,6 +20,11 @@ export interface PreselectAttributeDefault {
   // Values the target page may send that count as the one this default filled: the cached offers stay when the page
   // sends any value in the filled value's group, compared exactly. A fill in no group must arrive as it went out.
   matchGroups?: string[][];
+}
+
+export interface PreselectIntentSelectors {
+  commit?: string[];
+  checkoutStep?: string[];
 }
 
 // Fallback for an account whose connection has no valid preselectionConfig kit setting.
@@ -52,6 +62,10 @@ export interface PreselectionConfigEntry {
   // step, such as "Checkout" or "Proceed to checkout", fires the entry as the confirm click would. For an entry whose
   // confirm click happens on a page the kit doesn't run on. Off the route, such a click still only gets observed.
   checkoutStepIntent?: boolean;
+  // CSS selectors naming the page's own confirm and checkout-step buttons. While checkout intent is active, a click on
+  // a control matching one counts as that kind before the core SDK's label rules, on any route; a checkout-step match
+  // still fires only an entry with checkoutStepIntent. Each selector must match the button itself, not a container.
+  intentSelectors?: PreselectIntentSelectors;
   // Values the speculative call sends only for a key it has no value for, from the trigger event, the
   // shopper's saved attributes or an identity, in any casing; the shopper's own value wins unless the default
   // skips remembered values. A defaulted key counts as resolved, is never written to the saved attributes, and is
@@ -65,7 +79,7 @@ export interface PreselectionConfigEntry {
   // one cartIntent entry. A commit or wallet tap never fires it, on its route or off it.
   cartIntent?: boolean;
   // Opt-in for the account's one cartIntent entry: the user attribute, in any casing, that holds the shopper's cart.
-  // A page view off the entry's route fires it at once while that attribute holds items. A gate only, never a key.
+  // A page view off every entry's route fires it at once while that attribute holds items. A gate only, never a key.
   cartUserAttribute?: string;
 }
 

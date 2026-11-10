@@ -623,4 +623,43 @@ describe('Leanplum Forwarder', function() {
 
         done();
     });
+
+    it('should load a pinned Leanplum SDK release with Subresource Integrity', function(done) {
+        var head = document.getElementsByTagName('head')[0];
+        var appended = [];
+        // Keep the script element out of the page so the test fetches nothing.
+        head.appendChild = function(node) {
+            appended.push(node);
+            return node;
+        };
+        delete window.Leanplum;
+
+        try {
+            mParticle.forwarder.init(
+                {
+                    clientKey: '123456',
+                    appId: 'abcde',
+                    userIdField: 'customerId',
+                },
+                reportService.cb,
+                false,
+                null,
+                {},
+                []
+            );
+        } finally {
+            delete head.appendChild;
+        }
+
+        appended.length.should.equal(1);
+        appended[0].src.should.equal(
+            'https://cdn.jsdelivr.net/npm/leanplum-sdk@1.14.0/dist/leanplum.min.js'
+        );
+        appended[0].integrity.should.equal(
+            'sha256-EDuMO5jxy4J8BR29F8ebVin0CFFS2xby9uzQVUAZfxg='
+        );
+        appended[0].crossOrigin.should.equal('anonymous');
+
+        done();
+    });
 });

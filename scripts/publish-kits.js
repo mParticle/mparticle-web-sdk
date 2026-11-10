@@ -46,10 +46,7 @@ const publishPreflightPhaseMs = 15 * 60 * 1000;
 const distTagScanPhaseMs = 15 * 60 * 1000;
 const publishMinStartMs = 60 * 1000;
 const publishReconcileBackoffMs = [5000, 10000, 20000, 30000];
-const npmExecutable = path.join(
-    path.dirname(process.execPath),
-    process.platform === 'win32' ? 'npm.cmd' : 'npm'
-);
+const npmExecutable = path.join(path.dirname(process.execPath), 'npm');
 
 function runNpm(args, options = {}) {
     const executeOptions = {
@@ -117,11 +114,20 @@ function npmViewOnce(spec, field, timeoutMs) {
         if (errorOutput.includes('E404')) {
             return null;
         }
-        const error = new Error(
-            result.error && result.error.code === 'ETIMEDOUT'
-                ? `npm view timed out after ${timeoutMs}ms for ${spec} ${field}`
-                : `npm view failed for ${spec} ${field}:\n${errorOutput.trim()}`
-        );
+        let message;
+        if (result.error && result.error.code === 'ETIMEDOUT') {
+            message = `npm view timed out after ${timeoutMs}ms for ${spec} ${field}`;
+        } else if (result.error) {
+            const detail = [result.error.code, result.error.message]
+                .filter(Boolean)
+                .join(': ');
+            message = `npm view failed for ${spec} ${field} (${npmExecutable}: ${detail})${
+                errorOutput.trim() ? `:\n${errorOutput.trim()}` : ''
+            }`;
+        } else {
+            message = `npm view failed for ${spec} ${field}:\n${errorOutput.trim()}`;
+        }
+        const error = new Error(message);
         error.code = 'NPM_VIEW_FAILED';
         throw error;
     }
@@ -213,7 +219,12 @@ function preflightReleaseDistTags(version, distTag, track) {
     // The completeness check and the scan below share one deadline.
     const viewTag = deadlineView(Date.now() + distTagScanPhaseMs);
     if (track === 'v3') {
-        verifyCurrentReleaseComplete(coreManifest.name, distTag, viewTag);
+        verifyCurrentReleaseComplete(
+            coreManifest.name,
+            distTag,
+            viewTag,
+            version
+        );
         packageNames.push(
             ...loadReleaseInventory().publishEntries.map(entry => entry.name)
         );
@@ -230,10 +241,16 @@ function preflightReleaseDistTags(version, distTag, track) {
     }
 }
 
+// Core already on the target version means an earlier run published core at
+// that version and stopped before every kit had it, so this run recovers it:
+// the kits not yet on it must all be on one earlier version. Otherwise a kit
+// that does not match core stops the release, so no newer release starts
+// while the current one is incomplete.
 function verifyCurrentReleaseComplete(
     corePackageName,
     distTag,
-    viewPackage = npmView
+    viewPackage = npmView,
+    targetVersion = null
 ) {
     const currentCoreVersion = viewPackage(
         corePackageName,
@@ -247,6 +264,7 @@ function verifyCurrentReleaseComplete(
     validateStableDistTagVersion(corePackageName, currentCoreVersion, distTag);
 
     const incompletePackages = [];
+    const incompleteVersions = [];
     let kitsWithCurrentVersion = 0;
     for (const entry of loadReleaseInventory().publishEntries) {
         const currentKitVersion = viewPackage(
@@ -260,6 +278,7 @@ function verifyCurrentReleaseComplete(
             incompletePackages.push(
                 `${entry.name}=${currentKitVersion || 'missing'}`
             );
+            incompleteVersions.push(currentKitVersion);
         }
     }
     if (
@@ -268,6 +287,23 @@ function verifyCurrentReleaseComplete(
     ) {
         console.log(
             `No kits currently use npm dist-tag ${distTag}; allowing the first synchronized V3 kit release`
+        );
+        return currentCoreVersion;
+    }
+    if (incompletePackages.length > 0 && currentCoreVersion === targetVersion) {
+        const [earlierVersion] = incompleteVersions;
+        if (
+            !isOlderStableVersion(earlierVersion, targetVersion) ||
+            incompleteVersions.some(kitVersion => kitVersion !== earlierVersion)
+        ) {
+            throw new Error(
+                `Cannot recover V3 release ${targetVersion} on npm: core is on it, but the kits not on it are not all on one earlier version: ${incompletePackages.join(
+                    ', '
+                )}`
+            );
+        }
+        console.log(
+            `Core is already on ${targetVersion}, so this run recovers it; the kits still on ${earlierVersion} publish next`
         );
         return currentCoreVersion;
     }
@@ -1294,12 +1330,17 @@ function appendRecoverySummary(version, remainingPackageNames = []) {
         '',
         `1. Use the failed Step 1 release tag \`${releaseTag}\`.`,
         '2. Correct the reported npm or trusted-publisher failure.',
-        '3. Dispatch **V3 Release - Step 1** from `v3-staging` with:',
-        '   - `dryRun=false`',
-        `   - \`resumeKitReleaseTag=${releaseTag}\``,
-        '   If `main` has no `v3-release-step-1.yml` yet (the first V3 release after the V2/V3 split), dispatch **Staging Release - Step 1** from `v3-staging` instead, with `track=v3` and the same two inputs.',
-        '4. Wait for the recovery run to verify core and all 33 kits on `next`.',
-        '5. Only after recovery is green, continue with Step 2 or Step 3.',
+        '3. Recover the failed Step 1 run for its release mode:',
+        `   - **Tag mode (Release Please, dispatched from \`${releaseTag}\`)**: use **Re-run failed jobs** on the original **V3 Release - Step 1** run (which keeps the successful package job and its \`\${GITHUB_RUN_ID}-\${GITHUB_RUN_ATTEMPT}\` build ID; never start a fresh Step 1 run or use **Re-run all jobs**).`,
+        '   - **Branch mode (dispatched from `v3-staging` before Release Please)**: dispatch **V3 Release - Step 1** from `v3-staging` with:',
+        '     - `dryRun=false`',
+        `     - \`resumeKitReleaseTag=${releaseTag}\``,
+        '     If `main` has no `v3-release-step-1.yml` yet (the first V3 release after the V2/V3 split), dispatch **Staging Release - Step 1** from `v3-staging` instead, with `track=v3` and the same two inputs.',
+        '4. Wait for the recovery run to publish any missing kits and verify core and all 33 kits on `next` (`publish-kits.js` runs its integrated strict npm audit at the end of **Publish V3 kits**).',
+        '5. Complete candidate upload and staging for the mode used:',
+        `   - **Tag mode**: **Re-run failed jobs** on the original Step 1 run re-runs \`advance-staging\` and \`upload-v3-candidate\` using the original run's packaged candidate (or, if \`v3-staging\` already moved and only candidate upload or stage failed, dispatch **V3 shadow release: upload candidate** (\`v3-shadow-candidate.yml\`) on \`main\` with \`step1_run_id\` set to the original Step 1 run's ID, \`release_gate=true\`, and \`release_tag=${releaseTag}\` within the candidate's 7-day retention window).`,
+        "   - **Branch mode**: because `resumeKitReleaseTag` skips packaging and upload, dispatch **V3 shadow release: upload candidate** (`v3-shadow-candidate.yml`) on `main` with `step1_run_id` set to the original failed Step 1 run's ID and `release_gate=true` within the candidate's 7 days.",
+        '6. Only after the recovery run and candidate upload are green, continue with Step 2 or Step 3.',
         '',
         remainingPackageNames.length > 0
             ? `Kits not yet recorded successful: ${remainingPackageNames
@@ -1313,7 +1354,9 @@ function appendRecoverySummary(version, remainingPackageNames = []) {
     fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${lines.join('\n')}\n`);
 }
 
-function appendAuditSummary(version, distTag, audit) {
+function appendAuditSummary(version, distTag, audit, options = {}) {
+    const strict =
+        options === true || Boolean(options && options.strict === true);
     appendSummary(
         version,
         distTag,
@@ -1321,7 +1364,9 @@ function appendAuditSummary(version, distTag, audit) {
             ...audit.verified.map(name => ({ name, result: 'verified' })),
             ...audit.lagging.map(({ name, message }) => ({
                 name,
-                result: `not confirmed yet (warning): ${message}`,
+                result: strict
+                    ? `not confirmed yet (failed in strict mode): ${message}`
+                    : `not confirmed yet (warning): ${message}`,
             })),
             ...audit.mismatched.map(({ name, message }) => ({
                 name,
@@ -1337,10 +1382,12 @@ function appendAuditSummary(version, distTag, audit) {
     const lines = [
         '### Packages npm has not confirmed yet',
         '',
-        `npm accepted these packages, but within five minutes it did not confirm \`${version}\` on \`${distTag}\`: it did not show them yet, or \`npm view\` failed or timed out. That is usually propagation lag, but a failed \`npm view\` can also mean npm itself is having problems. Neither fails the release.`,
+        strict
+            ? `npm accepted these packages, or they are still missing, and within five minutes it did not confirm \`${version}\` on \`${distTag}\`: it did not show them yet, or \`npm view\` failed or timed out. That can be propagation lag, a missing package, or an \`npm view\` failure. Under \`--audit --strict\`, any unconfirmed package fails the audit and fails the release recovery run.`
+            : `npm accepted these packages, but within five minutes it did not confirm \`${version}\` on \`${distTag}\`: it did not show them yet, or \`npm view\` failed or timed out. That is usually propagation lag, but a failed \`npm view\` can also mean npm itself is having problems. Neither fails the release.`,
         '',
         `1. Later, confirm each one: \`npm view <package>@${version} dist.integrity --prefer-online\` and \`npm view <package> dist-tags.${distTag} --prefer-online\`.`,
-        `2. If a package is still missing, run kit recovery from \`v3-staging\` with \`resumeKitReleaseTag=v${version}\`; it skips identical packages and publishes only missing ones.`,
+        `2. If a package is still missing, recover the release (in tag mode, use **Re-run failed jobs** on the original Step 1 run; in branch mode, run kit recovery from \`v3-staging\` with \`resumeKitReleaseTag=v${version}\`); it skips identical packages and publishes only missing ones.`,
         '',
         `The next Step 1 refuses to start a newer release until every kit's \`${distTag}\` matches core.`,
         '',
@@ -1403,22 +1450,129 @@ function packReleaseArtifacts(inventory, version, destination) {
     ];
 }
 
-async function main() {
+// Publishes core from a checkout of its release tag, for a Step 1 run
+// dispatched from that tag (Release Please mode). A version npm already holds
+// with the same integrity is left as it is, so a second run from the same tag
+// finishes a stopped release; a different integrity fails. When npm reports an
+// error after the upload, npm is read until core shows the local integrity.
+async function publishCore(version, distTag, options = {}) {
+    const pack = options.packPackage || packPackage;
+    const publish = options.publishTarball || publishTarball;
+    const waitForCore = options.waitForPublishedCore || waitForPublishedCore;
+    const validateContents =
+        options.validatePackageContents || validatePackageContents;
+    const coreManifest =
+        options.coreManifest ||
+        JSON.parse(
+            fs.readFileSync(path.join(repositoryRoot, 'package.json'), 'utf8')
+        );
+    if (coreManifest.version !== version) {
+        throw new Error(
+            `Core SDK is ${coreManifest.version}, expected ${version}`
+        );
+    }
+    validateContents('.', coreManifest);
+
+    const destination = fs.mkdtempSync(
+        path.join(os.tmpdir(), 'mparticle-core-release-')
+    );
+    try {
+        const packageInfo = {
+            name: coreManifest.name,
+            ...pack('.', destination),
+        };
+        try {
+            const result = await publish(packageInfo, version, distTag);
+            if (result === 'skipped') {
+                return {
+                    name: packageInfo.name,
+                    result: 'already on npm with the same integrity',
+                };
+            }
+            return { name: packageInfo.name, result };
+        } catch (error) {
+            if (error.code !== 'PUBLISH_AMBIGUOUS') {
+                throw error;
+            }
+            console.log(
+                `${error.message}; reading npm for ${packageInfo.name}@${version}`
+            );
+            waitForCore(packageInfo, version, distTag);
+            return {
+                name: packageInfo.name,
+                result: 'published after npm reported an error',
+            };
+        }
+    } finally {
+        fs.rmSync(destination, { force: true, recursive: true });
+    }
+}
+
+async function publishCoreMain() {
     const { version, distTag } = readReleaseEnvironment();
-    const inventory = loadReleaseInventory();
+    const result = await publishCore(version, distTag);
+    appendSummary(version, distTag, [result], 'npm core publish');
+    console.log(`${result.name}@${version}: ${result.result}`);
+}
+
+function runPackageAudit(packageArtifacts, version, distTag, options = {}) {
+    const strict = options.strict === true;
+    const auditPackages = options.auditRemotePackages || auditRemotePackages;
+    const audit = auditPackages(
+        packageArtifacts,
+        version,
+        distTag,
+        options.auditOptions
+    );
+    if (
+        typeof options.beforeAuditSummary === 'function' &&
+        audit.mismatched.length === 0 &&
+        (!strict || audit.lagging.length === 0)
+    ) {
+        options.beforeAuditSummary();
+    }
+    appendAuditSummary(version, distTag, audit, { strict });
+    for (const { name, message } of audit.lagging) {
+        console.log(`::warning::npm has not confirmed ${name} yet: ${message}`);
+    }
+    const failures = strict
+        ? [...audit.mismatched, ...audit.lagging]
+        : audit.mismatched;
+    if (failures.length > 0) {
+        const kind = strict ? 'unverified' : 'mismatched';
+        const list = failures.map(f => `${f.name}: ${f.message}`).join('; ');
+        const error = new Error(
+            `npm audit found ${failures.length} ${kind} package(s): ${list}`
+        );
+        error.failedPackageNames = new Set(failures.map(({ name }) => name));
+        throw error;
+    }
+    console.log(
+        `Verified ${audit.verified.length} of ${packageArtifacts.length} packages at ${version} with dist-tag ${distTag}`
+    );
+    return audit;
+}
+
+async function main(options = {}) {
+    const { version, distTag } = readReleaseEnvironment();
+    const inventory = options.inventory || loadReleaseInventory();
+    const packArtifacts = options.packReleaseArtifacts || packReleaseArtifacts;
+    const waitForCore = options.waitForPublishedCore || waitForPublishedCore;
+    const publishKits = options.publishKitArtifacts || publishKitArtifacts;
     const tempDirectory = fs.mkdtempSync(
         path.join(os.tmpdir(), 'mparticle-kit-release-')
     );
     const results = [];
 
     try {
-        const packageArtifacts = packReleaseArtifacts(
+        const packageArtifacts = packArtifacts(
             inventory,
             version,
             tempDirectory
         );
 
-        const viewTag = deadlineView(Date.now() + distTagScanPhaseMs);
+        const viewTag =
+            options.viewTag || deadlineView(Date.now() + distTagScanPhaseMs);
         for (const packageInfo of packageArtifacts) {
             const currentVersion = viewTag(
                 packageInfo.name,
@@ -1432,19 +1586,25 @@ async function main() {
             );
         }
 
-        waitForPublishedCore(packageArtifacts[0], version, distTag, {
+        waitForCore(packageArtifacts[0], version, distTag, {
             isRecovery: process.env.KIT_RELEASE_RECOVERY === 'true',
+            ...options.coreOptions,
         });
         results.push({ name: packageArtifacts[0].name, result: 'verified' });
 
-        await publishKitArtifacts(packageArtifacts.slice(1), version, distTag, {
+        await publishKits(packageArtifacts.slice(1), version, distTag, {
             results,
+            ...options.publishOptions,
         });
-
-        appendSummary(version, distTag, results);
         console.log(
             `Published every kit at ${version} with dist-tag ${distTag}`
         );
+
+        runPackageAudit(packageArtifacts, version, distTag, {
+            ...options,
+            strict: true,
+            beforeAuditSummary: () => appendSummary(version, distTag, results),
+        });
     } catch (error) {
         results.push({
             name: 'Release stopped',
@@ -1457,12 +1617,18 @@ async function main() {
             const completedPackageNames = new Set(
                 results.map(result => result.name)
             );
+            const failedPackageNames =
+                error && error.failedPackageNames instanceof Set
+                    ? error.failedPackageNames
+                    : new Set();
             appendRecoverySummary(
                 version,
                 inventory.publishEntries
                     .map(entry => entry.name)
                     .filter(
-                        packageName => !completedPackageNames.has(packageName)
+                        packageName =>
+                            !completedPackageNames.has(packageName) ||
+                            failedPackageNames.has(packageName)
                     )
             );
         }
@@ -1472,40 +1638,29 @@ async function main() {
     }
 }
 
-// Only a mismatch fails: a package npm has not confirmed yet is reported as a
-// warning, because the publish itself already succeeded.
-function auditMain() {
+// By default only a mismatch fails: a package npm has not confirmed yet is
+// reported as a warning, because the publish itself already succeeded. With
+// strict: true (used at the end of main() and under --audit --strict), any
+// unconfirmed or missing package also fails.
+function auditMain(options = {}) {
+    const strict = options.strict === true;
     const { version, distTag } = readReleaseEnvironment();
-    const inventory = loadReleaseInventory();
+    const inventory = options.inventory || loadReleaseInventory();
+    const packArtifacts = options.packReleaseArtifacts || packReleaseArtifacts;
     const tempDirectory = fs.mkdtempSync(
         path.join(os.tmpdir(), 'mparticle-kit-audit-')
     );
 
     try {
-        const packageArtifacts = packReleaseArtifacts(
+        const packageArtifacts = packArtifacts(
             inventory,
             version,
             tempDirectory
         );
-        const audit = auditRemotePackages(packageArtifacts, version, distTag);
-        appendAuditSummary(version, distTag, audit);
-        for (const { name, message } of audit.lagging) {
-            console.log(
-                `::warning::npm has not confirmed ${name} yet: ${message}`
-            );
-        }
-        if (audit.mismatched.length > 0) {
-            throw new Error(
-                `npm audit found ${
-                    audit.mismatched.length
-                } mismatched package(s): ${audit.mismatched
-                    .map(({ name, message }) => `${name}: ${message}`)
-                    .join('; ')}`
-            );
-        }
-        console.log(
-            `Verified ${audit.verified.length} of ${packageArtifacts.length} packages at ${version} with dist-tag ${distTag}`
-        );
+        return runPackageAudit(packageArtifacts, version, distTag, {
+            ...options,
+            strict,
+        });
     } finally {
         fs.rmSync(tempDirectory, { force: true, recursive: true });
     }
@@ -1537,8 +1692,23 @@ if (require.main === module) {
             return;
         }
         if (process.argv[2] === '--audit') {
-            auditMain();
+            if (
+                process.argv.length > 3 &&
+                (process.argv.length > 4 || process.argv[3] !== '--strict')
+            ) {
+                throw new Error(`Unknown option: ${process.argv[3]}`);
+            }
+            auditMain({ strict: process.argv[3] === '--strict' });
             return;
+        }
+        if (process.argv[2] === '--publish-core') {
+            await publishCoreMain();
+            return;
+        }
+        // An option this script does not know, such as a typo, stops here
+        // rather than falling through to the publish.
+        if (process.argv.length > 2) {
+            throw new Error(`Unknown option: ${process.argv[2]}`);
         }
         await main();
     };
@@ -1554,9 +1724,11 @@ module.exports = {
     appendCoreRecoverySummary,
     appendRecoverySummary,
     assertDistTagWillNotMoveBackward,
+    auditMain,
     auditRemotePackages,
     compareStableVersions,
     kitPublishConcurrency,
+    main,
     npmView,
     observeRegistry,
     packKitArtifacts,
@@ -1564,6 +1736,7 @@ module.exports = {
     preflightKitArtifacts,
     preflightReleaseDistTags,
     preflightTarball,
+    publishCore,
     publishKitArtifacts,
     publishTarball,
     reconcileAmbiguousPublishes,

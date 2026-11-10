@@ -88,6 +88,59 @@ function releaseRun(step: 2 | 3, title: string, overrides = {}) {
     };
 }
 
+// A V3 Step 3 run, from v3-release-step-3.yml.
+function v3Step3Run(title = 'V3 Release - Step 3 [v3.12.0]', overrides = {}) {
+    return {
+        ...releaseRun(3, title),
+        path: '.github/workflows/v3-release-step-3.yml',
+        workflow_id: 313,
+        ...overrides,
+    };
+}
+
+// The jobs API response for a Step 3 releaseRun(): its one job, whose push
+// step concluded pushConclusion (null leaves the push step out). A dry run
+// skips the push step and the job still succeeds; a failed push fails it and
+// skips the step after it.
+function step3Jobs(
+    pushConclusion: string | null,
+    overrides: Record<string, unknown> = {}
+) {
+    const failed = pushConclusion === 'failure';
+    return [
+        {
+            run_id: 36621677032,
+            run_attempt: 1,
+            name: 'Synchronize exact candidate v3.12.0',
+            status: 'completed',
+            conclusion: failed ? 'failure' : 'success',
+            steps: [
+                { name: 'Set up job', status: 'completed', conclusion: 'success' },
+                {
+                    name: 'Resolve and preflight release candidate',
+                    status: 'completed',
+                    conclusion: 'success',
+                },
+                ...(pushConclusion === null
+                    ? []
+                    : [
+                          {
+                              name: 'Atomically synchronize all destinations',
+                              status: 'completed',
+                              conclusion: pushConclusion,
+                          },
+                      ]),
+                {
+                    name: 'Report synchronized release',
+                    status: 'completed',
+                    conclusion: failed ? 'skipped' : 'success',
+                },
+            ],
+            ...overrides,
+        },
+    ];
+}
+
 // A fake `git ls-remote origin ...` that knows the given refs.
 function fakeGit(refs: Record<string, string>) {
     const calls: string[][] = [];
@@ -156,7 +209,8 @@ describe('V3 shadow release trigger', () => {
 
         it.each([
             ['kit publishing failed', {}],
-            ['only the npm audit failed', { 'Publish V3 kits': 'success', 'Audit V3 kits on npm': 'failure' }],
+            ['kit publishing failed in a Step 1 file with no audit job', { 'Audit V3 kits on npm': null }],
+            ['only the npm audit of an older Step 1 file failed', { 'Publish V3 kits': 'success', 'Audit V3 kits on npm': 'failure' }],
         ])('mirrors a failed run automatically when %s after the release', (_label, conclusions) => {
             expect(
                 trigger.planStep1(
@@ -379,10 +433,533 @@ describe('V3 shadow release trigger', () => {
                 expect(names.filter(candidate => candidate === name)).toHaveLength(1);
             }
             expect(workflow.jobs['package-v3-candidate'].needs).toBe('release');
-            expect(trigger.STEP1_KIT_JOBS).toEqual([workflow.jobs['publish-kits'].name, workflow.jobs['audit-kits'].name]);
+            expect(workflow.jobs['upload-v3-candidate'].needs).toEqual([
+                'confirm-staging-branch',
+                'release',
+                'package-v3-candidate',
+                'publish-kits',
+                'advance-staging',
+            ]);
+            expect(trigger.STEP1_KIT_JOBS).toEqual([workflow.jobs['publish-kits'].name]);
+            expect(trigger.STEP1_LEGACY_KIT_JOBS).toContain('Audit V3 kits on npm');
             for (const name of trigger.STEP1_LEGACY_KIT_JOBS) {
                 expect(names).not.toContain(name);
             }
+        });
+
+        describe('release-gate mode', () => {
+            const packagedAt = {
+                started_at: '2026-01-02T10:00:00Z',
+                completed_at: '2026-01-02T10:01:00Z',
+            };
+            const v3InProgressRun = (overrides: Record<string, unknown> = {}) =>
+                step1Run({
+                    path: V3_STEP1_PATH,
+                    workflow_id: 111,
+                    display_title: 'V3 Release - Step 1',
+                    status: 'in_progress',
+                    conclusion: null,
+                    ...overrides,
+                });
+            const gateJobs = (
+                overrides: Record<string, Partial<Record<string, unknown>> | null> = {}
+            ) =>
+                step1Jobs({ 'Publish V3 kits': 'success' })
+                    .map(job =>
+                        job.name === 'Package V3 candidate (shadow)'
+                            ? { ...job, ...packagedAt }
+                            : job
+                    )
+                    .filter(job => overrides[job.name] !== null)
+                    .map(job =>
+                        overrides[job.name]
+                            ? { ...job, ...overrides[job.name] }
+                            : job
+                    );
+            const gateArtifact = (
+                attempt = 2,
+                createdAt = '2026-01-02T10:00:30Z',
+                overrides: Record<string, unknown> = {}
+            ) => ({
+                ...step1Artifacts([`v3-candidate-36618522123-${attempt}`])[0],
+                created_at: createdAt,
+                ...overrides,
+            });
+
+            it('accepts an in_progress V3 Step 1 run once release, package and its unexpired artifact exist', () => {
+                expect(
+                    trigger.planStep1(
+                        v3InProgressRun(),
+                        REPOSITORY,
+                        STEP1_IDS,
+                        'workflow_dispatch',
+                        gateJobs(),
+                        [gateArtifact(1)],
+                        true
+                    )
+                ).toEqual({
+                    skip: false,
+                    reason: '',
+                    runId: '36618522123',
+                    runAttempt: '2',
+                    buildId: '36618522123-1',
+                    artifactName: 'v3-candidate-36618522123-1',
+                });
+            });
+
+            it('accepts a completed non-cancelled V3 Step 1 run on a re-run in release-gate mode', () => {
+                expect(
+                    trigger.planStep1(
+                        v3InProgressRun({ status: 'completed', conclusion: 'failure' }),
+                        REPOSITORY,
+                        STEP1_IDS,
+                        'workflow_dispatch',
+                        gateJobs(),
+                        [gateArtifact(2)],
+                        true
+                    )
+                ).toMatchObject({
+                    skip: false,
+                    buildId: '36618522123-2',
+                    artifactName: 'v3-candidate-36618522123-2',
+                });
+            });
+
+            it('accepts a V3 Step 1 run dispatched from a strict v3.X.Y tag in release-gate mode and on recovery while V3_RELEASE_PLEASE_ENABLED is true', () => {
+                expect(
+                    trigger.planStep1(
+                        v3InProgressRun({ head_branch: 'v3.29.1' }),
+                        REPOSITORY,
+                        STEP1_IDS,
+                        'workflow_dispatch',
+                        gateJobs(),
+                        [gateArtifact(1)],
+                        true,
+                        false,
+                        'v3.29.1'
+                    )
+                ).toMatchObject({
+                    skip: false,
+                    buildId: '36618522123-1',
+                    releaseTag: 'v3.29.1',
+                });
+
+                expect(
+                    trigger.planStep1(
+                        v3InProgressRun({
+                            id: 42638277207,
+                            run_attempt: 1,
+                            status: 'completed',
+                            conclusion: 'success',
+                            head_branch: 'v3.32.0',
+                        }),
+                        REPOSITORY,
+                        STEP1_IDS,
+                        'workflow_dispatch',
+                        undefined,
+                        undefined,
+                        false,
+                        true
+                    )
+                ).toEqual({
+                    skip: false,
+                    reason: '',
+                    runId: '42638277207',
+                    runAttempt: '1',
+                    buildId: '42638277207-1',
+                    artifactName: 'v3-candidate-42638277207-1',
+                    releaseTag: 'v3.32.0',
+                });
+
+                expect(() =>
+                    trigger.planStep1(
+                        v3InProgressRun({
+                            status: 'completed',
+                            conclusion: 'success',
+                            head_branch: 'v3.32.0',
+                        }),
+                        REPOSITORY,
+                        STEP1_IDS,
+                        'workflow_dispatch',
+                        undefined,
+                        undefined,
+                        false,
+                        false
+                    )
+                ).toThrow(/must be dispatched from v3-staging$/);
+
+                for (const headBranch of ['v3.29.1-rc.1', 'v4.0.0', 'v3.029.1', 'v3.29', 'main']) {
+                    for (const [releaseGate, releasePleaseMode] of [
+                        [true, false],
+                        [false, true],
+                    ] as const) {
+                        expect(() =>
+                            trigger.planStep1(
+                                v3InProgressRun({
+                                    status: 'completed',
+                                    conclusion: 'success',
+                                    head_branch: headBranch,
+                                }),
+                                REPOSITORY,
+                                STEP1_IDS,
+                                'workflow_dispatch',
+                                gateJobs(),
+                                [gateArtifact(1)],
+                                releaseGate,
+                                releasePleaseMode
+                            )
+                        ).toThrow(/must be dispatched from v3-staging$/);
+                    }
+                }
+
+                expect(() =>
+                    trigger.planStep1(
+                        step1Run({ head_branch: 'v3.29.1' }),
+                        REPOSITORY,
+                        STEP1_IDS,
+                        'workflow_dispatch',
+                        undefined,
+                        undefined,
+                        false,
+                        true
+                    )
+                ).toThrow(/must be dispatched from v3-staging$/);
+
+                expect(() =>
+                    trigger.planStep1(
+                        v3InProgressRun({
+                            status: 'completed',
+                            conclusion: 'success',
+                            head_branch: 'v3.29.1',
+                        }),
+                        REPOSITORY,
+                        STEP1_IDS,
+                        'workflow_run',
+                        undefined,
+                        undefined,
+                        false,
+                        true
+                    )
+                ).toThrow(/must be dispatched from v3-staging$/);
+            });
+
+            it('requires the candidate release_tag to equal the Step 1 run head_branch on a tag-origin recovery', () => {
+                const tagRecoveryRun = v3InProgressRun({
+                    id: 42638277207,
+                    run_attempt: 1,
+                    status: 'completed',
+                    conclusion: 'success',
+                    head_branch: 'v3.32.0',
+                });
+
+                expect(
+                    trigger.planStep1(
+                        tagRecoveryRun,
+                        REPOSITORY,
+                        STEP1_IDS,
+                        'workflow_dispatch',
+                        undefined,
+                        undefined,
+                        false,
+                        true,
+                        'v3.32.0'
+                    )
+                ).toEqual({
+                    skip: false,
+                    reason: '',
+                    runId: '42638277207',
+                    runAttempt: '1',
+                    buildId: '42638277207-1',
+                    artifactName: 'v3-candidate-42638277207-1',
+                    releaseTag: 'v3.32.0',
+                });
+
+                expect(() =>
+                    trigger.planStep1(
+                        tagRecoveryRun,
+                        REPOSITORY,
+                        STEP1_IDS,
+                        'workflow_dispatch',
+                        undefined,
+                        undefined,
+                        false,
+                        true,
+                        'v3.31.0'
+                    )
+                ).toThrow(
+                    'The candidate release_tag must equal the Step 1 run head_branch'
+                );
+
+                expect(() =>
+                    trigger.planStep1(
+                        v3InProgressRun({ head_branch: 'v3.32.0' }),
+                        REPOSITORY,
+                        STEP1_IDS,
+                        'workflow_dispatch',
+                        gateJobs(),
+                        [gateArtifact(1)],
+                        true,
+                        true,
+                        'v3.31.0'
+                    )
+                ).toThrow(
+                    'The candidate release_tag must equal the Step 1 run head_branch'
+                );
+
+                for (const missingReleaseTag of [undefined, '']) {
+                    const stderr = jest
+                        .spyOn(process.stderr, 'write')
+                        .mockImplementation(() => true);
+                    try {
+                        expect(
+                            trigger.planStep1(
+                                v3InProgressRun({ head_branch: 'v3.32.0' }),
+                                REPOSITORY,
+                                STEP1_IDS,
+                                'workflow_dispatch',
+                                gateJobs(),
+                                [gateArtifact(1)],
+                                true,
+                                true,
+                                missingReleaseTag
+                            )
+                        ).toMatchObject({
+                            skip: false,
+                            buildId: '36618522123-1',
+                            releaseTag: 'v3.32.0',
+                        });
+                        expect(stderr).toHaveBeenCalledWith(
+                            '::warning::release_tag was not passed; caller predates release_tag, using Step 1 head_branch (v3.32.0)\n'
+                        );
+                    } finally {
+                        stderr.mockRestore();
+                    }
+                }
+
+                const branchStderr = jest
+                    .spyOn(process.stderr, 'write')
+                    .mockImplementation(() => true);
+                try {
+                    const branchPlan = trigger.planStep1(
+                        v3InProgressRun({ head_branch: 'v3-staging' }),
+                        REPOSITORY,
+                        STEP1_IDS,
+                        'workflow_dispatch',
+                        gateJobs(),
+                        [gateArtifact(1)],
+                        true,
+                        true,
+                        'v3.32.0'
+                    );
+                    expect(branchPlan).toMatchObject({
+                        skip: false,
+                        buildId: '36618522123-1',
+                    });
+                    expect(branchPlan.releaseTag).toBeUndefined();
+                    expect(branchStderr).toHaveBeenCalledWith(
+                        '::warning::release_tag (v3.32.0) was passed for a branch-origin Step 1 run (v3-staging) and is ignored\n'
+                    );
+                } finally {
+                    branchStderr.mockRestore();
+                }
+            });
+
+            it('rejects a staging-step-1.yml parent in release-gate mode while keeping non-gate behaviour', () => {
+                expect(() =>
+                    trigger.planStep1(
+                        step1Run({ status: 'in_progress', conclusion: null }),
+                        REPOSITORY,
+                        STEP1_IDS,
+                        'workflow_dispatch',
+                        gateJobs(),
+                        [gateArtifact(2)],
+                        true
+                    )
+                ).toThrow(/Release-gate mode accepts only \.github\/workflows\/v3-release-step-1\.yml/);
+
+                expect(
+                    trigger.planStep1(
+                        step1Run(),
+                        REPOSITORY,
+                        STEP1_IDS,
+                        'workflow_run',
+                        gateJobs(),
+                        [gateArtifact(2)],
+                        false
+                    )
+                ).toMatchObject({ skip: false, buildId: '36618522123-2' });
+            });
+
+            it.each([
+                [
+                    'workflow_run trigger',
+                    () =>
+                        trigger.planStep1(
+                            v3InProgressRun(),
+                            REPOSITORY,
+                            STEP1_IDS,
+                            'workflow_run',
+                            gateJobs(),
+                            [gateArtifact()],
+                            true
+                        ),
+                    /Release-gate mode requires workflow_dispatch/,
+                ],
+                [
+                    'queued run status',
+                    () =>
+                        trigger.planStep1(
+                            v3InProgressRun({ status: 'queued' }),
+                            REPOSITORY,
+                            STEP1_IDS,
+                            'workflow_dispatch',
+                            gateJobs(),
+                            [gateArtifact()],
+                            true
+                        ),
+                    /in_progress or completed/,
+                ],
+                [
+                    'cancelled run',
+                    () =>
+                        trigger.planStep1(
+                            v3InProgressRun({ status: 'completed', conclusion: 'cancelled' }),
+                            REPOSITORY,
+                            STEP1_IDS,
+                            'workflow_dispatch',
+                            gateJobs(),
+                            [gateArtifact()],
+                            true
+                        ),
+                    /was cancelled/,
+                ],
+                [
+                    'missing jobs or artifacts',
+                    () =>
+                        trigger.planStep1(
+                            v3InProgressRun(),
+                            REPOSITORY,
+                            STEP1_IDS,
+                            'workflow_dispatch',
+                            undefined,
+                            undefined,
+                            true
+                        ),
+                    /requires jobs and artifacts/,
+                ],
+                [
+                    'unsuccessful Perform Release job',
+                    () =>
+                        trigger.planStep1(
+                            v3InProgressRun(),
+                            REPOSITORY,
+                            STEP1_IDS,
+                            'workflow_dispatch',
+                            gateJobs({ 'Perform Release': { conclusion: 'failure' } }),
+                            [gateArtifact()],
+                            true
+                        ),
+                    /release job has not succeeded/,
+                ],
+                [
+                    'in-progress package job',
+                    () =>
+                        trigger.planStep1(
+                            v3InProgressRun(),
+                            REPOSITORY,
+                            STEP1_IDS,
+                            'workflow_dispatch',
+                            gateJobs({
+                                'Package V3 candidate (shadow)': {
+                                    status: 'in_progress',
+                                    conclusion: null,
+                                },
+                            }),
+                            [gateArtifact()],
+                            true
+                        ),
+                    /package job has not succeeded/,
+                ],
+                [
+                    'failed package job',
+                    () =>
+                        trigger.planStep1(
+                            v3InProgressRun(),
+                            REPOSITORY,
+                            STEP1_IDS,
+                            'workflow_dispatch',
+                            gateJobs({
+                                'Package V3 candidate (shadow)': {
+                                    conclusion: 'failure',
+                                },
+                            }),
+                            [gateArtifact()],
+                            true
+                        ),
+                    /package job has not succeeded/,
+                ],
+                [
+                    'missing package job',
+                    () =>
+                        trigger.planStep1(
+                            v3InProgressRun(),
+                            REPOSITORY,
+                            STEP1_IDS,
+                            'workflow_dispatch',
+                            gateJobs({ 'Package V3 candidate (shadow)': null }),
+                            [gateArtifact()],
+                            true
+                        ),
+                    /package job has not succeeded/,
+                ],
+                [
+                    'missing candidate artifact',
+                    () =>
+                        trigger.planStep1(
+                            v3InProgressRun(),
+                            REPOSITORY,
+                            STEP1_IDS,
+                            'workflow_dispatch',
+                            gateJobs(),
+                            [],
+                            true
+                        ),
+                    /exactly one unexpired candidate artifact/,
+                ],
+                [
+                    'expired candidate artifact',
+                    () =>
+                        trigger.planStep1(
+                            v3InProgressRun(),
+                            REPOSITORY,
+                            STEP1_IDS,
+                            'workflow_dispatch',
+                            gateJobs(),
+                            [gateArtifact(2, '2026-01-02T10:00:30Z', { expired: true })],
+                            true
+                        ),
+                    /exactly one unexpired candidate artifact/,
+                ],
+                [
+                    'two candidate artifacts in the package window',
+                    () =>
+                        trigger.planStep1(
+                            v3InProgressRun(),
+                            REPOSITORY,
+                            STEP1_IDS,
+                            'workflow_dispatch',
+                            gateJobs(),
+                            [
+                                gateArtifact(1, '2026-01-02T10:00:10Z'),
+                                gateArtifact(2, '2026-01-02T10:00:20Z'),
+                            ],
+                            true
+                        ),
+                    /exactly one unexpired candidate artifact/,
+                ],
+            ])('fails closed on %s', (_label, call, pattern) => {
+                expect(call).toThrow(pattern);
+            });
         });
 
         describe('candidate attempt', () => {
@@ -582,7 +1159,9 @@ describe('V3 shadow release trigger', () => {
                 trigger.planReleaseStep(
                     releaseRun(3, 'Staging Release - Step 3 [v3.12.0]'),
                     REPOSITORY,
-                    RELEASE_STEP_IDS
+                    RELEASE_STEP_IDS,
+                    false,
+                    step3Jobs('success')
                 )
             ).toMatchObject({
                 step: 3,
@@ -688,13 +1267,11 @@ describe('V3 shadow release trigger', () => {
         it('maps a V3 Step 3 run to every release order, then ga', () => {
             expect(
                 trigger.planReleaseStep(
-                    {
-                        ...releaseRun(3, 'V3 Release - Step 3 [v3.12.0]'),
-                        path: '.github/workflows/v3-release-step-3.yml',
-                        workflow_id: 313,
-                    },
+                    v3Step3Run(),
                     REPOSITORY,
-                    RELEASE_STEP_IDS
+                    RELEASE_STEP_IDS,
+                    false,
+                    step3Jobs('success')
                 )
             ).toMatchObject({
                 step: 3,
@@ -759,6 +1336,111 @@ describe('V3 shadow release trigger', () => {
                     { ...RELEASE_STEP_IDS, v3Step3: '0' }
                 )
             ).toThrow(/V3 Step 3 workflow ID/);
+        });
+
+        it.each([
+            ['outside Release Please mode', false],
+            ['in Release Please mode', true],
+        ])('skips a Step 3 dry run, whose push step was skipped, %s', (_label, releasePleaseMode) => {
+            for (const run of [
+                v3Step3Run(),
+                releaseRun(3, 'Staging Release - Step 3 [v3.12.0]'),
+            ]) {
+                const plan = trigger.planReleaseStep(
+                    run,
+                    REPOSITORY,
+                    RELEASE_STEP_IDS,
+                    releasePleaseMode,
+                    step3Jobs('skipped')
+                );
+                expect(plan).toEqual({
+                    step: 3,
+                    skip: true,
+                    reason: 'The Step 3 run was a dry run: its push step was skipped, so no branch moved',
+                    releaseTag: '',
+                    releaseVersion: '',
+                    channels: [],
+                    branches: [],
+                });
+            }
+        });
+
+        it.each([
+            ['failed', 'failure'],
+            ['was cancelled', 'cancelled'],
+        ])('skips a Step 3 run whose push step %s, even where the run reads success', (_label, conclusion) => {
+            for (const releasePleaseMode of [false, true]) {
+                const plan = trigger.planReleaseStep(
+                    v3Step3Run(),
+                    REPOSITORY,
+                    RELEASE_STEP_IDS,
+                    releasePleaseMode,
+                    step3Jobs(conclusion)
+                );
+                expect(plan).toMatchObject({ step: 3, skip: true, channels: [], branches: [] });
+                expect(plan.reason).toBe('The Step 3 push step did not succeed, so no branch moved');
+            }
+        });
+
+        it('skips a Step 3 run whose push step has not completed', () => {
+            const jobs = step3Jobs('success', {
+                status: 'in_progress',
+                conclusion: null,
+                steps: [
+                    {
+                        name: 'Atomically synchronize all destinations',
+                        status: 'in_progress',
+                        conclusion: null,
+                    },
+                ],
+            });
+            const plan = trigger.planReleaseStep(v3Step3Run(), REPOSITORY, RELEASE_STEP_IDS, true, jobs);
+            expect(plan.skip).toBe(true);
+            expect(plan.reason).toBe('The Step 3 push step did not succeed, so no branch moved');
+        });
+
+        it.each([
+            ['no push step', step3Jobs(null)],
+            ['two push steps', [...step3Jobs('success'), { ...step3Jobs('success')[0], name: 'Another job' }]],
+            ['steps that are not a list', step3Jobs('success', { steps: { name: 'Atomically synchronize all destinations' } })],
+            ['no steps', step3Jobs('success', { steps: undefined })],
+            ['no jobs', []],
+        ])('skips a Step 3 run whose jobs show %s', (_label, jobs) => {
+            const plan = trigger.planReleaseStep(v3Step3Run(), REPOSITORY, RELEASE_STEP_IDS, true, jobs);
+            expect(plan).toMatchObject({ step: 3, skip: true, channels: [], branches: [] });
+            expect(plan.reason).toBe("The Step 3 run's jobs do not show exactly one push step, so no branch moved");
+        });
+
+        it('rejects a Step 3 run planned without its jobs', () => {
+            for (const releasePleaseMode of [false, true]) {
+                expect(() =>
+                    trigger.planReleaseStep(v3Step3Run(), REPOSITORY, RELEASE_STEP_IDS, releasePleaseMode)
+                ).toThrow('A Step 3 run needs the jobs of its run attempt (--jobs)');
+            }
+        });
+
+        it.each([
+            ['another run', { run_id: 36621677033 }],
+            ['another attempt', { run_attempt: 2 }],
+        ])('rejects Step 3 jobs from %s', (_label, overrides) => {
+            expect(() =>
+                trigger.planReleaseStep(
+                    v3Step3Run(),
+                    REPOSITORY,
+                    RELEASE_STEP_IDS,
+                    true,
+                    step3Jobs('success', overrides)
+                )
+            ).toThrow(/different run attempt/);
+        });
+
+        it('plans a Step 2 run with or without its jobs, which it does not need', () => {
+            const run = releaseRun(2, 'Staging Release - Step 2 [v3.11.1 \u2192 release-order-c]');
+            const expected = trigger.planReleaseStep(run, REPOSITORY, RELEASE_STEP_IDS);
+            expect(expected.skip).toBe(false);
+            expect(
+                trigger.planReleaseStep(run, REPOSITORY, RELEASE_STEP_IDS, true, step3Jobs('skipped'))
+            ).toEqual(expected);
         });
     });
 
@@ -837,6 +1519,39 @@ describe('V3 shadow release trigger', () => {
                 expect(() => trigger.selectPods(list)).toThrow();
             }
         );
+
+        it('requires every production pod in release-gate mode while keeping qa optional', () => {
+            expect(trigger.PRODUCTION_PODS).toEqual(['us1', 'us2', 'st1', 'eu1', 'au1']);
+            expect(
+                trigger.selectPods('au1,eu1,st1,us2,us1', true)
+            ).toEqual(['us1', 'us2', 'st1', 'eu1', 'au1']);
+            expect(
+                trigger.selectPods('us1,us2,st1,eu1,au1,qa', true)
+            ).toEqual(['qa', 'us1', 'us2', 'st1', 'eu1', 'au1']);
+            expect(
+                trigger.main([
+                    'pods',
+                    '--list',
+                    'us1,us2,st1,eu1,au1',
+                    '--release-gate',
+                    'true',
+                ])
+            ).toEqual([
+                'pods=us1,us2,st1,eu1,au1',
+                'qa=false',
+                'us1=true',
+                'us2=true',
+                'st1=true',
+                'eu1=true',
+                'au1=true',
+            ]);
+            expect(() => trigger.selectPods('qa', true)).toThrow(
+                /Release-gate mode requires all production pods \(us1, us2, st1, eu1, au1\); missing: us1, us2, st1, eu1, au1/
+            );
+            expect(() =>
+                trigger.selectPods('qa,us1,us2,st1,eu1', true)
+            ).toThrow(/missing: au1$/);
+        });
     });
 
     describe('command line', () => {
@@ -1070,6 +1785,103 @@ describe('V3 shadow release trigger', () => {
             ]);
         });
 
+        it('reads the jobs file for a Step 3 run, and skips a dry run or a failed push without reading git', () => {
+            const args = (jobs: unknown, mode = 'true') => {
+                const jobsFile = path.join(directory, 'jobs.json');
+                fs.writeFileSync(jobsFile, JSON.stringify(jobs));
+                return [
+                    'release-step',
+                    '--run',
+                    runFile(v3Step3Run('V3 Release - Step 3 [v3.1.0]')),
+                    '--repository',
+                    REPOSITORY,
+                    '--step2-workflow-id',
+                    STEP2_ID,
+                    '--step3-workflow-id',
+                    STEP3_ID,
+                    '--v3-step2-workflow-id',
+                    V3_STEP2_ID,
+                    '--v3-step3-workflow-id',
+                    V3_STEP3_ID,
+                    '--release-please-mode',
+                    mode,
+                    '--jobs',
+                    jobsFile,
+                ];
+            };
+            // Real Step 2 runs left every release order at the tag.
+            const atTag = {
+                'refs/tags/v3.1.0': TAG_SHA,
+                'refs/heads/v3-release-order-a': TAG_SHA,
+                'refs/heads/v3-release-order-b': TAG_SHA,
+                'refs/heads/v3-release-order-c': TAG_SHA,
+            };
+
+            const dryRun = fakeGit(atTag);
+            expect(trigger.main(args(step3Jobs('skipped')), dryRun.git)).toEqual([
+                'step=3',
+                'skip=true',
+                'reason=The Step 3 run was a dry run: its push step was skipped, so no branch moved',
+            ]);
+            expect(dryRun.calls).toEqual([]);
+
+            const failedPush = fakeGit(atTag);
+            expect(trigger.main(args(step3Jobs('failure')), failedPush.git)).toEqual([
+                'step=3',
+                'skip=true',
+                'reason=The Step 3 push step did not succeed, so no branch moved',
+            ]);
+            expect(failedPush.calls).toEqual([]);
+
+            const pushed = fakeGit(atTag);
+            expect(trigger.main(args(step3Jobs('success')), pushed.git)).toEqual([
+                'step=3',
+                'skip=false',
+                'release_tag=v3.1.0',
+                'release_version=3.1.0',
+                'channels=v3-release-order-a,v3-release-order-b,v3-release-order-c,ga',
+                'branches=v3-release-order-a,v3-release-order-b,v3-release-order-c',
+                'mismatched=',
+            ]);
+            expect(pushed.calls).toHaveLength(1);
+
+            // Outside Release Please mode a dry run is skipped the same way.
+            const dryRunOutside = fakeGit({ ...atTag, 'refs/heads/main': TAG_SHA });
+            expect(trigger.main(args(step3Jobs('skipped'), 'false'), dryRunOutside.git)).toContain('skip=true');
+            expect(dryRunOutside.calls).toEqual([]);
+
+            expect(() => trigger.main(args({ jobs: step3Jobs('success') }))).toThrow(
+                /jobs file must hold a JSON array of objects/
+            );
+        });
+
+        it('requires the jobs file for a Step 3 run', () => {
+            const { git, calls } = fakeGit({});
+            expect(() =>
+                trigger.main(
+                    [
+                        'release-step',
+                        '--run',
+                        runFile(v3Step3Run('V3 Release - Step 3 [v3.1.0]')),
+                        '--repository',
+                        REPOSITORY,
+                        '--step2-workflow-id',
+                        STEP2_ID,
+                        '--step3-workflow-id',
+                        STEP3_ID,
+                        '--v3-step2-workflow-id',
+                        V3_STEP2_ID,
+                        '--v3-step3-workflow-id',
+                        V3_STEP3_ID,
+                        '--release-please-mode',
+                        'true',
+                    ],
+                    git
+                )
+            ).toThrow('A Step 3 run needs the jobs of its run attempt (--jobs)');
+            expect(calls).toEqual([]);
+        });
+
         it('requires the ID of every release workflow file', () => {
             expect(() =>
                 trigger.main([
@@ -1101,6 +1913,131 @@ describe('V3 shadow release trigger', () => {
             ).toThrow(/--v3-step3-workflow-id is required once/);
         });
 
+        it('accepts a tag-mode Step 1 recovery run on the command line while V3_RELEASE_PLEASE_ENABLED is true', () => {
+            const tagRunFile = runFile(
+                step1Run({
+                    id: 42638277207,
+                    run_attempt: 1,
+                    path: V3_STEP1_PATH,
+                    workflow_id: 111,
+                    display_title: 'V3 Release - Step 1',
+                    head_branch: 'v3.32.0',
+                })
+            );
+            const args = (mode: string, extra: string[] = []) => [
+                'step1',
+                '--run',
+                tagRunFile,
+                '--repository',
+                REPOSITORY,
+                '--workflow-id',
+                STEP1_ID,
+                '--v3-workflow-id',
+                V3_STEP1_ID,
+                '--trigger',
+                'workflow_dispatch',
+                '--release-gate',
+                'false',
+                '--release-please-mode',
+                mode,
+                ...extra,
+            ];
+            expect(trigger.main(args('true'))).toEqual([
+                'skip=false',
+                'run_id=42638277207',
+                'run_attempt=1',
+                'build_id=42638277207-1',
+                'artifact_name=v3-candidate-42638277207-1',
+                'release_tag=v3.32.0',
+            ]);
+            expect(trigger.main(args('true', ['--release-tag', 'v3.32.0']))).toEqual([
+                'skip=false',
+                'run_id=42638277207',
+                'run_attempt=1',
+                'build_id=42638277207-1',
+                'artifact_name=v3-candidate-42638277207-1',
+                'release_tag=v3.32.0',
+            ]);
+            expect(() =>
+                trigger.main(args('true', ['--release-tag', 'v3.31.0']))
+            ).toThrow(
+                'The candidate release_tag must equal the Step 1 run head_branch'
+            );
+            const jobsFile = path.join(directory, 'gate-jobs.json');
+            const artifactsFile = path.join(directory, 'gate-artifacts.json');
+            fs.writeFileSync(
+                jobsFile,
+                JSON.stringify(
+                    step1Jobs({ 'Publish V3 kits': 'success' }).map(job => ({
+                        ...job,
+                        run_id: 42638277207,
+                        run_attempt: 1,
+                        ...(job.name === 'Package V3 candidate (shadow)'
+                            ? {
+                                  started_at: '2026-01-02T10:00:00Z',
+                                  completed_at: '2026-01-02T10:01:00Z',
+                              }
+                            : {}),
+                    }))
+                )
+            );
+            fs.writeFileSync(
+                artifactsFile,
+                JSON.stringify(
+                    step1Artifacts(['v3-candidate-42638277207-1'], {
+                        created_at: '2026-01-02T10:00:30Z',
+                        workflow_run: { id: 42638277207 },
+                    })
+                )
+            );
+            const stderr = jest
+                .spyOn(process.stderr, 'write')
+                .mockImplementation(() => true);
+            try {
+                expect(
+                    trigger.main([
+                        'step1',
+                        '--run',
+                        tagRunFile,
+                        '--repository',
+                        REPOSITORY,
+                        '--workflow-id',
+                        STEP1_ID,
+                        '--v3-workflow-id',
+                        V3_STEP1_ID,
+                        '--trigger',
+                        'workflow_dispatch',
+                        '--release-gate',
+                        'true',
+                        '--release-please-mode',
+                        'true',
+                        '--jobs',
+                        jobsFile,
+                        '--artifacts',
+                        artifactsFile,
+                    ])
+                ).toEqual([
+                    'skip=false',
+                    'run_id=42638277207',
+                    'run_attempt=1',
+                    'build_id=42638277207-1',
+                    'artifact_name=v3-candidate-42638277207-1',
+                    'release_tag=v3.32.0',
+                ]);
+                expect(stderr).toHaveBeenCalledWith(
+                    '::warning::release_tag was not passed; caller predates release_tag, using Step 1 head_branch (v3.32.0)\n'
+                );
+            } finally {
+                stderr.mockRestore();
+            }
+            expect(() => trigger.main(args('false'))).toThrow(
+                'The release run must be dispatched from v3-staging'
+            );
+            expect(() => trigger.main(args('yes'))).toThrow(
+                '--release-please-mode must be true or false'
+            );
+        });
+
         it('checks explicit branches', () => {
             const { git } = fakeGit({
                 'refs/tags/v3.1.0': TAG_SHA,
@@ -1116,6 +2053,7 @@ describe('V3 shadow release trigger', () => {
             [['step1', '--run'], /requires a value/],
             [['pods', '--list', 'qa', '--list', 'us1'], /required once/],
             [['pods', '--list', 'qa', '--extra', 'x'], /Unknown argument/],
+            [['pods', '--list', 'us1,us2,st1,eu1,au1', '--release-gate', 'yes'], /--release-gate must be true or false/],
         ])('rejects %j', (args, pattern) => {
             expect(() => trigger.main(args)).toThrow(pattern);
         });

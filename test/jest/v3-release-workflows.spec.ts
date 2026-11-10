@@ -109,19 +109,32 @@ const itStripsTypes = canStripTypes ? it : it.skip;
 
 describe('V3 shadow release workflows', () => {
     describe('triggers', () => {
-        it('runs the candidate workflow after Step 1 on v3-staging only', () => {
+        it('runs the candidate workflow on workflow_run only for the transition shared Step 1, and takes release_gate on dispatch', () => {
             expect(CANDIDATE.on.workflow_run).toEqual({
-                workflows: [stagingName(1), v3Name(1)],
+                workflows: [stagingName(1)],
                 types: ['completed'],
                 branches: ['v3-staging'],
             });
+            expect(CANDIDATE.on.workflow_run.workflows).not.toContain(v3Name(1));
             expect(Object.keys(CANDIDATE.on).sort()).toEqual([
                 'workflow_dispatch',
                 'workflow_run',
             ]);
             expect(Object.keys(CANDIDATE.on.workflow_dispatch.inputs)).toEqual([
                 'step1_run_id',
+                'release_gate',
+                'release_tag',
             ]);
+            expect(CANDIDATE.on.workflow_dispatch.inputs.release_gate).toMatchObject({
+                required: true,
+                type: 'boolean',
+                default: false,
+            });
+            expect(CANDIDATE.on.workflow_dispatch.inputs.release_tag).toMatchObject({
+                required: false,
+                type: 'string',
+                default: '',
+            });
         });
 
         it('runs the promote workflow after Steps 2 and 3 from the V3 trunk only', () => {
@@ -197,14 +210,23 @@ describe('V3 shadow release workflows', () => {
             }
         });
 
-        it('does not change the paired release workflows', () => {
+        it('keeps the release workflows free of direct AWS Environments, while only V3 Step 1 dispatches the candidate workflow', () => {
             for (const step of [1, 2, 3]) {
-                for (const file of [`staging-step-${step}.yml`, `v3-release-step-${step}.yml`]) {
-                    expect(read(`${WORKFLOW_DIRECTORY}/${file}`)).not.toMatch(
-                        /v3-shadow|v3-candidate-upload|v3-release-promote/
-                    );
-                }
+                expect(read(`${WORKFLOW_DIRECTORY}/staging-step-${step}.yml`)).not.toMatch(
+                    /v3-shadow|v3-candidate-upload|v3-release-promote/
+                );
             }
+            for (const step of [2, 3]) {
+                expect(read(`${WORKFLOW_DIRECTORY}/v3-release-step-${step}.yml`)).not.toMatch(
+                    /v3-shadow|v3-candidate-upload|v3-release-promote/
+                );
+            }
+            expect(read(`${WORKFLOW_DIRECTORY}/v3-release-step-1.yml`)).not.toMatch(
+                /v3-candidate-upload|v3-release-promote/
+            );
+            expect(read(`${WORKFLOW_DIRECTORY}/v3-release-step-1.yml`)).toContain(
+                'actions/workflows/v3-shadow-candidate.yml/dispatches'
+            );
         });
 
         it('names the V2 and V3 release workflows apart', () => {
@@ -431,14 +453,23 @@ describe('V3 shadow release workflows', () => {
     describe('candidate workflow', () => {
         const jobs = CANDIDATE.jobs;
 
-        it('orders resolve, verify, upload and stage, with credentials only in called jobs', () => {
-            expect(Object.keys(jobs)).toEqual(['resolve', 'verify', 'upload', 'stage']);
+        it('orders resolve, verify, upload, stage and release-gate, with credentials only in called jobs', () => {
+            expect(Object.keys(jobs)).toEqual([
+                'resolve',
+                'verify',
+                'upload',
+                'stage',
+                'release-gate',
+            ]);
+            expect(jobs.resolve.if).toBe(
+                "${{ github.repository == 'mParticle/mparticle-web-sdk' && (inputs.release_gate || vars.V3_SHADOW_PODS != '') }}"
+            );
             expect(jobs.verify.needs).toBe('resolve');
             expect(jobs.verify.if).toBe("${{ needs.resolve.outputs.found == 'true' }}");
             expect(jobs.verify.environment).toBeUndefined();
             expect(jobs.upload.needs).toEqual(['resolve', 'verify']);
             expect(jobs.upload.if).toBe(
-                "${{ needs.verify.outputs.git_parity == 'pass' && needs.verify.outputs.npm_parity != 'fail' }}"
+                "${{ needs.verify.outputs.git_parity == 'pass' && (needs.verify.outputs.npm_parity == 'pass' || (!(github.event_name == 'workflow_dispatch' && inputs.release_gate) && needs.verify.outputs.npm_parity != 'fail')) }}"
             );
             expect(jobs.upload.permissions).toEqual({
                 actions: 'read',
@@ -447,10 +478,45 @@ describe('V3 shadow release workflows', () => {
             });
             expect(jobs.stage.needs).toEqual(['resolve', 'verify', 'upload']);
             expect(jobs.stage.permissions).toEqual({ contents: 'read', 'id-token': 'write' });
+            expect(jobs['release-gate'].needs).toEqual([
+                'resolve',
+                'verify',
+                'upload',
+                'stage',
+            ]);
+            expect(jobs['release-gate'].permissions).toEqual({});
             expect(CANDIDATE.concurrency).toEqual({
-                group: 'v3-shadow-candidate',
+                group: "${{ github.event_name == 'workflow_dispatch' && inputs.release_gate && format('v3-shadow-candidate-gate-{0}', inputs.step1_run_id) || 'v3-shadow-candidate' }}",
                 'cancel-in-progress': false,
             });
+        });
+
+        it('fails the release-gate job when any candidate job is skipped or fails', () => {
+            const script = stepNamed(
+                jobs['release-gate'],
+                'Require every release-gate job to succeed'
+            ).run;
+            const base = {
+                RESOLVE_RESULT: 'success',
+                VERIFY_RESULT: 'success',
+                UPLOAD_RESULT: 'success',
+                STAGE_RESULT: 'success',
+            };
+            expect(runScript(script, base).status).toBe(0);
+            for (const [key, value] of [
+                ['RESOLVE_RESULT', 'failure'],
+                ['VERIFY_RESULT', 'skipped'],
+                ['UPLOAD_RESULT', 'skipped'],
+                ['UPLOAD_RESULT', 'failure'],
+                ['STAGE_RESULT', 'skipped'],
+                ['STAGE_RESULT', 'failure'],
+            ] as const) {
+                const result = runScript(script, { ...base, [key]: value });
+                expect(result.status).toBe(1);
+                expect(result.output).toContain(
+                    'Release-gate candidate run requires resolve, verify, upload and stage to succeed'
+                );
+            }
         });
 
         it('passes the verified identity to the upload job', () => {
@@ -478,6 +544,7 @@ describe('V3 shadow release workflows', () => {
                 branches: 'v3-staging',
                 pods: '${{ needs.resolve.outputs.pods }}',
                 dry_run: false,
+                release_gate: "${{ github.event_name == 'workflow_dispatch' && inputs.release_gate }}",
             });
         });
 
@@ -500,7 +567,11 @@ describe('V3 shadow release workflows', () => {
 
         it('passes the trigger to the Step 1 check and skips an ineligible run', () => {
             const validate = stepNamed(jobs.resolve, 'Validate the Step 1 run');
+            expect(validate.env.RELEASE_PLEASE_ENABLED).toBe(
+                '${{ vars.V3_RELEASE_PLEASE_ENABLED }}'
+            );
             expect(validate.run).toContain('--trigger "$GITHUB_EVENT_NAME"');
+            expect(validate.run).toContain('--release-please-mode "$RELEASE_PLEASE_MODE"');
             expect(validate.run).toContain('actions/workflows/staging-step-1.yml');
             expect(validate.run).toContain('actions/workflows/v3-release-step-1.yml');
             expect(validate.run).toContain('--v3-workflow-id "$V3_WORKFLOW_ID"');
@@ -588,7 +659,7 @@ describe('V3 shadow release workflows', () => {
                 );
                 const [command, artifacts, jobs] = fs.readFileSync(nodeLog, 'utf8').split('\n');
                 expect(command).toMatch(
-                    /--trigger workflow_run --artifacts \S+\/step1-artifacts\.json --jobs \S+\/step1-jobs\.json$/
+                    /--trigger workflow_run --release-gate false --release-please-mode false --artifacts \S+\/step1-artifacts\.json --jobs \S+\/step1-jobs\.json$/
                 );
                 expect(JSON.parse(artifacts)).toEqual([{ name: 'c' }, { name: 'd' }]);
                 expect(JSON.parse(jobs)).toEqual([{ name: 'a' }, { name: 'b' }]);
@@ -607,10 +678,215 @@ describe('V3 shadow release workflows', () => {
                 );
                 const [command, artifacts, jobs] = fs.readFileSync(nodeLog, 'utf8').split('\n');
                 expect(command).toMatch(
-                    /--trigger workflow_dispatch --artifacts \S+\/step1-artifacts\.json --jobs \S+\/step1-jobs\.json$/
+                    /--trigger workflow_dispatch --release-gate false --release-please-mode false --artifacts \S+\/step1-artifacts\.json --jobs \S+\/step1-jobs\.json$/
                 );
                 expect(JSON.parse(artifacts)).toEqual([{ name: 'c' }, { name: 'd' }]);
                 expect(JSON.parse(jobs)).toEqual([{ name: 'a' }, { name: 'b' }]);
+            });
+
+            it('passes --release-please-mode true for a manual dispatch while V3_RELEASE_PLEASE_ENABLED is true', () => {
+                const eventPath = path.join(directory, 'event.json');
+                fs.writeFileSync(eventPath, JSON.stringify({}));
+                const result = runScript(script(), {
+                    PATH: `${path.join(directory, 'bin')}:${process.env.PATH}`,
+                    GITHUB_EVENT_NAME: 'workflow_dispatch',
+                    GITHUB_EVENT_PATH: eventPath,
+                    GITHUB_REPOSITORY: 'example-org/example-repo',
+                    GITHUB_OUTPUT: path.join(directory, 'outputs'),
+                    RUNNER_TEMP: directory,
+                    STEP1_RUN_ID: '456',
+                    RELEASE_PLEASE_ENABLED: 'true',
+                });
+                expect(result.status).toBe(0);
+                const [command] = fs.readFileSync(nodeLog, 'utf8').split('\n');
+                expect(command).toMatch(
+                    /--trigger workflow_dispatch --release-gate false --release-please-mode true --artifacts \S+\/step1-artifacts\.json --jobs \S+\/step1-jobs\.json$/
+                );
+            });
+
+            it('passes --release-tag to the trigger script on a manual recovery dispatch when release_tag is set', () => {
+                const validateRun = stepNamed(jobs.resolve, 'Validate the Step 1 run');
+                expect(validateRun.env.RELEASE_TAG).toBe('${{ inputs.release_tag }}');
+                const eventPath = path.join(directory, 'event.json');
+                fs.writeFileSync(eventPath, JSON.stringify({}));
+                const result = runScript(script(), {
+                    PATH: `${path.join(directory, 'bin')}:${process.env.PATH}`,
+                    GITHUB_EVENT_NAME: 'workflow_dispatch',
+                    GITHUB_EVENT_PATH: eventPath,
+                    GITHUB_REPOSITORY: 'example-org/example-repo',
+                    GITHUB_OUTPUT: path.join(directory, 'outputs'),
+                    RUNNER_TEMP: directory,
+                    STEP1_RUN_ID: '456',
+                    RELEASE_GATE: 'true',
+                    RELEASE_PLEASE_ENABLED: 'true',
+                    RELEASE_TAG: 'v3.32.0',
+                });
+                expect(result.status).toBe(1);
+                const [command] = fs.readFileSync(nodeLog, 'utf8').split('\n');
+                expect(command).toMatch(
+                    /--trigger workflow_dispatch --release-gate true --release-please-mode true --artifacts \S+\/step1-artifacts\.json --jobs \S+\/step1-jobs\.json --release-tag v3\.32\.0$/
+                );
+            });
+
+            itStripsTypes('supports cross-version release_tag pairings and fails closed when release_tag mismatches head_branch', () => {
+                const bin = path.join(directory, 'bin');
+                const declaredInputs = Object.keys(
+                    CANDIDATE.on.workflow_dispatch.inputs
+                );
+                expect(declaredInputs).toContain('release_tag');
+                const dispatchedInputsFile = path.join(
+                    directory,
+                    'dispatched-inputs.txt'
+                );
+                fs.writeFileSync(
+                    path.join(bin, 'gh'),
+                    [
+                        '#!/bin/sh',
+                        'case "$*" in',
+                        '  *"/workflows/v3-shadow-candidate.yml/dispatches"*)',
+                        `    : > "${dispatchedInputsFile}"`,
+                        '    for arg in "$@"; do',
+                        '      case "$arg" in',
+                        '        inputs\\[*\\]=*)',
+                        '          key="${arg#inputs[}"',
+                        '          key="${key%%]=*}"',
+                        '          val="${arg#*=}"',
+                        `          case ",${declaredInputs.join(',')}," in`,
+                        '            *,"$key",*)',
+                        `              printf '%s=%s\\n' "$key" "$val" >> "${dispatchedInputsFile}" ;;`,
+                        '            *)',
+                        '              echo "HTTP 422: Unexpected inputs provided: [\\"$key\\"]" >&2',
+                        '              exit 1 ;;',
+                        '          esac ;;',
+                        '      esac',
+                        '    done',
+                        '    echo \'{"workflow_run_id":987654}\' ;;',
+                        '  *"/actions/runs/987654"*)',
+                        '    echo \'{"status":"completed","conclusion":"success","html_url":"https://example.test/runs/987654"}\' ;;',
+                        '  *"/workflows/staging-step-1.yml"*) echo 101 ;;',
+                        '  *"/workflows/v3-release-step-1.yml"*) echo 102 ;;',
+                        '  *"/jobs?"*) echo \'{"jobs":[{"run_id":456,"run_attempt":1,"name":"Perform Release","status":"completed","conclusion":"success"},{"run_id":456,"run_attempt":1,"name":"Package V3 candidate (shadow)","status":"completed","conclusion":"success","started_at":"2026-11-09T20:00:00Z","completed_at":"2026-11-09T20:05:00Z"}]}\' ;;',
+                        '  *"/artifacts?"*) echo \'{"artifacts":[{"name":"v3-candidate-456-1","expired":false,"created_at":"2026-11-09T20:02:00Z","workflow_run":{"id":456}}]}\' ;;',
+                        '  *"/actions/runs/456") echo \'{"id":456,"run_attempt":1,"status":"completed","conclusion":"success","event":"workflow_dispatch","path":".github/workflows/v3-release-step-1.yml","workflow_id":102,"head_branch":"v3.32.0","display_title":"V3 Release - Step 1","head_repository":{"full_name":"mParticle/mparticle-web-sdk"},"repository":{"full_name":"mParticle/mparticle-web-sdk"}}\' ;;',
+                        '  *) echo 101 ;;',
+                        'esac',
+                        '',
+                    ].join('\n'),
+                    { mode: 0o755 }
+                );
+                fs.rmSync(path.join(bin, 'node'), { force: true });
+                const eventPath = path.join(directory, 'event.json');
+                fs.writeFileSync(eventPath, JSON.stringify({}));
+                const outputsPath = path.join(directory, 'outputs');
+                const runGate = (
+                    releaseTag: string,
+                    receiverScript: string = script()
+                ) => {
+                    fs.writeFileSync(outputsPath, '');
+                    return runScript(receiverScript, {
+                        PATH: `${bin}:${path.dirname(process.execPath)}:${process.env.PATH}`,
+                        GITHUB_EVENT_NAME: 'workflow_dispatch',
+                        GITHUB_EVENT_PATH: eventPath,
+                        GITHUB_REPOSITORY: 'mParticle/mparticle-web-sdk',
+                        GITHUB_OUTPUT: outputsPath,
+                        RUNNER_TEMP: directory,
+                        STEP1_RUN_ID: '456',
+                        RELEASE_GATE: 'true',
+                        RELEASE_PLEASE_ENABLED: 'true',
+                        RELEASE_TAG: releaseTag,
+                    });
+                };
+
+                // Pairing 1: an old caller (no release_tag) with the new receiver
+                // takes head_branch, logs a warning, and passes.
+                const oldCallerNewReceiver = runGate('');
+                expect(oldCallerNewReceiver.status).toBe(0);
+                expect(oldCallerNewReceiver.output).toContain(
+                    '::warning::release_tag was not passed; caller predates release_tag, using Step 1 head_branch (v3.32.0)'
+                );
+                expect(oldCallerNewReceiver.output).toContain(
+                    'release_tag=v3.32.0'
+                );
+                expect(fs.readFileSync(outputsPath, 'utf8')).toContain(
+                    'release_tag=v3.32.0\n'
+                );
+                expect(fs.readFileSync(outputsPath, 'utf8')).not.toContain(
+                    '::warning::'
+                );
+
+                // Pairing 2: a new caller (with release_tag) with a receiver that
+                // keeps the release_tag input declaration on v3-shadow-candidate.yml
+                // (so GitHub accepts the dispatch) but does not pass --release-tag
+                // to the check passes.
+                const step1Workflow = load(
+                    `${WORKFLOW_DIRECTORY}/v3-release-step-1.yml`
+                );
+                const callerDispatch = stepNamed(
+                    step1Workflow.jobs['upload-v3-candidate'],
+                    'Dispatch and wait for V3 candidate upload and stage'
+                ).run;
+                const callerResult = runScript(callerDispatch, {
+                    PATH: `${bin}:${path.dirname(process.execPath)}:${process.env.PATH}`,
+                    GITHUB_REPOSITORY: 'mParticle/mparticle-web-sdk',
+                    GITHUB_OUTPUT: path.join(directory, 'caller-outputs'),
+                    GITHUB_STEP_SUMMARY: path.join(directory, 'caller-summary'),
+                    STEP1_RUN_ID: '456',
+                    RELEASE_TAG: 'v3.32.0',
+                    WAIT_TIMEOUT_SECONDS: '30',
+                    POLL_INTERVAL_SECONDS: '1',
+                    CANCEL_ATTEMPTS: '3',
+                    CANCEL_RETRY_SECONDS: '1',
+                });
+                expect(callerResult.status).toBe(0);
+                expect(fs.readFileSync(dispatchedInputsFile, 'utf8')).toContain(
+                    'release_tag=v3.32.0\n'
+                );
+                const receiverWithoutCheck = script().replace(
+                    /if \[ -n "\$\{RELEASE_TAG:-\}" \]; then\s+set -- "\$@" --release-tag "\$RELEASE_TAG"\s+fi/,
+                    ''
+                );
+                expect(receiverWithoutCheck).not.toContain('--release-tag');
+                const newCallerRolledBackReceiver = runGate(
+                    'v3.32.0',
+                    receiverWithoutCheck
+                );
+                expect(newCallerRolledBackReceiver.status).toBe(0);
+                expect(newCallerRolledBackReceiver.output).toContain(
+                    'release_tag=v3.32.0'
+                );
+
+                // Mismatch: when release_tag is given and differs from head_branch,
+                // the receiver fails closed.
+                const mismatchedTag = runGate('v3.31.0');
+                expect(mismatchedTag.status).toBe(1);
+                expect(mismatchedTag.output).toContain(
+                    'The candidate release_tag must equal the Step 1 run head_branch'
+                );
+
+                // Matching new caller and new receiver passes with no warning.
+                const matchingTag = runGate('v3.32.0');
+                expect(matchingTag.status).toBe(0);
+                expect(matchingTag.output).toContain('release_tag=v3.32.0');
+                expect(matchingTag.output).not.toContain('::warning::');
+            });
+
+            it('fails closed in release-gate mode when the Step 1 plan returns skip=true', () => {
+                const eventPath = path.join(directory, 'event.json');
+                fs.writeFileSync(eventPath, JSON.stringify({}));
+                const result = runScript(script(), {
+                    PATH: `${path.join(directory, 'bin')}:${process.env.PATH}`,
+                    GITHUB_EVENT_NAME: 'workflow_dispatch',
+                    GITHUB_EVENT_PATH: eventPath,
+                    GITHUB_REPOSITORY: 'example-org/example-repo',
+                    GITHUB_OUTPUT: path.join(directory, 'outputs'),
+                    RUNNER_TEMP: directory,
+                    STEP1_RUN_ID: '456',
+                    RELEASE_GATE: 'true',
+                });
+                expect(result.status).toBe(1);
+                expect(result.output).toContain(
+                    'Release-gate mode does not allow skipping the Step 1 run.'
+                );
             });
 
             it.each([
@@ -631,9 +907,50 @@ describe('V3 shadow release workflows', () => {
             expect(parity.run).toContain('check-release-parity.ts');
             expect(parity.run).toContain('--npm');
             expect(parity.run).toContain('--summary "$GITHUB_STEP_SUMMARY"');
+            expect(parity.run).not.toContain('${{');
             expect(stepNamed(jobs.verify, 'Fetch the release tag').run).toContain(
                 'git fetch --no-tags --depth=1 origin "+refs/tags/${RELEASE_TAG}:refs/tags/${RELEASE_TAG}"'
             );
+        });
+
+        it('reads npm again for up to 10 minutes in release-gate mode only, inside the verify job timeout', () => {
+            const parity = stepNamed(jobs.verify, 'Check parity with git and npm');
+            // A transition workflow_run, or a dispatch with release_gate=false,
+            // reads npm once (a window of 0), as before the retry existed.
+            expect(parity.env).toEqual({
+                RELEASE_TAG: '${{ steps.candidate.outputs.release_tag }}',
+                NPM_RETRY_SECONDS:
+                    "${{ github.event_name == 'workflow_dispatch' && inputs.release_gate && '600' || '0' }}",
+            });
+            expect(parity.run).toContain('--npm-retry-seconds "$NPM_RETRY_SECONDS"');
+            // The window comes on top of the 15 minutes the other checks had.
+            expect(jobs.verify['timeout-minutes']).toBeGreaterThanOrEqual(15 + 600 / 60);
+        });
+
+        it('requires npm parity to pass in release-gate mode, so unpublished kits fail the gate', () => {
+            const names = jobs.verify.steps.map((step: any) => step.name);
+            expect(names.indexOf('Require npm parity in release-gate mode')).toBe(
+                names.indexOf('Check parity with git and npm') + 1
+            );
+            const gate = stepNamed(jobs.verify, 'Require npm parity in release-gate mode');
+            expect(gate.if).toBe(
+                "${{ github.event_name == 'workflow_dispatch' && inputs.release_gate }}"
+            );
+            expect(gate.env).toEqual({
+                NPM_PARITY: '${{ steps.parity.outputs.npm_parity }}',
+            });
+            expect(gate.run).not.toContain('${{');
+
+            expect(runScript(gate.run, { NPM_PARITY: 'pass' }).status).toBe(0);
+            // check-release-parity.ts reads an E404 for an unpublished kit as
+            // pending, which the transition workflow_run path still uploads.
+            for (const parity of ['pending', 'unavailable', 'fail', '']) {
+                const result = runScript(gate.run, { NPM_PARITY: parity });
+                expect(result.status).toBe(1);
+                expect(result.output).toContain(
+                    `Release-gate mode requires npm parity to pass (got ${parity || 'none'}).`
+                );
+            }
         });
 
         it('runs the independent checker on the validated candidate before the parity check', () => {
@@ -668,6 +985,49 @@ describe('V3 shadow release workflows', () => {
                 });
                 expect(result.status).toBe(1);
                 expect(result.output).toContain('V3 candidate check failed');
+            } finally {
+                fs.rmSync(directory, { recursive: true, force: true });
+            }
+        });
+
+        itStripsTypes('requires the candidate release_tag to equal the Step 1 run head_branch when resolve outputs release_tag', () => {
+            expect(jobs.resolve.outputs.release_tag).toBe(
+                '${{ steps.run.outputs.release_tag }}'
+            );
+            const validateCandidate = stepNamed(jobs.verify, 'Validate the candidate');
+            expect(validateCandidate.env).toEqual({
+                BUILD_ID: '${{ needs.resolve.outputs.build_id }}',
+                EXPECTED_RELEASE_TAG: '${{ needs.resolve.outputs.release_tag }}',
+            });
+            const directory = makeTempDirectory('v3-shadow-candidate-tag-');
+            try {
+                const candidate = buildCandidate();
+                writeCandidateDirectory(path.join(directory, 'v3-candidate'), candidate);
+                const outputs = path.join(directory, 'outputs');
+                const runValidate = (expectedReleaseTag: string) => {
+                    fs.writeFileSync(outputs, '');
+                    return runScript(validateCandidate.run, {
+                        RUNNER_TEMP: directory,
+                        GITHUB_OUTPUT: outputs,
+                        BUILD_ID: candidate.buildId,
+                        EXPECTED_RELEASE_TAG: expectedReleaseTag,
+                    });
+                };
+
+                const matching = runValidate(`v${candidate.version}`);
+                expect(matching.status).toBe(0);
+                expect(fs.readFileSync(outputs, 'utf8')).toContain(
+                    `release_tag=v${candidate.version}\n`
+                );
+
+                const branchOrigin = runValidate('');
+                expect(branchOrigin.status).toBe(0);
+
+                const mismatched = runValidate('v3.99.0');
+                expect(mismatched.status).toBe(1);
+                expect(mismatched.output).toContain(
+                    `The candidate release_tag (v${candidate.version}) must equal the Step 1 run head_branch (v3.99.0).`
+                );
             } finally {
                 fs.rmSync(directory, { recursive: true, force: true });
             }
@@ -718,6 +1078,61 @@ describe('V3 shadow release workflows', () => {
                 expect(find([{ name: 'v3-candidate-1-1', expired: true }])).toBe('found=false\n');
                 expect(find([{ name: 'v3-candidate-1-2', expired: false }])).toBe('found=false\n');
                 expect(find([])).toBe('found=false\n');
+
+                fs.writeFileSync(artifacts, JSON.stringify({ artifacts: [] }));
+                const gatedMissing = runScript(script, {
+                    PATH: `${bin}:${process.env.PATH}`,
+                    GITHUB_OUTPUT: outputs,
+                    GITHUB_REPOSITORY: 'example-org/example-repo',
+                    RUN_ID: '1',
+                    ARTIFACT_NAME: 'v3-candidate-1-1',
+                    RELEASE_GATE: 'true',
+                });
+                expect(gatedMissing.status).toBe(1);
+                expect(gatedMissing.output).toContain(
+                    'Release-gate mode requires exactly one unexpired shadow candidate artifact.'
+                );
+            } finally {
+                fs.rmSync(directory, { recursive: true, force: true });
+            }
+        });
+
+        itStripsTypes('requires all production pods in Select pods when release_gate is true', () => {
+            const directory = makeTempDirectory('v3-shadow-candidate-pods-');
+            try {
+                const outputs = path.join(directory, 'outputs');
+                const script = stepNamed(jobs.resolve, 'Select pods').run;
+                fs.writeFileSync(outputs, '');
+                expect(
+                    runScript(script, {
+                        POD_LIST: 'qa',
+                        RELEASE_GATE: 'false',
+                        GITHUB_OUTPUT: outputs,
+                    }).status
+                ).toBe(0);
+                expect(fs.readFileSync(outputs, 'utf8')).toContain('pods=qa\n');
+
+                fs.writeFileSync(outputs, '');
+                const missingProd = runScript(script, {
+                    POD_LIST: 'qa,us1',
+                    RELEASE_GATE: 'true',
+                    GITHUB_OUTPUT: outputs,
+                });
+                expect(missingProd.status).toBe(1);
+                expect(missingProd.output).toContain(
+                    'Release-gate mode requires all production pods (us1, us2, st1, eu1, au1)'
+                );
+
+                fs.writeFileSync(outputs, '');
+                const allProd = runScript(script, {
+                    POD_LIST: 'us1,us2,st1,eu1,au1',
+                    RELEASE_GATE: 'true',
+                    GITHUB_OUTPUT: outputs,
+                });
+                expect(allProd.status).toBe(0);
+                expect(fs.readFileSync(outputs, 'utf8')).toContain(
+                    'pods=us1,us2,st1,eu1,au1\n'
+                );
             } finally {
                 fs.rmSync(directory, { recursive: true, force: true });
             }
@@ -798,15 +1213,90 @@ describe('V3 shadow release workflows', () => {
                 REQUIRE_BRANCH_TIPS: "${{ inputs.release_tag != '' && inputs.branches || '' }}",
                 WAIT_FOR_STAGING_SECONDS: "${{ inputs.release_tag != '' && '1800' || '' }}",
                 DRY_RUN: '${{ inputs.dry_run }}',
+                RELEASE_GATE: '${{ inputs.release_gate }}',
                 ALLOW_DOWNGRADE: '${{ inputs.allow_downgrade }}',
                 ALLOW_REBUILD: '${{ inputs.allow_rebuild }}',
                 ALLOW_UPGRADE: '${{ inputs.allow_upgrade }}',
             });
             const inputs = POINTER_JOB.on.workflow_call.inputs;
             expect(inputs.dry_run).toEqual({ required: true, type: 'boolean' });
+            expect(inputs.release_gate).toMatchObject({ type: 'boolean', default: false });
             expect(inputs.allow_downgrade).toMatchObject({ type: 'boolean', default: false });
             expect(inputs.allow_rebuild).toMatchObject({ type: 'boolean', default: false });
             expect(inputs.allow_upgrade).toMatchObject({ type: 'boolean', default: false });
+        });
+
+        it('fails closed in release-gate mode when the release branch does not point at the release tag', () => {
+            const directory = makeTempDirectory('v3-shadow-pointer-recheck-');
+            try {
+                const bin = path.join(directory, 'bin');
+                const outputs = path.join(directory, 'outputs');
+                fs.mkdirSync(bin);
+                fs.writeFileSync(
+                    path.join(bin, 'node'),
+                    [
+                        '#!/bin/sh',
+                        'printf "matches=%s\\n" "${FAKE_MATCHES:-false}"',
+                        'echo "mismatched=v3-staging"',
+                        '',
+                    ].join('\n'),
+                    { mode: 0o755 }
+                );
+                const script = stepNamed(job, 'Re-check the release branches').run;
+                const runRecheck = (env: Record<string, string>) => {
+                    fs.writeFileSync(outputs, '');
+                    return runScript(script, {
+                        PATH: `${bin}:${process.env.PATH}`,
+                        RUNNER_TEMP: directory,
+                        GITHUB_OUTPUT: outputs,
+                        RELEASE_TAG: 'v3.32.0',
+                        BRANCHES: 'v3-staging',
+                        DRY_RUN: 'false',
+                        RELEASE_GATE: 'false',
+                        ...env,
+                    });
+                };
+
+                const nonGateMismatch = runRecheck({ RELEASE_GATE: 'false' });
+                expect(nonGateMismatch.status).toBe(0);
+                expect(nonGateMismatch.output).toContain(
+                    '::notice::The release branches no longer point at v3.32.0; no pointer changes.'
+                );
+
+                const gateMismatch = runRecheck({ RELEASE_GATE: 'true' });
+                expect(gateMismatch.status).toBe(1);
+                expect(gateMismatch.output).toContain(
+                    'Release-gate mode requires v3-staging to point at v3.32.0; no pointer changes.'
+                );
+
+                const gateMatch = runRecheck({
+                    RELEASE_GATE: 'true',
+                    FAKE_MATCHES: 'true',
+                });
+                expect(gateMatch.status).toBe(0);
+                expect(fs.readFileSync(outputs, 'utf8')).toContain('matches=true\n');
+
+                const gateDryRun = runRecheck({
+                    RELEASE_GATE: 'true',
+                    DRY_RUN: 'true',
+                    FAKE_MATCHES: 'true',
+                });
+                expect(gateDryRun.status).toBe(1);
+                expect(gateDryRun.output).toContain(
+                    'Release-gate mode does not allow dry_run=true.'
+                );
+
+                const gateMissingTag = runRecheck({
+                    RELEASE_GATE: 'true',
+                    RELEASE_TAG: '',
+                });
+                expect(gateMissingTag.status).toBe(1);
+                expect(gateMissingTag.output).toContain(
+                    'Release-gate mode requires release_tag and branches.'
+                );
+            } finally {
+                fs.rmSync(directory, { recursive: true, force: true });
+            }
         });
 
         it('assumes read-only sessions for show and status, and the role itself otherwise', () => {
@@ -852,9 +1342,65 @@ describe('V3 shadow release workflows', () => {
         it('summarizes each pod in its own job', () => {
             const summary = stepNamed(job, 'Summarize the pod');
             expect(summary.if).toBe(
-                "${{ always() && steps.branch.outputs.matches == 'true' && steps.pods.outputs[matrix.pod] == 'true' }}"
+                "${{ always() && (steps.branch.outputs.matches == 'true' || inputs.release_gate) && steps.pods.outputs[matrix.pod] == 'true' }}"
             );
             expect(summary.run).toContain('--pods "$POD"');
+        });
+
+        itStripsTypes('passes Summarize the pod when an already-staged pointer is re-staged, and fails when no record was written', () => {
+            const directory = makeTempDirectory('v3-shadow-pointer-summary-');
+            try {
+                const progressFile = path.join(directory, 'v3-release-progress.jsonl');
+                const summaryFile = path.join(directory, 'step-summary.md');
+                const script = stepNamed(job, 'Summarize the pod').run;
+                const runSummary = () => {
+                    fs.writeFileSync(summaryFile, '');
+                    return runScript(script, {
+                        RUNNER_TEMP: directory,
+                        GITHUB_STEP_SUMMARY: summaryFile,
+                        POD: 'us1',
+                    });
+                };
+
+                const missing = runSummary();
+                expect(missing.status).toBe(1);
+                expect(missing.output).toContain('Not attempted: us1');
+
+                const pointer = {
+                    version: '3.32.0',
+                    buildId: '42638277207-1',
+                    metadataSha256: 'a'.repeat(64),
+                };
+                fs.writeFileSync(
+                    progressFile,
+                    `${JSON.stringify({
+                        pod: 'us1',
+                        operation: 'stage',
+                        status: 'succeeded',
+                        transitions: [
+                            {
+                                channel: 'v3-staging',
+                                before: pointer,
+                                after: pointer,
+                                status: 'unchanged',
+                            },
+                        ],
+                        releaseIndex: {
+                            version: '3.32.0',
+                            buildId: '42638277207-1',
+                            before: 'build 42638277207-1',
+                            status: 'unchanged',
+                        },
+                    })}\n`
+                );
+                const restaged = runSummary();
+                expect(restaged.status).toBe(0);
+                expect(restaged.output).toContain('Changed pods: none');
+                expect(restaged.output).toContain('Failed pods: none');
+                expect(restaged.output).toContain('[unchanged]');
+            } finally {
+                fs.rmSync(directory, { recursive: true, force: true });
+            }
         });
     });
 
@@ -893,6 +1439,96 @@ describe('V3 shadow release workflows', () => {
                 allow_downgrade: "${{ needs.resolve.outputs.allow_downgrade == 'true' }}",
                 allow_rebuild: "${{ needs.resolve.outputs.allow_rebuild == 'true' }}",
                 allow_upgrade: "${{ needs.resolve.outputs.allow_upgrade == 'true' }}",
+            });
+        });
+
+        describe('release run plan', () => {
+            let directory: string;
+            let ghLog: string;
+            let nodeLog: string;
+            const script = () =>
+                stepNamed(jobs.resolve, 'Plan from the release run or the dispatch inputs').run;
+            const planFor = (run: Record<string, unknown>) => {
+                const eventPath = path.join(directory, 'event.json');
+                fs.writeFileSync(eventPath, JSON.stringify({ workflow_run: run }));
+                fs.writeFileSync(ghLog, '');
+                fs.writeFileSync(nodeLog, '');
+                return runScript(script(), {
+                    PATH: `${path.join(directory, 'bin')}:${process.env.PATH}`,
+                    GITHUB_EVENT_NAME: 'workflow_run',
+                    GITHUB_EVENT_PATH: eventPath,
+                    GITHUB_REPOSITORY: 'example-org/example-repo',
+                    GITHUB_OUTPUT: path.join(directory, 'outputs'),
+                    RUNNER_TEMP: directory,
+                    RELEASE_PLEASE_ENABLED: 'true',
+                });
+            };
+
+            beforeEach(() => {
+                directory = makeTempDirectory('v3-shadow-promote-plan-');
+                ghLog = path.join(directory, 'gh.log');
+                nodeLog = path.join(directory, 'node.log');
+                const bin = path.join(directory, 'bin');
+                fs.mkdirSync(bin);
+                // Two pages of jobs, as gh --paginate prints them.
+                fs.writeFileSync(
+                    path.join(bin, 'gh'),
+                    [
+                        '#!/bin/sh',
+                        `echo "$*" >> "${ghLog}"`,
+                        'case "$*" in',
+                        '  *"/jobs?"*) echo \'{"jobs":[{"name":"a"}]}\'; echo \'{"jobs":[{"name":"b"}]}\' ;;',
+                        '  *) echo 101 ;;',
+                        'esac',
+                        '',
+                    ].join('\n'),
+                    { mode: 0o755 }
+                );
+                fs.writeFileSync(
+                    path.join(bin, 'node'),
+                    [
+                        '#!/bin/sh',
+                        `echo "$*" >> "${nodeLog}"`,
+                        'while [ $# -gt 0 ]; do',
+                        `  if [ "$1" = --jobs ]; then tr -d '\\n' < "$2" >> "${nodeLog}"; echo >> "${nodeLog}"; fi`,
+                        '  shift',
+                        'done',
+                        'echo step=3',
+                        'echo skip=true',
+                        'echo reason=test',
+                        '',
+                    ].join('\n'),
+                    { mode: 0o755 }
+                );
+            });
+
+            afterEach(() => {
+                fs.rmSync(directory, { recursive: true, force: true });
+            });
+
+            it('passes the release run attempt\'s jobs, every page, to the plan', () => {
+                const result = planFor({ id: 123, run_attempt: 2, conclusion: 'success' });
+                expect(result.status).toBe(0);
+                expect(fs.readFileSync(ghLog, 'utf8')).toContain(
+                    'api --paginate repos/example-org/example-repo/actions/runs/123/attempts/2/jobs?per_page=100'
+                );
+                const [command, jobsList] = fs.readFileSync(nodeLog, 'utf8').split('\n');
+                expect(command).toMatch(
+                    /release-step .* --release-please-mode true --jobs \S+\/release-jobs\.json$/
+                );
+                expect(JSON.parse(jobsList)).toEqual([{ name: 'a' }, { name: 'b' }]);
+                expect(fs.readFileSync(path.join(directory, 'outputs'), 'utf8')).toBe('skip=true\n');
+            });
+
+            it.each([
+                ['run ID', { id: '1/../2', run_attempt: 2 }],
+                ['attempt', { id: 123, run_attempt: 'x' }],
+            ])('refuses an invalid %s before reading the attempt\'s jobs', (_label, run) => {
+                const result = planFor({ ...run, conclusion: 'success' });
+                expect(result.status).toBe(1);
+                expect(result.output).toContain('The release run has an invalid ID or attempt.');
+                expect(fs.readFileSync(ghLog, 'utf8')).not.toContain('/jobs?');
+                expect(fs.readFileSync(nodeLog, 'utf8')).toBe('');
             });
         });
 
@@ -1318,5 +1954,108 @@ describe('V3 Step 1 release branch name', () => {
         }
         expect(read(STEP1_PATH)).not.toMatch(/v3-release\/[^"|\s]*GITHUB_RUN_(NUMBER|ATTEMPT)/);
         expect(read(STEP1_PATH)).not.toMatch(/v3-release\/[^"|\s]*\$\{\{\s*github\.run_(number|attempt)\s*\}\}/);
+    });
+});
+
+describe('V3 Step 1 test jobs', () => {
+    const STEP1_PATH = `${WORKFLOW_DIRECTORY}/v3-release-step-1.yml`;
+    const KIT_RECOVERY_SKIP = "${{ inputs.resumeKitReleaseTag == '' }}";
+    // The build and test jobs. Create release branch waits for each of them
+    // and for confirm-staging-branch.
+    const TEST_JOBS = [
+        'build-bundle',
+        'test-jest',
+        'test-core',
+        'test-stub',
+        'test-integrations-require-js',
+        'test-integrations-common-js-browserfy',
+        'test-integrations-common-js-webpack',
+        'test-integrations-common-js-rollup',
+        'test-integrations-module-js-webpack',
+        'test-integrations-module-js-rollup',
+        'load-kit-matrix',
+        'run-kit-tests',
+    ];
+
+    function needsOf(job: any): string[] {
+        if (job.needs === undefined) {
+            return [];
+        }
+        return Array.isArray(job.needs) ? job.needs : [job.needs];
+    }
+
+    // Each test job checks out the frozen candidate and builds what it tests
+    // itself, so none waits for another test job: they all start once the
+    // candidate is resolved, and the kit tests also wait for their matrix.
+    it('starts every test job at once and still creates the release branch only after all of them', () => {
+        const jobs = load(STEP1_PATH).jobs;
+        for (const name of TEST_JOBS) {
+            const expected =
+                name === 'run-kit-tests' ? ['confirm-staging-branch', 'load-kit-matrix'] : ['confirm-staging-branch'];
+            expect({ job: name, needs: needsOf(jobs[name]) }).toEqual({ job: name, needs: expected });
+        }
+
+        const createBranch = jobs['create-release-branch'];
+        expect([...needsOf(createBranch)].sort()).toEqual([...TEST_JOBS, 'confirm-staging-branch'].sort());
+        const condition = createBranch.if.replace(/\s+/g, ' ');
+        expect(condition).toContain('always() && !cancelled() &&');
+        for (const name of [...TEST_JOBS, 'confirm-staging-branch']) {
+            expect(condition).toContain(`needs.${name}.result == 'success'`);
+        }
+    });
+
+    // A kit recovery run publishes the kits of an existing tag and tests
+    // nothing: each test job is skipped by its own if, or, with no if of its
+    // own, because a job it needs is skipped.
+    it('runs no test job in a kit recovery run', () => {
+        const jobs = load(STEP1_PATH).jobs;
+        for (const name of TEST_JOBS) {
+            const job = jobs[name];
+            const skipped =
+                job.if === KIT_RECOVERY_SKIP ||
+                (job.if === undefined && needsOf(job).some(need => jobs[need].if === KIT_RECOVERY_SKIP));
+            expect({ job: name, skipped }).toEqual({ job: name, skipped: true });
+        }
+    });
+
+    // GitHub rejects a workflow whose job reads needs.X for an X the job does
+    // not need, so a need dropped from a job must leave no reference behind.
+    it('reads the result or outputs only of a job each job needs', () => {
+        const jobs = load(STEP1_PATH).jobs;
+        for (const [name, job] of Object.entries(jobs) as Array<[string, any]>) {
+            const referenced = (JSON.stringify(job).match(/needs\.[\w-]+\./g) || []).map((reference: string) =>
+                reference.slice('needs.'.length, -1)
+            );
+            const unlisted = Array.from(new Set(referenced)).filter(need => needsOf(job).indexOf(need) === -1);
+            expect({ job: name, unlisted }).toEqual({ job: name, unlisted: [] });
+        }
+    });
+
+    // The slowest kit normally finishes in under 2 minutes (with ~4-6 minutes
+    // worst-case startup), so every kit test and coverage job bounds execution
+    // at 15 minutes rather than GitHub Actions' 6-hour default when Karma or
+    // Vitest hangs.
+    it('bounds run-kit-tests and coverage-rokt-kit to 15 minutes across pull-request, v3-release-step-1, and staging-step-1', () => {
+        for (const workflowFile of ['pull-request.yml', 'v3-release-step-1.yml', 'staging-step-1.yml']) {
+            const workflow = load(`${WORKFLOW_DIRECTORY}/${workflowFile}`);
+            expect({
+                workflow: workflowFile,
+                timeoutMinutes: workflow.jobs['run-kit-tests']['timeout-minutes'],
+            }).toEqual({
+                workflow: workflowFile,
+                timeoutMinutes: 15,
+            });
+        }
+
+        const pullRequestWorkflow = load(`${WORKFLOW_DIRECTORY}/pull-request.yml`);
+        expect({
+            workflow: 'pull-request.yml',
+            job: 'coverage-rokt-kit',
+            timeoutMinutes: pullRequestWorkflow.jobs['coverage-rokt-kit']['timeout-minutes'],
+        }).toEqual({
+            workflow: 'pull-request.yml',
+            job: 'coverage-rokt-kit',
+            timeoutMinutes: 15,
+        });
     });
 });

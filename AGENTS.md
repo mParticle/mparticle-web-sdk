@@ -32,9 +32,11 @@ production logs.
 
 Conventional Commits are required and gated by `Check PR for semantic title`.
 
-Choose the type deliberately: `release.config.js` maps types to version bumps, and **most
-types cut a release** here, not just `feat` and `fix`. Check that file rather than assuming
-the usual defaults. A `BREAKING CHANGE:` footer cuts a major.
+Choose the type deliberately. Release Please cuts V3 releases from `main`
+(`release-please-config.json`), and **most types cut a release**: a `BREAKING CHANGE:` footer
+cuts a major, `feat` a minor, and every other type with a visible changelog section a patch.
+Only `build` is hidden, so it cuts no release on its own. V2 still releases with
+semantic-release (`release.config.js`).
 
 Add tests with any feature or bug fix, covering the failure path as well as the happy one.
 
@@ -69,13 +71,13 @@ and edit it out later.
 
 ## Pull Requests
 
-GitHub's default branch is `main` (`master` carries V2) and `CONTRIBUTING.md` says `master`,
-but feature and maintenance PRs normally target neither: V3 releases move `main`, and recent
-PRs merge to `v3-development`. Check
-`gh pr list --state merged --limit 10 --json baseRefName` before choosing a base.
+V3 pull requests target `main`, GitHub's default branch (`master` carries V2).
+`v3-development` is retired. Release Please keeps a release pull request open on `main`;
+merging it publishes the GitHub release and the `v3.X.Y` tag, and only that pull request
+changes `dist/` and `kits/**/dist`.
 
 The PR title must be a Conventional Commit (`Check PR for semantic title`); no branch-name
-or target-branch check runs. The `v3-development` ruleset requires signed commits.
+or target-branch check runs.
 
 Every PR from a fork shows `BrowserStack Test` and `Notify GChat` red, because GitHub
 withholds secrets from fork runs. Neither is a required check. Coverage uploads also skip
@@ -218,8 +220,8 @@ modules directly.
      minified bundle.
    - Keep computed keys out of destructuring patterns (`const { [KEY]: x, ...rest } = obj`) in
      the Rokt kit. Read `obj[KEY]` and copy then `delete` instead. A Rokt kit spec enforces this.
-   - A fix only ships from `v3-development`. A hotfix merged straight to `main` is not picked up
-     by the V3 release, which releases from the tip of `v3-development`.
+   - A fix ships in the next Release Please release from `main`. Never edit `dist/` or
+     `kits/**/dist` in a feature pull request: the release pull request builds them.
 
 ## Skills
 

@@ -204,7 +204,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "3.29.1";
+    var version = "3.32.2";
 
     var Constants = {
       sdkVersion: version,
@@ -4515,7 +4515,8 @@ var mParticle = (function () {
       UNHANDLED_EXCEPTION: 'UNHANDLED_EXCEPTION',
       IDENTITY_REQUEST: 'IDENTITY_REQUEST',
       IDENTITY_MISMATCH: 'IDENTITY_MISMATCH',
-      MP_DEPRECATED_METHOD_USAGE: 'MP_DEPRECATED_METHOD_USAGE'
+      MP_DEPRECATED_METHOD_USAGE: 'MP_DEPRECATED_METHOD_USAGE',
+      SELECT_PLACEMENTS_IDENTITY_IN_FLIGHT: 'SELECT_PLACEMENTS_IDENTITY_IN_FLIGHT'
     };
     var WSDKErrorSeverity = {
       ERROR: 'ERROR',
@@ -6125,7 +6126,7 @@ var mParticle = (function () {
           mpInstance.Logger.error('Price is required when creating a product, and must be a string or a number');
           return null;
         } else {
-          price = mpInstance._Helpers.parseNumber(price);
+          price = parseNumber(price);
         }
         if (position && !mpInstance._Helpers.Validators.isNumber(position)) {
           mpInstance.Logger.error('Position must be a number, it will be set to null.');
@@ -6134,7 +6135,7 @@ var mParticle = (function () {
         if (!mpInstance._Helpers.Validators.isStringOrNumber(quantity)) {
           quantity = 1;
         } else {
-          quantity = mpInstance._Helpers.parseNumber(quantity);
+          quantity = parseNumber(quantity);
         }
         return {
           Name: name,
@@ -6317,7 +6318,7 @@ var mParticle = (function () {
           return 0;
         }
         // if amount is a string, it will be parsed into a number if possible, or set to 0
-        return mpInstance._Helpers.parseNumber(amount);
+        return parseNumber(amount);
       };
     }
 
@@ -7233,7 +7234,7 @@ var mParticle = (function () {
           return null;
         }
         var record = JSON.parse(decoded);
-        return mpInstance._Helpers.isObject(record) && Object.keys(record).length ? record : null;
+        return isObject(record) && Object.keys(record).length ? record : null;
       }
       this.getLocalStorage = function () {
         if (!mpInstance._Store.isLocalStorageAvailable) {
@@ -7433,7 +7434,7 @@ var mParticle = (function () {
         if (Array.isArray(value)) {
           return value.length > 0;
         }
-        if (!mpInstance._Helpers.isObject(value)) {
+        if (!isObject(value)) {
           return false;
         }
         return Object.keys(value).length > 0;
@@ -7465,7 +7466,7 @@ var mParticle = (function () {
       }
       function encodeMpidBase64Field(container, key) {
         var value = container[key];
-        if (mpInstance._Helpers.isObject(value) && Object.keys(value).length) {
+        if (isObject(value) && Object.keys(value).length) {
           container[key] = Base64.encode(JSON.stringify(value));
           return;
         }
@@ -7536,7 +7537,7 @@ var mParticle = (function () {
             continue;
           }
           if (!SDKv2NonMPIDCookieKeys[mpid]) {
-            if (!mpInstance._Helpers.isObject(persistence[mpid])) {
+            if (!isObject(persistence[mpid])) {
               delete persistence[mpid];
               continue;
             }
@@ -7556,7 +7557,7 @@ var mParticle = (function () {
             return;
           }
           var persistence = JSON.parse(revertCookieString(persistenceString));
-          if (mpInstance._Helpers.isObject(persistence) && Object.keys(persistence).length) {
+          if (isObject(persistence) && Object.keys(persistence).length) {
             decodeGlobalSettings(persistence.gs);
             decodeMpidRecords(persistence);
           }
@@ -7601,7 +7602,7 @@ var mParticle = (function () {
         if (csd) {
           var persistence = self.getPersistence();
           if (persistence) {
-            if (mpInstance._Helpers.isObject(persistence[mpid])) {
+            if (isObject(persistence[mpid])) {
               persistence[mpid].csd = csd;
             } else {
               persistence[mpid] = {
@@ -7682,7 +7683,7 @@ var mParticle = (function () {
         }
         var persistence = self.getPersistence();
         if (persistence) {
-          if (!mpInstance._Helpers.isObject(persistence[mpid])) {
+          if (!isObject(persistence[mpid])) {
             persistence[mpid] = {};
           }
           if (!persistence[mpid].fst) {
@@ -7720,7 +7721,7 @@ var mParticle = (function () {
           time = new Date().getTime();
         }
         var persistence = self.getPersistence();
-        if (persistence && mpInstance._Helpers.isObject(persistence[mpid])) {
+        if (persistence && isObject(persistence[mpid])) {
           persistence[mpid].lst = time;
           self.savePersistence(persistence);
         }
@@ -7757,10 +7758,11 @@ var mParticle = (function () {
     var Messages$3 = Constants.Messages;
     function Events(mpInstance) {
       var self = this;
-      this.logEvent = function (event, options) {
+      this.logEvent = function (event, options, capturedAt) {
         mpInstance.Logger.verbose(Messages$3.InformationMessages.StartingLogEvent + ': ' + event.name);
         if (mpInstance._Helpers.canLog()) {
-          var uploadObject = mpInstance._ServerModel.createEventObject(event);
+          var createEventObject = mpInstance._ServerModel.createEventObject;
+          var uploadObject = createEventObject(event, undefined, capturedAt);
           mpInstance._APIClient.sendEventToServer(uploadObject, options);
         } else {
           mpInstance.Logger.verbose(Messages$3.InformationMessages.AbandonLogEvent);
@@ -7874,7 +7876,7 @@ var mParticle = (function () {
             event.CustomFlags = event.CustomFlags || {};
             event.CustomFlags['Rokt.CommerceEventType'] = Types.ProductActionType.getExpansionName(productActionType);
           }
-          if (mpInstance._Helpers.isObject(transactionAttributes)) {
+          if (isObject(transactionAttributes)) {
             mpInstance._Ecommerce.convertTransactionAttributesToProductAction(transactionAttributes, event.ProductAction);
           }
           self.logCommerceEvent(event, customAttrs, options);
@@ -8251,7 +8253,7 @@ var mParticle = (function () {
         }
       };
       this.isEnabledForUserAttributes = function (filterObject, user) {
-        if (!filterObject || !mpInstance._Helpers.isObject(filterObject) || !Object.keys(filterObject).length) {
+        if (!filterObject || !isObject(filterObject) || !Object.keys(filterObject).length) {
           return true;
         }
         if (!user) {
@@ -8259,7 +8261,7 @@ var mParticle = (function () {
         }
         var userAttributes = user.getAllUserAttributes();
         try {
-          var hasUserAttributes = userAttributes && mpInstance._Helpers.isObject(userAttributes) && Object.keys(userAttributes).length > 0;
+          var hasUserAttributes = userAttributes && isObject(userAttributes) && Object.keys(userAttributes).length > 0;
           var isMatch = hasUserAttributes ? userAttributesMatchFilter(userAttributes, filterObject) : false;
           return filterObject.includeOnMatch === isMatch;
         } catch (e) {
@@ -8688,7 +8690,7 @@ var mParticle = (function () {
         }
         return jsonObject;
       };
-      this.createEventObject = function (event, user) {
+      this.createEventObject = function (event, user, capturedAt) {
         var _a, _b, _c;
         var uploadObject = {};
         var eventObject = {};
@@ -8776,7 +8778,9 @@ var mParticle = (function () {
             mpInstance._Store.currentSessionMPIDs = [];
             mpInstance._Store.sessionStartDate = null;
           }
-          uploadObject.Timestamp = mpInstance._Store.dateLastEventSent.getTime();
+          var now = mpInstance._Store.dateLastEventSent.getTime();
+          var sessionStartTime = mpInstance._Store.sessionStartDate ? mpInstance._Store.sessionStartDate.getTime() : 0;
+          uploadObject.Timestamp = typeof capturedAt === 'number' && Number.isFinite(capturedAt) && capturedAt <= now && capturedAt >= sessionStartTime ? capturedAt : now;
           return extend({}, eventObject, uploadObject);
         }
         return null;
@@ -9617,7 +9621,7 @@ var mParticle = (function () {
                 var userAttributes = this.getAllUserAttributes();
                 var previousUserAttributeValue = void 0;
                 var isNewAttribute = void 0;
-                var existingProp = mpInstance._Helpers.findKeyInObject(userAttributes, key);
+                var existingProp = findKeyInObject(userAttributes, key);
                 if (existingProp) {
                   isNewAttribute = false;
                   previousUserAttributeValue = userAttributes[existingProp];
@@ -9674,7 +9678,7 @@ var mParticle = (function () {
             } else {
               cookies = mpInstance._Persistence.getPersistence();
               userAttributes = this.getAllUserAttributes();
-              var existingProp = mpInstance._Helpers.findKeyInObject(userAttributes, key);
+              var existingProp = findKeyInObject(userAttributes, key);
               if (existingProp) {
                 key = existingProp;
               }
@@ -9717,7 +9721,7 @@ var mParticle = (function () {
               var previousUserAttributeValue = void 0;
               var isNewAttribute = void 0;
               var userAttributeChange = void 0;
-              var existingProp = mpInstance._Helpers.findKeyInObject(userAttributes, key);
+              var existingProp = findKeyInObject(userAttributes, key);
               if (existingProp) {
                 isNewAttribute = false;
                 previousUserAttributeValue = userAttributes[existingProp];
@@ -10771,7 +10775,7 @@ var mParticle = (function () {
         var clonedEvent = __assign({}, event);
         if (this.blockUserAttributes) {
           var matchedAttributes = this.dataPlanMatchLookups['user_attributes'];
-          if (this.mpInstance._Helpers.isObject(matchedAttributes) && clonedEvent.UserAttributes) {
+          if (isObject(matchedAttributes) && clonedEvent.UserAttributes) {
             var plannedUserAttributes = {};
             for (var _i = 0, _a = Object.keys(clonedEvent.UserAttributes); _i < _a.length; _i++) {
               var ua = _a[_i];
@@ -10829,15 +10833,14 @@ var mParticle = (function () {
         return false;
       };
       KitBlocker.prototype.transformUserIdentities = function (event) {
-        var _this = this;
         var _a;
         var clonedEvent = __assign({}, event);
         if (this.blockUserIdentities) {
           var matchedIdentities_1 = this.dataPlanMatchLookups['user_identities'];
-          if (this.mpInstance._Helpers.isObject(matchedIdentities_1)) {
+          if (isObject(matchedIdentities_1)) {
             if ((_a = clonedEvent === null || clonedEvent === void 0 ? void 0 : clonedEvent.UserIdentities) === null || _a === void 0 ? void 0 : _a.length) {
               clonedEvent.UserIdentities = clonedEvent.UserIdentities.filter(function (uiByType) {
-                var identityName = Types.IdentityType.getIdentityName(_this.mpInstance._Helpers.parseNumber(uiByType.Type));
+                var identityName = Types.IdentityType.getIdentityName(parseNumber(uiByType.Type));
                 return matchedIdentities_1[identityName];
               });
             }
@@ -11410,6 +11413,12 @@ var mParticle = (function () {
           (_a = this.logger) === null || _a === void 0 ? void 0 : _a.error("RoktManager: Error in onCheckoutIntent: ".concat(getErrorMessage(e)));
         }
       };
+      // Read at click time, so selectors from a kit that attaches later apply to
+      // the next click.
+      RoktManager.prototype.getCheckoutIntentSelectors = function () {
+        var kit = this.kit;
+        return kit ? kit.checkoutIntentSelectors : undefined;
+      };
       RoktManager.prototype.discardCheckoutIntents = function () {
         this.pendingCheckoutIntents = [];
       };
@@ -11470,26 +11479,33 @@ var mParticle = (function () {
        * });
        */
       RoktManager.prototype.selectPlacements = function (options) {
-        var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q, _r, _s;
+        var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q, _r, _s, _t;
         return __awaiter(this, void 0, void 0, function () {
           var attributes, sandboxValue, mappedAttributes, attributesToLog, currentUserIdentities, currentEmail, newEmail, currentHashedEmail, newHashedEmail, isValidHashedEmailIdentityType, emailChanged, hashedEmailChanged, newIdentities_1, msg, msg, userAttributes_1, roktUser, roktUserIdentities, timeOnSite, totalTimeOnSite, enrichedAttributes, hashedEmail, capturedAttrs, passbackId, enrichedOptions;
           var _this = this;
-          return __generator(this, function (_t) {
+          return __generator(this, function (_u) {
             (_a = this.captureTiming) === null || _a === void 0 ? void 0 : _a.call(this, PerformanceMarkType.JointSdkSelectPlacements);
-            // Queue if kit isn't ready OR if identity is in flight
-            if (!this.isReady() || ((_b = this.store) === null || _b === void 0 ? void 0 : _b.identityCallInFlight)) {
+            if (!this.isReady()) {
               return [2 /*return*/, this.deferredCall('selectPlacements', options)];
+            }
+            // Like the iOS and Android SDKs, this does not wait for an identity request, so the
+            // selection can go out for the user from before it. The log counts how often that happens.
+            if ((_b = this.store) === null || _b === void 0 ? void 0 : _b.identityCallInFlight) {
+              (_c = this.loggingService) === null || _c === void 0 ? void 0 : _c.log({
+                message: 'RoktManager: selectPlacements ran while an identity request was in flight',
+                code: ErrorCodes.SELECT_PLACEMENTS_IDENTITY_IN_FLIGHT
+              });
             }
             try {
               attributes = options.attributes;
               sandboxValue = (attributes === null || attributes === void 0 ? void 0 : attributes.sandbox) || null;
               mappedAttributes = this.mapPlacementAttributes(attributes, this.placementAttributesMapping);
-              if ((_c = this.logger) === null || _c === void 0 ? void 0 : _c.isVerbose()) {
-                attributesToLog = obfuscateDevData(attributes, (_e = (_d = this.store) === null || _d === void 0 ? void 0 : _d.SDKConfig) === null || _e === void 0 ? void 0 : _e.isDevelopmentMode);
+              if ((_d = this.logger) === null || _d === void 0 ? void 0 : _d.isVerbose()) {
+                attributesToLog = obfuscateDevData(attributes, (_f = (_e = this.store) === null || _e === void 0 ? void 0 : _e.SDKConfig) === null || _f === void 0 ? void 0 : _f.isDevelopmentMode);
                 this.logger.verbose("mParticle.Rokt selectPlacements called with attributes:\n".concat(JSON.stringify(attributesToLog, null, 2)));
               }
               this.currentUser = this.identityService.getCurrentUser();
-              currentUserIdentities = ((_g = (_f = this.currentUser) === null || _f === void 0 ? void 0 : _f.getUserIdentities()) === null || _g === void 0 ? void 0 : _g.userIdentities) || {};
+              currentUserIdentities = ((_h = (_g = this.currentUser) === null || _g === void 0 ? void 0 : _g.getUserIdentities()) === null || _h === void 0 ? void 0 : _h.userIdentities) || {};
               currentEmail = currentUserIdentities.email;
               newEmail = mappedAttributes.email;
               currentHashedEmail = void 0;
@@ -11507,7 +11523,7 @@ var mParticle = (function () {
                 if (newEmail) {
                   msg = 'Email mismatch detected. Current email differs from email passed to selectPlacements call. Proceeding to call identify with email from selectPlacements call. Please verify your implementation.';
                   this.logger.warning(msg);
-                  (_h = this.errorReporter) === null || _h === void 0 ? void 0 : _h.report({
+                  (_j = this.errorReporter) === null || _j === void 0 ? void 0 : _j.report({
                     message: msg,
                     code: ErrorCodes.IDENTITY_MISMATCH,
                     severity: WSDKErrorSeverity.WARNING
@@ -11518,7 +11534,7 @@ var mParticle = (function () {
                 newIdentities_1[this.mappedEmailShaIdentityType] = newHashedEmail;
                 msg = 'emailsha256 mismatch detected. Current mParticle hashedEmail differs from hashedEmail passed to selectPlacements call. Proceeding to call identify with hashedEmail from selectPlacements call. Please verify your implementation.';
                 this.logger.warning(msg);
-                (_j = this.errorReporter) === null || _j === void 0 ? void 0 : _j.report({
+                (_k = this.errorReporter) === null || _k === void 0 ? void 0 : _k.report({
                   message: msg,
                   code: ErrorCodes.IDENTITY_MISMATCH,
                   severity: WSDKErrorSeverity.WARNING
@@ -11539,10 +11555,6 @@ var mParticle = (function () {
                       _this.logger.error('Background identify failed with HTTP ' + httpCode);
                     }
                     _this.setUserAttributes((_a = result === null || result === void 0 ? void 0 : result.getUser) === null || _a === void 0 ? void 0 : _a.call(result), userAttributes_1, newIdentities_1);
-                    // Drain any selectPlacements calls that were deferred while
-                    // identify was in-flight. By the time this callback fires,
-                    // identityCallInFlight has already been reset to false.
-                    _this.processMessageQueue();
                   });
                 } catch (error) {
                   this.logger.error('Background identify threw an error: ' + getErrorMessage(error));
@@ -11550,9 +11562,9 @@ var mParticle = (function () {
                 }
               }
               roktUser = this.currentUser && this.createFilteredUser ? this.createFilteredUser(this.currentUser.getMPID()) : null;
-              roktUserIdentities = ((_k = roktUser === null || roktUser === void 0 ? void 0 : roktUser.getUserIdentities()) === null || _k === void 0 ? void 0 : _k.userIdentities) || {};
-              timeOnSite = (_m = (_l = this.store) === null || _l === void 0 ? void 0 : _l.getTimeOnSite) === null || _m === void 0 ? void 0 : _m.call(_l);
-              totalTimeOnSite = (_p = (_o = this.store) === null || _o === void 0 ? void 0 : _o.getTotalTimeOnSite) === null || _p === void 0 ? void 0 : _p.call(_o);
+              roktUserIdentities = ((_l = roktUser === null || roktUser === void 0 ? void 0 : roktUser.getUserIdentities()) === null || _l === void 0 ? void 0 : _l.userIdentities) || {};
+              timeOnSite = (_o = (_m = this.store) === null || _m === void 0 ? void 0 : _m.getTimeOnSite) === null || _o === void 0 ? void 0 : _o.call(_m);
+              totalTimeOnSite = (_q = (_p = this.store) === null || _p === void 0 ? void 0 : _p.getTotalTimeOnSite) === null || _q === void 0 ? void 0 : _q.call(_p);
               enrichedAttributes = __assign(__assign(__assign(__assign({}, mappedAttributes), sandboxValue !== null ? {
                 sandbox: sandboxValue
               } : {}), timeOnSite ? {
@@ -11578,9 +11590,9 @@ var mParticle = (function () {
                 }
               }
               if (!enrichedAttributes[PASSBACK_CONVERSION_TRACKING_ID]) {
-                (_q = this.integrationCapture) === null || _q === void 0 ? void 0 : _q.capture();
-                capturedAttrs = (_r = this.integrationCapture) === null || _r === void 0 ? void 0 : _r.getClickIdsAsIntegrationAttributes();
-                passbackId = (_s = capturedAttrs === null || capturedAttrs === void 0 ? void 0 : capturedAttrs[PARTNER_MODULE_IDS.Rokt]) === null || _s === void 0 ? void 0 : _s[PASSBACK_CONVERSION_TRACKING_ID];
+                (_r = this.integrationCapture) === null || _r === void 0 ? void 0 : _r.capture();
+                capturedAttrs = (_s = this.integrationCapture) === null || _s === void 0 ? void 0 : _s.getClickIdsAsIntegrationAttributes();
+                passbackId = (_t = capturedAttrs === null || capturedAttrs === void 0 ? void 0 : capturedAttrs[PARTNER_MODULE_IDS.Rokt]) === null || _t === void 0 ? void 0 : _t[PASSBACK_CONVERSION_TRACKING_ID];
                 if (passbackId) {
                   enrichedAttributes[PASSBACK_CONVERSION_TRACKING_ID] = passbackId;
                 }
@@ -11860,7 +11872,6 @@ var mParticle = (function () {
       RoktManager.prototype.onIdentityComplete = function () {
         if (this.isReady()) {
           this.currentUser = this.identityService.getCurrentUser();
-          // Process any queued selectPlacements calls that were waiting for identity
           this.processMessageQueue();
         }
       };
@@ -13394,7 +13405,7 @@ var mParticle = (function () {
     // places, submits or completes counts as the confirm click.
     var linkCommits = new RegExp('^(?:(?:place|submit|complete)(?!(?: [^ ]+){0,2} (?:another|new|next)(?: |$))(?: [^ ]+){0,2} (?:order|purchase)|' + otherCommits + ')$');
     var routeGatedCommits = new RegExp('^(?:buy now|purchase|register(?: now)?|complete (?:my |your )?registration|jetzt kaufen|kaufen|commander|(?:passer|valider) (?:la |ma )?commande|finalizar (?:la |mi )?compra|' + 'comprar ahora|acquista ora|nu kopen|\u4ECA\u3059\u3050\u8CFC\u5165|\u8CFC\u5165\u3059\u308B|\u3053\u306E\u5185\u5BB9\u3067\u7533\u3057\u8FBC\u3080)$');
-    var steps = new RegExp('^(?:' + ["(?:let's |lets |go to |proceed to |secure )?(?:check ?out|checkout)(?: now| securely| as guest)?", '(?:continue|proceed) to (?:payment|review|billing|shipping|delivery|order review)|review (?:my |your )?order', 'guest checkout|(?:pay|continue|check ?out) (?:with|by) (?:card|credit card|debit card|credit or debit card)', 'zur kasse|zur kasse gehen|auschecken|weiter zur zahlung', 'passer \u00E0 la caisse|continuer vers le paiement|proc\u00E9der au paiement', 'ir a caja|continuar al pago|tramitar pedido', "procedi al checkout|procedi all'acquisto|procedi al pagamento|vai alla cassa", 'afrekenen|verder naar betalen|doorgaan naar betalen', '\u30EC\u30B8\u306B\u9032\u3080|\u3054?(?:\u8CFC\u5165|\u6CE8\u6587)\u624B\u7D9A\u304D(?:\u3078|\u306B)(?:\u9032\u3080)?|\u304A?\u652F\u6255\u3044(?:\u3078|\u306B)\u9032\u3080|(?:\u3054\u6CE8\u6587\u5185\u5BB9\u306E)?\u78BA\u8A8D\u753B\u9762\u3078(?:\u9032\u3080)?'].join('|') + ')$');
+    var steps = new RegExp('^(?:' + ["(?:let's |lets |go to |proceed to |secure )?(?:check ?out|checkout)(?: now| securely| as guest)?", '(?:continue|proceed) to (?:payment|review|billing|shipping|delivery|order review)|review (?:my |your )?order', 'guest checkout|(?:pay|continue|check ?out) (?:with|by) (?:card|credit card|debit card|credit or debit card)', 'zur kasse|zur kasse gehen|auschecken|weiter zur zahlung', 'passer \u00E0 la caisse|continuer vers le paiement|proc\u00E9der au paiement', 'ir a caja|continuar al pago|tramitar pedido', "procedi al checkout|procedi all'acquisto|procedi al pagamento|vai alla cassa", 'afrekenen|verder naar betalen|doorgaan naar betalen', '\u30EC\u30B8\u306B\u9032\u3080|\u3054?(?:\u8CFC\u5165|\u6CE8\u6587)\u624B\u7D9A\u304D(?:(?:\u3078|\u306B)(?:\u9032\u3080)?)?|\u304A?\u652F\u6255\u3044(?:\u3078|\u306B)\u9032\u3080|(?:\u3054\u6CE8\u6587\u5185\u5BB9\u306E)?\u78BA\u8A8D\u753B\u9762\u3078(?:\u9032\u3080)?'].join('|') + ')$');
     // "Save and continue" also saves profile, address and card forms, so it is a step only on a checkout segment's route
     // that isn't an account or confirmation page.
     var routeGatedSteps = /^save and continue$/;
@@ -13511,6 +13522,19 @@ var mParticle = (function () {
         return openCartLabels.test(text);
       }) ? 'open' : undefined;
     }
+    // A selector the browser can't parse is skipped rather than thrown.
+    function matchesAnySelector(control, selectors) {
+      if (!selectors) {
+        return false;
+      }
+      return selectors.some(function (selector) {
+        try {
+          return control.matches(selector);
+        } catch (e) {
+          return false;
+        }
+      });
+    }
     // Every field the browser counts as the form's own, form-attribute fields included. Read through the native getter
     // where the browser has one, since a field named "elements" shadows the form's own property.
     function formFields(form) {
@@ -13534,11 +13558,14 @@ var mParticle = (function () {
     }
     // Classifies a clicked or submitting control found by findControl, in order:
     // pickers, toggles and pay-later messages never count; a vendor's own wallet
-    // button counts before any label rule; a confirm label on any source counts
-    // before the look-alike exclusions veto; then a wallet-named control, wallet
-    // phrases and steps. An add-to-cart label, links included, or a control that
-    // opens the cart on the page counts only where none of those do.
-    function classifyIntent(control, pathname) {
+    // button keeps its vendor kind; a control matching a kit-supplied commit
+    // selector counts as a commit before any label rule, and one matching a
+    // checkout-step selector as a step unless its labels make it a confirm, a
+    // wallet or an add-to-cart click; a confirm label on any source
+    // counts before the look-alike exclusions veto; then a wallet-named control,
+    // wallet phrases and steps. An add-to-cart label, links included, or a control
+    // that opens the cart on the page counts only where none of those do.
+    function classifyIntent(control, pathname, selectors) {
       var vendor = vendorButtonKind(control);
       if (vendor === 'none') {
         return undefined;
@@ -13549,6 +13576,27 @@ var mParticle = (function () {
           source: 'vendor'
         };
       }
+      if (selectors && !isQuietIntentControl(control, false)) {
+        if (matchesAnySelector(control, selectors.commit)) {
+          return {
+            kind: 'commit',
+            source: 'selector'
+          };
+        }
+        if (matchesAnySelector(control, selectors.checkout_step)) {
+          // A confirm, wallet or add-to-cart label still wins, so a class those
+          // buttons share with a step button can't turn their clicks into steps.
+          var byLabel = classifyLabels(control, pathname);
+          return byLabel && (byLabel.kind === 'commit' || byLabel.kind === 'wallet' || byLabel.adds === true) ? byLabel : {
+            kind: 'checkout_step',
+            source: 'selector'
+          };
+        }
+      }
+      return classifyLabels(control, pathname);
+    }
+    // The label rules, read once the vendor and selector checks have passed.
+    function classifyLabels(control, pathname) {
       var texts = labels(control);
       var cores = texts.map(coreLabel);
       var cartAction = cartControlAction(control, cores);
@@ -14045,7 +14093,7 @@ var mParticle = (function () {
           }
           if (control && !withheld) {
             // Checkout intent is only worked out when the kit can use it.
-            var intent = signalsKit ? classifyIntent(control, pathname) : undefined;
+            var intent = signalsKit ? classifyIntent(control, pathname, this.checkoutIntentSelectors()) : undefined;
             kind = intent ? intent.kind : undefined;
             source = intent ? intent.source : undefined;
             adds = intent ? intent.adds : undefined;
@@ -14077,7 +14125,7 @@ var mParticle = (function () {
             kind = 'commit';
             source = 'submit';
           } else if (control) {
-            var intent = classifyIntent(control, pathname);
+            var intent = classifyIntent(control, pathname, this.checkoutIntentSelectors());
             kind = intent ? intent.kind : undefined;
             source = intent ? intent.source : undefined;
             adds = intent ? intent.adds : undefined;
@@ -14109,7 +14157,7 @@ var mParticle = (function () {
               if (box && event.defaultPrevented) {
                 click.checked = box.type === 'checkbox' ? !click.checked : box.checked;
               }
-              _this.logClick(click, pathname, asLink);
+              _this.logClick(click, pathname, asLink, t);
             }
             // Ahead of the intent, so a pre-selection it fires goes out
             // with this pick.
@@ -14129,7 +14177,7 @@ var mParticle = (function () {
         });
       };
       // Every real click is one event, repeats included, up to a ceiling per page.
-      ButtonTracker.prototype.logClick = function (click, pathname, asLink) {
+      ButtonTracker.prototype.logClick = function (click, pathname, asLink, t) {
         if (!this.eventsEnabled() || this.hasTargetingOptOut()) {
           return;
         }
@@ -14145,7 +14193,8 @@ var mParticle = (function () {
         this.mpInstance._SessionManager.resetSessionTimer();
         // No upload of its own, which a click that opens another page would
         // cancel: with batching on, the next batch or the exit upload sends it.
-        this.mpInstance._Events.logEvent(asLink ? buildLinkClickEvent(click, pathname) : buildButtonClickEvent(click, pathname));
+        var logEvent = this.mpInstance._Events.logEvent;
+        logEvent(asLink ? buildLinkClickEvent(click, pathname) : buildButtonClickEvent(click, pathname), undefined, t);
       };
       ButtonTracker.prototype.emit = function (kind, source, layer, t, pathname, adds) {
         if (this.isKitSuppressed()) {
@@ -14206,6 +14255,10 @@ var mParticle = (function () {
       ButtonTracker.prototype.isKitSuppressed = function () {
         var roktManager = this.mpInstance._RoktManager;
         return !this.hasRoktKit || !roktManager || roktManager.isCheckoutIntentSuppressed();
+      };
+      ButtonTracker.prototype.checkoutIntentSelectors = function () {
+        var roktManager = this.mpInstance._RoktManager;
+        return roktManager ? roktManager.getCheckoutIntentSelectors() : undefined;
       };
       ButtonTracker.prototype.linkClicksReachKit = function () {
         var roktManager = this.mpInstance._RoktManager;
@@ -14685,11 +14738,11 @@ var mParticle = (function () {
               hostname: window.location.hostname,
               title: window.document.title
             };
-          } else if (!self._Helpers.isObject(attrs)) {
+          } else if (!isObject(attrs)) {
             self.Logger.error('The attributes argument must be an object. A ' + _typeof(attrs) + ' was entered. Please correct and retry.');
             return;
           }
-          if (customFlags && !self._Helpers.isObject(customFlags)) {
+          if (customFlags && !isObject(customFlags)) {
             self.Logger.error('The customFlags argument must be an object. A ' + _typeof(customFlags) + ' was entered. Please correct and retry.');
             return;
           }
@@ -14953,7 +15006,7 @@ var mParticle = (function () {
               value: value
             }));
           } else {
-            var existingProp = self._Helpers.findKeyInObject(self._Store.sessionAttributes, key);
+            var existingProp = findKeyInObject(self._Store.sessionAttributes, key);
             if (existingProp) {
               key = existingProp;
             }
@@ -15018,14 +15071,14 @@ var mParticle = (function () {
         }
         if (attrs === null) {
           self._Store.integrationAttributes[integrationId] = {};
-        } else if (self._Helpers.isObject(attrs)) {
+        } else if (isObject(attrs)) {
           if (Object.keys(attrs).length === 0) {
             self._Store.integrationAttributes[integrationId] = {};
           } else {
             for (var key in attrs) {
               if (typeof key === 'string') {
                 if (typeof attrs[key] === 'string') {
-                  if (self._Helpers.isObject(self._Store.integrationAttributes[integrationId])) {
+                  if (isObject(self._Store.integrationAttributes[integrationId])) {
                     self._Store.integrationAttributes[integrationId][key] = attrs[key];
                   } else {
                     self._Store.integrationAttributes[integrationId] = {};
