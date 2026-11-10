@@ -6866,6 +6866,277 @@ describe('Rokt Forwarder', () => {
         expect(placements).toHaveBeenCalledTimes(2);
         expect(placements.mock.calls[1][0].attributes.tier).toBe('silver');
       });
+      it('fills byPaymentPick on a wallet tap after a reported arrival and counts each arrival once', async () => {
+        await reinit(
+          buildSettings({
+            attributeKeys: ['tier', 'paymenttype'],
+            preselectAttributeDefaults: {
+              paymenttype: {
+                value: 'card',
+                byPaymentPick: { paypal: 'PayPal', apple_pay: 'Apple Pay' },
+              },
+            },
+          }),
+        );
+        const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+        const preselectCalls = () =>
+          placements.mock.calls.map(([options]) => options).filter((options) => options.preselect === true);
+
+        kit.onPaymentPick(Object.freeze({ t: Date.now(), pathname: '/intent-product', family: 'paypal' }));
+        tap('wallet');
+        await vi.advanceTimersByTimeAsync(1);
+        expect(preselectCalls()).toHaveLength(1);
+        expect(preselectCalls()[0].attributes.paymenttype).toBe('PayPal');
+
+        await arriveOnTargetPage();
+        await arriveOnTargetPage();
+        expect(diagnosticLines(logSpy, 'intent_arrival')).toEqual([
+          'Rokt Kit: preselect arrived [reason=intent_arrival] [intent_seen=wallet] [lead=lt1s] [fired=true]' +
+            ' [payment_guess=paypal] [payment_pick=paypal] [payment_arrival=absent] [payment_match=n/a]',
+        ]);
+
+        await vi.advanceTimersByTimeAsync(60_001);
+        window.history.replaceState({}, '', '/intent-product');
+        kit.onPaymentPick(Object.freeze({ t: Date.now(), pathname: '/intent-product', family: 'apple_pay' }));
+        tap('wallet');
+        await vi.advanceTimersByTimeAsync(1);
+        expect(preselectCalls()).toHaveLength(2);
+        expect(preselectCalls()[1].attributes.paymenttype).toBe('Apple Pay');
+
+        await arriveOnTargetPage();
+        await arriveOnTargetPage();
+        expect(diagnosticLines(logSpy, 'intent_arrival')).toEqual([
+          'Rokt Kit: preselect arrived [reason=intent_arrival] [intent_seen=wallet] [lead=lt1s] [fired=true]' +
+            ' [payment_guess=paypal] [payment_pick=paypal] [payment_arrival=absent] [payment_match=n/a]',
+          'Rokt Kit: preselect arrived [reason=intent_arrival] [intent_seen=wallet] [lead=lt1s] [fired=true]' +
+            ' [payment_guess=apple_pay] [payment_pick=apple_pay] [payment_arrival=absent] [payment_match=n/a]',
+        ]);
+
+        await vi.advanceTimersByTimeAsync(60_001);
+        window.history.replaceState({}, '', '/intent-product');
+        tap('wallet');
+        await vi.advanceTimersByTimeAsync(1);
+        expect(preselectCalls()).toHaveLength(3);
+        expect(preselectCalls()[2].attributes.paymenttype).toBe('card');
+
+        await arriveOnTargetPage();
+        await arriveOnTargetPage();
+        expect(diagnosticLines(logSpy, 'intent_arrival')).toEqual([
+          'Rokt Kit: preselect arrived [reason=intent_arrival] [intent_seen=wallet] [lead=lt1s] [fired=true]' +
+            ' [payment_guess=paypal] [payment_pick=paypal] [payment_arrival=absent] [payment_match=n/a]',
+          'Rokt Kit: preselect arrived [reason=intent_arrival] [intent_seen=wallet] [lead=lt1s] [fired=true]' +
+            ' [payment_guess=apple_pay] [payment_pick=apple_pay] [payment_arrival=absent] [payment_match=n/a]',
+          'Rokt Kit: preselect arrived [reason=intent_arrival] [intent_seen=wallet] [lead=lt1s] [fired=true]',
+        ]);
+      });
+      it('falls back to the default on the next checkout when the router moves the page before the pick reaches the kit', async () => {
+        await reinit(
+          buildSettings({
+            attributeKeys: ['tier', 'paymenttype'],
+            preselectAttributeDefaults: {
+              paymenttype: {
+                value: 'card',
+                byPaymentPick: { paypal: 'PayPal', apple_pay: 'Apple Pay' },
+              },
+            },
+          }),
+        );
+        const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+        const processSpy = vi.spyOn(kit, 'process');
+        const paymentPickSpy = vi.spyOn(kit, 'onPaymentPick');
+        processSpy.mockClear();
+        paymentPickSpy.mockClear();
+        const preselectCalls = () =>
+          placements.mock.calls.map(([options]) => options).filter((options) => options.preselect === true);
+
+        try {
+          tap('wallet');
+          await vi.advanceTimersByTimeAsync(1);
+          expect(preselectCalls()).toHaveLength(1);
+          expect(preselectCalls()[0].attributes.paymenttype).toBe('card');
+
+          const pickedAt = Date.now();
+          const pickedPathname = window.location.pathname;
+          requestAnimationFrame(() => {
+            setTimeout(() => {
+              kit.process({
+                EventDataType: MessageType.PageEvent,
+                EventName: 'Auto Button Click',
+                Timestamp: pickedAt,
+                EventAttributes: {
+                  type: 'radio',
+                  checked: true,
+                  element_name: 'apple_pay',
+                  label: 'apple pay',
+                  is_auto_button_click: true,
+                },
+              } as any);
+              kit.onPaymentPick?.(
+                Object.freeze({
+                  t: pickedAt,
+                  pathname: pickedPathname,
+                  names: ['apple pay', 'pay-apple'],
+                }),
+              );
+            }, 0);
+          });
+
+          vi.setSystemTime(pickedAt + 10);
+          window.history.replaceState({}, '', '/intent-confirmation');
+          await kit.selectPlacements({ attributes: {}, identifier: 'confirmation' });
+          expect(processSpy).not.toHaveBeenCalled();
+          expect(paymentPickSpy).not.toHaveBeenCalled();
+
+          vi.setSystemTime(pickedAt + 20);
+          await vi.advanceTimersByTimeAsync(40);
+          expect(processSpy).toHaveBeenCalledWith(
+            expect.objectContaining({
+              EventName: 'Auto Button Click',
+              Timestamp: pickedAt,
+              EventAttributes: expect.objectContaining({
+                type: 'radio',
+                checked: true,
+                element_name: 'apple_pay',
+                is_auto_button_click: true,
+              }),
+            }),
+          );
+          expect(paymentPickSpy).toHaveBeenCalledWith(
+            expect.objectContaining({
+              t: pickedAt,
+              names: ['apple pay', 'pay-apple'],
+            }),
+          );
+
+          await vi.advanceTimersByTimeAsync(60_001);
+          window.history.replaceState({}, '', '/intent-product');
+          tap('wallet');
+          await vi.advanceTimersByTimeAsync(1);
+          expect(preselectCalls()).toHaveLength(2);
+          expect(preselectCalls()[1].attributes.paymenttype).toBe('card');
+
+          await arriveOnTargetPage();
+          expect(diagnosticLines(logSpy, 'intent_arrival')).toEqual([
+            'Rokt Kit: preselect arrived [reason=intent_arrival] [intent_seen=wallet] [lead=lt1s] [fired=true]',
+            'Rokt Kit: preselect arrived [reason=intent_arrival] [intent_seen=wallet] [lead=lt1s] [fired=true]',
+          ]);
+        } finally {
+          processSpy.mockRestore();
+          paymentPickSpy.mockRestore();
+        }
+      });
+      it('ignores a first-checkout Auto Link Click delivered after the arrival on the next checkout', async () => {
+        await reinit(
+          buildSettings({
+            attributeKeys: ['tier', 'paymenttype'],
+            preselectAttributeDefaults: {
+              paymenttype: {
+                value: 'card',
+                byPaymentPick: {
+                  paypal: 'PayPal',
+                  apple_pay: 'Apple Pay',
+                },
+              },
+            },
+          }),
+        );
+        const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+        const processSpy = vi.spyOn(kit, 'process');
+        const paymentPickSpy = vi.spyOn(kit, 'onPaymentPick');
+        processSpy.mockClear();
+        paymentPickSpy.mockClear();
+        const preselectCalls = () =>
+          placements.mock.calls.map(([options]) => options).filter((options) => options.preselect === true);
+
+        try {
+          tap('wallet');
+          await vi.advanceTimersByTimeAsync(1);
+          expect(preselectCalls()).toHaveLength(1);
+          expect(preselectCalls()[0].attributes.paymenttype).toBe('card');
+
+          const pickedAt = Date.now();
+          requestAnimationFrame(() => {
+            setTimeout(() => {
+              kit.process({
+                EventDataType: MessageType.PageEvent,
+                EventName: 'Auto Link Click',
+                Timestamp: pickedAt,
+                EventAttributes: {
+                  element: 'role',
+                  type: 'button',
+                  element_id: 'pay-paypal',
+                  link_type: 'internal',
+                  link_path: '/checkout/paypal',
+                  is_auto_link_click: true,
+                },
+              } as any);
+            }, 0);
+          });
+
+          vi.setSystemTime(pickedAt + 10);
+          window.history.replaceState({}, '', '/intent-confirmation');
+          await kit.selectPlacements({ attributes: {}, identifier: 'confirmation' });
+          expect(processSpy).not.toHaveBeenCalled();
+          expect(paymentPickSpy).not.toHaveBeenCalled();
+
+          vi.setSystemTime(pickedAt + 20);
+          await vi.advanceTimersByTimeAsync(40);
+          expect(processSpy).toHaveBeenCalledWith(
+            expect.objectContaining({
+              EventName: 'Auto Link Click',
+              Timestamp: pickedAt,
+              EventAttributes: expect.objectContaining({
+                element: 'role',
+                type: 'button',
+                element_id: 'pay-paypal',
+                link_type: 'internal',
+                link_path: '/checkout/paypal',
+                is_auto_link_click: true,
+              }),
+            }),
+          );
+          expect(paymentPickSpy).not.toHaveBeenCalled();
+
+          await vi.advanceTimersByTimeAsync(60_001);
+          window.history.replaceState({}, '', '/intent-product');
+          tap('wallet');
+          await vi.advanceTimersByTimeAsync(1);
+          expect(preselectCalls()).toHaveLength(2);
+          expect(preselectCalls()[1].attributes.paymenttype).toBe('card');
+
+          await arriveOnTargetPage();
+          expect(diagnosticLines(logSpy, 'intent_arrival')).toEqual([
+            'Rokt Kit: preselect arrived [reason=intent_arrival] [intent_seen=wallet] [lead=lt1s] [fired=true]',
+            'Rokt Kit: preselect arrived [reason=intent_arrival] [intent_seen=wallet] [lead=lt1s] [fired=true]',
+          ]);
+        } finally {
+          processSpy.mockRestore();
+          paymentPickSpy.mockRestore();
+        }
+      });
+      it('leaves an entry without byPaymentPick unchanged after a reported arrival', async () => {
+        await reinit(
+          buildSettings({
+            attributeKeys: ['tier', 'paymenttype'],
+            preselectAttributeDefaults: { paymenttype: 'card' },
+          }),
+        );
+        const preselectCalls = () =>
+          placements.mock.calls.map(([options]) => options).filter((options) => options.preselect === true);
+
+        kit.onPaymentPick(Object.freeze({ t: Date.now(), pathname: '/intent-product', family: 'paypal' }));
+        tap('wallet');
+        await vi.advanceTimersByTimeAsync(1);
+        await arriveOnTargetPage();
+
+        await vi.advanceTimersByTimeAsync(60_001);
+        window.history.replaceState({}, '', '/intent-product');
+        kit.onPaymentPick(Object.freeze({ t: Date.now(), pathname: '/intent-product', family: 'apple_pay' }));
+        tap('wallet');
+        await vi.advanceTimersByTimeAsync(1);
+
+        expect(preselectCalls().map((options) => options.attributes.paymenttype)).toEqual(['card', 'card']);
+      });
     });
     it('ignores a replayed signal after re-init', async () => {
       const signal = emit();

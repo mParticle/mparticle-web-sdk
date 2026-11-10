@@ -90,14 +90,20 @@ function routeWord(segment: string): string | undefined {
     return undefined;
 }
 
-// The last segment before index i that isn't empty, so `/orders//12345678`
-// still reads the order route.
-export function routeSegment(segments: string[], i: number): string {
-    let routeIndex = i - 1;
-    while (routeIndex > 0 && segments[routeIndex] === '') {
-        routeIndex--;
+// For each index i > 0, the last segment before i that isn't empty, so
+// `/orders//12345678` still reads the order route; the first segment when all
+// before i are empty. Found in one pass, so a path of many empty segments, such
+// as a fragment of slashes, takes time in proportion to its length.
+export function routeSegments(segments: string[]): string[] {
+    const routes: string[] = [];
+    let routeIndex = 0;
+    for (let i = 0; i < segments.length; i++) {
+        routes.push(segments[routeIndex]);
+        if (i > 0 && segments[i] !== '') {
+            routeIndex = i;
+        }
     }
-    return segments[routeIndex];
+    return routes;
 }
 
 // A piece with a lowercase letter right before an uppercase one, as a random
@@ -226,10 +232,11 @@ export function maskTokenSegment(
 // numbers included, since on a product page they name the product.
 export function pagePath(pathname: string): string {
     const segments = pathname.split('/');
+    const routes = routeSegments(segments);
     return segments
         .map((segment, i) => {
             const text = decodeFully(segment);
-            const route = i > 0 ? routeWord(routeSegment(segments, i)) : '';
+            const route = i > 0 && segment ? routeWord(routes[i]) : '';
             // A route word that can't be decoded may be any route, so the
             // segment after it is hidden too.
             const hiddenByRoute =
@@ -283,10 +290,11 @@ function isLongToken(segment: string): boolean {
 // Product codes and pages such as `/profile/edit` or `/orders/history` stay.
 export function pageUrlPath(pathname: string): string {
     const segments = pathname.split('/');
+    const routes = routeSegments(segments);
     return segments
         .map((segment, i) => {
             const text = decodeFully(segment);
-            const route = i > 0 ? routeWord(routeSegment(segments, i)) : '';
+            const route = i > 0 && segment ? routeWord(routes[i]) : '';
             const holdsId =
                 !!text && (/[0-9]/.test(text) || isTokenSegment(text));
             // A route word that can't be decoded may be any route.
