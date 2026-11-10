@@ -21,6 +21,7 @@ import {
     isFunction,
     isObject,
     findKeyInObject,
+    generateUniqueId,
 } from './utils';
 import { getIdentityTypeFromStoredKey } from './types';
 import { hasMPIDAndUserLoginChanged, hasMPIDChanged } from './user-utils';
@@ -137,7 +138,7 @@ export default function Identity(
                 environment: (mpInstance._Store.SDKConfig.isDevelopmentMode
                     ? 'development'
                     : 'production'),
-                request_id: mpInstance._Helpers.generateUniqueId(),
+                request_id: generateUniqueId(),
                 request_timestamp_ms: new Date().getTime(),
                 previous_mpid: mpid || null,
                 known_identities: createKnownIdentities(
@@ -167,7 +168,7 @@ export default function Identity(
                 environment: (mpInstance._Store.SDKConfig.isDevelopmentMode
                     ? 'development'
                     : 'production'),
-                request_id: mpInstance._Helpers.generateUniqueId(),
+                request_id: generateUniqueId(),
                 request_timestamp_ms: new Date().getTime(),
                 identity_changes: this.createIdentityChanges(
                     currentUserIdentities,
@@ -215,7 +216,7 @@ export default function Identity(
 
         createAliasNetworkRequest: function(aliasRequest: IAliasRequest): IAliasNetworkRequest {
             return {
-                request_id: mpInstance._Helpers.generateUniqueId(),
+                request_id: generateUniqueId(),
                 request_type: 'alias',
                 environment: mpInstance._Store.SDKConfig.isDevelopmentMode
                     ? 'development'

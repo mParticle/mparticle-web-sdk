@@ -3,7 +3,7 @@ import Constants from './constants';
 import { SDKEvent, SDKEventCustomFlags } from './sdkRuntimeModels';
 import { convertEvents } from './sdkToEventsApiConverter';
 import { MessageType, EventType } from './types';
-import { getRampNumber, isEmpty, obfuscateDevData } from './utils';
+import { getRampNumber, isEmpty, obfuscateDevData, generateUniqueId } from './utils';
 import { cleanPageHref } from './pageUrl';
 import { SessionStorageVault, LocalStorageVault, StorageResult } from './vault';
 import {
@@ -185,7 +185,7 @@ export class BatchUploader {
         const now = Date.now();
         const { _Store, Identity, _timeOnSiteTimer, _Helpers  } = this.mpInstance;
         const { sessionId, deviceId, sessionStartDate, SDKConfig } = _Store;
-        const { generateUniqueId, getFeatureFlag } = _Helpers;
+        const { getFeatureFlag } = _Helpers;
         const { getCurrentUser } = Identity;
 
         const event = {
