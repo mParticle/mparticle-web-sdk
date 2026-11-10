@@ -369,7 +369,7 @@ export default function Ecommerce(
             );
             return null;
         } else {
-            price = mpInstance._Helpers.parseNumber(price);
+            price = parseNumber(price);
         }
 
         if (position && !mpInstance._Helpers.Validators.isNumber(position)) {
@@ -382,7 +382,7 @@ export default function Ecommerce(
         if (!mpInstance._Helpers.Validators.isStringOrNumber(quantity)) {
             quantity = 1;
         } else {
-            quantity = mpInstance._Helpers.parseNumber(quantity);
+            quantity = parseNumber(quantity);
         }
 
         return {
@@ -680,6 +680,6 @@ export default function Ecommerce(
         }
 
         // if amount is a string, it will be parsed into a number if possible, or set to 0
-        return mpInstance._Helpers.parseNumber(amount);
+        return parseNumber(amount);
     };
 }

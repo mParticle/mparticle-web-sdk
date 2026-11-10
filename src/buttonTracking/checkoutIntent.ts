@@ -7,6 +7,7 @@ import {
     isWalletNamedControl,
     vendorButtonKind,
 } from './controls';
+import { IButtonClick, TEST_ID_ATTRIBUTES } from './buttonDescription';
 
 // Classifies a click, submit or frame focus as checkout intent for the Rokt kit.
 // Reads only short control labels, never form field values, and stores nothing.
@@ -95,7 +96,7 @@ const steps = new RegExp(
             'ir a caja|continuar al pago|tramitar pedido',
             "procedi al checkout|procedi all'acquisto|procedi al pagamento|vai alla cassa",
             'afrekenen|verder naar betalen|doorgaan naar betalen',
-            'レジに進む|ご?(?:購入|注文)手続き(?:へ|に)(?:進む)?|お?支払い(?:へ|に)進む|(?:ご注文内容の)?確認画面へ(?:進む)?',
+            'レジに進む|ご?(?:購入|注文)手続き(?:(?:へ|に)(?:進む)?)?|お?支払い(?:へ|に)進む|(?:ご注文内容の)?確認画面へ(?:進む)?',
         ].join('|') +
         ')$'
 );
@@ -126,6 +127,9 @@ const walletBrands = new RegExp(
     '^(?:' + WALLET_NAMES + ')(?: (?:checkout|check out|express(?: checkout)?|express pay|buy now|pay now|pay|now)' +
         '| (?:logo|icon|mark|button)(?: (?:logo|icon|mark|button))*)?$'
 );
+// The wallets the Rokt kit reads from a click's label or identifiers, as words:
+// "Place order with PayPal!" and "paypal-pay-button" both name PayPal.
+const KIT_WALLET_WORDS = /(?:^| )(?:apple ?pay|google ?pay|g ?pay|android ?pay|venmo|pay ?pal|amazon ?pay|shop ?pay|klarna|after ?pay|clear ?pay|affirm|cash ?app|sezzle|samsung ?pay)(?= |$)/;
 // The payment method a frame's focus picks, in the Rokt kit's family names.
 export type PaymentFrameFamily =
     | 'apple_pay'
@@ -276,7 +280,34 @@ export type CheckoutIntentSource =
     | 'frame'
     | 'submit'
     | 'name'
-    | 'api';
+    | 'api'
+    | 'selector';
+
+// CSS selectors a kit supplies for the page's own confirm and checkout-step
+// buttons. A control matching one counts as that kind before any label rule,
+// except that a confirm, wallet or add-to-cart label beats a checkout-step
+// selector.
+export interface ICheckoutIntentSelectors {
+    commit?: readonly string[];
+    checkout_step?: readonly string[];
+}
+
+// A selector the browser can't parse is skipped rather than thrown.
+function matchesAnySelector(
+    control: Element,
+    selectors: readonly string[] | undefined
+): boolean {
+    if (!selectors) {
+        return false;
+    }
+    return selectors.some(selector => {
+        try {
+            return control.matches(selector);
+        } catch (e) {
+            return false;
+        }
+    });
+}
 
 export interface ICheckoutIntent {
     kind: Exclude<CheckoutIntentKind, 'frame'>;
@@ -324,13 +355,17 @@ function isCommitLabel(text: string, isLink: boolean, pathname: string, control:
 
 // Classifies a clicked or submitting control found by findControl, in order:
 // pickers, toggles and pay-later messages never count; a vendor's own wallet
-// button counts before any label rule; a confirm label on any source counts
-// before the look-alike exclusions veto; then a wallet-named control, wallet
-// phrases and steps. An add-to-cart label, links included, or a control that
-// opens the cart on the page counts only where none of those do.
+// button keeps its vendor kind; a control matching a kit-supplied commit
+// selector counts as a commit before any label rule, and one matching a
+// checkout-step selector as a step unless its labels make it a confirm, a
+// wallet or an add-to-cart click; a confirm label on any source
+// counts before the look-alike exclusions veto; then a wallet-named control,
+// wallet phrases and steps. An add-to-cart label, links included, or a control
+// that opens the cart on the page counts only where none of those do.
 export function classifyIntent(
     control: Element,
-    pathname: string
+    pathname: string,
+    selectors?: ICheckoutIntentSelectors
 ): ICheckoutIntent | undefined {
     const vendor = vendorButtonKind(control);
     if (vendor === 'none') {
@@ -341,6 +376,30 @@ export function classifyIntent(
             ? undefined
             : { kind: vendor, source: 'vendor' };
     }
+    if (selectors && !isQuietIntentControl(control, false)) {
+        if (matchesAnySelector(control, selectors.commit)) {
+            return { kind: 'commit', source: 'selector' };
+        }
+        if (matchesAnySelector(control, selectors.checkout_step)) {
+            // A confirm, wallet or add-to-cart label still wins, so a class those
+            // buttons share with a step button can't turn their clicks into steps.
+            const byLabel = classifyLabels(control, pathname);
+            return byLabel &&
+                (byLabel.kind === 'commit' ||
+                    byLabel.kind === 'wallet' ||
+                    byLabel.adds === true)
+                ? byLabel
+                : { kind: 'checkout_step', source: 'selector' };
+        }
+    }
+    return classifyLabels(control, pathname);
+}
+
+// The label rules, read once the vendor and selector checks have passed.
+function classifyLabels(
+    control: Element,
+    pathname: string
+): ICheckoutIntent | undefined {
     const texts = labels(control);
     const cores = texts.map(coreLabel);
     const cartAction = cartControlAction(control, cores);
@@ -391,6 +450,38 @@ export function classifyIntent(
         }
     }
     return cart;
+}
+
+// The Rokt kit's own word split, so "PayPal!" and "paypal2" both read as
+// "paypal" here as they do there.
+function kitWords(value: string | null | undefined): string {
+    return (value || '')
+        .replace(/([a-z])([A-Z])/g, '$1 $2')
+        .toLowerCase()
+        .replace(/[^a-z]+/g, ' ')
+        .trim();
+}
+
+// A confirm control may name its wallet, so "Place order with PayPal" and a
+// "Place order" button with id paypal-pay-button are confirm clicks that still
+// name their own method. A logged click is judged on the fields the kit reads
+// a method from; a click that isn't logged, on the control's own label and
+// identifiers.
+export function namesWallet(control: Element, click?: IButtonClick): boolean {
+    const values = click
+        ? [
+              click.label,
+              click.ariaLabel,
+              click.elementId,
+              click.elementName,
+              click.testId,
+          ]
+        : labelSources(control).concat(
+              ['id', 'name']
+                  .concat(TEST_ID_ATTRIBUTES)
+                  .map(attribute => control.getAttribute(attribute))
+          );
+    return values.some(value => KIT_WALLET_WORDS.test(kitWords(value)));
 }
 
 export function classifyIntentControl(

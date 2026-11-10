@@ -35,6 +35,7 @@ export type {
     IRoktKitSettings,
     IRoktKit,
     ICheckoutIntentSignal,
+    ICheckoutIntentSelectors,
     IRoktOptions,
     IRoktLauncherOptions,
 } from './roktManager';

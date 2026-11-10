@@ -20,6 +20,7 @@ export interface IButtonClick {
     fileExtension?: string;
     checked?: boolean;
 }
+export declare const TEST_ID_ATTRIBUTES: string[];
 export declare function isLinkClick(click: IButtonClick): boolean;
 export declare function describeButtonClick(control: Element, path?: Array<EventTarget | null>): IButtonClick | undefined;
 export interface IPaymentChoice {
@@ -27,4 +28,5 @@ export interface IPaymentChoice {
     names: string[];
 }
 export declare function describePaymentChoice(control: Element, path?: Array<EventTarget | null>): IPaymentChoice | undefined;
+export declare function describeCheckedPaymentChoice(): IPaymentChoice | undefined;
 export declare function isPicked(radio: Element): boolean;

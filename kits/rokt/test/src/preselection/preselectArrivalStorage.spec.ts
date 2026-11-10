@@ -12,6 +12,7 @@ import {
   recordPreselectIntent,
   recordPreselectNearMiss,
   recordPreselectPaymentPick,
+  readPreselectPaymentPick,
   recordPreselectTrigger,
   recordPreselectCartAdd,
   wasPreselectCartAdded,
@@ -288,6 +289,40 @@ describe('preselectArrivalStorage', () => {
     expect(markPreselectArrival('1', 'confirmation')).toEqual({ triggeredAt: 1 });
   });
 
+  describe('readPreselectPaymentPick', () => {
+    it('reads the latest pick within the window, and nothing once it is older or the arrival was reported', () => {
+      expect(readPreselectPaymentPick('1', 'confirmation')).toBeUndefined();
+
+      recordPreselectPaymentPick('1', 'confirmation', 'card', 900);
+      recordPreselectPaymentPick('1', 'confirmation', 'paypal', 950);
+      expect(readPreselectPaymentPick('1', 'confirmation')).toBe('paypal');
+      expect(readPreselectPaymentPick('1', 'other-page')).toBeUndefined();
+
+      vi.setSystemTime(950 + INTENT_ARRIVAL_WINDOW_MS);
+      expect(readPreselectPaymentPick('1', 'confirmation')).toBeUndefined();
+    });
+
+    it('reads nothing after the arrival was reported', () => {
+      recordPreselectPaymentPick('1', 'confirmation', 'paypal', 950);
+      markPreselectArrival('1', 'confirmation');
+
+      expect(readPreselectPaymentPick('1', 'confirmation')).toBeUndefined();
+    });
+
+    it('reads a pick made after a reported arrival within the window, and nothing once it is older', () => {
+      recordPreselectPaymentPick('1', 'confirmation', 'card', 900);
+      markPreselectArrival('1', 'confirmation');
+      expect(readPreselectPaymentPick('1', 'confirmation')).toBeUndefined();
+
+      vi.setSystemTime(1_500);
+      recordPreselectPaymentPick('1', 'confirmation', 'paypal', 1_500);
+      expect(readPreselectPaymentPick('1', 'confirmation')).toBe('paypal');
+
+      vi.setSystemTime(1_500 + INTENT_ARRIVAL_WINDOW_MS);
+      expect(readPreselectPaymentPick('1', 'confirmation')).toBeUndefined();
+    });
+  });
+
   describe('recordPreselectPaymentPick', () => {
     it('keeps the latest pick and copies it onto the next fire', () => {
       recordPreselectPaymentPick('1', 'confirmation', 'card', 900);
@@ -347,9 +382,90 @@ describe('preselectArrivalStorage', () => {
     it('keeps a reported arrival closed when the shopper picks afterwards', () => {
       recordPreselectFired('1', 'confirmation', 7);
       markPreselectArrival('1', 'confirmation');
-      recordPreselectPaymentPick('1', 'confirmation', 'card', 1_000);
+      vi.setSystemTime(1_500);
+      recordPreselectPaymentPick('1', 'confirmation', 'card', 1_500);
 
       expect(markPreselectArrival('1', 'confirmation')).toBeUndefined();
+    });
+
+    it.each(['trigger', 'intent', 'fire'] as const)(
+      'carries a post-arrival pick into the record the next %s opens, and counts the arrival once',
+      (reopen) => {
+        recordPreselectPaymentPick('1', 'confirmation', 'card', 900);
+        recordPreselectFired('1', 'confirmation', 7);
+        expect(markPreselectArrival('1', 'confirmation')).toMatchObject({
+          paymentPick: 'card',
+          paymentAtFire: 'card',
+        });
+
+        vi.setSystemTime(1_500);
+        recordPreselectPaymentPick('1', 'confirmation', 'paypal', 1_500);
+        expect(markPreselectArrival('1', 'confirmation')).toBeUndefined();
+
+        if (reopen === 'trigger') {
+          recordPreselectTrigger('1', 'confirmation', false);
+        } else if (reopen === 'intent') {
+          recordPreselectIntent('1', 'confirmation', 'wallet', 1_500);
+        } else {
+          recordPreselectFired('1', 'confirmation', 8);
+        }
+
+        expect(readPreselectPaymentPick('1', 'confirmation')).toBe('paypal');
+        expect(markPreselectArrival('1', 'confirmation')).toEqual({
+          paymentPick: 'paypal',
+          paymentPickAt: 1_500,
+          ...(reopen === 'trigger' ? { triggeredAt: 1_500 } : {}),
+          ...(reopen === 'intent' ? { intentAt: 1_500, intentKind: 'wallet' } : {}),
+          ...(reopen === 'fire' ? { firedAt: 1_500, firedDigest: 8, paymentAtFire: 'paypal' } : {}),
+        });
+        expect(markPreselectArrival('1', 'confirmation')).toBeUndefined();
+      },
+    );
+
+    it('does not carry an earlier checkout pick into a reopened record when no pick followed the arrival', () => {
+      recordPreselectPaymentPick('1', 'confirmation', 'card', 900);
+      markPreselectArrival('1', 'confirmation');
+
+      recordPreselectIntent('1', 'confirmation', 'wallet', 950);
+
+      expect(readPreselectPaymentPick('1', 'confirmation')).toBeUndefined();
+      expect(markPreselectArrival('1', 'confirmation')).toEqual({ intentAt: 950, intentKind: 'wallet' });
+    });
+
+    it('ignores a pick from before the arrival that reaches the kit after the arrival was reported', () => {
+      recordPreselectFired('1', 'confirmation', 7);
+      markPreselectArrival('1', 'confirmation');
+
+      vi.setSystemTime(1_500);
+      recordPreselectPaymentPick('1', 'confirmation', 'paypal', 950);
+      recordPreselectPaymentPick('1', 'confirmation', 'apple_pay', 1_000);
+
+      expect(readPreselectPaymentPick('1', 'confirmation')).toBeUndefined();
+      recordPreselectIntent('1', 'confirmation', 'wallet', 1_500);
+      expect(readPreselectPaymentPick('1', 'confirmation')).toBeUndefined();
+      expect(markPreselectArrival('1', 'confirmation')).toEqual({ intentAt: 1_500, intentKind: 'wallet' });
+    });
+
+    it('ignores a pre-arrival pick left on an arrived record by the previous kit version', () => {
+      window.sessionStorage.setItem(
+        NAMESPACE_KEY,
+        JSON.stringify({
+          [FIELD_KEY]: {
+            paymentPick: 'paypal',
+            paymentPickAt: 900,
+            firedAt: 950,
+            paymentAtFire: 'paypal',
+            arrivedAt: 1_000,
+          },
+        }),
+      );
+
+      expect(readPreselectPaymentPick('1', 'confirmation')).toBeUndefined();
+
+      recordPreselectIntent('1', 'confirmation', 'wallet', 1_100);
+
+      expect(readPreselectPaymentPick('1', 'confirmation')).toBeUndefined();
+      expect(markPreselectArrival('1', 'confirmation')).toEqual({ intentAt: 1_100, intentKind: 'wallet' });
     });
 
     it('drops a stored value that is not a known family', () => {
