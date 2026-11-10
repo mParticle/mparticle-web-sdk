@@ -6004,7 +6004,40 @@ describe('preselection', () => {
               ACCOUNT_ID,
               TARGET_PAGE_IDENTIFIER,
               'paypal',
-              expect.any(Number),
+              Date.now(),
+            );
+          });
+
+          it('passes the click event timestamp when present', () => {
+            recordPreselectPaymentClick(host, {
+              ...click({ type: 'radio', checked: true, label: 'PayPal' }),
+              Timestamp: 900,
+            });
+
+            expect(recordPreselectPaymentPick).toHaveBeenCalledWith(
+              ACCOUNT_ID,
+              TARGET_PAGE_IDENTIFIER,
+              'paypal',
+              900,
+            );
+          });
+
+          it.each([
+            ['a missing timestamp', undefined],
+            ['a non-finite timestamp', Number.NaN],
+            ['a timestamp later than Date.now()', () => Date.now() + 1_000],
+          ])('falls back to Date.now() for %s', (_, timestamp) => {
+            const resolved = typeof timestamp === 'function' ? timestamp() : timestamp;
+            recordPreselectPaymentClick(host, {
+              ...click({ type: 'radio', checked: true, label: 'PayPal' }),
+              Timestamp: resolved as number,
+            });
+
+            expect(recordPreselectPaymentPick).toHaveBeenCalledWith(
+              ACCOUNT_ID,
+              TARGET_PAGE_IDENTIFIER,
+              'paypal',
+              Date.now(),
             );
           });
 
@@ -6029,7 +6062,7 @@ describe('preselection', () => {
               ACCOUNT_ID,
               TARGET_PAGE_IDENTIFIER,
               'paypal',
-              expect.any(Number),
+              Date.now(),
             );
           });
 
@@ -6066,13 +6099,34 @@ describe('preselection', () => {
             ['a radio naming a card', { names: ['credit or debit card'] }, 'card'],
             ['the family of a payment frame', { family: 'google_pay' }, 'google_pay'],
           ])('records %s for each target page', (_, fields, family) => {
-            handlePreselectPaymentPick(host, pick(fields));
+            const signal = pick(fields);
+            handlePreselectPaymentPick(host, signal);
 
             expect(recordPreselectPaymentPick).toHaveBeenCalledWith(
               ACCOUNT_ID,
               TARGET_PAGE_IDENTIFIER,
               family,
-              expect.any(Number),
+              signal.t,
+            );
+          });
+
+          it.each([
+            ['a missing timestamp', undefined],
+            ['a non-finite timestamp', Number.NaN],
+            ['a timestamp later than Date.now()', () => Date.now() + 1_000],
+          ])('falls back to Date.now() when the signal carries %s', (_, timestamp) => {
+            const resolved = typeof timestamp === 'function' ? timestamp() : timestamp;
+            handlePreselectPaymentPick(host, {
+              t: resolved as number,
+              pathname: PATHNAME,
+              family: 'paypal',
+            });
+
+            expect(recordPreselectPaymentPick).toHaveBeenCalledWith(
+              ACCOUNT_ID,
+              TARGET_PAGE_IDENTIFIER,
+              'paypal',
+              Date.now(),
             );
           });
 
