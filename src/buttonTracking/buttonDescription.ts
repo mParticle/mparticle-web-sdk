@@ -13,7 +13,7 @@ import {
     hidesSegmentAfter,
     LEFTOVER_ESCAPE,
     maskTokenSegment,
-    routeSegment,
+    routeSegments,
 } from '../pathMasking';
 
 // Describes a clicked button for auto button tracking: its masked name, icon,
@@ -532,18 +532,15 @@ function linkPath(link: HTMLAnchorElement): string | undefined {
         return undefined;
     }
     const segments = path.split('/');
+    const routes = routeSegments(segments);
     const masked = segments.map((segment, i) => {
-        if (
-            i > 0 &&
-            segment &&
-            hidesSegmentAfter(routeSegment(segments, i), segment)
-        ) {
+        if (i > 0 && segment && hidesSegmentAfter(routes[i], segment)) {
             return '*';
         }
         const tokens = maskTokenSegment(
             segment,
             segment,
-            i > 0 ? routeSegment(segments, i) : undefined
+            i > 0 ? routes[i] : undefined
         );
         return tokens === undefined ? segment : tokens;
     });

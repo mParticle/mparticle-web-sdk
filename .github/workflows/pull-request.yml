@@ -113,6 +113,10 @@ jobs:
                   echo "matrix=[]" >> "$GITHUB_OUTPUT"
                 fi
 
+    # The slowest kit normally finishes in under 2 minutes (Adobe ~1m47s,
+    # Google Analytics 4 ~1m31s, Braze 4 ~1m14s, Rokt ~1m08s; worst-case
+    # npm/Firefox/Karma startup ~4-6 minutes), so 15 minutes leaves ample
+    # margin while stopping a Karma/Firefox hang from running for 6 hours.
     run-kit-tests:
         name: 'Kit Tests: ${{ matrix.kit.name }}'
         needs:
@@ -120,6 +124,7 @@ jobs:
             - test-jest
             - build-bundle
         runs-on: ubuntu-latest
+        timeout-minutes: 15
         strategy:
             fail-fast: false
             matrix:
@@ -257,6 +262,7 @@ jobs:
     coverage-rokt-kit:
         name: Rokt Kit Coverage
         runs-on: ubuntu-latest
+        timeout-minutes: 15
         permissions:
             contents: read
         steps:
@@ -302,7 +308,6 @@ jobs:
         runs-on: ubuntu-latest
         needs:
             - test-core
-            - run-kit-tests
             - test-jest
             - build-bundle
         steps:
@@ -341,7 +346,6 @@ jobs:
         uses: mParticle/mparticle-workflows/.github/workflows/web-run-test.yml@main
         needs:
             - test-core
-            - run-kit-tests
             - test-jest
             - build-bundle
         with:
@@ -354,7 +358,6 @@ jobs:
         uses: mParticle/mparticle-workflows/.github/workflows/web-run-test.yml@main
         needs:
             - test-core
-            - run-kit-tests
             - test-jest
             - build-bundle
         with:
@@ -368,7 +371,6 @@ jobs:
         uses: mParticle/mparticle-workflows/.github/workflows/web-run-test.yml@main
         needs:
             - test-core
-            - run-kit-tests
             - test-jest
             - build-bundle
         with:
@@ -382,7 +384,6 @@ jobs:
         uses: mParticle/mparticle-workflows/.github/workflows/web-run-test.yml@main
         needs:
             - test-core
-            - run-kit-tests
             - test-jest
             - build-bundle
         with:
@@ -396,7 +397,6 @@ jobs:
         uses: mParticle/mparticle-workflows/.github/workflows/web-run-test.yml@main
         needs:
             - test-core
-            - run-kit-tests
             - test-jest
             - build-bundle
         with:
@@ -410,7 +410,6 @@ jobs:
         uses: mParticle/mparticle-workflows/.github/workflows/web-run-test.yml@main
         needs:
             - test-core
-            - run-kit-tests
             - test-jest
             - build-bundle
         with:
@@ -418,6 +417,51 @@ jobs:
             test_command: npm run test:integrations:module:rollup
             branch_name: ${{ vars.GITHUB_SHA }}
             build_command: npm run build:esm && npm run build:test-bundle
+
+    required-checks:
+        name: Required checks
+        if: always()
+        runs-on: ubuntu-latest
+        permissions: {}
+        needs:
+            - build-bundle
+            - test-jest
+            - test-core
+            - test-stub
+            - test-integrations-require-js
+            - test-integrations-common-js-browserfy
+            - test-integrations-common-js-webpack
+            - test-integrations-common-js-rollup
+            - test-integrations-module-js-webpack
+            - test-integrations-module-js-rollup
+        steps:
+            - name: Verify required checks succeeded
+              env:
+                  NEEDS_JSON: ${{ toJson(needs) }}
+              run: |
+                  node -e '
+                  const needs = JSON.parse(process.env.NEEDS_JSON || "{}");
+                  const required = [
+                      "build-bundle",
+                      "test-jest",
+                      "test-core",
+                      "test-stub",
+                      "test-integrations-require-js",
+                      "test-integrations-common-js-browserfy",
+                      "test-integrations-common-js-webpack",
+                      "test-integrations-common-js-rollup",
+                      "test-integrations-module-js-webpack",
+                      "test-integrations-module-js-rollup",
+                  ];
+                  const failed = required.filter(job => needs[job]?.result !== "success");
+                  for (const job of required) {
+                      console.log(`${job}: ${needs[job]?.result ?? "missing"}`);
+                  }
+                  if (failed.length > 0) {
+                      console.error(`Required checks not all successful: ${failed.join(", ")}`);
+                      process.exit(1);
+                  }
+                  '
 
     build-local:
         name: Get Bundle Size from Current Branch

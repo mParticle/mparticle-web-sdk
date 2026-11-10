@@ -34,3 +34,15 @@ updates:
           include: 'scope'
       allow:
           - dependency-type: 'production'
+
+    - package-ecosystem: github-actions
+      directory: '/'
+      schedule:
+          interval: weekly
+          day: 'sunday'
+      target-branch: 'main'
+      labels: ['dependabot', 'dependencies']
+      open-pull-requests-limit: 5
+      commit-message:
+          prefix: 'ci'
+          include: 'scope'

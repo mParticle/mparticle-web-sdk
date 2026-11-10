@@ -2476,6 +2476,7 @@ describe('build-v3-release.sh', () => {
             concurrency?: string;
             failures?: string[];
             stepSeconds?: string;
+            stopTimeoutSeconds?: string;
         } = {}
     ) => {
         fs.writeFileSync(
@@ -2504,6 +2505,9 @@ describe('build-v3-release.sh', () => {
         }
         if (options.concurrency !== undefined) {
             env.KIT_BUILD_CONCURRENCY = options.concurrency;
+        }
+        if (options.stopTimeoutSeconds !== undefined) {
+            env.V3_RELEASE_STOP_TIMEOUT_S = options.stopTimeoutSeconds;
         }
         return spawnSync('sh', [script, '3.1.0'], {
             cwd: path.join(fixtureRoot, 'work'),
@@ -2568,6 +2572,9 @@ describe('build-v3-release.sh', () => {
     const withCancelledBuild = async (
         options: {
             ignoreTerm?: boolean;
+            noProcessGroupSetsid?: boolean;
+            signal?: NodeJS.Signals;
+            slowPollSleepMs?: number;
             stopTimeoutSeconds?: string;
             withoutSetsid?: boolean;
         },
@@ -2596,10 +2603,43 @@ describe('build-v3-release.sh', () => {
         for (const file of ['barrier-met', 'calls', 'events', 'overlap']) {
             fs.rmSync(path.join(fixtureRoot, file), {force: true});
         }
-        if (options.withoutSetsid) {
-            fs.rmSync(path.join(fixtureRoot, 'bin', 'setsid'), {force: true});
-        } else {
+        fs.rmSync(path.join(fixtureRoot, 'bin', 'setsid'), {force: true});
+        fs.rmSync(path.join(fixtureRoot, 'bin', 'sleep'), {force: true});
+        if (options.noProcessGroupSetsid) {
+            fs.writeFileSync(
+                path.join(fixtureRoot, 'bin', 'setsid'),
+                ['#!/bin/sh', 'exec "$@"', ''].join('\n'),
+                {mode: 0o755}
+            );
+        } else if (!options.withoutSetsid) {
             ensureStubSetsid();
+        }
+        if (options.slowPollSleepMs !== undefined) {
+            const systemSleep =
+                (process.env.PATH || '')
+                    .split(path.delimiter)
+                    .filter(
+                        dir =>
+                            Boolean(dir) &&
+                            path.resolve(dir) !==
+                                path.resolve(path.join(fixtureRoot, 'bin'))
+                    )
+                    .map(dir => path.join(dir, 'sleep'))
+                    .find(candidate => fs.existsSync(candidate)) ||
+                '/bin/sleep';
+            const slowSeconds = (options.slowPollSleepMs / 1000).toFixed(3);
+            fs.writeFileSync(
+                path.join(fixtureRoot, 'bin', 'sleep'),
+                [
+                    '#!/bin/sh',
+                    'if [ "${1:-}" = "0.05" ]; then',
+                    `    exec "${systemSleep}" "${slowSeconds}"`,
+                    'fi',
+                    `exec "${systemSleep}" "$@"`,
+                    '',
+                ].join('\n'),
+                {mode: 0o755}
+            );
         }
 
         const kits = ['kits/a', 'kits/b', 'kits/c'];
@@ -2630,8 +2670,10 @@ describe('build-v3-release.sh', () => {
             env.V3_RELEASE_STOP_TIMEOUT_S = options.stopTimeoutSeconds;
         }
 
+        const cancelSignal: NodeJS.Signals = options.signal || 'SIGTERM';
         const child = spawn('sh', [script, '3.1.0'], {
             cwd: path.join(fixtureRoot, 'work'),
+            detached: cancelSignal === 'SIGHUP',
             env,
             stdio: 'ignore',
         });
@@ -2741,7 +2783,15 @@ describe('build-v3-release.sh', () => {
             );
 
             const signalSentAt = Date.now();
-            child.kill('SIGTERM');
+            if (cancelSignal === 'SIGHUP' && child.pid) {
+                try {
+                    process.kill(-child.pid, cancelSignal);
+                } catch {
+                    child.kill(cancelSignal);
+                }
+            } else {
+                child.kill(cancelSignal);
+            }
             const {code, signal} = await exitPromise;
             const stopDurationMs = Date.now() - signalSentAt;
 
@@ -2758,7 +2808,11 @@ describe('build-v3-release.sh', () => {
             const stubPids = collectStubPids();
             if (!exited || stubPids.some(isPidAlive)) {
                 if (!exited) {
-                    child.kill('SIGTERM');
+                    if (cancelSignal === 'SIGHUP' && child.pid) {
+                        signalStubPid(child.pid, 'SIGTERM');
+                    } else {
+                        child.kill('SIGTERM');
+                    }
                 }
                 for (const pid of stubPids) {
                     signalStubPid(pid, 'SIGTERM');
@@ -2772,7 +2826,11 @@ describe('build-v3-release.sh', () => {
                 }
                 const remainingPids = collectStubPids();
                 if (!exited) {
-                    child.kill('SIGKILL');
+                    if (cancelSignal === 'SIGHUP' && child.pid) {
+                        signalStubPid(child.pid, 'SIGKILL');
+                    } else {
+                        child.kill('SIGKILL');
+                    }
                 }
                 for (const pid of remainingPids) {
                     if (isPidAlive(pid)) {
@@ -2902,6 +2960,21 @@ describe('build-v3-release.sh', () => {
             expect(result.status).toBe(1);
             expect(result.stderr).toBe(
                 `Error: KIT_BUILD_CONCURRENCY must be a whole number from 1 to 999, not '${concurrency}'\n`
+            );
+            expect(result.stdout).toBe('');
+            expect(lines('calls')).toEqual([]);
+        },
+        30000
+    );
+
+    it.each(['0', 'abc', '1000'])(
+        'rejects V3_RELEASE_STOP_TIMEOUT_S=%s before any work',
+        stopTimeoutSeconds => {
+            const result = runBuild(['kits/a'], {stopTimeoutSeconds});
+
+            expect(result.status).toBe(1);
+            expect(result.stderr).toBe(
+                `Error: V3_RELEASE_STOP_TIMEOUT_S must be a whole number from 1 to 999, not '${stopTimeoutSeconds}'\n`
             );
             expect(result.stdout).toBe('');
             expect(lines('calls')).toEqual([]);
@@ -3045,5 +3118,276 @@ describe('build-v3-release.sh', () => {
                 ).toBe(false);
             }
         );
+    }, 30000);
+
+    it('falls back to signalling the direct kit step PID when setsid is present but group kill fails', async () => {
+        await withCancelledBuild(
+            {noProcessGroupSetsid: true},
+            ({code, env, npmPids, stopDurationMs}) => {
+                expect(
+                    spawnSync('sh', ['-c', 'command -v setsid'], {env}).status
+                ).toBe(0);
+                expect(typeof code).toBe('number');
+                expect(code).not.toBe(0);
+                expect(stopDurationMs).toBeLessThan(5000);
+                expect(lines('npm-term/a-ci')).toEqual([String(npmPids[0])]);
+                expect(lines('npm-term/b-ci')).toEqual([String(npmPids[1])]);
+                for (const pid of npmPids) {
+                    expect(() => process.kill(pid, 0)).toThrow();
+                }
+                expect(lines('events').sort()).toEqual([
+                    'start kits/a ci',
+                    'start kits/b ci',
+                ]);
+                expect(
+                    fs.existsSync(path.join(fixtureRoot, 'ready', 'a-build'))
+                ).toBe(false);
+                expect(
+                    fs.existsSync(path.join(fixtureRoot, 'ready', 'b-build'))
+                ).toBe(false);
+                expect(
+                    fs.existsSync(path.join(fixtureRoot, 'ready', 'c-ci'))
+                ).toBe(false);
+            }
+        );
+
+        await withCancelledBuild(
+            {
+                ignoreTerm: true,
+                noProcessGroupSetsid: true,
+                stopTimeoutSeconds: '1',
+            },
+            ({code, env, npmPids, stopDurationMs}) => {
+                expect(
+                    spawnSync('sh', ['-c', 'command -v setsid'], {env}).status
+                ).toBe(0);
+                expect(typeof code).toBe('number');
+                expect(code).not.toBe(0);
+                expect(stopDurationMs).toBeGreaterThanOrEqual(800);
+                expect(stopDurationMs).toBeLessThan(10000);
+                expect(lines('npm-term/a-ci')).toEqual([]);
+                expect(lines('npm-term/b-ci')).toEqual([]);
+                for (const pid of npmPids) {
+                    expect(() => process.kill(pid, 0)).toThrow();
+                }
+                expect(lines('events').sort()).toEqual([
+                    'start kits/a ci',
+                    'start kits/b ci',
+                ]);
+                expect(
+                    fs.existsSync(path.join(fixtureRoot, 'ready', 'a-build'))
+                ).toBe(false);
+                expect(
+                    fs.existsSync(path.join(fixtureRoot, 'ready', 'b-build'))
+                ).toBe(false);
+                expect(
+                    fs.existsSync(path.join(fixtureRoot, 'ready', 'c-ci'))
+                ).toBe(false);
+            }
+        );
+    }, 30000);
+
+    it('escalates to SIGKILL by the wall-clock deadline even when 50ms poll ticks overrun under load', async () => {
+        await withCancelledBuild(
+            {
+                ignoreTerm: true,
+                slowPollSleepMs: 250,
+                stopTimeoutSeconds: '1',
+            },
+            ({allTrackedPids, code, npmPids, stopDurationMs}) => {
+                expect(typeof code).toBe('number');
+                expect(code).not.toBe(0);
+                expect(stopDurationMs).toBeGreaterThanOrEqual(800);
+                expect(stopDurationMs).toBeLessThan(3500);
+                expect(lines('npm-term/a-ci')).toEqual([]);
+                expect(lines('npm-term/b-ci')).toEqual([]);
+                expect(lines('term/a-ci')).toEqual([]);
+                expect(lines('term/b-ci')).toEqual([]);
+                for (const pid of npmPids.concat(allTrackedPids)) {
+                    expect(() => process.kill(pid, 0)).toThrow();
+                }
+                expect(lines('events').sort()).toEqual([
+                    'start kits/a ci',
+                    'start kits/b ci',
+                ]);
+                expect(
+                    fs.existsSync(path.join(fixtureRoot, 'ready', 'a-build'))
+                ).toBe(false);
+                expect(
+                    fs.existsSync(path.join(fixtureRoot, 'ready', 'b-build'))
+                ).toBe(false);
+                expect(
+                    fs.existsSync(path.join(fixtureRoot, 'ready', 'c-ci'))
+                ).toBe(false);
+            }
+        );
+    }, 30000);
+
+    it('stops every running kit process group on SIGHUP without starting later steps', async () => {
+        expect(fs.readFileSync(script, 'utf8')).toContain(
+            'trap stop_kit_step 1 15'
+        );
+
+        await withCancelledBuild(
+            {signal: 'SIGHUP'},
+            ({allTrackedPids, code, nestedChildPids, npmPids, stopDurationMs}) => {
+                expect(typeof code).toBe('number');
+                expect(code).not.toBe(0);
+                expect(stopDurationMs).toBeLessThan(5000);
+                expect(lines('npm-term/a-ci')).toEqual([String(npmPids[0])]);
+                expect(lines('npm-term/b-ci')).toEqual([String(npmPids[1])]);
+                expect(lines('term/a-ci')).toEqual([
+                    String(nestedChildPids[0]),
+                ]);
+                expect(lines('term/b-ci')).toEqual([
+                    String(nestedChildPids[1]),
+                ]);
+                for (const pid of npmPids.concat(allTrackedPids)) {
+                    expect(() => process.kill(pid, 0)).toThrow();
+                }
+                expect(lines('events').sort()).toEqual([
+                    'start kits/a ci',
+                    'start kits/b ci',
+                ]);
+                expect(
+                    fs.existsSync(path.join(fixtureRoot, 'ready', 'a-build'))
+                ).toBe(false);
+                expect(
+                    fs.existsSync(path.join(fixtureRoot, 'ready', 'b-build'))
+                ).toBe(false);
+                expect(
+                    fs.existsSync(path.join(fixtureRoot, 'ready', 'c-ci'))
+                ).toBe(false);
+            }
+        );
+    }, 30000);
+
+    it('does not signal the sibling kit when cancelled between STEP_ACTIVE=true and the first step fork', async () => {
+        const scriptSource = fs.readFileSync(script, 'utf8');
+        expect(scriptSource).toContain('LAST_STEP_PID=${!:-}');
+        const preForkScript = path.join(
+            fixtureRoot,
+            'build-v3-release-pre-fork.sh'
+        );
+        const stepActiveHook = [
+            '    STEP_ACTIVE=true',
+            '    if [ "${1:-}" = npm ] && [ "${2:-}" = ci ] && [ "${4:-}" = "kits/b" ]; then',
+            '        trap \'rm -f "$STUB_DIR/ready/b-pre-fork"\' 0',
+            '        : > "$STUB_DIR/ready/b-pre-fork"',
+            '        while [ ! -f "$STUB_DIR/release-b-pre-fork" ]; do',
+            '            sleep 0.05',
+            '        done',
+            '    fi',
+            '',
+        ].join('\n');
+        const kitLoopHook = [
+            '    RUNNING_PIDS="$RUNNING_PIDS $!"',
+            '    if [ "$KIT_PATH" = "kits/b" ]; then',
+            '        printf \'%s\\n\' "$!" > "$STUB_DIR/ready/b-subshell-pid.tmp"',
+            '        mv "$STUB_DIR/ready/b-subshell-pid.tmp" "$STUB_DIR/ready/b-subshell-pid"',
+            '    fi',
+            '',
+        ].join('\n');
+        const instrumentedSource = scriptSource
+            .replace('    STEP_ACTIVE=true\n', () => stepActiveHook)
+            .replace(
+                '    RUNNING_PIDS="$RUNNING_PIDS $!"\n',
+                () => kitLoopHook
+            );
+        expect(instrumentedSource).toContain(stepActiveHook);
+        expect(instrumentedSource).toContain(kitLoopHook);
+        fs.writeFileSync(preForkScript, instrumentedSource, {mode: 0o755});
+
+        const kits = ['kits/a', 'kits/b'];
+        fs.writeFileSync(
+            path.join(fixtureRoot, 'inventory'),
+            kits.map(kit => `${kit}\n`).join('')
+        );
+        fs.writeFileSync(path.join(fixtureRoot, 'failures'), '');
+        const env: NodeJS.ProcessEnv = {
+            ...process.env,
+            PATH: `${path.join(fixtureRoot, 'bin')}${path.delimiter}${
+                process.env.PATH
+            }`,
+            STUB_DIR: fixtureRoot,
+            STUB_SLEEP: '30',
+            KIT_BUILD_CONCURRENCY: '2',
+            V3_RELEASE_STOP_TIMEOUT_S: '1',
+        };
+        delete env.GITHUB_ACTIONS;
+        delete env.STUB_BARRIER;
+        delete env.STUB_IGNORE_TERM;
+
+        const child = spawn('sh', [preForkScript, '3.1.0'], {
+            cwd: path.join(fixtureRoot, 'work'),
+            env,
+            stdio: 'ignore',
+        });
+        let exited = false;
+        const exitPromise = new Promise<{
+            code: number | null;
+            signal: NodeJS.Signals | null;
+        }>((resolve, reject) => {
+            child.on('error', reject);
+            child.on('close', (code, signal) => {
+                exited = true;
+                resolve({code, signal});
+            });
+        });
+
+        try {
+            const readyFiles = [
+                path.join(fixtureRoot, 'ready', 'a-ci'),
+                path.join(fixtureRoot, 'ready', 'b-pre-fork'),
+                path.join(fixtureRoot, 'ready', 'b-subshell-pid'),
+            ];
+            const waitDeadline = Date.now() + 10000;
+            while (
+                !readyFiles.every(file => fs.existsSync(file)) &&
+                Date.now() < waitDeadline
+            ) {
+                await new Promise(resolve => setTimeout(resolve, 20));
+            }
+            expect(readyFiles.every(file => fs.existsSync(file))).toBe(true);
+
+            const kitANpmPid = Number(
+                (lines(path.join('npm-pid', 'a-ci'))[0] || '').trim()
+            );
+            const kitBPid = Number(
+                (lines(path.join('ready', 'b-subshell-pid'))[0] || '').trim()
+            );
+            expect(kitANpmPid).toBeGreaterThan(0);
+            expect(kitBPid).toBeGreaterThan(0);
+            if (child.pid) {
+                expect(kitBPid).not.toBe(child.pid);
+            }
+
+            process.kill(kitBPid, 'SIGTERM');
+            const kitBExitDeadline = Date.now() + 2000;
+            let kitBAlive = true;
+            while (kitBAlive && Date.now() < kitBExitDeadline) {
+                const preForkFile = readyFiles[1];
+                if (fs.existsSync(preForkFile)) {
+                    await new Promise(resolve => setTimeout(resolve, 20));
+                } else {
+                    kitBAlive = false;
+                }
+            }
+            expect(kitBAlive).toBe(false);
+            expect(() => process.kill(kitANpmPid, 0)).not.toThrow();
+            expect(lines('npm-term/a-ci')).toEqual([]);
+            expect(
+                fs.existsSync(path.join(fixtureRoot, 'ready', 'b-ci'))
+            ).toBe(false);
+        } finally {
+            fs.writeFileSync(
+                path.join(fixtureRoot, 'release-b-pre-fork'),
+                '1\n'
+            );
+            if (!exited) {
+                child.kill('SIGTERM');
+            }
+            await exitPromise.catch(() => undefined);
+        }
     }, 30000);
 });
