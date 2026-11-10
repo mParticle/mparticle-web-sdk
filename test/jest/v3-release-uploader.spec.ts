@@ -341,11 +341,13 @@ describe('V3 candidate uploader', () => {
                 );
                 expect(message).toContain('(AccessDenied)');
                 expect(storage.bytesOf(`${candidate.prefix}metadata.json`)).toBeUndefined();
-                expect(storage.writes()).toHaveLength(failAt + 1);
+                // Objects already in flight finish; none starts after the failure.
+                const firstRunWrites = storage.writes().length;
+                expect(firstRunWrites).toBeLessThanOrEqual(Math.max(failAt + 1, 8));
 
                 const summary = await uploader.uploadCandidate(local(), storage, FAST);
-                expect(summary.created).toBe(total() - failAt);
-                expect(summary.alreadyPresent).toBe(failAt);
+                expect(summary.alreadyPresent).toBe(firstRunWrites - 1);
+                expect(summary.created).toBe(total() - (firstRunWrites - 1));
             }
         );
 
@@ -375,7 +377,18 @@ describe('V3 candidate uploader', () => {
                 deny: (operation: string) => operation === 'putIfAbsent',
             });
             await failureOf(uploader.uploadCandidate(local(), storage, FAST));
-            expect(storage.writes()).toHaveLength(1);
+            const keys = storage.writes().map((call: any) => call.key);
+            expect(new Set(keys).size).toBe(keys.length);
+            expect(keys.length).toBeLessThanOrEqual(8);
+            expect(keys).not.toContain(`${candidate.prefix}metadata.json`);
+
+            const sequential = new InMemoryReleaseStorage({
+                deny: (operation: string) => operation === 'putIfAbsent',
+            });
+            await failureOf(
+                uploader.uploadCandidate(local(), sequential, { ...FAST, concurrency: 1 })
+            );
+            expect(sequential.writes()).toHaveLength(1);
         });
 
         it('stops on a collision with different bytes and never overwrites', async () => {
@@ -387,8 +400,81 @@ describe('V3 candidate uploader', () => {
             );
             expect(message).toMatch(/Candidate collision: core\/dist\/mparticle.esm.js/);
             expect(storage.bytesOf(key).toString()).toBe('different');
-            expect(storage.writes()[storage.writes().length - 1].key).toBe(key);
+            expect(
+                storage.writes().filter((call: any) => call.key === key)
+            ).toHaveLength(1);
             expect(storage.bytesOf(`${candidate.prefix}metadata.json`)).toBeUndefined();
+        });
+
+        // Wraps the store so every call waits a tick, counting writes in flight
+        // and recording when each object is read back.
+        function slowStorage(storage: any) {
+            const state = { inFlight: 0, maxInFlight: 0, events: [] as string[] };
+            const tick = () => new Promise(resolve => setTimeout(resolve, 2));
+            const wrapped = {
+                async putObjectIfAbsent(key: string, ...rest: unknown[]) {
+                    state.inFlight++;
+                    state.maxInFlight = Math.max(state.maxInFlight, state.inFlight);
+                    state.events.push(`put ${key}`);
+                    try {
+                        await tick();
+                        return await storage.putObjectIfAbsent(key, ...rest);
+                    } finally {
+                        state.inFlight--;
+                    }
+                },
+                async getObject(key: string, ...rest: unknown[]) {
+                    await tick();
+                    const result = await storage.getObject(key, ...rest);
+                    state.events.push(`read ${key}`);
+                    return result;
+                },
+            };
+            return { wrapped, state };
+        }
+
+        it('writes up to eight objects at once, and metadata.json only after every other object is read back', async () => {
+            const { wrapped, state } = slowStorage(new InMemoryReleaseStorage());
+            const summary = await uploader.uploadCandidate(local(), wrapped, FAST);
+            expect(summary.created).toBe(total());
+            expect(state.maxInFlight).toBe(Math.min(8, total() - 1));
+            const metadataPut = state.events.indexOf(
+                `put ${candidate.prefix}metadata.json`
+            );
+            const reads = state.events.filter(
+                (event, index) =>
+                    event.startsWith('read ') &&
+                    !event.endsWith('metadata.json') &&
+                    index < metadataPut
+            );
+            expect(reads).toHaveLength(total() - 1);
+        });
+
+        it('writes one object at a time with concurrency 1', async () => {
+            const { wrapped, state } = slowStorage(new InMemoryReleaseStorage());
+            await uploader.uploadCandidate(local(), wrapped, { ...FAST, concurrency: 1 });
+            expect(state.maxInFlight).toBe(1);
+        });
+
+        it('starts no new object after a failure, and finishes the ones in flight', async () => {
+            const storage = new InMemoryReleaseStorage();
+            const plan = uploader.buildUploadPlan(local());
+            storage.injectFault({
+                operation: 'putIfAbsent',
+                key: plan[0].key,
+                code: 'AccessDenied',
+            });
+            const { wrapped, state } = slowStorage(storage);
+            expect(
+                await failureOf(uploader.uploadCandidate(local(), wrapped, FAST))
+            ).toContain('(AccessDenied)');
+            const puts = state.events.filter(event => event.startsWith('put '));
+            expect(puts).toHaveLength(8);
+            expect(state.inFlight).toBe(0);
+            expect(storage.bytesOf(`${candidate.prefix}metadata.json`)).toBeUndefined();
+            for (const entry of plan.slice(1, 8)) {
+                expect(storage.bytesOf(entry.key)).toBeDefined();
+            }
         });
 
         it('fails when a different metadata.json is already present', async () => {
@@ -537,7 +623,8 @@ describe('V3 candidate uploader', () => {
             } catch (error) {
                 message = (error as Error).message;
             }
-            expect(message).toMatch(/putIfAbsent .*kits\/braze.* failed \(AccessDenied\)/);
+            // Writes run concurrently, so whichever kit write fails first is reported.
+            expect(message).toMatch(/putIfAbsent .*kits\/.* failed \(AccessDenied\)/);
             const [record] = readProgressRecords(progressFile);
             expect(record).toMatchObject({ pod: 'us1', status: 'failed' });
             for (const text of [message, output.text, JSON.stringify(record)]) {

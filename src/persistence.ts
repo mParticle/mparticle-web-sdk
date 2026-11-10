@@ -5,7 +5,7 @@ import { IMParticleWebSDKInstance } from './mp-instance';
 import { IPersistence, IPersistenceMinified } from './persistence.interfaces';
 import { MPID } from '@mparticle/web-sdk';
 import { CookieSyncDates } from './cookieSyncManager';
-import { Dictionary } from './utils';
+import { Dictionary, isObject } from './utils';
 import { IMParticleInstanceManager } from './sdkRuntimeModels';
 
 const Base64 = Polyfill.Base64,
@@ -211,8 +211,7 @@ export default function _Persistence(
             obj.gs.lsa || mpInstance._Store.localSessionAttributes;
         mpInstance._Store.serverSettings =
             obj.gs.ss || mpInstance._Store.serverSettings;
-        mpInstance._Store.devToken =
-            mpInstance._Store.devToken || obj.gs.dt;
+        // gs.dt is written for older readers but never read back: the API key comes only from init.
         mpInstance._Store.SDKConfig.appVersion =
             mpInstance._Store.SDKConfig.appVersion || obj.gs.av;
         mpInstance._Store.clientId =
@@ -346,7 +345,9 @@ export default function _Persistence(
         data.gs.sa = store.sessionAttributes;
         data.gs.lsa = store.localSessionAttributes;
         data.gs.ss = store.serverSettings;
-        data.gs.dt = store.devToken;
+        if (store.devToken) {
+            data.gs.dt = store.devToken;
+        }
         data.gs.les = store.dateLastEventSent
             ? store.dateLastEventSent.getTime()
             : null;
@@ -370,7 +371,7 @@ export default function _Persistence(
             return null;
         }
         const record = JSON.parse(decoded);
-        return mpInstance._Helpers.isObject(record) &&
+        return isObject(record) &&
             Object.keys(record).length
             ? (record as IPersistenceMinified)
             : null;
@@ -737,7 +738,7 @@ export default function _Persistence(
         if (Array.isArray(value)) {
             return value.length > 0;
         }
-        if (!mpInstance._Helpers.isObject(value)) {
+        if (!isObject(value)) {
             return false;
         }
         return Object.keys(value).length > 0;
@@ -773,7 +774,7 @@ export default function _Persistence(
     function encodeMpidBase64Field(container, key: string): void {
         const value = container[key];
         if (
-            mpInstance._Helpers.isObject(value) &&
+            isObject(value) &&
             Object.keys(value).length
         ) {
             container[key] = Base64.encode(JSON.stringify(value));
@@ -855,7 +856,7 @@ export default function _Persistence(
                 continue;
             }
             if (!SDKv2NonMPIDCookieKeys[mpid]) {
-                if (!mpInstance._Helpers.isObject(persistence[mpid])) {
+                if (!isObject(persistence[mpid])) {
                     delete persistence[mpid];
                     continue;
                 }
@@ -881,7 +882,7 @@ export default function _Persistence(
                 Utils.revertCookieString(persistenceString)
             ) as IPersistenceMinified;
             if (
-                mpInstance._Helpers.isObject(persistence) &&
+                isObject(persistence) &&
                 Object.keys(persistence).length
             ) {
                 decodeGlobalSettings(persistence.gs);
@@ -935,7 +936,7 @@ export default function _Persistence(
         if (csd) {
             let persistence = self.getPersistence();
             if (persistence) {
-                if (mpInstance._Helpers.isObject(persistence[mpid])) {
+                if (isObject(persistence[mpid])) {
                     persistence[mpid].csd = csd;
                 } else {
                     persistence[mpid] = {
@@ -1053,7 +1054,7 @@ export default function _Persistence(
         }
         let persistence = self.getPersistence();
         if (persistence) {
-            if (!mpInstance._Helpers.isObject(persistence[mpid])) {
+            if (!isObject(persistence[mpid])) {
                 persistence[mpid] = {};
             }
             if (!persistence[mpid].fst) {
@@ -1093,7 +1094,7 @@ export default function _Persistence(
             time = new Date().getTime();
         }
         let persistence = self.getPersistence();
-        if (persistence && mpInstance._Helpers.isObject(persistence[mpid])) {
+        if (persistence && isObject(persistence[mpid])) {
             persistence[mpid].lst = time;
             self.savePersistence(persistence);
         }

@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import {spawnSync} from 'child_process';
+import {spawn, spawnSync} from 'child_process';
 
 const {
     cleanPublishOutputs,
@@ -19,8 +19,10 @@ const {
     appendCoreRecoverySummary,
     appendRecoverySummary,
     assertDistTagWillNotMoveBackward,
+    auditMain,
     auditRemotePackages,
     compareStableVersions,
+    main,
     packPackage,
     preflightKitArtifacts,
     publishKitArtifacts,
@@ -36,11 +38,25 @@ const {
 } = require('../../scripts/preview-kit-release');
 
 describe('kit release scripts', () => {
+    it('keeps v3 kit recovery in the shared Step 1 until a V3 release runs on the split files', () => {
+        const workflow = fs.readFileSync(
+            path.join(__dirname, '../../.github/workflows/staging-step-1.yml'),
+            'utf8'
+        );
+
+        expect(workflow).toContain('resumeKitReleaseTag:');
+        expect(workflow).toContain(
+            'git rev-parse "${RESUME_KIT_RELEASE_TAG}^{commit}"'
+        );
+        expect(workflow).toMatch(/^    publish-kits:$/m);
+        expect(workflow).toMatch(/^    audit-kits:$/m);
+    });
+
     it('uses the immutable release tag as the recovery authority', () => {
         const workflow = fs.readFileSync(
             path.join(
                 __dirname,
-                '../../.github/workflows/staging-step-1.yml'
+                '../../.github/workflows/v3-release-step-1.yml'
             ),
             'utf8'
         );
@@ -69,18 +85,16 @@ describe('kit release scripts', () => {
         );
     });
 
-    it('audits npm in its own job that nothing waits for', () => {
+    it('has no separate npm audit job; the V3 candidate upload waits for the kit publish', () => {
         const yaml = require('js-yaml');
-        const jobs = yaml.load(
-            fs.readFileSync(
-                path.join(
-                    __dirname,
-                    '../../.github/workflows/staging-step-1.yml'
-                ),
-                'utf8'
-            )
-        ).jobs;
-        const audit = jobs['audit-kits'];
+        const workflow = fs.readFileSync(
+            path.join(
+                __dirname,
+                '../../.github/workflows/v3-release-step-1.yml'
+            ),
+            'utf8'
+        );
+        const jobs = yaml.load(workflow).jobs;
 
         expect(jobs['publish-kits'].name).toBe('Publish V3 kits');
         expect(jobs['publish-kits'].outputs).toEqual({
@@ -90,27 +104,24 @@ describe('kit release scripts', () => {
         expect(
             jobs['publish-kits'].steps.map((step: {run?: string}) => step.run)
         ).toContain('node scripts/publish-kits.js');
-        expect(audit.name).toBe('Audit V3 kits on npm');
-        expect(audit.needs).toEqual(['confirm-staging-branch', 'publish-kits']);
-        expect(audit.if).toContain("needs.publish-kits.result == 'success'");
-        expect(audit.permissions).toEqual({contents: 'read'});
-        expect(audit.env.RELEASE_VERSION).toBe(
-            '${{ needs.publish-kits.outputs.release_version }}'
+        // publish-kits.js runs a strict audit at the end of main() reusing the
+        // packed tarballs, and the release gate's npm parity check
+        // (check-release-parity.ts with --npm-retry-seconds 600) reads npm in
+        // the candidate workflow as well; there is no separate --audit step or
+        // audit-kits job.
+        expect(jobs['audit-kits']).toBeUndefined();
+        expect(workflow).not.toContain('publish-kits.js --audit');
+        expect(jobs['upload-v3-candidate'].needs).toEqual([
+            'confirm-staging-branch',
+            'release',
+            'package-v3-candidate',
+            'publish-kits',
+            'advance-staging',
+        ]);
+        expect(jobs['upload-v3-candidate'].if).toContain(
+            "needs.publish-kits.result == 'success'"
         );
-        expect(audit.steps[0].with).toEqual({
-            ref: '${{ needs.publish-kits.outputs.release_sha }}',
-            'persist-credentials': false,
-        });
-        expect(audit.steps[audit.steps.length - 1].run).toBe(
-            'node scripts/publish-kits.js --audit'
-        );
-        for (const job of Object.values(jobs) as Array<{
-            needs?: string | string[];
-        }>) {
-            expect(([] as string[]).concat(job.needs || [])).not.toContain(
-                'audit-kits'
-            );
-        }
+        expect(jobs['upload-v3-candidate'].if).not.toContain('audit-kits');
     });
 
     it('loads a unique, complete publish inventory', () => {
@@ -1285,6 +1296,12 @@ describe('kit release scripts', () => {
             stderr: '',
             error: Object.assign(new Error('spawnSync npm ETIMEDOUT'), {code: 'ETIMEDOUT'}),
         };
+        const spawnError = {
+            status: null,
+            stdout: '',
+            stderr: '',
+            error: Object.assign(new Error('spawnSync npm ENOENT'), {code: 'ENOENT'}),
+        };
         const spawnSync = jest
             .fn()
             .mockReturnValueOnce({status: 0, stdout: '"sha512-x"\n', stderr: ''})
@@ -1292,7 +1309,8 @@ describe('kit release scripts', () => {
             .mockReturnValueOnce({status: 1, stdout: '', stderr: 'npm error code ETIMEDOUT'})
             .mockReturnValueOnce({status: 1, stdout: '', stderr: 'npm error code ETIMEDOUT'})
             // A budget too small for a retry gets one attempt.
-            .mockReturnValueOnce(timedOut);
+            .mockReturnValueOnce(timedOut)
+            .mockReturnValueOnce(spawnError);
         jest.isolateModules(() => {
             jest.doMock('node:child_process', () => ({
                 ...jest.requireActual('node:child_process'),
@@ -1329,6 +1347,16 @@ describe('kit release scripts', () => {
             );
             expect(spawnSync).toHaveBeenCalledTimes(4);
             expect(spawnSync.mock.calls[3][2]).toMatchObject({timeout: 1500});
+            expect(() => npmView('example-kit', 'dist-tags.next', 1500)).toThrow(
+                expect.objectContaining({
+                    code: 'NPM_VIEW_FAILED',
+                    message: `npm view failed for example-kit dist-tags.next (${path.join(
+                        path.dirname(process.execPath),
+                        'npm'
+                    )}: ENOENT: spawnSync npm ENOENT)`,
+                })
+            );
+            expect(spawnSync).toHaveBeenCalledTimes(5);
         });
         jest.dontMock('node:child_process');
     });
@@ -2103,6 +2131,28 @@ describe('kit release scripts', () => {
             expect(summary).toContain('resumeKitReleaseTag=v3.0.1');
 
             fs.writeFileSync(summaryPath, '');
+            appendAuditSummary(
+                '3.0.1',
+                'next',
+                {
+                    verified: ['@mparticle/web-sdk'],
+                    lagging: [
+                        {name: '@mparticle/web-late-kit', message: 'not | yet'},
+                    ],
+                    mismatched: [],
+                },
+                {strict: true}
+            );
+            const strictSummary = fs.readFileSync(summaryPath, 'utf8');
+            expect(strictSummary).toContain(
+                '| `@mparticle/web-late-kit` | not confirmed yet (failed in strict mode): not   yet |'
+            );
+            expect(strictSummary).toContain(
+                'Under `--audit --strict`, any unconfirmed package fails the audit and fails the release recovery run.'
+            );
+            expect(strictSummary).not.toContain('Neither fails the release');
+
+            fs.writeFileSync(summaryPath, '');
             appendAuditSummary('3.0.1', 'next', {
                 verified: ['@mparticle/web-sdk'],
                 lagging: [],
@@ -2159,6 +2209,683 @@ describe('kit release scripts', () => {
         }
     });
 
+    it('fails on both missing and mismatched kits under --audit --strict', () => {
+        const tempDirectory = fs.mkdtempSync(
+            path.join(os.tmpdir(), 'mparticle-audit-strict-')
+        );
+        const coreVersion = JSON.parse(
+            fs.readFileSync(path.join(__dirname, '../../package.json'), 'utf8')
+        ).version;
+        const summaryPath = path.join(tempDirectory, 'summary.md');
+        const previousVersion = process.env.RELEASE_VERSION;
+        const previousDistTag = process.env.NPM_DIST_TAG;
+        const previousSummary = process.env.GITHUB_STEP_SUMMARY;
+
+        try {
+            process.env.RELEASE_VERSION = coreVersion;
+            process.env.NPM_DIST_TAG = 'next';
+            process.env.GITHUB_STEP_SUMMARY = summaryPath;
+            const fakeArtifacts = [
+                {name: '@mparticle/web-sdk', integrity: 'sha512-core'},
+                {name: '@mparticle/web-kit-a', integrity: 'sha512-kit-a'},
+            ];
+            let clockMs = 1_000_000;
+            const now = () => clockMs;
+            const wait = jest.fn((ms: number) => {
+                clockMs += ms;
+            });
+
+            // Plain --audit treats a missing kit (still lagging at the deadline) as a warning.
+            fs.writeFileSync(summaryPath, '');
+            expect(() =>
+                auditMain({
+                    strict: false,
+                    inventory: {publishEntries: []},
+                    packReleaseArtifacts: () => fakeArtifacts,
+                    auditOptions: {
+                        now,
+                        wait,
+                        verifyRemotePackage: (pkg: {name: string}) => {
+                            if (pkg.name === '@mparticle/web-kit-a') {
+                                const error = new Error(
+                                    '@mparticle/web-kit-a@3.0.1 is not visible on npm yet'
+                                ) as Error & {code?: string};
+                                error.code = 'NOT_VISIBLE';
+                                throw error;
+                            }
+                        },
+                    },
+                })
+            ).not.toThrow();
+            expect(wait).toHaveBeenCalledTimes(59);
+            expect(clockMs).toBe(1_000_000 + 295_000);
+            expect(fs.readFileSync(summaryPath, 'utf8')).toContain(
+                'Neither fails the release'
+            );
+
+            // Strict mode (--audit --strict): missing at first, visible before the deadline: passes.
+            clockMs = 1_000_000;
+            wait.mockClear();
+            fs.writeFileSync(summaryPath, '');
+            expect(() =>
+                auditMain({
+                    strict: true,
+                    inventory: {publishEntries: []},
+                    packReleaseArtifacts: () => fakeArtifacts,
+                    auditOptions: {
+                        now,
+                        wait,
+                        verifyRemotePackage: (pkg: {name: string}) => {
+                            if (
+                                pkg.name === '@mparticle/web-kit-a' &&
+                                clockMs < 1_000_000 + 30_000
+                            ) {
+                                const error = new Error(
+                                    '@mparticle/web-kit-a@3.0.1 is not visible on npm yet'
+                                ) as Error & {code?: string};
+                                error.code = 'NOT_VISIBLE';
+                                throw error;
+                            }
+                        },
+                    },
+                })
+            ).not.toThrow();
+            expect(wait).toHaveBeenCalledTimes(6);
+            expect(clockMs).toBe(1_000_000 + 30_000);
+            expect(fs.readFileSync(summaryPath, 'utf8')).toContain(
+                '| `@mparticle/web-kit-a` | verified |'
+            );
+
+            // Strict mode (--audit --strict): still missing at the deadline: fails.
+            clockMs = 1_000_000;
+            wait.mockClear();
+            fs.writeFileSync(summaryPath, '');
+            expect(() =>
+                auditMain({
+                    strict: true,
+                    inventory: {publishEntries: []},
+                    packReleaseArtifacts: () => fakeArtifacts,
+                    auditOptions: {
+                        now,
+                        wait,
+                        verifyRemotePackage: (pkg: {name: string}) => {
+                            if (pkg.name === '@mparticle/web-kit-a') {
+                                const error = new Error(
+                                    '@mparticle/web-kit-a@3.0.1 is not visible on npm yet'
+                                ) as Error & {code?: string};
+                                error.code = 'NOT_VISIBLE';
+                                throw error;
+                            }
+                        },
+                    },
+                })
+            ).toThrow(
+                'npm audit found 1 unverified package(s): @mparticle/web-kit-a: @mparticle/web-kit-a@3.0.1 is not visible on npm yet'
+            );
+            expect(wait).toHaveBeenCalledTimes(59);
+            expect(clockMs).toBe(1_000_000 + 295_000);
+            const strictAuditSummary = fs.readFileSync(summaryPath, 'utf8');
+            expect(strictAuditSummary).toContain(
+                'Under `--audit --strict`, any unconfirmed package fails the audit and fails the release recovery run.'
+            );
+            expect(strictAuditSummary).not.toContain(
+                'Neither fails the release'
+            );
+
+            // Strict mode also fails at once (without retrying) when a kit has a mismatched integrity on npm.
+            clockMs = 1_000_000;
+            wait.mockClear();
+            expect(() =>
+                auditMain({
+                    strict: true,
+                    inventory: {publishEntries: []},
+                    packReleaseArtifacts: () => fakeArtifacts,
+                    auditOptions: {
+                        now,
+                        wait,
+                        verifyRemotePackage: (pkg: {name: string}) => {
+                            if (pkg.name === '@mparticle/web-kit-a') {
+                                throw new Error(
+                                    '@mparticle/web-kit-a@3.0.1 integrity mismatch'
+                                );
+                            }
+                        },
+                    },
+                })
+            ).toThrow(
+                'npm audit found 1 unverified package(s): @mparticle/web-kit-a: @mparticle/web-kit-a@3.0.1 integrity mismatch'
+            );
+            expect(wait).not.toHaveBeenCalled();
+
+            // CLI spawns: stub child_process.spawnSync before requiring publish-kits.js so npmView never hits live npm.
+            const runCli = (args: string[], mode: string) =>
+                spawnSync(
+                    process.execPath,
+                    [
+                        '-e',
+                        `
+                        const childProcess = require('node:child_process');
+                        Atomics.wait = () => 'ok';
+                        let kitViewCalls = 0;
+                        childProcess.spawnSync = (_file, args) => {
+                            const spec = String(args[1] || '');
+                            const field = args[2];
+                            if (spec.startsWith('@mparticle/web-sdk')) {
+                                return {
+                                    status: 0,
+                                    stdout:
+                                        field === 'dist.integrity'
+                                            ? '"sha512-local"\\n'
+                                            : JSON.stringify(process.env.RELEASE_VERSION) + '\\n',
+                                    stderr: '',
+                                };
+                            }
+                            if (process.env.FAKE_NPM_MODE === 'mismatch') {
+                                return {
+                                    status: 0,
+                                    stdout:
+                                        field === 'dist.integrity'
+                                            ? '"sha512-other"\\n'
+                                            : JSON.stringify(process.env.RELEASE_VERSION) + '\\n',
+                                    stderr: '',
+                                };
+                            }
+                            kitViewCalls += 1;
+                            if (
+                                process.env.FAKE_NPM_MODE === 'lag-recover' &&
+                                kitViewCalls >= 3
+                            ) {
+                                return {
+                                    status: 0,
+                                    stdout:
+                                        field === 'dist.integrity'
+                                            ? '"sha512-local"\\n'
+                                            : JSON.stringify(process.env.RELEASE_VERSION) + '\\n',
+                                    stderr: '',
+                                };
+                            }
+                            return {
+                                status: 1,
+                                stdout: '',
+                                stderr: 'npm ERR! code E404',
+                            };
+                        };
+                        const pk = require(${JSON.stringify(
+                            path.join(__dirname, '../../scripts/publish-kits.js')
+                        )});
+                        process.argv = ['node', 'publish-kits.js', ...${JSON.stringify(
+                            args
+                        )}];
+                        let clockMs = 1000000;
+                        try {
+                            pk.auditMain({
+                                strict: process.argv.includes('--strict'),
+                                inventory: {
+                                    publishEntries: [
+                                        {
+                                            name: '@mparticle/web-kit-a',
+                                            local_path: '.',
+                                        },
+                                    ],
+                                },
+                                packReleaseArtifacts: () => [
+                                    {
+                                        name: '@mparticle/web-sdk',
+                                        integrity: 'sha512-local',
+                                    },
+                                    {
+                                        name: '@mparticle/web-kit-a',
+                                        integrity: 'sha512-local',
+                                    },
+                                ],
+                                auditOptions: {
+                                    now: () => clockMs,
+                                    wait: ms => {
+                                        clockMs += ms;
+                                    },
+                                },
+                            });
+                        } catch (err) {
+                            console.error(err.message);
+                            process.exit(1);
+                        }
+                        `,
+                    ],
+                    {
+                        encoding: 'utf8',
+                        env: {
+                            ...process.env,
+                            RELEASE_VERSION: coreVersion,
+                            NPM_DIST_TAG: 'next',
+                            FAKE_NPM_MODE: mode,
+                        },
+                    }
+                );
+
+            const lagRecoverResult = runCli(
+                ['--audit', '--strict'],
+                'lag-recover'
+            );
+            expect(lagRecoverResult.status).toBe(0);
+            expect(lagRecoverResult.stdout).toContain(
+                `Verified 2 of 2 packages at ${coreVersion} with dist-tag next`
+            );
+
+            const missingResult = runCli(['--audit', '--strict'], 'missing');
+            expect(missingResult.status).toBe(1);
+            expect(missingResult.stderr).toContain(
+                'npm audit found 1 unverified package(s): @mparticle/web-kit-a'
+            );
+
+            const mismatchResult = runCli(['--audit', '--strict'], 'mismatch');
+            expect(mismatchResult.status).toBe(1);
+            expect(mismatchResult.stderr).toContain(
+                'npm audit found 1 unverified package(s): @mparticle/web-kit-a'
+            );
+        } finally {
+            if (previousVersion === undefined) {
+                delete process.env.RELEASE_VERSION;
+            } else {
+                process.env.RELEASE_VERSION = previousVersion;
+            }
+            if (previousDistTag === undefined) {
+                delete process.env.NPM_DIST_TAG;
+            } else {
+                process.env.NPM_DIST_TAG = previousDistTag;
+            }
+            if (previousSummary === undefined) {
+                delete process.env.GITHUB_STEP_SUMMARY;
+            } else {
+                process.env.GITHUB_STEP_SUMMARY = previousSummary;
+            }
+            fs.rmSync(tempDirectory, {force: true, recursive: true});
+        }
+    });
+
+    it('runs auditRemotePackages in strict mode at the end of publish-kits reusing the packed tarballs and exits non-zero when a kit is missing after publish', async () => {
+        const tempDirectory = fs.mkdtempSync(
+            path.join(os.tmpdir(), 'mparticle-publish-strict-audit-')
+        );
+        const coreVersion = JSON.parse(
+            fs.readFileSync(path.join(__dirname, '../../package.json'), 'utf8')
+        ).version;
+        const summaryPath = path.join(tempDirectory, 'summary.md');
+        const packCountFile = path.join(tempDirectory, 'pack-count.txt');
+        const preloadPath = path.join(tempDirectory, 'preload.js');
+        const previousVersion = process.env.RELEASE_VERSION;
+        const previousDistTag = process.env.NPM_DIST_TAG;
+        const previousSummary = process.env.GITHUB_STEP_SUMMARY;
+
+        try {
+            process.env.RELEASE_VERSION = coreVersion;
+            process.env.NPM_DIST_TAG = 'next';
+            process.env.GITHUB_STEP_SUMMARY = summaryPath;
+
+            const fakeInventory = {
+                publishEntries: [
+                    {name: '@mparticle/web-rokt-kit', local_path: 'kits/rokt'},
+                    {
+                        name: '@mparticle/web-adobe-target-kit',
+                        local_path: 'kits/adobe-target',
+                    },
+                ],
+            };
+            const fakeArtifacts = [
+                {name: '@mparticle/web-sdk', integrity: 'sha512-core'},
+                {name: '@mparticle/web-rokt-kit', integrity: 'sha512-rokt'},
+                {
+                    name: '@mparticle/web-adobe-target-kit',
+                    integrity: 'sha512-adobe-target',
+                },
+            ];
+            const packArtifacts = jest.fn(() => fakeArtifacts);
+            const publishKits = jest.fn(
+                async (
+                    artifacts: Array<{name: string}>,
+                    _version: string,
+                    _distTag: string,
+                    options: {results: Array<{name: string; result: string}>}
+                ) => {
+                    for (const artifact of artifacts) {
+                        options.results.push({
+                            name: artifact.name,
+                            result: 'published',
+                        });
+                    }
+                }
+            );
+
+            let clockMs = 1_000_000;
+            const now = () => clockMs;
+            const wait = jest.fn((ms: number) => {
+                clockMs += ms;
+            });
+
+            // Missing at first, visible before the 5-minute deadline: passes.
+            fs.writeFileSync(summaryPath, '');
+            await expect(
+                main({
+                    inventory: fakeInventory,
+                    packReleaseArtifacts: packArtifacts,
+                    viewTag: () => '3.0.0',
+                    waitForPublishedCore: () => undefined,
+                    publishKitArtifacts: publishKits,
+                    auditOptions: {
+                        now,
+                        wait,
+                        verifyRemotePackage: (pkg: {name: string}) => {
+                            if (
+                                pkg.name === '@mparticle/web-rokt-kit' &&
+                                clockMs < 1_000_000 + 30_000
+                            ) {
+                                const error = new Error(
+                                    `@mparticle/web-rokt-kit@${coreVersion} is not yet visible on npm`
+                                ) as Error & {code?: string};
+                                error.code = 'NOT_VISIBLE';
+                                throw error;
+                            }
+                        },
+                    },
+                })
+            ).resolves.toBeUndefined();
+            expect(packArtifacts).toHaveBeenCalledTimes(1);
+            expect(wait).toHaveBeenCalledTimes(6);
+            expect(clockMs).toBe(1_000_000 + 30_000);
+            const recoveredSummary = fs.readFileSync(summaryPath, 'utf8');
+            expect(recoveredSummary).toContain(
+                '| `@mparticle/web-rokt-kit` | verified |'
+            );
+            expect(recoveredSummary).not.toContain(
+                'Kits not yet recorded successful'
+            );
+
+            // Still missing at the 5-minute deadline: fails.
+            clockMs = 1_000_000;
+            wait.mockClear();
+            packArtifacts.mockClear();
+            fs.writeFileSync(summaryPath, '');
+            await expect(
+                main({
+                    inventory: fakeInventory,
+                    packReleaseArtifacts: packArtifacts,
+                    viewTag: () => '3.0.0',
+                    waitForPublishedCore: () => undefined,
+                    publishKitArtifacts: publishKits,
+                    auditOptions: {
+                        now,
+                        wait,
+                        verifyRemotePackage: (pkg: {name: string}) => {
+                            if (pkg.name === '@mparticle/web-rokt-kit') {
+                                const error = new Error(
+                                    `@mparticle/web-rokt-kit@${coreVersion} is not yet visible on npm`
+                                ) as Error & {code?: string};
+                                error.code = 'NOT_VISIBLE';
+                                throw error;
+                            }
+                        },
+                    },
+                })
+            ).rejects.toThrow(
+                `npm audit found 1 unverified package(s): @mparticle/web-rokt-kit: @mparticle/web-rokt-kit@${coreVersion} is not yet visible on npm`
+            );
+            expect(packArtifacts).toHaveBeenCalledTimes(1);
+            expect(wait).toHaveBeenCalledTimes(59);
+            expect(clockMs).toBe(1_000_000 + 295_000);
+            const missingSummary = fs.readFileSync(summaryPath, 'utf8');
+            expect(missingSummary).toContain(
+                '| `@mparticle/web-rokt-kit` | not confirmed yet (failed in strict mode):'
+            );
+            expect(missingSummary).toContain(
+                'Kits not yet recorded successful: `@mparticle/web-rokt-kit`'
+            );
+
+            fs.writeFileSync(
+                preloadPath,
+                [
+                    "const fs = require('node:fs');",
+                    "const path = require('node:path');",
+                    "const { EventEmitter } = require('node:events');",
+                    "const childProcess = require('node:child_process');",
+                    'let fakeNow = 1000000;',
+                    'Date.now = () => fakeNow;',
+                    'Atomics.wait = (_arr, _idx, _val, ms) => {',
+                    '  fakeNow += Number(ms) || 0;',
+                    "  return 'ok';",
+                    '};',
+                    'const version = process.env.RELEASE_VERSION;',
+                    "const missingKit = process.env.FAKE_MISSING_KIT || '';",
+                    'const visibleAfterMs = Number(process.env.FAKE_VISIBLE_AFTER_MS || 0);',
+                    "const packCountFile = process.env.FAKE_PACK_COUNT_FILE || '';",
+                    'const tarballs = new Map();',
+                    'const published = new Set();',
+                    'let packCount = 0;',
+                    'let spawnCount = 0;',
+                    'let auditStartTime = null;',
+                    'childProcess.execFileSync = (file, args) => {',
+                    "  if (Array.isArray(args) && args[0] === 'pack') {",
+                    '    packCount += 1;',
+                    '    if (packCountFile) {',
+                    '      fs.writeFileSync(packCountFile, String(packCount));',
+                    '    }',
+                    '    const pkgDir = args[1];',
+                    '    const destDir = args[args.length - 1];',
+                    '    const { name } = JSON.parse(',
+                    "      fs.readFileSync(path.join(pkgDir, 'package.json'), 'utf8')",
+                    '    );',
+                    "    const filename = `${name.replace(/[@/]/g, '-')}.tgz`;",
+                    "    fs.writeFileSync(path.join(destDir, filename), 'tarball');",
+                    '    tarballs.set(filename, name);',
+                    '    return JSON.stringify([',
+                    '      { filename, integrity: `sha512-${name}@${version}` },',
+                    '    ]);',
+                    '  }',
+                    '  throw new Error(`Unexpected execFileSync: ${file} ${args}`);',
+                    '};',
+                    'childProcess.spawn = (_file, args) => {',
+                    '  spawnCount += 1;',
+                    '  const tarballName = path.basename(args[1]);',
+                    '  const pkgName = tarballs.get(tarballName);',
+                    '  if (pkgName && pkgName !== missingKit) {',
+                    '    published.add(pkgName);',
+                    '  }',
+                    '  const child = new EventEmitter();',
+                    '  child.stdout = new EventEmitter();',
+                    '  child.stderr = new EventEmitter();',
+                    '  child.stdout.setEncoding = () => undefined;',
+                    '  child.stderr.setEncoding = () => undefined;',
+                    "  setTimeout(() => child.emit('close', 0, null), 0);",
+                    '  return child;',
+                    '};',
+                    'childProcess.spawnSync = (_file, args) => {',
+                    '  const spec = args[1];',
+                    '  const field = args[2];',
+                    "  const atIndex = spec.lastIndexOf('@');",
+                    '  const hasVersion = atIndex > 0;',
+                    '  const pkgName = hasVersion ? spec.slice(0, atIndex) : spec;',
+                    '  if (pkgName === missingKit && visibleAfterMs > 0 && spawnCount >= 33) {',
+                    '    if (auditStartTime === null) {',
+                    '      auditStartTime = fakeNow;',
+                    '    }',
+                    '    if (fakeNow - auditStartTime >= visibleAfterMs) {',
+                    '      published.add(pkgName);',
+                    '    }',
+                    '  }',
+                    '  const isPublished =',
+                    "    pkgName === '@mparticle/web-sdk' || published.has(pkgName);",
+                    "  if (field === 'dist.integrity') {",
+                    '    if (!isPublished) {',
+                    "      return { status: 1, stdout: '', stderr: 'npm error code E404' };",
+                    '    }',
+                    '    return {',
+                    '      status: 0,',
+                    '      stdout: `${JSON.stringify(`sha512-${pkgName}@${version}`)}\\n`,',
+                    "      stderr: '',",
+                    '    };',
+                    '  }',
+                    "  if (field === 'dist-tags.next') {",
+                    '    if (!isPublished) {',
+                    '      return { status: 0, stdout: \'"3.0.0"\\n\', stderr: \'\' };',
+                    '    }',
+                    '    return {',
+                    '      status: 0,',
+                    '      stdout: `${JSON.stringify(version)}\\n`,',
+                    "      stderr: '',",
+                    '    };',
+                    '  }',
+                    "  return { status: 1, stdout: '', stderr: 'npm error code E404' };",
+                    '};',
+                    '',
+                ].join('\n')
+            );
+
+            // CLI: missing at first, visible before the deadline: passes.
+            fs.writeFileSync(summaryPath, '');
+            const cliLagRecover = spawnSync(
+                process.execPath,
+                [
+                    '-r',
+                    preloadPath,
+                    path.join(__dirname, '../../scripts/publish-kits.js'),
+                ],
+                {
+                    encoding: 'utf8',
+                    env: {
+                        ...process.env,
+                        RELEASE_VERSION: coreVersion,
+                        NPM_DIST_TAG: 'next',
+                        GITHUB_STEP_SUMMARY: summaryPath,
+                        FAKE_MISSING_KIT: '@mparticle/web-rokt-kit',
+                        FAKE_VISIBLE_AFTER_MS: '30000',
+                        FAKE_PACK_COUNT_FILE: packCountFile,
+                    },
+                }
+            );
+            expect(cliLagRecover.status).toBe(0);
+            expect(cliLagRecover.stdout).toContain(
+                `Verified 34 of 34 packages at ${coreVersion} with dist-tag next`
+            );
+            expect(fs.readFileSync(packCountFile, 'utf8')).toBe('34');
+            expect(fs.readFileSync(summaryPath, 'utf8')).toContain(
+                '| `@mparticle/web-rokt-kit` | verified |'
+            );
+
+            // CLI: still missing at the deadline: fails.
+            fs.writeFileSync(summaryPath, '');
+            const cliMissing = spawnSync(
+                process.execPath,
+                [
+                    '-r',
+                    preloadPath,
+                    path.join(__dirname, '../../scripts/publish-kits.js'),
+                ],
+                {
+                    encoding: 'utf8',
+                    env: {
+                        ...process.env,
+                        RELEASE_VERSION: coreVersion,
+                        NPM_DIST_TAG: 'next',
+                        GITHUB_STEP_SUMMARY: summaryPath,
+                        FAKE_MISSING_KIT: '@mparticle/web-rokt-kit',
+                        FAKE_PACK_COUNT_FILE: packCountFile,
+                    },
+                }
+            );
+            expect(cliMissing.status).toBe(1);
+            expect(cliMissing.stderr).toContain(
+                `npm audit found 1 unverified package(s): @mparticle/web-rokt-kit: @mparticle/web-rokt-kit@${coreVersion} is not yet visible on npm`
+            );
+            // Core + 33 kits are packed once; the end-of-publish strict audit reuses them.
+            expect(fs.readFileSync(packCountFile, 'utf8')).toBe('34');
+            const cliMissingSummary = fs.readFileSync(summaryPath, 'utf8');
+            expect(cliMissingSummary).toContain(
+                '| `@mparticle/web-rokt-kit` | not confirmed yet (failed in strict mode):'
+            );
+            expect(cliMissingSummary).toContain(
+                'Kits not yet recorded successful: `@mparticle/web-rokt-kit`'
+            );
+
+            fs.writeFileSync(summaryPath, '');
+            const cliSuccess = spawnSync(
+                process.execPath,
+                [
+                    '-r',
+                    preloadPath,
+                    path.join(__dirname, '../../scripts/publish-kits.js'),
+                ],
+                {
+                    encoding: 'utf8',
+                    env: {
+                        ...process.env,
+                        RELEASE_VERSION: coreVersion,
+                        NPM_DIST_TAG: 'next',
+                        GITHUB_STEP_SUMMARY: summaryPath,
+                        FAKE_MISSING_KIT: '',
+                        FAKE_PACK_COUNT_FILE: packCountFile,
+                    },
+                }
+            );
+            expect(cliSuccess.status).toBe(0);
+            expect(cliSuccess.stdout).toContain(
+                `Published every kit at ${coreVersion} with dist-tag next`
+            );
+            expect(cliSuccess.stdout).toContain(
+                `Verified 34 of 34 packages at ${coreVersion} with dist-tag next`
+            );
+            expect(fs.readFileSync(packCountFile, 'utf8')).toBe('34');
+        } finally {
+            if (previousVersion === undefined) {
+                delete process.env.RELEASE_VERSION;
+            } else {
+                process.env.RELEASE_VERSION = previousVersion;
+            }
+            if (previousDistTag === undefined) {
+                delete process.env.NPM_DIST_TAG;
+            } else {
+                process.env.NPM_DIST_TAG = previousDistTag;
+            }
+            if (previousSummary === undefined) {
+                delete process.env.GITHUB_STEP_SUMMARY;
+            } else {
+                process.env.GITHUB_STEP_SUMMARY = previousSummary;
+            }
+            fs.rmSync(tempDirectory, {force: true, recursive: true});
+        }
+    });
+
+    it('refuses an unknown option instead of running the publish', () => {
+        const tempDirectory = fs.mkdtempSync(
+            path.join(os.tmpdir(), 'mparticle-unknown-option-cli-')
+        );
+        const summaryPath = path.join(tempDirectory, 'summary.md');
+
+        try {
+            const result = spawnSync(
+                process.execPath,
+                [
+                    path.join(__dirname, '../../scripts/publish-kits.js'),
+                    '--no-such-option',
+                ],
+                {
+                    encoding: 'utf8',
+                    env: {
+                        ...process.env,
+                        RELEASE_VERSION: '3.999.0',
+                        NPM_DIST_TAG: 'next',
+                        GITHUB_STEP_SUMMARY: summaryPath,
+                    },
+                }
+            );
+
+            expect(result.status).toBe(1);
+            expect(result.stderr).toBe('Unknown option: --no-such-option\n');
+            // A publish that stops writes recovery steps; a refused option
+            // stops before the publish path reads anything.
+            expect(fs.existsSync(summaryPath)).toBe(false);
+        } finally {
+            fs.rmSync(tempDirectory, {force: true, recursive: true});
+        }
+    });
+
     it('writes actionable recovery instructions for a partial release', () => {
         const tempDirectory = fs.mkdtempSync(
             path.join(os.tmpdir(), 'mparticle-recovery-summary-')
@@ -2176,9 +2903,45 @@ describe('kit release scripts', () => {
             expect(summary).toContain(
                 'Do not start a newer release or run Step 2 or Step 3'
             );
+            expect(summary).toContain(
+                '**Tag mode (Release Please, dispatched from `v3.0.1`)**: use **Re-run failed jobs** on the original **V3 Release - Step 1** run'
+            );
+            expect(summary).toContain('release_tag=v3.0.1');
+            expect(summary).toContain(
+                '**Branch mode (dispatched from `v3-staging` before Release Please)**: dispatch **V3 Release - Step 1** from `v3-staging`'
+            );
             expect(summary).toContain('resumeKitReleaseTag=v3.0.1');
             expect(summary).toContain('core and all 33 kits');
+            expect(summary).toContain('**V3 Release - Step 1**');
+            expect(summary).toContain(
+                'dispatch **Staging Release - Step 1** from `v3-staging` instead, with `track=v3`'
+            );
             expect(summary).toContain('@mparticle/web-example-kit');
+
+            const readme = fs.readFileSync(
+                path.join(__dirname, '../../README.md'),
+                'utf8'
+            );
+            const step1Section = readme.slice(
+                readme.indexOf('1. **Step 1: Prepare CDN Pre-Release, Publish NPM**:'),
+                readme.indexOf('2. **Step 2: Publish SDK Release to Release Order Branch**')
+            );
+            expect(step1Section).toContain(
+                'runs `auditRemotePackages` in\n   strict mode at the end of `publish-kits.js`, reusing the tarballs it already\n   packed'
+            );
+            expect(step1Section).toContain(
+                'npm is then checked a second\n   time by the release gate in **Upload and stage V3 candidate** described below:\n   `check-release-parity.ts`'
+            );
+            expect(step1Section).toContain(
+                'in tag mode (Release Please, dispatched from `v3.X.Y`), use **Re-run failed'
+            );
+            expect(step1Section).toContain('`release_tag` set to the');
+            expect(step1Section).toContain(
+                'In branch mode (dispatched from `v3-staging` before'
+            );
+            expect(readme).toContain(
+                'Any rollback of this change on `main` must keep the\n`release_tag` input declaration on `v3-shadow-candidate.yml`'
+            );
         } finally {
             if (previousSummaryPath === undefined) {
                 delete process.env.GITHUB_STEP_SUMMARY;
@@ -2341,4 +3104,1009 @@ describe('kit release scripts', () => {
             fs.rmSync(tempDirectory, {force: true, recursive: true});
         }
     });
+});
+
+describe('build-v3-release.sh', () => {
+    const script = path.join(__dirname, '../../scripts/build-v3-release.sh');
+    let fixtureRoot: string;
+
+    // node -e prints the stub kit inventory. npm records each kit step and
+    // how many kit steps were running when it began, runs a nested child that
+    // writes a ready file and a TERM marker on SIGTERM, and exits with the
+    // code a line of the failures file gives that kit and step.
+    const stubNode = [
+        '#!/bin/sh',
+        'echo node >> "$STUB_DIR/calls"',
+        'if [ "$1" = -e ]; then cat "$STUB_DIR/inventory"; fi',
+        '',
+    ].join('\n');
+    const stubChild = [
+        '#!/bin/sh',
+        'SLEEP_PID=',
+        'if [ "${STUB_IGNORE_TERM:-}" = true ]; then',
+        "    trap '' TERM",
+        'else',
+        '    trap \'if [ -n "$SLEEP_PID" ]; then kill -TERM "$SLEEP_PID" 2>/dev/null || :; wait "$SLEEP_PID" 2>/dev/null || :; fi; printf "%s\\n" "$$" > "$STUB_DIR/term/$1"; exit 143\' 15',
+        'fi',
+        'sleep "$STUB_SLEEP" &',
+        'SLEEP_PID=$!',
+        'printf "%s\\n%s\\n" "$$" "$SLEEP_PID" > "$STUB_DIR/ready/$1.tmp"',
+        'mv "$STUB_DIR/ready/$1.tmp" "$STUB_DIR/ready/$1"',
+        'wait "$SLEEP_PID" || :',
+        '',
+    ].join('\n');
+    const stubNpm = [
+        '#!/bin/sh',
+        'set -eu',
+        'echo npm >> "$STUB_DIR/calls"',
+        'KIT=',
+        'case "$1" in',
+        '    ci) STEP=ci KIT=${3:-} ;;',
+        '    run) STEP=build KIT=${4:-} ;;',
+        'esac',
+        '[ -n "$KIT" ] || exit 0',
+        'STEP_KEY="${KIT#kits/}-$STEP"',
+        'echo "start $KIT $STEP" >> "$STUB_DIR/events"',
+        'touch "$STUB_DIR/running/$$"',
+        'printf "%s\\n" "$$" > "$STUB_DIR/npm-pid/$STEP_KEY"',
+        'if [ "${STUB_IGNORE_TERM:-}" = true ]; then',
+        "    trap '' TERM",
+        'else',
+        '    trap \'printf "%s\\n" "$$" > "$STUB_DIR/npm-term/$STEP_KEY"; exit 143\' 15',
+        'fi',
+        'if [ -n "${STUB_BARRIER:-}" ] && [ ! -f "$STUB_DIR/barrier-met" ]; then',
+        '    TRIES=0',
+        '    while [ ! -f "$STUB_DIR/barrier-met" ] && [ "$TRIES" -lt 100 ]; do',
+        '        if [ "$(ls "$STUB_DIR/running" | wc -l)" -ge "$STUB_BARRIER" ]; then',
+        '            touch "$STUB_DIR/barrier-met"',
+        '            break',
+        '        fi',
+        '        TRIES=$(($TRIES + 1))',
+        '        sleep 0.02',
+        '    done',
+        'fi',
+        'ls "$STUB_DIR/running" | wc -l >> "$STUB_DIR/overlap"',
+        'stub-child "$STEP_KEY" &',
+        'CHILD_PID=$!',
+        'wait "$CHILD_PID"',
+        'rm -f "$STUB_DIR/running/$$"',
+        'echo "end $KIT $STEP" >> "$STUB_DIR/events"',
+        'CODE=$(sed -n "s|^$KIT $STEP ||p" "$STUB_DIR/failures")',
+        'if [ -n "$CODE" ]; then echo "$KIT $STEP failed"; exit "$CODE"; fi',
+        '',
+    ].join('\n');
+
+    const lines = (name: string): string[] => {
+        const file = path.join(fixtureRoot, name);
+        if (!fs.existsSync(file)) {
+            return [];
+        }
+        return fs
+            .readFileSync(file, 'utf8')
+            .split('\n')
+            .filter(line => line !== '');
+    };
+    const peakOverlap = () => Math.max(0, ...lines('overlap').map(Number));
+
+    const runBuild = (
+        kits: string[],
+        options: {
+            barrier?: string;
+            concurrency?: string;
+            failures?: string[];
+            stepSeconds?: string;
+            stopTimeoutSeconds?: string;
+        } = {}
+    ) => {
+        fs.writeFileSync(
+            path.join(fixtureRoot, 'inventory'),
+            kits.map(kit => `${kit}\n`).join('')
+        );
+        fs.writeFileSync(
+            path.join(fixtureRoot, 'failures'),
+            (options.failures || []).map(failure => `${failure}\n`).join('')
+        );
+        const env: NodeJS.ProcessEnv = {
+            ...process.env,
+            PATH: `${path.join(fixtureRoot, 'bin')}${path.delimiter}${
+                process.env.PATH
+            }`,
+            STUB_DIR: fixtureRoot,
+            STUB_SLEEP: options.stepSeconds || '0.3',
+        };
+        delete env.GITHUB_ACTIONS;
+        delete env.KIT_BUILD_CONCURRENCY;
+        delete env.STUB_BARRIER;
+        delete env.STUB_IGNORE_TERM;
+        delete env.V3_RELEASE_STOP_TIMEOUT_S;
+        if (options.barrier !== undefined) {
+            env.STUB_BARRIER = options.barrier;
+        }
+        if (options.concurrency !== undefined) {
+            env.KIT_BUILD_CONCURRENCY = options.concurrency;
+        }
+        if (options.stopTimeoutSeconds !== undefined) {
+            env.V3_RELEASE_STOP_TIMEOUT_S = options.stopTimeoutSeconds;
+        }
+        return spawnSync('sh', [script, '3.1.0'], {
+            cwd: path.join(fixtureRoot, 'work'),
+            encoding: 'utf8',
+            env,
+            timeout: 60000,
+        });
+    };
+
+    const ensureStubSetsid = () => {
+        if (spawnSync('sh', ['-c', 'command -v setsid']).status !== 0) {
+            fs.writeFileSync(
+                path.join(fixtureRoot, 'bin', 'setsid'),
+                [
+                    '#!/usr/bin/env perl',
+                    'use POSIX qw(setsid);',
+                    'setsid() or die "setsid: $!";',
+                    'exec @ARGV or die "exec: $!";',
+                    '',
+                ].join('\n'),
+                {mode: 0o755}
+            );
+        }
+    };
+
+    const buildPathWithoutSetsid = (): string => {
+        const noSetsidBin = path.join(fixtureRoot, 'no-setsid-bin');
+        fs.rmSync(noSetsidBin, {force: true, recursive: true});
+        fs.mkdirSync(noSetsidBin, {recursive: true});
+        fs.rmSync(path.join(fixtureRoot, 'bin', 'setsid'), {force: true});
+        const pathDirs = (process.env.PATH || '')
+            .split(path.delimiter)
+            .filter(Boolean);
+        for (const cmd of [
+            'cat',
+            'date',
+            'echo',
+            'env',
+            'kill',
+            'ls',
+            'mktemp',
+            'mv',
+            'printf',
+            'rm',
+            'sed',
+            'sh',
+            'sleep',
+            'touch',
+            'wc',
+        ]) {
+            for (const dir of pathDirs) {
+                const candidate = path.join(dir, cmd);
+                if (fs.existsSync(candidate)) {
+                    fs.symlinkSync(candidate, path.join(noSetsidBin, cmd));
+                    break;
+                }
+            }
+        }
+        return `${path.join(fixtureRoot, 'bin')}${path.delimiter}${noSetsidBin}`;
+    };
+
+    const withCancelledBuild = async (
+        options: {
+            ignoreTerm?: boolean;
+            noProcessGroupSetsid?: boolean;
+            signal?: NodeJS.Signals;
+            slowPollSleepMs?: number;
+            stopTimeoutSeconds?: string;
+            withoutSetsid?: boolean;
+        },
+        assertAfterStop: (context: {
+            allTrackedPids: number[];
+            code: number | null;
+            env: NodeJS.ProcessEnv;
+            nestedChildPids: number[];
+            npmPids: number[];
+            signal: NodeJS.Signals | null;
+            stopDurationMs: number;
+        }) => Promise<void> | void
+    ) => {
+        for (const directory of [
+            'npm-pid',
+            'npm-term',
+            'ready',
+            'running',
+            'term',
+            'work',
+        ]) {
+            const dirPath = path.join(fixtureRoot, directory);
+            fs.rmSync(dirPath, {force: true, recursive: true});
+            fs.mkdirSync(dirPath, {recursive: true});
+        }
+        for (const file of ['barrier-met', 'calls', 'events', 'overlap']) {
+            fs.rmSync(path.join(fixtureRoot, file), {force: true});
+        }
+        fs.rmSync(path.join(fixtureRoot, 'bin', 'setsid'), {force: true});
+        fs.rmSync(path.join(fixtureRoot, 'bin', 'sleep'), {force: true});
+        if (options.noProcessGroupSetsid) {
+            fs.writeFileSync(
+                path.join(fixtureRoot, 'bin', 'setsid'),
+                ['#!/bin/sh', 'exec "$@"', ''].join('\n'),
+                {mode: 0o755}
+            );
+        } else if (!options.withoutSetsid) {
+            ensureStubSetsid();
+        }
+        if (options.slowPollSleepMs !== undefined) {
+            const systemSleep =
+                (process.env.PATH || '')
+                    .split(path.delimiter)
+                    .filter(
+                        dir =>
+                            Boolean(dir) &&
+                            path.resolve(dir) !==
+                                path.resolve(path.join(fixtureRoot, 'bin'))
+                    )
+                    .map(dir => path.join(dir, 'sleep'))
+                    .find(candidate => fs.existsSync(candidate)) ||
+                '/bin/sleep';
+            const slowSeconds = (options.slowPollSleepMs / 1000).toFixed(3);
+            fs.writeFileSync(
+                path.join(fixtureRoot, 'bin', 'sleep'),
+                [
+                    '#!/bin/sh',
+                    'if [ "${1:-}" = "0.05" ]; then',
+                    `    exec "${systemSleep}" "${slowSeconds}"`,
+                    'fi',
+                    `exec "${systemSleep}" "$@"`,
+                    '',
+                ].join('\n'),
+                {mode: 0o755}
+            );
+        }
+
+        const kits = ['kits/a', 'kits/b', 'kits/c'];
+        fs.writeFileSync(
+            path.join(fixtureRoot, 'inventory'),
+            kits.map(kit => `${kit}\n`).join('')
+        );
+        fs.writeFileSync(path.join(fixtureRoot, 'failures'), '');
+        const env: NodeJS.ProcessEnv = {
+            ...process.env,
+            PATH: options.withoutSetsid
+                ? buildPathWithoutSetsid()
+                : `${path.join(fixtureRoot, 'bin')}${path.delimiter}${
+                      process.env.PATH
+                  }`,
+            STUB_DIR: fixtureRoot,
+            STUB_SLEEP: '30',
+            KIT_BUILD_CONCURRENCY: '2',
+        };
+        delete env.GITHUB_ACTIONS;
+        delete env.STUB_BARRIER;
+        delete env.STUB_IGNORE_TERM;
+        delete env.V3_RELEASE_STOP_TIMEOUT_S;
+        if (options.ignoreTerm) {
+            env.STUB_IGNORE_TERM = 'true';
+        }
+        if (options.stopTimeoutSeconds !== undefined) {
+            env.V3_RELEASE_STOP_TIMEOUT_S = options.stopTimeoutSeconds;
+        }
+
+        const cancelSignal: NodeJS.Signals = options.signal || 'SIGTERM';
+        const child = spawn('sh', [script, '3.1.0'], {
+            cwd: path.join(fixtureRoot, 'work'),
+            detached: cancelSignal === 'SIGHUP',
+            env,
+            stdio: 'ignore',
+        });
+        let exited = false;
+        const exitPromise = new Promise<{
+            code: number | null;
+            signal: NodeJS.Signals | null;
+        }>((resolve, reject) => {
+            child.on('error', reject);
+            child.on('close', (code, signal) => {
+                exited = true;
+                resolve({code, signal});
+            });
+        });
+
+        const collectStubPids = (): number[] => {
+            const pids = new Set<number>();
+            const readyDir = path.join(fixtureRoot, 'ready');
+            if (fs.existsSync(readyDir)) {
+                for (const entry of fs.readdirSync(readyDir)) {
+                    if (entry.endsWith('.tmp')) {
+                        continue;
+                    }
+                    for (const line of lines(path.join('ready', entry))) {
+                        const pid = Number(line.trim());
+                        if (pid > 0) {
+                            pids.add(pid);
+                        }
+                    }
+                }
+            }
+            const npmPidDir = path.join(fixtureRoot, 'npm-pid');
+            if (fs.existsSync(npmPidDir)) {
+                for (const entry of fs.readdirSync(npmPidDir)) {
+                    for (const line of lines(path.join('npm-pid', entry))) {
+                        const pid = Number(line.trim());
+                        if (pid > 0) {
+                            pids.add(pid);
+                        }
+                    }
+                }
+            }
+            const runningDir = path.join(fixtureRoot, 'running');
+            if (fs.existsSync(runningDir)) {
+                for (const entry of fs.readdirSync(runningDir)) {
+                    const pid = Number(entry.trim());
+                    if (pid > 0) {
+                        pids.add(pid);
+                    }
+                }
+            }
+            return Array.from(pids);
+        };
+        const isPidAlive = (pid: number): boolean => {
+            try {
+                process.kill(pid, 0);
+                return true;
+            } catch {
+                return false;
+            }
+        };
+        const signalStubPid = (pid: number, sig: NodeJS.Signals): void => {
+            try {
+                process.kill(-pid, sig);
+            } catch {
+                // Ignore if pid is not a process group leader or already exited.
+            }
+            try {
+                process.kill(pid, sig);
+            } catch {
+                // Ignore if process already exited.
+            }
+        };
+
+        try {
+            const readyFiles = ['a-ci', 'b-ci'].map(name =>
+                path.join(fixtureRoot, 'ready', name)
+            );
+            const waitDeadline = Date.now() + 10000;
+            while (
+                !readyFiles.every(file => fs.existsSync(file)) &&
+                Date.now() < waitDeadline
+            ) {
+                await new Promise(resolve => setTimeout(resolve, 20));
+            }
+            expect(readyFiles.every(file => fs.existsSync(file))).toBe(true);
+
+            const readyPidPairs = ['a-ci', 'b-ci'].map(name =>
+                lines(path.join('ready', name)).map(line => Number(line.trim()))
+            );
+            for (const pair of readyPidPairs) {
+                expect(pair).toHaveLength(2);
+                for (const pid of pair) {
+                    expect(pid).toBeGreaterThan(0);
+                }
+            }
+            const npmPids = ['a-ci', 'b-ci'].map(name =>
+                Number((lines(path.join('npm-pid', name))[0] || '').trim())
+            );
+            for (const pid of npmPids) {
+                expect(pid).toBeGreaterThan(0);
+            }
+            const nestedChildPids = readyPidPairs.map(pair => pair[0]);
+            const allTrackedPids = readyPidPairs.reduce(
+                (acc, pair) => acc.concat(pair),
+                [] as number[]
+            );
+
+            const signalSentAt = Date.now();
+            if (cancelSignal === 'SIGHUP' && child.pid) {
+                try {
+                    process.kill(-child.pid, cancelSignal);
+                } catch {
+                    child.kill(cancelSignal);
+                }
+            } else {
+                child.kill(cancelSignal);
+            }
+            const {code, signal} = await exitPromise;
+            const stopDurationMs = Date.now() - signalSentAt;
+
+            await assertAfterStop({
+                allTrackedPids,
+                code,
+                env,
+                nestedChildPids,
+                npmPids,
+                signal,
+                stopDurationMs,
+            });
+        } finally {
+            const stubPids = collectStubPids();
+            if (!exited || stubPids.some(isPidAlive)) {
+                if (!exited) {
+                    if (cancelSignal === 'SIGHUP' && child.pid) {
+                        signalStubPid(child.pid, 'SIGTERM');
+                    } else {
+                        child.kill('SIGTERM');
+                    }
+                }
+                for (const pid of stubPids) {
+                    signalStubPid(pid, 'SIGTERM');
+                }
+                const termDeadline = Date.now() + 1000;
+                while (
+                    (!exited || collectStubPids().some(isPidAlive)) &&
+                    Date.now() < termDeadline
+                ) {
+                    await new Promise(resolve => setTimeout(resolve, 20));
+                }
+                const remainingPids = collectStubPids();
+                if (!exited) {
+                    if (cancelSignal === 'SIGHUP' && child.pid) {
+                        signalStubPid(child.pid, 'SIGKILL');
+                    } else {
+                        child.kill('SIGKILL');
+                    }
+                }
+                for (const pid of remainingPids) {
+                    if (isPidAlive(pid)) {
+                        signalStubPid(pid, 'SIGKILL');
+                    }
+                }
+            }
+            await exitPromise.catch(() => undefined);
+        }
+    };
+
+    beforeEach(() => {
+        fixtureRoot = fs.mkdtempSync(
+            path.join(os.tmpdir(), 'mparticle-build-v3-release-')
+        );
+        for (const directory of [
+            'bin',
+            'npm-pid',
+            'npm-term',
+            'ready',
+            'running',
+            'term',
+            'work',
+        ]) {
+            fs.mkdirSync(path.join(fixtureRoot, directory));
+        }
+        fs.writeFileSync(path.join(fixtureRoot, 'bin', 'node'), stubNode, {
+            mode: 0o755,
+        });
+        fs.writeFileSync(
+            path.join(fixtureRoot, 'bin', 'stub-child'),
+            stubChild,
+            {
+                mode: 0o755,
+            }
+        );
+        fs.writeFileSync(path.join(fixtureRoot, 'bin', 'npm'), stubNpm, {
+            mode: 0o755,
+        });
+        ensureStubSetsid();
+    });
+
+    afterEach(() => {
+        fs.rmSync(fixtureRoot, {force: true, recursive: true});
+    });
+
+    it('builds every kit, at most six at once, and prints the logs in inventory order', () => {
+        const kits = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'].map(
+            name => `kits/${name}`
+        );
+
+        const result = runBuild(kits, {barrier: '2'});
+
+        expect(result.stderr).toBe('');
+        expect(result.status).toBe(0);
+        expect(peakOverlap()).toBeGreaterThan(1);
+        expect(peakOverlap()).toBeLessThanOrEqual(6);
+        for (const kit of kits) {
+            expect(result.stdout).toContain(`\n${kit}: npm ci\n`);
+            expect(result.stdout).toContain(`\n${kit}: build\n`);
+            expect(result.stdout).toContain(`\nBuilt ${kit} in `);
+        }
+        expect(
+            result.stdout
+                .split('\n')
+                .filter(line => line.indexOf('---------- Kit ') === 0)
+        ).toEqual(kits.map(kit => `---------- Kit ${kit} ----------`));
+        expect(result.stdout).toContain('(8 kits, concurrency 6)');
+    }, 30000);
+
+    it('builds one kit at a time when KIT_BUILD_CONCURRENCY is 1', () => {
+        const kits = ['kits/a', 'kits/b', 'kits/c'];
+
+        const result = runBuild(kits, {concurrency: '1', stepSeconds: '0.1'});
+
+        expect(result.status).toBe(0);
+        expect(peakOverlap()).toBe(1);
+        const serial: string[] = [];
+        for (const kit of kits) {
+            for (const step of ['ci', 'build']) {
+                serial.push(`start ${kit} ${step}`, `end ${kit} ${step}`);
+            }
+        }
+        expect(lines('events')).toEqual(serial);
+        expect(result.stdout).toContain('(3 kits, concurrency 1)');
+    }, 30000);
+
+    it('builds the other kits after a failed install and a failed build, then exits 1 naming both', () => {
+        const kits = ['kits/a', 'kits/b', 'kits/c', 'kits/d'];
+
+        const result = runBuild(kits, {
+            concurrency: '2',
+            failures: ['kits/b ci 3', 'kits/c build 4'],
+            stepSeconds: '0.1',
+        });
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toBe(
+            'Error: these kits failed to build: kits/b kits/c\n'
+        );
+        const events = lines('events');
+        expect(events).not.toContain('start kits/b build');
+        // kits/d starts only once the failed kits/b has been waited for.
+        expect(events.indexOf('start kits/d ci')).toBeGreaterThan(
+            events.indexOf('end kits/b ci')
+        );
+        expect(events).toContain('end kits/c build');
+        expect(events).toContain('end kits/d build');
+        expect(result.stdout).toContain('\nBuilt kits/a in ');
+        expect(result.stdout).toContain('\nBuilt kits/d in ');
+        expect(result.stdout).toContain(
+            '---------- Kit kits/b failed (exit 3) ----------'
+        );
+        expect(result.stdout).toContain(
+            '---------- Kit kits/c failed (exit 4) ----------'
+        );
+        expect(result.stdout).toContain('(2 of 4 kits failed, concurrency 2)');
+        expect(result.stdout).toContain('---------- Failed kit kits/b ----------');
+        expect(result.stdout).toContain('---------- Failed kit kits/c ----------');
+    }, 30000);
+
+    it.each(['0', 'abc'])(
+        'rejects KIT_BUILD_CONCURRENCY=%s before any work',
+        concurrency => {
+            const result = runBuild(['kits/a'], {concurrency});
+
+            expect(result.status).toBe(1);
+            expect(result.stderr).toBe(
+                `Error: KIT_BUILD_CONCURRENCY must be a whole number from 1 to 999, not '${concurrency}'\n`
+            );
+            expect(result.stdout).toBe('');
+            expect(lines('calls')).toEqual([]);
+        },
+        30000
+    );
+
+    it.each(['0', 'abc', '1000'])(
+        'rejects V3_RELEASE_STOP_TIMEOUT_S=%s before any work',
+        stopTimeoutSeconds => {
+            const result = runBuild(['kits/a'], {stopTimeoutSeconds});
+
+            expect(result.status).toBe(1);
+            expect(result.stderr).toBe(
+                `Error: V3_RELEASE_STOP_TIMEOUT_S must be a whole number from 1 to 999, not '${stopTimeoutSeconds}'\n`
+            );
+            expect(result.stdout).toBe('');
+            expect(lines('calls')).toEqual([]);
+        },
+        30000
+    );
+
+    it('stops every running kit process group on SIGTERM without starting later steps', async () => {
+        await withCancelledBuild(
+            {},
+            ({allTrackedPids, code, nestedChildPids, npmPids, stopDurationMs}) => {
+                expect(typeof code).toBe('number');
+                expect(code).not.toBe(0);
+                expect(stopDurationMs).toBeLessThan(5000);
+                expect(lines('npm-term/a-ci')).toEqual([String(npmPids[0])]);
+                expect(lines('npm-term/b-ci')).toEqual([String(npmPids[1])]);
+                expect(lines('term/a-ci')).toEqual([
+                    String(nestedChildPids[0]),
+                ]);
+                expect(lines('term/b-ci')).toEqual([
+                    String(nestedChildPids[1]),
+                ]);
+                for (const pid of npmPids.concat(allTrackedPids)) {
+                    expect(() => process.kill(pid, 0)).toThrow();
+                }
+                expect(lines('events').sort()).toEqual([
+                    'start kits/a ci',
+                    'start kits/b ci',
+                ]);
+                expect(
+                    fs.existsSync(path.join(fixtureRoot, 'ready', 'a-build'))
+                ).toBe(false);
+                expect(
+                    fs.existsSync(path.join(fixtureRoot, 'ready', 'b-build'))
+                ).toBe(false);
+                expect(
+                    fs.existsSync(path.join(fixtureRoot, 'ready', 'c-ci'))
+                ).toBe(false);
+            }
+        );
+    }, 30000);
+
+    it('escalates to SIGKILL when a kit step traps and ignores SIGTERM', async () => {
+        expect(fs.readFileSync(script, 'utf8')).toContain(
+            'V3_RELEASE_STOP_TIMEOUT_S=${V3_RELEASE_STOP_TIMEOUT_S:-10}'
+        );
+
+        await withCancelledBuild(
+            {ignoreTerm: true, stopTimeoutSeconds: '1'},
+            ({allTrackedPids, code, npmPids, stopDurationMs}) => {
+                expect(typeof code).toBe('number');
+                expect(code).not.toBe(0);
+                expect(stopDurationMs).toBeGreaterThanOrEqual(800);
+                expect(stopDurationMs).toBeLessThan(10000);
+                expect(lines('npm-term/a-ci')).toEqual([]);
+                expect(lines('npm-term/b-ci')).toEqual([]);
+                expect(lines('term/a-ci')).toEqual([]);
+                expect(lines('term/b-ci')).toEqual([]);
+                for (const pid of npmPids.concat(allTrackedPids)) {
+                    expect(() => process.kill(pid, 0)).toThrow();
+                }
+                expect(lines('events').sort()).toEqual([
+                    'start kits/a ci',
+                    'start kits/b ci',
+                ]);
+                expect(
+                    fs.existsSync(path.join(fixtureRoot, 'ready', 'a-build'))
+                ).toBe(false);
+                expect(
+                    fs.existsSync(path.join(fixtureRoot, 'ready', 'b-build'))
+                ).toBe(false);
+                expect(
+                    fs.existsSync(path.join(fixtureRoot, 'ready', 'c-ci'))
+                ).toBe(false);
+            }
+        );
+    }, 30000);
+
+    it('falls back to stopping each direct kit step PID when setsid is absent from PATH', async () => {
+        await withCancelledBuild(
+            {withoutSetsid: true},
+            ({code, env, npmPids, stopDurationMs}) => {
+                expect(
+                    spawnSync('sh', ['-c', 'command -v setsid'], {env}).status
+                ).not.toBe(0);
+                expect(typeof code).toBe('number');
+                expect(code).not.toBe(0);
+                expect(stopDurationMs).toBeLessThan(5000);
+                expect(lines('npm-term/a-ci')).toEqual([String(npmPids[0])]);
+                expect(lines('npm-term/b-ci')).toEqual([String(npmPids[1])]);
+                for (const pid of npmPids) {
+                    expect(() => process.kill(pid, 0)).toThrow();
+                }
+                expect(lines('events').sort()).toEqual([
+                    'start kits/a ci',
+                    'start kits/b ci',
+                ]);
+                expect(
+                    fs.existsSync(path.join(fixtureRoot, 'ready', 'a-build'))
+                ).toBe(false);
+                expect(
+                    fs.existsSync(path.join(fixtureRoot, 'ready', 'b-build'))
+                ).toBe(false);
+                expect(
+                    fs.existsSync(path.join(fixtureRoot, 'ready', 'c-ci'))
+                ).toBe(false);
+            }
+        );
+
+        await withCancelledBuild(
+            {
+                ignoreTerm: true,
+                stopTimeoutSeconds: '1',
+                withoutSetsid: true,
+            },
+            ({code, env, npmPids, stopDurationMs}) => {
+                expect(
+                    spawnSync('sh', ['-c', 'command -v setsid'], {env}).status
+                ).not.toBe(0);
+                expect(typeof code).toBe('number');
+                expect(code).not.toBe(0);
+                expect(stopDurationMs).toBeGreaterThanOrEqual(800);
+                expect(stopDurationMs).toBeLessThan(10000);
+                expect(lines('npm-term/a-ci')).toEqual([]);
+                expect(lines('npm-term/b-ci')).toEqual([]);
+                for (const pid of npmPids) {
+                    expect(() => process.kill(pid, 0)).toThrow();
+                }
+                expect(lines('events').sort()).toEqual([
+                    'start kits/a ci',
+                    'start kits/b ci',
+                ]);
+                expect(
+                    fs.existsSync(path.join(fixtureRoot, 'ready', 'a-build'))
+                ).toBe(false);
+                expect(
+                    fs.existsSync(path.join(fixtureRoot, 'ready', 'b-build'))
+                ).toBe(false);
+                expect(
+                    fs.existsSync(path.join(fixtureRoot, 'ready', 'c-ci'))
+                ).toBe(false);
+            }
+        );
+    }, 30000);
+
+    it('falls back to signalling the direct kit step PID when setsid is present but group kill fails', async () => {
+        await withCancelledBuild(
+            {noProcessGroupSetsid: true},
+            ({code, env, npmPids, stopDurationMs}) => {
+                expect(
+                    spawnSync('sh', ['-c', 'command -v setsid'], {env}).status
+                ).toBe(0);
+                expect(typeof code).toBe('number');
+                expect(code).not.toBe(0);
+                expect(stopDurationMs).toBeLessThan(5000);
+                expect(lines('npm-term/a-ci')).toEqual([String(npmPids[0])]);
+                expect(lines('npm-term/b-ci')).toEqual([String(npmPids[1])]);
+                for (const pid of npmPids) {
+                    expect(() => process.kill(pid, 0)).toThrow();
+                }
+                expect(lines('events').sort()).toEqual([
+                    'start kits/a ci',
+                    'start kits/b ci',
+                ]);
+                expect(
+                    fs.existsSync(path.join(fixtureRoot, 'ready', 'a-build'))
+                ).toBe(false);
+                expect(
+                    fs.existsSync(path.join(fixtureRoot, 'ready', 'b-build'))
+                ).toBe(false);
+                expect(
+                    fs.existsSync(path.join(fixtureRoot, 'ready', 'c-ci'))
+                ).toBe(false);
+            }
+        );
+
+        await withCancelledBuild(
+            {
+                ignoreTerm: true,
+                noProcessGroupSetsid: true,
+                stopTimeoutSeconds: '1',
+            },
+            ({code, env, npmPids, stopDurationMs}) => {
+                expect(
+                    spawnSync('sh', ['-c', 'command -v setsid'], {env}).status
+                ).toBe(0);
+                expect(typeof code).toBe('number');
+                expect(code).not.toBe(0);
+                expect(stopDurationMs).toBeGreaterThanOrEqual(800);
+                expect(stopDurationMs).toBeLessThan(10000);
+                expect(lines('npm-term/a-ci')).toEqual([]);
+                expect(lines('npm-term/b-ci')).toEqual([]);
+                for (const pid of npmPids) {
+                    expect(() => process.kill(pid, 0)).toThrow();
+                }
+                expect(lines('events').sort()).toEqual([
+                    'start kits/a ci',
+                    'start kits/b ci',
+                ]);
+                expect(
+                    fs.existsSync(path.join(fixtureRoot, 'ready', 'a-build'))
+                ).toBe(false);
+                expect(
+                    fs.existsSync(path.join(fixtureRoot, 'ready', 'b-build'))
+                ).toBe(false);
+                expect(
+                    fs.existsSync(path.join(fixtureRoot, 'ready', 'c-ci'))
+                ).toBe(false);
+            }
+        );
+    }, 30000);
+
+    it('escalates to SIGKILL by the wall-clock deadline even when 50ms poll ticks overrun under load', async () => {
+        await withCancelledBuild(
+            {
+                ignoreTerm: true,
+                slowPollSleepMs: 250,
+                stopTimeoutSeconds: '1',
+            },
+            ({allTrackedPids, code, npmPids, stopDurationMs}) => {
+                expect(typeof code).toBe('number');
+                expect(code).not.toBe(0);
+                expect(stopDurationMs).toBeGreaterThanOrEqual(800);
+                expect(stopDurationMs).toBeLessThan(3500);
+                expect(lines('npm-term/a-ci')).toEqual([]);
+                expect(lines('npm-term/b-ci')).toEqual([]);
+                expect(lines('term/a-ci')).toEqual([]);
+                expect(lines('term/b-ci')).toEqual([]);
+                for (const pid of npmPids.concat(allTrackedPids)) {
+                    expect(() => process.kill(pid, 0)).toThrow();
+                }
+                expect(lines('events').sort()).toEqual([
+                    'start kits/a ci',
+                    'start kits/b ci',
+                ]);
+                expect(
+                    fs.existsSync(path.join(fixtureRoot, 'ready', 'a-build'))
+                ).toBe(false);
+                expect(
+                    fs.existsSync(path.join(fixtureRoot, 'ready', 'b-build'))
+                ).toBe(false);
+                expect(
+                    fs.existsSync(path.join(fixtureRoot, 'ready', 'c-ci'))
+                ).toBe(false);
+            }
+        );
+    }, 30000);
+
+    it('stops every running kit process group on SIGHUP without starting later steps', async () => {
+        expect(fs.readFileSync(script, 'utf8')).toContain(
+            'trap stop_kit_step 1 15'
+        );
+
+        await withCancelledBuild(
+            {signal: 'SIGHUP'},
+            ({allTrackedPids, code, nestedChildPids, npmPids, stopDurationMs}) => {
+                expect(typeof code).toBe('number');
+                expect(code).not.toBe(0);
+                expect(stopDurationMs).toBeLessThan(5000);
+                expect(lines('npm-term/a-ci')).toEqual([String(npmPids[0])]);
+                expect(lines('npm-term/b-ci')).toEqual([String(npmPids[1])]);
+                expect(lines('term/a-ci')).toEqual([
+                    String(nestedChildPids[0]),
+                ]);
+                expect(lines('term/b-ci')).toEqual([
+                    String(nestedChildPids[1]),
+                ]);
+                for (const pid of npmPids.concat(allTrackedPids)) {
+                    expect(() => process.kill(pid, 0)).toThrow();
+                }
+                expect(lines('events').sort()).toEqual([
+                    'start kits/a ci',
+                    'start kits/b ci',
+                ]);
+                expect(
+                    fs.existsSync(path.join(fixtureRoot, 'ready', 'a-build'))
+                ).toBe(false);
+                expect(
+                    fs.existsSync(path.join(fixtureRoot, 'ready', 'b-build'))
+                ).toBe(false);
+                expect(
+                    fs.existsSync(path.join(fixtureRoot, 'ready', 'c-ci'))
+                ).toBe(false);
+            }
+        );
+    }, 30000);
+
+    it('does not signal the sibling kit when cancelled between STEP_ACTIVE=true and the first step fork', async () => {
+        const scriptSource = fs.readFileSync(script, 'utf8');
+        expect(scriptSource).toContain('LAST_STEP_PID=${!:-}');
+        const preForkScript = path.join(
+            fixtureRoot,
+            'build-v3-release-pre-fork.sh'
+        );
+        const stepActiveHook = [
+            '    STEP_ACTIVE=true',
+            '    if [ "${1:-}" = npm ] && [ "${2:-}" = ci ] && [ "${4:-}" = "kits/b" ]; then',
+            '        trap \'rm -f "$STUB_DIR/ready/b-pre-fork"\' 0',
+            '        : > "$STUB_DIR/ready/b-pre-fork"',
+            '        while [ ! -f "$STUB_DIR/release-b-pre-fork" ]; do',
+            '            sleep 0.05',
+            '        done',
+            '    fi',
+            '',
+        ].join('\n');
+        const kitLoopHook = [
+            '    RUNNING_PIDS="$RUNNING_PIDS $!"',
+            '    if [ "$KIT_PATH" = "kits/b" ]; then',
+            '        printf \'%s\\n\' "$!" > "$STUB_DIR/ready/b-subshell-pid.tmp"',
+            '        mv "$STUB_DIR/ready/b-subshell-pid.tmp" "$STUB_DIR/ready/b-subshell-pid"',
+            '    fi',
+            '',
+        ].join('\n');
+        const instrumentedSource = scriptSource
+            .replace('    STEP_ACTIVE=true\n', () => stepActiveHook)
+            .replace(
+                '    RUNNING_PIDS="$RUNNING_PIDS $!"\n',
+                () => kitLoopHook
+            );
+        expect(instrumentedSource).toContain(stepActiveHook);
+        expect(instrumentedSource).toContain(kitLoopHook);
+        fs.writeFileSync(preForkScript, instrumentedSource, {mode: 0o755});
+
+        const kits = ['kits/a', 'kits/b'];
+        fs.writeFileSync(
+            path.join(fixtureRoot, 'inventory'),
+            kits.map(kit => `${kit}\n`).join('')
+        );
+        fs.writeFileSync(path.join(fixtureRoot, 'failures'), '');
+        const env: NodeJS.ProcessEnv = {
+            ...process.env,
+            PATH: `${path.join(fixtureRoot, 'bin')}${path.delimiter}${
+                process.env.PATH
+            }`,
+            STUB_DIR: fixtureRoot,
+            STUB_SLEEP: '30',
+            KIT_BUILD_CONCURRENCY: '2',
+            V3_RELEASE_STOP_TIMEOUT_S: '1',
+        };
+        delete env.GITHUB_ACTIONS;
+        delete env.STUB_BARRIER;
+        delete env.STUB_IGNORE_TERM;
+
+        const child = spawn('sh', [preForkScript, '3.1.0'], {
+            cwd: path.join(fixtureRoot, 'work'),
+            env,
+            stdio: 'ignore',
+        });
+        let exited = false;
+        const exitPromise = new Promise<{
+            code: number | null;
+            signal: NodeJS.Signals | null;
+        }>((resolve, reject) => {
+            child.on('error', reject);
+            child.on('close', (code, signal) => {
+                exited = true;
+                resolve({code, signal});
+            });
+        });
+
+        try {
+            const readyFiles = [
+                path.join(fixtureRoot, 'ready', 'a-ci'),
+                path.join(fixtureRoot, 'ready', 'b-pre-fork'),
+                path.join(fixtureRoot, 'ready', 'b-subshell-pid'),
+            ];
+            const waitDeadline = Date.now() + 10000;
+            while (
+                !readyFiles.every(file => fs.existsSync(file)) &&
+                Date.now() < waitDeadline
+            ) {
+                await new Promise(resolve => setTimeout(resolve, 20));
+            }
+            expect(readyFiles.every(file => fs.existsSync(file))).toBe(true);
+
+            const kitANpmPid = Number(
+                (lines(path.join('npm-pid', 'a-ci'))[0] || '').trim()
+            );
+            const kitBPid = Number(
+                (lines(path.join('ready', 'b-subshell-pid'))[0] || '').trim()
+            );
+            expect(kitANpmPid).toBeGreaterThan(0);
+            expect(kitBPid).toBeGreaterThan(0);
+            if (child.pid) {
+                expect(kitBPid).not.toBe(child.pid);
+            }
+
+            process.kill(kitBPid, 'SIGTERM');
+            const kitBExitDeadline = Date.now() + 2000;
+            let kitBAlive = true;
+            while (kitBAlive && Date.now() < kitBExitDeadline) {
+                const preForkFile = readyFiles[1];
+                if (fs.existsSync(preForkFile)) {
+                    await new Promise(resolve => setTimeout(resolve, 20));
+                } else {
+                    kitBAlive = false;
+                }
+            }
+            expect(kitBAlive).toBe(false);
+            expect(() => process.kill(kitANpmPid, 0)).not.toThrow();
+            expect(lines('npm-term/a-ci')).toEqual([]);
+            expect(
+                fs.existsSync(path.join(fixtureRoot, 'ready', 'b-ci'))
+            ).toBe(false);
+        } finally {
+            fs.writeFileSync(
+                path.join(fixtureRoot, 'release-b-pre-fork'),
+                '1\n'
+            );
+            if (!exited) {
+                child.kill('SIGTERM');
+            }
+            await exitPromise.catch(() => undefined);
+        }
+    }, 30000);
 });

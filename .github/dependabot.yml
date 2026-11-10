@@ -5,7 +5,7 @@ updates:
       schedule:
           interval: weekly
           day: 'sunday'
-      target-branch: 'v3-development'
+      target-branch: 'main'
       labels: ['dependabot', 'dependencies']
       open-pull-requests-limit: 10
       commit-message:
@@ -25,7 +25,7 @@ updates:
       schedule:
           interval: weekly
           day: 'sunday'
-      target-branch: 'v3-development'
+      target-branch: 'main'
       labels: ['dependabot', 'dependencies', 'kit']
       open-pull-requests-limit: 5
       commit-message:
@@ -34,3 +34,15 @@ updates:
           include: 'scope'
       allow:
           - dependency-type: 'production'
+
+    - package-ecosystem: github-actions
+      directory: '/'
+      schedule:
+          interval: weekly
+          day: 'sunday'
+      target-branch: 'main'
+      labels: ['dependabot', 'dependencies']
+      open-pull-requests-limit: 5
+      commit-message:
+          prefix: 'ci'
+          include: 'scope'
