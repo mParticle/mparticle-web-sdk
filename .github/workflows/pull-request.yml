@@ -41,13 +41,13 @@ jobs:
               run: git diff --unified=3 dist/mparticle.js | npx diff-so-fancy
 
             - name: Archive Bundle
-              uses: actions/upload-artifact@v6
+              uses: actions/upload-artifact@v7.0.2
               with:
                   name: bundle-local
                   path: dist
 
             - name: Archive npm failure logs
-              uses: actions/upload-artifact@v6
+              uses: actions/upload-artifact@v7.0.2
               if: failure()
               with:
                   name: npm-logs
@@ -77,7 +77,7 @@ jobs:
               run: npm run test:jest
 
             - name: Archive npm failure logs
-              uses: actions/upload-artifact@v6
+              uses: actions/upload-artifact@v7.0.2
               if: failure()
               with:
                   name: npm-logs
@@ -157,14 +157,14 @@ jobs:
                   done
 
             - name: Archive kit bundles for the CDN minifier check
-              uses: actions/upload-artifact@v6
+              uses: actions/upload-artifact@v7.0.2
               with:
                   name: cdn-minifier-input-${{ strategy.job-index }}
                   path: cdn-minifier-input
                   if-no-files-found: error
 
             - name: Archive npm failure logs
-              uses: actions/upload-artifact@v6
+              uses: actions/upload-artifact@v7.0.2
               if: failure()
               with:
                   name: npm-logs-kit-${{ matrix.kit.name }}
@@ -253,7 +253,7 @@ jobs:
                   flags: core
 
             - name: Archive npm failure logs
-              uses: actions/upload-artifact@v6
+              uses: actions/upload-artifact@v7.0.2
               if: failure()
               with:
                   name: npm-logs-coverage-core
@@ -296,7 +296,7 @@ jobs:
                   flags: rokt-kit
 
             - name: Archive npm failure logs
-              uses: actions/upload-artifact@v6
+              uses: actions/upload-artifact@v7.0.2
               if: failure()
               with:
                   name: npm-logs-coverage-rokt-kit
@@ -332,7 +332,7 @@ jobs:
               run: npm run test:stub
 
             - name: Archive npm failure logs
-              uses: actions/upload-artifact@v6
+              uses: actions/upload-artifact@v7.0.2
               if: failure()
               with:
                   name: npm-logs
@@ -507,7 +507,7 @@ jobs:
                   echo "::set-output name=bundledLocalHuman::${{ env.BUNDLED_LOCAL_HUMAN }}"
 
             - name: Archive npm failure logs
-              uses: actions/upload-artifact@v6
+              uses: actions/upload-artifact@v7.0.2
               if: failure()
               with:
                   name: npm-logs
@@ -550,7 +550,7 @@ jobs:
                   echo "::set-output name=bundledMasterHuman::${{ env.BUNDLED_MASTER_HUMAN }}"
 
             - name: Archive npm failure logs
-              uses: actions/upload-artifact@v6
+              uses: actions/upload-artifact@v7.0.2
               if: failure()
               with:
                   name: npm-logs

@@ -299,7 +299,7 @@ jobs:
               run: git diff --unified=3 dist/mparticle.js | npx diff-so-fancy
 
             - name: Archive npm failure logs
-              uses: actions/upload-artifact@v6
+              uses: actions/upload-artifact@v7.0.2
               if: failure()
               with:
                   name: npm-logs-build-bundle
@@ -333,7 +333,7 @@ jobs:
               run: npm run test:jest
 
             - name: Archive npm failure logs
-              uses: actions/upload-artifact@v6
+              uses: actions/upload-artifact@v7.0.2
               if: failure()
               with:
                   name: npm-logs-test-jest-${{ matrix.node-version }}
@@ -387,7 +387,7 @@ jobs:
               run: npm run test:stub
 
             - name: Archive npm failure logs
-              uses: actions/upload-artifact@v6
+              uses: actions/upload-artifact@v7.0.2
               if: failure()
               with:
                   name: npm-logs-test-stub
@@ -560,7 +560,7 @@ jobs:
                   npm test
 
             - name: Archive npm failure logs
-              uses: actions/upload-artifact@v6
+              uses: actions/upload-artifact@v7.0.2
               if: failure()
               with:
                   name: npm-logs-kit-${{ strategy.job-index }}
@@ -791,7 +791,7 @@ jobs:
                   npx semantic-release --branches "$STAGING_BRANCH"
 
             - name: Archive npm failure logs
-              uses: actions/upload-artifact@v6
+              uses: actions/upload-artifact@v7.0.2
               if: failure()
               with:
                   name: npm-logs-release
@@ -984,7 +984,7 @@ jobs:
                   fi
 
             - name: Archive npm failure logs
-              uses: actions/upload-artifact@v6
+              uses: actions/upload-artifact@v7.0.2
               if: failure()
               with:
                   name: npm-logs-publish-kits
@@ -1100,7 +1100,7 @@ jobs:
                       --output out/v3-candidate
 
             - name: Upload the candidate
-              uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+              uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
               with:
                   name: v3-candidate-${{ github.run_id }}-${{ github.run_attempt }}
                   path: out/v3-candidate
