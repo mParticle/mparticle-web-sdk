@@ -191,6 +191,7 @@ const Constants = {
         AstBackgroundEvents: 'astBackgroundEvents',
         AutoLogPageView: 'autoLogPageView',
         AutoButtonTracking: 'autoButtonTracking',
+        AutoLinkTracking: 'autoLinkTracking',
     },
     DefaultInstance: 'default_instance',
     CCPAPurpose: 'data_sale_opt_out',

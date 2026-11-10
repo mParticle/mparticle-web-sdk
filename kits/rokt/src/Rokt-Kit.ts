@@ -44,13 +44,22 @@ import {
   maybeFirePreselect as maybeFirePreselectExternal,
   maybeFirePreselectForPathname as maybeFirePreselectForPathnameExternal,
   maybeFirePreselectForEvent as maybeFirePreselectForEventExternal,
+  maybeFirePreselectForCartPageView as maybeFirePreselectForCartPageViewExternal,
+  isPreselectCartAttributeKey,
+  hasPreselectCartPageView,
+  withoutPreselectCartGateAttribute,
   isPreselectTriggerEventName,
   hasPreselectionConfigForAccount,
   applyPreselectionConfigSetting,
   flushPendingPreselectDispatches as flushPendingPreselectDispatchesExternal,
-  applyPreselectAttributeOverrides,
+  applyPreselectAttributeDefaults,
+  getPreselectAttributeDefaults,
   findPreselectionConfigByIdentifier,
+  getPreselectCacheIdentityKeys,
+  getPreselectCacheMatchValues,
   getPreselectCacheMatchKeys,
+  getPreselectDefaultedMarker,
+  getPreselectIntentSelectors,
   isPreselectAttributeKey,
   isPreselectEmailKey,
   reportPreselectArrival,
@@ -58,25 +67,28 @@ import {
   type PreselectState,
   type PreselectHost,
   handlePreselectIntentSignal,
+  handlePreselectPaymentPick,
   recordPreselectIntentPath,
   isReadableFormEmailChange,
   recordShopperInput,
   hasEmailInputEntry,
   hasPartnerEmail,
   hasPreselectEmail,
+  PRESELECT_DEFAULTED_ATTRIBUTE,
   PRESELECT_TRIGGER_ATTRIBUTE,
   getPreselectRollback,
   canDispatchPreselection,
   PRESELECT_FORM_EMAIL_OPTION,
   PRESELECT_BOUND_USER_OPTION,
   type PreselectIntentSignal,
-  isAutoButtonClickEvent,
-} from './preselection';
-import type { PreselectionConfigEntry } from './preselectionConfig';
-import { clearPendingPreselect, removeLegacyPendingPreselects } from './pendingPreselectStorage';
-import { clearActivePreselects, removeLegacyActivePreselects } from './activePreselectStorage';
-import { clearPreselectArrivals } from './preselectArrivalStorage';
-import { buildPreselectDiagnosticLogEntry } from './diagnosticTiming';
+  type PreselectPaymentPickSignal,
+  isAutoClickEvent,
+} from './preselection/preselection';
+import type { PreselectionConfigEntry } from './preselection/preselectionConfig';
+import { clearPendingPreselect, removeLegacyPendingPreselects } from './preselection/pendingPreselectStorage';
+import { clearActivePreselects, removeLegacyActivePreselects } from './preselection/activePreselectStorage';
+import { clearPreselectArrivals, forgetPreselectCartAdd } from './preselection/preselectArrivalStorage';
+import { buildPreselectDiagnosticLogEntry } from './preselection/diagnosticTiming';
 
 import {
   isObject,
@@ -100,6 +112,7 @@ import {
   type LauncherAttachState,
   type RoktLauncherOptions,
 } from './launcherAttachState';
+import { ExitIntentWatcher, type ExitIntentConfig, type LeadCapturePayload } from './ExitIntentWatcher';
 
 interface RoktKitSettings {
   accountId: string;
@@ -139,34 +152,18 @@ interface RoktExtensionEntry {
   value: string;
 }
 
-interface ExitIntentConfig {
-  identifier?: string;
-  placementIdentifier?: string;
-  attributes?: Record<string, unknown>;
-  [key: string]: unknown;
-}
 
-interface LeadCaptureField {
-  fieldKey?: unknown;
-  value?: unknown;
+// What a selection's `on` delivers: the placement-sent body and the placement it came from.
+interface RoktSelectionEvent {
+  body?: { domain?: unknown };
+  placement?: { id?: unknown };
 }
-
-interface LeadCaptureSubmittedDetail {
-  body?: Record<string, unknown>;
-  fields?: LeadCaptureField[];
-  userAttributes?: unknown;
-  email?: unknown;
-  mobile_number?: unknown;
-  rclid?: unknown;
-  accountID?: unknown;
-  referralCreativeID?: unknown;
-}
-
 
 interface RoktSelection {
   context?: {
     sessionId?: Promise<string>;
   };
+  on?: (eventName: string) => { subscribe?: (callback: (event?: RoktSelectionEvent) => void) => unknown } | undefined;
   then?: (callback: (sel: RoktSelection) => void) => Promise<void>;
   catch?: (callback: () => void) => void;
 }
@@ -213,6 +210,12 @@ type WorkspaceIdSyncSearcher = (
   knownIdentities: IUserIdentities,
   callback: (result: WorkspaceIdSyncResult) => void,
 ) => void;
+
+interface CallTimeUser {
+  mpid: string;
+  loggedIn: boolean;
+  hasIdentities: boolean;
+}
 
 interface KitFilters {
   userAttributeFilters?: string[];
@@ -352,6 +355,16 @@ const name = 'Rokt';
 const EMAIL_IDENTITY_TYPE = 7; // mParticle IdentityType.Email
 const moduleId = 181;
 const EVENT_NAME_SELECT_PLACEMENTS = 'selectPlacements';
+const AUTO_BUTTON_CLICK_EVENT_NAME = 'Auto Button Click';
+const AUTO_LINK_CLICK_EVENT_NAME = 'Auto Link Click';
+// Marks a placement click in a field core's own clicks carry, so a data plan that drops unplanned
+// attributes still leaves it apart from a page click.
+const ROKT_PLACEMENT_LABEL_SOURCE = 'rokt_placement';
+// A host name and nothing else, as the placement sends for a link pressed inside it.
+const LINK_DOMAIN = /^[a-z0-9-]+(\.[a-z0-9-]+)*$/;
+// A placement sends POSITIVE_ENGAGEMENT right after the OFFER_ENGAGEMENT of the same press, so a press
+// with no positive one in this time was a negative response.
+const ENGAGEMENT_PAIR_MS = 500;
 const ADBLOCK_CONTROL_DOMAIN = 'apps.roktecommerce.com';
 const INIT_LOG_SAMPLING_RATE = 0.1;
 const ROKT_THANK_YOU_JOURNEY_EXTENSION = 'ThankYouPageJourney';
@@ -365,8 +378,6 @@ const PAGE_EVENTS_KEY = 'page_events';
 const PAGE_VIEW_ATTRIBUTES_KEY = 'page_view_attributes';
 const MPARTICLE_SESSION_ID_KEY = 'mparticle_session_id';
 const MPARTICLE_DEVICE_ID_KEY = 'mparticle_device_id';
-const EXIT_INTENT_EVENT_NAME = 'rokt:intent';
-const LEAD_CAPTURE_SUBMITTED_EVENT_NAME = 'LEAD_CAPTURE_SUBMITTED';
 const EXIT_INTENT_EXTENSION_NAME = 'exit-intent';
 const EXIT_INTENT_ACCOUNT_ID_OVERRIDES = [
   '3479519924056514560',
@@ -897,6 +908,9 @@ class RoktKit implements KitInterface {
   private _lastPreselectPathname?: string;
   public onRouteChange?: () => void;
   public onCheckoutIntent?: (signal: PreselectIntentSignal) => void;
+  // The account's configured confirm and checkout-step button selectors, read by the core SDK on each click.
+  public checkoutIntentSelectors?: { commit?: string[]; checkout_step?: string[] };
+  public onPaymentPick?: (signal: PreselectPaymentPickSignal) => void;
   // Flag set by the Workspace IDSync flow on a 200 response. Stored on the
   // kit instance and merged into placement attributes inside selectPlacements.
   public userIdentifiedInWorkspace = false;
@@ -930,9 +944,13 @@ class RoktKit implements KitInterface {
 
   private _launcherAttachState: LauncherAttachState = createLauncherAttachState();
   private _exitIntentConfig: ExitIntentConfig | null = null;
-  private _exitIntentListener?: (event: Event) => void;
-  private _exitIntentLeadCaptureSubmittedListener?: (event: Event) => void;
-  private _exitIntentDispatchedForPageView = false;
+  private _exitIntentWatcher: ExitIntentWatcher = new ExitIntentWatcher({
+    isKitReady: () => this.isKitReady(),
+    onExitIntent: (reason: string, configuredAttributes: Record<string, unknown>) =>
+      this.handleExitIntent(reason, configuredAttributes),
+    onLeadCaptureSubmitted: (payload: LeadCapturePayload) =>
+      this.applyIdentityCapturePayload(payload.identities, payload.userAttributes),
+  });
   private _exitIntentEnabledForAccount = false;
   private _pendingInitWarnings: string[] = [];
 
@@ -1076,19 +1094,28 @@ class RoktKit implements KitInterface {
     return findPreselectionConfigByIdentifier(this.accountId, identifier);
   }
 
-  private buildPreselectAttributeOverrides(identifier: string | undefined): Record<string, string> | undefined {
+  // What the speculative call fills in over these attributes, the ones it was fired with. An identity the call
+  // carries already holds its key, so a default never stands in for it.
+  private buildPreselectAttributeDefaults(
+    identifier: string | undefined,
+    attributes: Record<string, unknown>,
+  ): Record<string, string> | undefined {
     if (!this.isPreselectionEnabled()) {
       return undefined;
     }
 
-    const overrides = findPreselectionConfigByIdentifier(this.accountId, identifier)?.preselectAttributeOverrides;
+    const configEntry = findPreselectionConfigByIdentifier(this.accountId, identifier);
+    if (!configEntry) {
+      return undefined;
+    }
+    const fills = getPreselectAttributeDefaults(this.buildPreselectHost(), configEntry, attributes);
     const filters = this.filters || {};
-    if (!overrides || !filters.filterUserAttributes) {
-      return overrides;
+    if (!filters.filterUserAttributes) {
+      return fills;
     }
 
     const userAttributeFilters = (filters.userAttributeFilters as string[]) || [];
-    return filters.filterUserAttributes(overrides, userAttributeFilters) as Record<string, string>;
+    return filters.filterUserAttributes(fills, userAttributeFilters) as Record<string, string>;
   }
 
   private buildPreselectHost(): PreselectHost {
@@ -1109,9 +1136,11 @@ class RoktKit implements KitInterface {
       isTargetingDisabled: () => this.isTargetingDisabled(),
       getUserIdentities: () => this.returnUserIdentities(this.filters.filteredUser),
       getOutgoingAttributes: (attributes, identifier) => this.getOutgoingPreselectAttributes(attributes, identifier),
+      getPreselectFills: (attributes, identifier) => this.buildPreselectAttributeDefaults(identifier, attributes),
       mappedEmailSha256Key: this._mappedEmailSha256Key,
       isForwardingAllowed: () => this.isForwardingAllowed(),
       isCheckoutIntentActive: () => this.isCheckoutIntentActive(),
+      isLinkIntentWithheld: () => this.isLinkIntentWithheld(),
       isEmailIdentityFiltered: () => this.isEmailIdentityFiltered(),
     };
   }
@@ -1205,6 +1234,9 @@ class RoktKit implements KitInterface {
     // timeout, cross-tab rotation and endSession(), but never the device id, which lives in
     // localStorage/cookie for cookieExpiration days (365 by default) and survives login/logout.
     // Read it per call anyway — a partner can reassign it at any time via setDeviceId().
+    if (this.isDeviceIdDisabled()) {
+      return undefined;
+    }
     return mp()?.getDeviceId?.() || undefined;
   }
 
@@ -1314,6 +1346,16 @@ class RoktKit implements KitInterface {
           }
         }
       : undefined;
+    this.checkoutIntentSelectors = getPreselectIntentSelectors(this.accountId);
+    this.onPaymentPick = hasPreselectionConfigForAccount(this.accountId)
+      ? (signal: PreselectPaymentPickSignal): void => {
+          try {
+            handlePreselectPaymentPick(this.buildPreselectHost(), signal);
+          } catch {
+            return;
+          }
+        }
+      : undefined;
   }
 
   // A guest often types their email after the trigger page view has queued for want of one, so a
@@ -1322,6 +1364,7 @@ class RoktKit implements KitInterface {
     if (this._preselectEmailInputListener) {
       document.removeEventListener('input', this._preselectEmailInputListener, true);
       document.removeEventListener('change', this._preselectEmailInputListener, true);
+      document.removeEventListener('blur', this._preselectEmailInputListener, true);
       this._preselectEmailInputListener = undefined;
     }
     if (!hasEmailInputEntry(this.accountId)) {
@@ -1329,7 +1372,8 @@ class RoktKit implements KitInterface {
     }
 
     // Notes which fields the shopper types into or autofills, reading no value, and retries on a committed
-    // change. The form's own gates run before the changed field's value is read.
+    // change. A blur drops a field no change committed and marks a committed one left mid-edit. The form's own
+    // gates run before the changed field's value is read.
     this._preselectEmailInputListener = (event: Event): void => {
       recordShopperInput(event);
       if (
@@ -1342,6 +1386,7 @@ class RoktKit implements KitInterface {
     };
     document.addEventListener('input', this._preselectEmailInputListener, true);
     document.addEventListener('change', this._preselectEmailInputListener, true);
+    document.addEventListener('blur', this._preselectEmailInputListener, true);
   }
 
   // A core released without the check reads false, so its page views are judged by their marker alone.
@@ -1361,6 +1406,17 @@ class RoktKit implements KitInterface {
     const rokt = mp().Rokt as unknown as { isCheckoutIntentLive?: () => boolean } | undefined;
     try {
       return isFunction(rokt?.isCheckoutIntentLive) && rokt!.isCheckoutIntentLive!() === true;
+    } catch {
+      return false;
+    }
+  }
+
+  // True when the core SDK gives link clicks no checkout intent because this connection does not receive Auto Link
+  // Click events. A core released without the check reads false, and turns intent off entirely in that case.
+  private isLinkIntentWithheld(): boolean {
+    const rokt = mp().Rokt as unknown as { areAutoLinkClicksForwarded?: () => boolean } | undefined;
+    try {
+      return isFunction(rokt?.areAutoLinkClicksForwarded) && rokt!.areAutoLinkClicksForwarded!() === false;
     } catch {
       return false;
     }
@@ -1415,6 +1471,7 @@ class RoktKit implements KitInterface {
     this._lastPreselectPathname = pathname;
 
     maybeFirePreselectForPathnameExternal(this._preselectState, this.buildPreselectHost(), pathname);
+    maybeFirePreselectForCartPageViewExternal(this._preselectState, this.buildPreselectHost(), pathname);
   }
 
   private fetchOptimizely(): Record<string, unknown> {
@@ -1449,7 +1506,17 @@ class RoktKit implements KitInterface {
   // When the partner has opted out of targeting (noTargeting launcher option),
   // the kit must not collect behavioral targeting signals such as page views.
   private isTargetingDisabled(): boolean {
-    return (mp().Rokt?.launcherOptions as Record<string, unknown> | undefined)?.noTargeting === true;
+    return (
+      (mp().Rokt?.launcherOptions as Record<string, unknown> | undefined)?.noTargeting === true ||
+      this.isDeviceIdDisabled()
+    );
+  }
+
+  // Core's normalizeRoktLauncherOptions turns noDeviceId or noDeviceID into noDeviceId, noFunctional and
+  // noTargeting, but an older core passes either spelling through as written, so the kit applies the same rule.
+  private isDeviceIdDisabled(): boolean {
+    const launcherOptions = mp()?.Rokt?.launcherOptions as Record<string, unknown> | undefined;
+    return launcherOptions?.noDeviceId === true || launcherOptions?.noDeviceID === true;
   }
 
   private isPreselectionPrivacyAllowed(): boolean {
@@ -1518,101 +1585,6 @@ class RoktKit implements KitInterface {
     return null;
   }
 
-  private processLeadCaptureSubmittedEvent(event: Event): void {
-    if (!(event instanceof CustomEvent) || !isObject(event.detail)) {
-      return;
-    }
-    const detail = event.detail as LeadCaptureSubmittedDetail;
-    const body = isObject(detail.body) ? (detail.body as Record<string, unknown>) : {};
-
-    let email = isString(body.email) ? body.email : undefined;
-    let mobileNumber = isString(body.mobile_number) ? body.mobile_number : undefined;
-    if (!email || !mobileNumber) {
-      const fields = Array.isArray(detail.fields) ? detail.fields : [];
-      for (let i = 0; i < fields.length; i += 1) {
-        const field = fields[i] as LeadCaptureField;
-        if (!isString(field.fieldKey) || !isString(field.value)) {
-          continue;
-        }
-        const key = field.fieldKey.toLowerCase().replace(/[^a-z]/g, '');
-        if (!email && (key === 'email' || key === 'emailaddress') && field.value.length > 0) {
-          email = field.value;
-        }
-        if (!mobileNumber && (key === 'mobile' || key === 'mobilenumber' || key === 'phone' || key === 'phonenumber')) {
-          mobileNumber = field.value;
-        }
-      }
-    }
-
-    const identities: Record<string, unknown> = {};
-    if (isString(email) && email.length > 0) {
-      identities.email = email;
-    }
-    if (isString(mobileNumber) && mobileNumber.length > 0) {
-      identities.mobile_number = mobileNumber;
-    }
-
-    const userAttributes: Record<string, unknown> = {};
-    this.mergeLeadCaptureUserAttributes(userAttributes, isObject(body.userAttributes) ? body.userAttributes : null);
-    this.mergeLeadCaptureUserAttributes(
-      userAttributes,
-      isObject(detail.userAttributes) ? (detail.userAttributes as Record<string, unknown>) : null,
-    );
-
-    const rclid = isString(body.rclid) ? body.rclid : isString(detail.rclid) ? detail.rclid : undefined;
-    if (rclid && rclid.length > 0) {
-      userAttributes.rokt_rclid = rclid;
-    }
-    const accountId = isString(body.accountID) ? body.accountID : isString(detail.accountID) ? detail.accountID : undefined;
-    if (accountId && accountId.length > 0) {
-      userAttributes.rokt_account_id = accountId;
-    }
-    const referralCreativeId = isString(body.referralCreativeID)
-      ? body.referralCreativeID
-      : isString(detail.referralCreativeID)
-        ? detail.referralCreativeID
-        : undefined;
-    if (referralCreativeId && referralCreativeId.length > 0) {
-      userAttributes.rokt_referral_creative_id = referralCreativeId;
-    }
-    this.applyIdentityCapturePayload(identities, userAttributes);
-  }
-
-  private isSafeLeadCaptureUserAttributeKey(key: string): boolean {
-    if (key === '__proto__' || key === 'constructor' || key === 'prototype') {
-      return false;
-    }
-    return /^[a-zA-Z0-9_.-]+$/.test(key);
-  }
-
-  private isSupportedLeadCaptureUserAttributeValue(value: unknown): boolean {
-    if (isString(value) || typeof value === 'number' || typeof value === 'boolean') {
-      return true;
-    }
-    if (Array.isArray(value)) {
-      return value.every((item) => isString(item));
-    }
-    return false;
-  }
-
-  private mergeLeadCaptureUserAttributes(
-    target: Record<string, unknown>,
-    source: Record<string, unknown> | null,
-  ): void {
-    if (!source) {
-      return;
-    }
-    for (const [key, value] of Object.entries(source)) {
-      if (!this.isSafeLeadCaptureUserAttributeKey(key)) {
-        continue;
-      }
-      if (!this.isSupportedLeadCaptureUserAttributeValue(value)) {
-        continue;
-      }
-      target[key] = value;
-    }
-  }
-
   private applyIdentityCapturePayload(identities: Record<string, unknown>, userAttributes: Record<string, unknown>): void {
     const knownIdentities: Record<string, string> = {};
     const emailIdentity = identities.email;
@@ -1655,89 +1627,31 @@ class RoktKit implements KitInterface {
 
   private configureExitIntentBridge(config: ExitIntentConfig | null): void {
     this._exitIntentConfig = this.isTargetingDisabled() ? null : config;
-    this._exitIntentDispatchedForPageView = false;
+    this._exitIntentWatcher.configure(this._exitIntentConfig);
+  }
 
-    if (this._exitIntentListener) {
-      window.removeEventListener(EXIT_INTENT_EVENT_NAME, this._exitIntentListener as EventListener);
-      this._exitIntentListener = undefined;
-    }
-    if (this._exitIntentLeadCaptureSubmittedListener) {
-      window.removeEventListener(
-        LEAD_CAPTURE_SUBMITTED_EVENT_NAME,
-        this._exitIntentLeadCaptureSubmittedListener as EventListener,
-      );
-      this._exitIntentLeadCaptureSubmittedListener = undefined;
-    }
-
-    if (this._isIdentityCaptureBridgeEnabled(this._exitIntentConfig)) {
-      this._exitIntentLeadCaptureSubmittedListener = (event: Event) => {
-        this.processLeadCaptureSubmittedEvent(event);
-      };
-      window.addEventListener(
-        LEAD_CAPTURE_SUBMITTED_EVENT_NAME,
-        this._exitIntentLeadCaptureSubmittedListener as EventListener,
-      );
-    }
-
-    if (!this._isExitIntentBridgeEnabled(this._exitIntentConfig)) {
-      return;
+  private handleExitIntent(reason: string, configuredAttributes: Record<string, unknown>): boolean {
+    if (!this._exitIntentConfig) {
+      return false;
     }
     const identifier = this.extractExitIntentIdentifier(this._exitIntentConfig);
     if (!identifier) {
-      return;
-    }
-
-    this._exitIntentListener = (event: Event) => {
-      const reason =
-        event instanceof CustomEvent && event.detail && isString(event.detail.reason) ? event.detail.reason : 'unknown';
-
-      if (this._exitIntentDispatchedForPageView || !this.isKitReady()) {
-        return;
-      }
-
-      const isKnownReason = reason === 'mouse-exit-top'
-        || reason === 'scroll-up-fast'
-        || reason === 'idle'
-        || reason === 'leave-link';
-      if (!isKnownReason) {
-        return;
-      }
-
-      this._exitIntentDispatchedForPageView = true;
-      const configuredAttributes = isObject(this._exitIntentConfig?.attributes)
-        ? (this._exitIntentConfig.attributes as Record<string, unknown>)
-        : {};
-      try {
-        const selection = mp().Rokt?.selectPlacements?.({
-          identifier,
-          attributes: {
-            ...configuredAttributes,
-            exitIntentReason: reason,
-          },
-        });
-        void Promise.resolve(selection).catch(() => undefined);
-      } catch {
-        this._exitIntentDispatchedForPageView = false;
-        return;
-      }
-    };
-
-    window.addEventListener(EXIT_INTENT_EVENT_NAME, this._exitIntentListener as EventListener);
-  }
-
-  private _isExitIntentBridgeEnabled(config: ExitIntentConfig | null): boolean {
-    return !!(config && config.enabled !== false);
-  }
-
-  private _isIdentityCaptureBridgeEnabled(config: ExitIntentConfig | null): boolean {
-    if (!this._isExitIntentBridgeEnabled(config)) {
       return false;
     }
-    const identityCapture = config.identityCapture;
-    if (!isObject(identityCapture)) {
+
+    try {
+      const selection = mp().Rokt?.selectPlacements?.({
+        identifier,
+        attributes: {
+          ...configuredAttributes,
+          exitIntentReason: reason,
+        },
+      });
+      void Promise.resolve(selection).catch(() => undefined);
+      return true;
+    } catch {
       return false;
     }
-    return (identityCapture as Record<string, unknown>).enabled === true;
   }
 
   private _recordInitWarning(message: string): void {
@@ -1789,11 +1703,11 @@ class RoktKit implements KitInterface {
     _trackerId: unknown,
     filteredUserAttributes?: Record<string, unknown>,
   ): string {
-    // noFunctional forbids storing anything on the shopper's device, and core's
-    // normalizeRoktLauncherOptions has already set it for noDeviceId. Applied before anything
-    // else, so nothing later in init can fail open.
+    // noFunctional, which noDeviceId implies, forbids storing anything on the shopper's device.
+    // Applied before anything else, so nothing later in init can fail open.
     const isFunctionalStorageDisabled =
-      (mp().Rokt?.launcherOptions as Record<string, unknown> | undefined)?.noFunctional === true;
+      (mp().Rokt?.launcherOptions as Record<string, unknown> | undefined)?.noFunctional === true ||
+      this.isDeviceIdDisabled();
     setDevicePersistenceDisabled(isFunctionalStorageDisabled);
     if (isFunctionalStorageDisabled || this.isTargetingDisabled()) {
       removeKitStorageFromDevice();
@@ -1967,7 +1881,7 @@ class RoktKit implements KitInterface {
     if (!this.isTargetingDisabled()) {
       if (event.EventDataType === MESSAGE_TYPE_PAGE_VIEW) {
         if (this._exitIntentEnabledForAccount) {
-          this._exitIntentDispatchedForPageView = false;
+          this._exitIntentWatcher.resetPageViewState();
         }
         if (this.isPageHistoryAllowed()) {
           const autoLogPageViewOn = this.isAutoLogPageViewOn();
@@ -1978,9 +1892,10 @@ class RoktKit implements KitInterface {
           clearUtmParams();
         }
         maybeFirePreselectExternal(this._preselectState, this.buildPreselectHost(), event);
+        maybeFirePreselectForCartPageViewExternal(this._preselectState, this.buildPreselectHost());
       }
 
-      if (isAutoButtonClickEvent(event)) {
+      if (isAutoClickEvent(event)) {
         recordPreselectPaymentClick(this.buildPreselectHost(), event);
       }
 
@@ -2008,7 +1923,7 @@ class RoktKit implements KitInterface {
       return 'Kit not ready for forwarder: ' + name;
     }
 
-    if (isFunction(mp().Rokt?.setLocalSessionAttribute) && !isAutoButtonClickEvent(event)) {
+    if (isFunction(mp().Rokt?.setLocalSessionAttribute) && !isAutoClickEvent(event)) {
       if (!isEmpty(this.placementEventAttributeMappingLookup)) {
         this.applyPlacementEventAttributeMapping(event);
       }
@@ -2037,15 +1952,31 @@ class RoktKit implements KitInterface {
     if (!isSelectPlacementsAttributePersistenceDenied(key)) {
       this.userAttributes[key] = value;
     }
-    // An email arriving can release a confirm-click fire that was waiting for one.
-    if (isPreselectAttributeKey(this.accountId, key) || isPreselectEmailKey(key, this._mappedEmailSha256Key)) {
+    const isCartKey = isPreselectCartAttributeKey(this.accountId, key);
+    // The page's own cart attribute takes over from a remembered add-to-cart click.
+    if (isCartKey) this.forgetCartAdd();
+    // An email arriving can release a confirm-click fire that was waiting for one, and a filled cart a page view.
+    if (
+      isPreselectAttributeKey(this.accountId, key) ||
+      isPreselectEmailKey(key, this._mappedEmailSha256Key) ||
+      isCartKey
+    ) {
       this.flushPendingPreselectDispatches();
     }
     return 'Successfully set user attribute for forwarder: ' + name;
   }
 
+  // The page's cart attribute or a logout replaces a remembered add-to-cart click. Under noTargeting, or for an account
+  // that never remembers one, nothing is written to the device.
+  private forgetCartAdd(): void {
+    if (this.accountId) {
+      forgetPreselectCartAdd(this.accountId, !this.isTargetingDisabled() && hasPreselectCartPageView(this.accountId));
+    }
+  }
+
   public removeUserAttribute(key: string): string {
     delete this.userAttributes[key];
+    if (isPreselectCartAttributeKey(this.accountId, key)) this.forgetCartAdd();
     return 'Successfully removed user attribute for forwarder: ' + name;
   }
 
@@ -2164,6 +2095,7 @@ class RoktKit implements KitInterface {
       clearPendingPreselect(this.accountId);
       clearActivePreselects(this.accountId);
       clearPreselectArrivals(this.accountId);
+      this.forgetCartAdd();
     }
     return this.handleIdentityComplete(user, 'onLogoutComplete');
   }
@@ -2197,6 +2129,7 @@ class RoktKit implements KitInterface {
    * and on a post-terminate createLauncher when the SPA needs a new instance.
    */
   public selectPlacements(options: Record<string, unknown>): RoktSelection | Promise<RoktSelection> | undefined {
+    const callTimeUser = this.currentUserSnapshot();
     const recreate = this.recreateLauncherIfTerminated();
     if (recreate) {
       const inFlight = this._workspaceSearchInFlightPromise;
@@ -2207,7 +2140,7 @@ class RoktKit implements KitInterface {
           ])
         : Promise.resolve();
       return Promise.all([recreate, waitForSearch]).then(() =>
-        this._dispatchPlacements(options),
+        this._dispatchPlacements(options, callTimeUser),
       ) as Promise<RoktSelection>;
     }
     if (this._workspaceSearchInFlightPromise) {
@@ -2215,7 +2148,7 @@ class RoktKit implements KitInterface {
       return Promise.race([
         inFlight,
         new Promise<void>((resolve) => setTimeout(resolve, WORKSPACE_SEARCH_SELECT_TIMEOUT_MS)),
-      ]).then(() => this._dispatchPlacements(options)) as Promise<RoktSelection>;
+      ]).then(() => this._dispatchPlacements(options, callTimeUser)) as Promise<RoktSelection>;
     }
     return this._dispatchPlacements(options);
   }
@@ -2232,17 +2165,80 @@ class RoktKit implements KitInterface {
     const filtered = filters.filterUserAttributes
       ? filters.filterUserAttributes(merged, (filters.userAttributeFilters as string[]) || [])
       : merged;
-    const partner = identifier
-      ? applyPreselectAttributeOverrides(filtered, this.buildPreselectAttributeOverrides(identifier))
-      : filtered;
+    const identities = this.returnUserIdentities(filters.filteredUser || null) as Record<string, unknown>;
+    const partner = withoutPreselectCartGateAttribute(
+      this.accountId,
+      identifier
+        ? applyPreselectAttributeDefaults(filtered, this.buildPreselectAttributeDefaults(identifier, attributes))
+        : filtered,
+      this.findCacheConfigEntry(identifier),
+    );
     return {
-      ...(this.returnUserIdentities(filters.filteredUser || null) as Record<string, unknown>),
+      ...identities,
       ...partner,
       ...this.returnLocalSessionAttributes(),
     };
   }
 
-  private _dispatchPlacements(options: Record<string, unknown>): RoktSelection | Promise<RoktSelection> | undefined {
+  private isStillCurrentUser(mpid: string, requireLogin: boolean): boolean {
+    const currentUser = mp().Identity?.getCurrentUser?.() as FilteredUser | null | undefined;
+    return (
+      mpid !== '' &&
+      String(this.filters?.filteredUser?.getMPID?.() ?? '') === mpid &&
+      String(currentUser?.getMPID?.() ?? '') === mpid &&
+      (!requireLogin || currentUser?.isLoggedIn?.() === true)
+    );
+  }
+
+  private currentUserSnapshot(): CallTimeUser {
+    const currentUser = mp()?.Identity?.getCurrentUser?.() as FilteredUser | null | undefined;
+    return {
+      mpid: String(currentUser?.getMPID?.() ?? ''),
+      loggedIn: currentUser?.isLoggedIn?.() === true,
+      hasIdentities: Object.values(currentUser?.getUserIdentities?.()?.userIdentities || {}).some(
+        (value) => isString(value) && value !== '',
+      ),
+    };
+  }
+
+  private hasUserChangedSince(callTime: CallTimeUser): boolean {
+    const currentUser = mp().Identity?.getCurrentUser?.() as FilteredUser | null | undefined;
+    return (
+      String(currentUser?.getMPID?.() ?? '') !== callTime.mpid ||
+      (callTime.loggedIn && currentUser?.isLoggedIn?.() !== true)
+    );
+  }
+
+  // A call whose user changed while it waited goes out for the new user only when nothing it carries belongs to
+  // someone else: its user had no identities and it carries no email, as when an anonymous shopper logs in, or the
+  // new user holds every email form it carries, as when core identifies with a passed email that differs from the
+  // user's. A logout drops it even when the email survives the logout.
+  private mayGoOutForNewUser(callTime: CallTimeUser, attributes: Record<string, unknown>): boolean {
+    const currentUser = mp().Identity?.getCurrentUser?.() as FilteredUser | null | undefined;
+    if (callTime.loggedIn && currentUser?.isLoggedIn?.() !== true) {
+      return false;
+    }
+    const identities = (currentUser?.getUserIdentities?.()?.userIdentities || {}) as Record<string, unknown>;
+    const hashedKey = this._mappedEmailSha256Key;
+    // Read the way core reads the hashed email it identifies with.
+    const hashedEmail = attributes[RoktKit.EMAIL_SHA256_KEY] || (hashedKey ? attributes[hashedKey] : undefined);
+    const carried: Array<[unknown, unknown]> = [];
+    if (attributes.email) {
+      carried.push([attributes.email, identities.email]);
+    }
+    if (hashedEmail) {
+      carried.push([hashedEmail, hashedKey ? identities[hashedKey] : undefined]);
+    }
+    if (carried.length === 0) {
+      return !callTime.hasIdentities;
+    }
+    return carried.every(([value, held]) => isString(value) && value === held);
+  }
+
+  private _dispatchPlacements(
+    options: Record<string, unknown>,
+    callTimeUser?: CallTimeUser,
+  ): RoktSelection | Promise<RoktSelection> | undefined {
     // Undoes the fire's records if this call is dropped below.
     const rollback = options ? getPreselectRollback(options) : undefined;
     // Privacy or consent may change while selectPlacements waits for a search or launcher recreation.
@@ -2261,21 +2257,38 @@ class RoktKit implements KitInterface {
     // the fire needed that, so a logout or user switch during the wait never sends one user's attributes as another's.
     if (boundUserOption !== undefined) {
       const bound = isObject(boundUserOption) ? boundUserOption : {};
-      const mpid = String(bound.mpid ?? '');
       const requireLogin = bound.requireLogin !== false;
-      const currentUser = mp().Identity?.getCurrentUser?.() as FilteredUser | null | undefined;
-      if (
-        mpid === '' ||
-        String(this.filters?.filteredUser?.getMPID?.() ?? '') !== mpid ||
-        String(currentUser?.getMPID?.() ?? '') !== mpid ||
-        (requireLogin && currentUser?.isLoggedIn?.() !== true)
-      ) {
+      if (!this.isStillCurrentUser(String(bound.mpid ?? ''), requireLogin)) {
         this.loggingService?.logPlacementDiagnostic(
           buildPreselectDiagnosticLogEntry('missed', requireLogin ? 'logged_in_dropped' : 'user_changed_dropped'),
         );
         rollback?.();
         return undefined;
       }
+    }
+    // The same rule holds for any call that waited: a logout or user switch during the wait would send, and log, the
+    // old user's attributes as the new user's.
+    const userChanged = callTimeUser !== undefined && this.hasUserChangedSince(callTimeUser);
+    // The wait may have ended on the previous user's search, and its result lands in the one flag the kit keeps for
+    // every user. A user with no identities has no search.
+    const previousSearchMayHaveAnswered = userChanged && callTimeUser?.hasIdentities === true;
+    if (
+      callTimeUser &&
+      userChanged &&
+      !this.mayGoOutForNewUser(callTimeUser, isObject(options.attributes) ? options.attributes : {})
+    ) {
+      if (options.preselect === true) {
+        this.loggingService?.logPlacementDiagnostic(
+          buildPreselectDiagnosticLogEntry('missed', callTimeUser.loggedIn ? 'logged_in_dropped' : 'user_changed_dropped'),
+        );
+      } else {
+        this.loggingService?.log({
+          message: 'Rokt Kit: Dropped a selectPlacements call whose user changed while it waited',
+          code: 'SELECT_PLACEMENTS_USER_CHANGED',
+        });
+      }
+      rollback?.();
+      return undefined;
     }
     const formEmail = isObject(transientOption) ? transientOption : undefined;
     const formEmailKey = formEmail && isString(formEmail.key) ? formEmail.key : undefined;
@@ -2335,9 +2348,16 @@ class RoktKit implements KitInterface {
     const mpDeviceId = this.readMpDeviceId();
 
     const identifier = typeof options.identifier === 'string' ? options.identifier : undefined;
+    const cacheConfigEntry = this.findCacheConfigEntry(identifier);
+    const preselectFills =
+      options.preselect === true ? this.buildPreselectAttributeDefaults(identifier, attributes) : undefined;
     const partnerAttributes =
       options.preselect === true
-        ? applyPreselectAttributeOverrides(filteredAttributes, this.buildPreselectAttributeOverrides(identifier))
+        ? withoutPreselectCartGateAttribute(
+            this.accountId,
+            applyPreselectAttributeDefaults(filteredAttributes, preselectFills),
+            cacheConfigEntry,
+          )
         : filteredAttributes;
 
     const selectPlacementsAttributes: Record<string, unknown> = {
@@ -2347,21 +2367,28 @@ class RoktKit implements KitInterface {
       ...sessionAttributes,
       ...(pageEvents.length ? { [PAGE_EVENTS_KEY]: JSON.stringify(pageEvents) } : {}),
       ...(utmParams ? { [PAGE_VIEW_ATTRIBUTES_KEY]: utmParams } : {}),
-      ...(this.userIdentifiedInWorkspace ? { [USER_IDENTIFIED_IN_WORKSPACE_KEY]: true } : {}),
+      ...(!previousSearchMayHaveAnswered && this.userIdentifiedInWorkspace
+        ? { [USER_IDENTIFIED_IN_WORKSPACE_KEY]: true }
+        : {}),
       ...(mpSessionId ? { [MPARTICLE_SESSION_ID_KEY]: mpSessionId } : {}),
       ...(mpDeviceId ? { [MPARTICLE_DEVICE_ID_KEY]: mpDeviceId } : {}),
       mpid,
     };
+    // The key can also arrive through partner, user or session attributes, which the kit's own value no longer
+    // overwrites under the flag.
+    if (this.isDeviceIdDisabled()) {
+      delete selectPlacementsAttributes[MPARTICLE_DEVICE_ID_KEY];
+    }
     if (options.preselect !== true) {
       reportPreselectArrival(this.buildPreselectHost(), identifier, selectPlacementsAttributes);
     }
 
-    // A confirm-click pre-selection whose email went missing while it waited does not go out without one.
+    // A confirm-click or cart page-view pre-selection whose email went missing while it waited does not go out without one.
     const trigger = partnerAttributes[PRESELECT_TRIGGER_ATTRIBUTE];
     if (
       options.preselect === true &&
       isString(trigger) &&
-      trigger.indexOf('intent_') === 0 &&
+      (trigger.indexOf('intent_') === 0 || trigger.indexOf('pageview_cart|') === 0) &&
       !hasPreselectEmail(selectPlacementsAttributes, this._mappedEmailSha256Key)
     ) {
       this.loggingService?.logPlacementDiagnostic(
@@ -2371,25 +2398,50 @@ class RoktKit implements KitInterface {
       return undefined;
     }
 
-    const cacheConfigEntry = this.findCacheConfigEntry(identifier);
-    const cacheIdentityKeys = cacheConfigEntry?.identityKeys;
+    const cacheIdentityKeys = getPreselectCacheIdentityKeys(
+      cacheConfigEntry,
+      preselectFills,
+      selectPlacementsAttributes,
+    );
+    const cacheMatchValues = getPreselectCacheMatchValues(cacheConfigEntry, preselectFills, selectPlacementsAttributes);
+    // Only the kit writes the marker: a copy from the page, the user attributes or a session attribute never goes out.
+    delete selectPlacementsAttributes[PRESELECT_DEFAULTED_ATTRIBUTE];
+    const defaultedMarker = getPreselectDefaultedMarker(preselectFills, selectPlacementsAttributes);
+    if (defaultedMarker) {
+      selectPlacementsAttributes[PRESELECT_DEFAULTED_ATTRIBUTE] = defaultedMarker;
+    }
 
     const selectPlacementsOptions: Record<string, unknown> = {
       ...options,
       attributes: selectPlacementsAttributes,
       ...(cacheConfigEntry ? { cacheMatchKeys: getPreselectCacheMatchKeys(cacheConfigEntry) } : {}),
       ...(cacheIdentityKeys ? { cacheIdentityKeys } : {}),
+      ...(cacheMatchValues ? { cacheMatchValues } : {}),
     };
 
+    const dispatchUser = this.currentUserSnapshot();
     const selection = this.launcher!.selectPlacements(selectPlacementsOptions);
 
     const isPreselect = options.preselect === true;
 
     // After selection resolves, sync the Rokt session ID back to mParticle, then log
     const logSelection = () => {
-      if (!isPreselect) {
-        this.logSelectPlacementsEvent(selectPlacementsAttributes);
+      if (isPreselect) {
+        return;
       }
+      // Core files the event under whoever is current once the selection resolves, which can be a user an identity
+      // call put in place after dispatch. The event's attributes were built for the dispatch user: its MPID, its
+      // identities and its cached attributes. So it goes to a new user only when the dispatch user was anonymous,
+      // not logged in and with no identities, as when an anonymous shopper logs in. A new user who holds the call's
+      // email is not enough, unlike for a call that waited: the rest of the attributes would still be another user's.
+      if (this.hasUserChangedSince(dispatchUser) && (dispatchUser.loggedIn || dispatchUser.hasIdentities)) {
+        this.loggingService?.log({
+          message: 'Rokt Kit: Skipped the selectPlacements event because its user changed before the selection resolved',
+          code: 'SELECT_PLACEMENTS_EVENT_USER_CHANGED',
+        });
+        return;
+      }
+      this.logSelectPlacementsEvent(selectPlacementsAttributes);
     };
 
     void Promise.resolve(selection)
@@ -2397,12 +2449,111 @@ class RoktKit implements KitInterface {
         if (isPreselect) {
           return;
         }
+        this.trackPlacementEngagement(sel);
         return sel?.context?.sessionId?.then((sessionId) => this.setRoktSessionId(sessionId));
       })
       .catch(() => undefined)
       .finally(logSelection);
 
     return selection;
+  }
+
+  // Logs each press of a placement's response buttons, and each close, as an auto button click. The
+  // placement's frame keeps its buttons and text from the page, so only the response kind goes out.
+  private trackPlacementEngagement(selection: RoktSelection | undefined): void {
+    if (!selection || !isFunction(selection.on)) {
+      return;
+    }
+    // Presses still waiting for a positive response, oldest first, per placement. A replay can deliver
+    // several presses before their positive responses.
+    const pending: Record<string, Array<ReturnType<typeof setTimeout>>> = {};
+    const settle = (placementId: string, timer: ReturnType<typeof setTimeout>, response: 'positive' | 'negative') => {
+      const timers = pending[placementId] || [];
+      timers.splice(timers.indexOf(timer), 1);
+      clearTimeout(timer);
+      this.logPlacementEngagement(placementId, response);
+    };
+    const subscribe = (eventName: string, callback: (placementId: string, event?: RoktSelectionEvent) => void) => {
+      try {
+        selection.on!(eventName)?.subscribe?.((event) => callback(String(event?.placement?.id ?? ''), event));
+      } catch {
+        // A launcher without this event logs nothing for it.
+      }
+    };
+    subscribe('OFFER_ENGAGEMENT', (placementId) => {
+      // A press made while clicks may not be logged is dropped, so a later opt-in can't log it.
+      if (!this.canLogPlacementClick()) {
+        return;
+      }
+      const timer: ReturnType<typeof setTimeout> = setTimeout(
+        () => settle(placementId, timer, 'negative'),
+        ENGAGEMENT_PAIR_MS,
+      );
+      (pending[placementId] = pending[placementId] || []).push(timer);
+    });
+    // A positive response settles the press it follows. One with no press waiting belongs to a press that
+    // was dropped, so it logs nothing.
+    subscribe('POSITIVE_ENGAGEMENT', (placementId) => {
+      const oldest = (pending[placementId] || [])[0];
+      if (oldest !== undefined) {
+        settle(placementId, oldest, 'positive');
+      }
+    });
+    subscribe('PLACEMENT_CLOSED', (placementId) => {
+      (pending[placementId] || []).slice().forEach((timer) => settle(placementId, timer, 'negative'));
+      this.logPlacementEngagement(placementId, 'close');
+    });
+    subscribe('LINK_ENGAGEMENT', (placementId, event) => {
+      const domain = event?.body?.domain;
+      this.logPlacementLink(
+        placementId,
+        typeof domain === 'string' && domain.length <= 253 && LINK_DOMAIN.test(domain.toLowerCase())
+          ? domain.toLowerCase()
+          : undefined,
+      );
+    });
+  }
+
+  // Checked when each click is logged, since the launcher calls back outside core's own gates.
+  private canLogPlacementClick(): boolean {
+    return this.isCheckoutIntentActive() && this.isForwardingAllowed() && isFunction(mp().logEvent);
+  }
+
+  private logPlacementEngagement(placementId: string, response: 'positive' | 'negative' | 'close'): void {
+    if (!this.canLogPlacementClick()) {
+      return;
+    }
+    mp().logEvent(AUTO_BUTTON_CLICK_EVENT_NAME, mp().EventType.Other, {
+      is_auto_button_click: true,
+      is_rokt_placement_click: true,
+      element: 'button',
+      type: 'button',
+      label_source: ROKT_PLACEMENT_LABEL_SOURCE,
+      hostname: window.location.hostname,
+      rokt_response: response,
+      rokt_placement_id: placementId,
+    });
+  }
+
+  // A link pressed inside a placement, logged like an auto link click to another site.
+  private logPlacementLink(placementId: string, domain: string | undefined): void {
+    if (!this.canLogPlacementClick()) {
+      return;
+    }
+    const attributes: Record<string, string | boolean> = {
+      is_auto_link_click: true,
+      is_rokt_placement_click: true,
+      element: 'link',
+      type: 'link',
+      label_source: ROKT_PLACEMENT_LABEL_SOURCE,
+      hostname: window.location.hostname,
+      link_type: 'external',
+      rokt_placement_id: placementId,
+    };
+    if (domain) {
+      attributes.link_domain = domain;
+    }
+    mp().logEvent(AUTO_LINK_CLICK_EVENT_NAME, mp().EventType.Other, attributes);
   }
 
   /**

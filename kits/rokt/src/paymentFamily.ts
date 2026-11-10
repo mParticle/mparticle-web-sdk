@@ -94,6 +94,21 @@ export function paymentFamilyFromClick(attributes: Record<string, unknown> | und
   return undefined;
 }
 
+// The payment method a pick handed over by the core SDK names: the family of a frame the shopper moved into,
+// or the first family the names of a checked payment radio's option read as. A picker may name a card.
+export function paymentFamilyFromPick(pick: { names?: readonly unknown[]; family?: unknown }): PaymentFamily | undefined {
+  if (isPaymentFamily(pick.family)) {
+    return pick.family;
+  }
+  for (const name of Array.isArray(pick.names) ? pick.names : []) {
+    const family = classifyPaymentFamily(name);
+    if (family) {
+      return family;
+    }
+  }
+  return undefined;
+}
+
 const ARRIVAL_PAYMENT_KEYS = ['paymenttype', 'payment_type', 'paymentmethod', 'payment_method'];
 
 // What the target page's own call says the shopper paid with: absent, a known family, or other.

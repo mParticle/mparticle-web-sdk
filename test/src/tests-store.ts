@@ -1422,6 +1422,7 @@ describe('Store', () => {
                 astBackgroundEvents: true,
                 autoLogPageView: false,
                 autoButtonTracking: false,
+                autoLinkTracking: false,
             };
 
             expect(store.SDKConfig.flags).to.deep.equal(expectedResult);
@@ -1682,6 +1683,7 @@ describe('Store', () => {
                 astBackgroundEvents: false,
                 autoLogPageView: false,
                 autoButtonTracking: false,
+                autoLinkTracking: false,
             };
 
             expect(flags).to.deep.equal(expectedResult);
@@ -1700,6 +1702,7 @@ describe('Store', () => {
                 astBackgroundEvents: 'True',
                 autoLogPageView: 'True',
                 autoButtonTracking: 'True',
+                autoLinkTracking: 'True',
             };
 
             const flags = processFlags(
@@ -1718,6 +1721,7 @@ describe('Store', () => {
                 astBackgroundEvents: true,
                 autoLogPageView: true,
                 autoButtonTracking: true,
+                autoLinkTracking: true,
             };
 
             expect(flags).to.deep.equal(expectedResult);
@@ -1735,6 +1739,20 @@ describe('Store', () => {
             expect(enabled.autoButtonTracking).to.equal(true);
             expect(booleanTrue.autoButtonTracking).to.equal(false);
             expect(absent.autoButtonTracking).to.equal(false);
+        });
+
+        it('should enable autoLinkTracking only for the string True', () => {
+            const enabled = processFlags(({
+                flags: { autoLinkTracking: 'True' },
+            } as unknown) as SDKInitConfig);
+            const booleanTrue = processFlags(({
+                flags: { autoLinkTracking: true },
+            } as unknown) as SDKInitConfig);
+            const absent = processFlags({ flags: {} } as SDKInitConfig);
+
+            expect(enabled.autoLinkTracking).to.equal(true);
+            expect(booleanTrue.autoLinkTracking).to.equal(false);
+            expect(absent.autoLinkTracking).to.equal(false);
         });
     });
 

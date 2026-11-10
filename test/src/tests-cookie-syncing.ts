@@ -1239,6 +1239,19 @@ describe('cookie syncing', function() {
             spy.restore();
         });
 
+        it('should block only Rokt while allowing other partners when doNotShareOrSell is true', async () => {
+            window.mParticle.config.pixelConfigs = [roktPixelSettings, nonRoktPixelSettings];
+            window.mParticle.config.launcherOptions = { doNotShareOrSell: true };
+
+            const spy = await initWithSpy();
+
+            expect(spy.calledOnce).to.equal(true);
+            expect(spy.firstCall.args[1]).to.equal('5');
+            expect(getLocalStorageData()[testMPID].csd).to.not.have.property(roktModuleId);
+            getLocalStorageData()[testMPID].csd.should.have.property('5');
+            spy.restore();
+        });
+
         it('should block Rokt when noTargeting is true even if consent rules allow it', async () => {
             const roktWithConsent = {
                 ...roktPixelSettings,

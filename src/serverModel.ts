@@ -256,7 +256,8 @@ export default function ServerModel(
 
     this.createEventObject = function(
         event: BaseEvent,
-        user?: IMParticleUser
+        user?: IMParticleUser,
+        capturedAt?: number
     ): SDKEvent | IUploadObject {
         var uploadObject: Partial<IUploadObject> = {};
         var eventObject: Partial<SDKEvent> = {};
@@ -379,13 +380,23 @@ export default function ServerModel(
                 mpInstance._Store.sessionStartDate = null;
             }
 
-            uploadObject.Timestamp = mpInstance._Store.dateLastEventSent.getTime();
+            const now = mpInstance._Store.dateLastEventSent.getTime();
+            const sessionStartTime = mpInstance._Store.sessionStartDate
+                ? mpInstance._Store.sessionStartDate.getTime()
+                : 0;
+            uploadObject.Timestamp =
+                typeof capturedAt === 'number' &&
+                Number.isFinite(capturedAt) &&
+                capturedAt <= now &&
+                capturedAt >= sessionStartTime
+                    ? capturedAt
+                    : now;
 
             return extend({}, eventObject, uploadObject);
         }
 
         return null;
-    };
+    } as IServerModel['createEventObject'];
 
     this.convertEventToV2DTO = function(event: IUploadObject): IServerV2DTO {
         var dto: Partial<IServerV2DTO> = {
