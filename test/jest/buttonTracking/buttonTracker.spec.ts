@@ -9,11 +9,13 @@ import {
 import * as checkoutIntent from '../../../src/buttonTracking/checkoutIntent';
 import * as buttonDescription from '../../../src/buttonTracking/buttonDescription';
 import * as controls from '../../../src/buttonTracking/controls';
+import Events from '../../../src/events';
 import { IMParticleWebSDKInstance } from '../../../src/mp-instance';
 import RoktManager, { IRoktKit } from '../../../src/roktManager';
 import { IKitConfigs } from '../../../src/configAPIClient';
 import { IMParticleUser } from '../../../src/identity-user-interfaces';
 import { SDKIdentityApi } from '../../../src/identity.interfaces';
+import ServerModel from '../../../src/serverModel';
 import { IStore } from '../../../src/store';
 import { BaseEvent, SDKEvent } from '../../../src/sdkRuntimeModels';
 
@@ -57,6 +59,7 @@ describe('ButtonTracker', () => {
             { launcherOptions }
         );
         roktManager.setAutoButtonClicksForwarded(true);
+        roktManager.setAutoLinkClicksForwarded(true);
     };
 
     const listener = (spy: jest.SpyInstance, type: string): Listener => {
@@ -164,6 +167,135 @@ describe('ButtonTracker', () => {
         });
         expect(winAdd).toHaveBeenCalledWith('pageshow', expect.any(Function), {
             passive: true,
+        });
+    });
+
+    describe('role controls and deep clicks', () => {
+        const deepPath = (control: Element, depth: number): Element[] => {
+            let inner: Element = control;
+            for (let i = 0; i < depth; i++) {
+                inner = inner.appendChild(document.createElement('span'));
+            }
+            const path: Element[] = [];
+            for (let node: Element | null = inner; node; node = node.parentElement) {
+                path.push(node);
+            }
+            return path;
+        };
+
+        it('logs a role radio with its group and type but never its text, and never as checkout intent', () => {
+            startTracker();
+            document.body.innerHTML =
+                '<div role="radiogroup" aria-label="Delivery options"><div role="radio" aria-checked="false" id="ship-to-jane">Ship to Jane Doe</div><div role="radio">Pick up</div></div>';
+            const radio = document.querySelector('[role="radio"]')!;
+
+            click(radio, [radio, radio.parentElement!, document.body, document]);
+
+            expect(logEvent).toHaveBeenCalledTimes(1);
+            const data = logEvent.mock.calls[0][0].data;
+            expect(data).toEqual(
+                expect.objectContaining({ element: 'role', type: 'radio', group: 'delivery options', label_source: 'none' })
+            );
+            expect(data.label).toBeUndefined();
+            expect(data.element_id).toBeUndefined();
+            expect(notify).not.toHaveBeenCalled();
+        });
+
+        it('logs a tab with its label, never as checkout intent', () => {
+            startTracker();
+            document.body.innerHTML = '<div role="tab">Reviews</div>';
+            const control = document.body.firstElementChild!;
+
+            click(control, [control, document.body, document]);
+
+            expect(logEvent.mock.calls[0][0].data).toEqual(
+                expect.objectContaining({ element: 'role', type: 'tab', label: 'reviews' })
+            );
+            expect(notify).not.toHaveBeenCalled();
+        });
+
+        it('logs a script-run link without its text, never as checkout intent', () => {
+            startTracker();
+            document.body.innerHTML = '<div role="link" id="account">Hi, Jane</div>';
+            const control = document.body.firstElementChild!;
+
+            click(control, [control, document.body, document]);
+
+            const data = logEvent.mock.calls[0][0].data;
+            expect(data).toEqual(
+                expect.objectContaining({ element: 'link', type: 'link', label_source: 'none', element_id: 'account' })
+            );
+            expect(data.label).toBeUndefined();
+            expect(notify).not.toHaveBeenCalled();
+        });
+
+        it.each([
+            ['inside a role control', '<div role="tab"><button disabled>Reviews</button></div>', 'button'],
+            ['around a role control', '<button disabled><span role="tab">Reviews</span></button>', '[role="tab"]'],
+            ['by class, as a wallet button', '<div role="link"><div id="paypal-button" class="disabled">PayPal</div></div>', '#paypal-button'],
+        ])('logs no click on a disabled control %s', (_name, html, selector) => {
+            startTracker();
+            document.body.innerHTML = html;
+            const target = document.querySelector(selector)!;
+            const path: Element[] = [];
+            for (let node: Element | null = target; node; node = node.parentElement) {
+                path.push(node);
+            }
+
+            click(target, path);
+
+            expect(logEvent).not.toHaveBeenCalled();
+        });
+
+        it.each([
+            ['a password field in a tab', '<div role="tab">Sign in <input type="password"></div>', 'input'],
+            ['a text field in a script-run link', '<div role="link">Search <input type="text"></div>', 'input'],
+            ['a text area in an option', '<div role="option"><textarea></textarea></div>', 'textarea'],
+            ['an editable region in a radio', '<div role="radio"><span contenteditable="true">Jane</span></div>', '[contenteditable]'],
+            ['a text field carrying a link role', '<input type="text" role="link" value="Jane">', 'input'],
+            ['a tab inside an editable region', '<div contenteditable="true"><span role="tab">Draft</span></div>', '[role="tab"]'],
+        ])('logs no click in %s', (_name, html, selector) => {
+            startTracker();
+            document.body.innerHTML = html;
+            const field = document.querySelector(selector)!;
+            const path: Element[] = [];
+            for (let node: Element | null = field; node; node = node.parentElement) {
+                path.push(node);
+            }
+
+            click(field, path);
+
+            expect(logEvent).not.toHaveBeenCalled();
+        });
+
+        it('logs no disabled role control', () => {
+            startTracker();
+            document.body.innerHTML = '<div role="tab" aria-disabled="true">Reviews</div>';
+            const control = document.body.firstElementChild!;
+
+            click(control, [control, document.body, document]);
+
+            expect(logEvent).not.toHaveBeenCalled();
+        });
+
+        it('logs a click deep inside a button but leaves checkout intent to the first 12 steps', () => {
+            startTracker();
+            const control = button('Place order');
+
+            click(control, deepPath(control, 14));
+
+            expect(logEvent).toHaveBeenCalledTimes(1);
+            expect(logEvent.mock.calls[0][0].data.label).toBe('place order');
+            expect(notify).not.toHaveBeenCalled();
+        });
+
+        it('logs nothing past 20 steps', () => {
+            startTracker();
+            const control = button('Add to bag');
+
+            click(control, deepPath(control, 20));
+
+            expect(logEvent).not.toHaveBeenCalled();
         });
     });
 
@@ -285,6 +417,21 @@ describe('ButtonTracker', () => {
         expect(notify).toHaveBeenCalledTimes(2);
     });
 
+    it('does not let a click that opens the cart throttle an add-to-cart click after it', () => {
+        startTracker();
+        const flyout = button('');
+        flyout.setAttribute('aria-expanded', 'false');
+        flyout.setAttribute('aria-label', 'My bag');
+
+        click(flyout);
+        jest.setSystemTime(1000500);
+        click(button('Add to bag'));
+        jest.setSystemTime(1001000);
+        click(button('Add to bag'));
+
+        expect(notify.mock.calls.map(call => !!call[0].adds)).toEqual([false, true]);
+    });
+
     it('does not throttle a different kind or a different path', () => {
         startTracker();
 
@@ -307,6 +454,36 @@ describe('ButtonTracker', () => {
         afterPaint();
 
         expect(notify).toHaveBeenCalledWith(expect.objectContaining({ kind: 'commit', t: 1000000 }));
+    });
+
+    it("applies the kit's checkout intent selectors to clicks and submits", () => {
+        roktManager.attachKit(({
+            filters: {},
+            launcher: {},
+            onCheckoutIntent: notify,
+            checkoutIntentSelectors: { commit: ['.confirm-order'] },
+        } as unknown) as IRoktKit);
+        startTracker();
+        const confirm = button('Weiter');
+        confirm.className = 'confirm-order';
+
+        click(confirm);
+        jest.advanceTimersByTime(5000);
+        listener(docAdd, 'submit')(trustedSubmit(confirm));
+        afterPaint();
+
+        expect(notify.mock.calls.map(call => [call[0].kind, call[0].source])).toEqual([
+            ['commit', 'selector'],
+            ['commit', 'selector'],
+        ]);
+    });
+
+    it('reads no selectors when the kit sets none', () => {
+        startTracker();
+
+        click(button('Weiter'));
+
+        expect(notify).not.toHaveBeenCalled();
     });
 
     it('ignores a submit whose submitter is not a checkout control', () => {
@@ -505,6 +682,174 @@ describe('ButtonTracker', () => {
             expect(pick).not.toHaveBeenCalled();
         });
 
+        it.each([
+            ['a confirm click', 'Place order', 'commit'],
+            ['a checkout-step click', 'Checkout', 'checkout_step'],
+        ])('hands the kit the payment radio the page holds checked on %s, before the intent', (_, label, kind) => {
+            startTracker();
+            paymentRadio(true);
+
+            click(button(label));
+
+            expect(pick).toHaveBeenCalledWith({
+                t: 1000000,
+                pathname: '/checkout',
+                names: ['paypal', 'paypal-option'],
+                family: undefined,
+            });
+            expect(notify).toHaveBeenCalledWith(expect.objectContaining({ kind }));
+            expect(pick.mock.invocationCallOrder[0]).toBeLessThan(
+                notify.mock.invocationCallOrder[0]
+            );
+            expect(JSON.stringify(logEvent.mock.calls)).not.toContain('paypal');
+        });
+
+        const rolePaymentRadio = () => {
+            document.body.insertAdjacentHTML(
+                'beforeend',
+                '<div role="radiogroup" aria-label="Payment method"><button role="radio" aria-checked="true" data-testid="venmo-option">Venmo</button></div>'
+            );
+            return document.querySelector('[data-testid="venmo-option"]')!;
+        };
+
+        it.each([
+            ['removes the radio', () => paymentRadio(true), (radio: Element) => radio.remove(), ['paypal', 'paypal-option']],
+            [
+                'unchecks the radio',
+                () => paymentRadio(true),
+                (radio: Element) => {
+                    (radio as HTMLInputElement).checked = false;
+                },
+                ['paypal', 'paypal-option'],
+            ],
+            [
+                'unchecks a role radio',
+                rolePaymentRadio,
+                (radio: Element) => radio.setAttribute('aria-checked', 'false'),
+                ['venmo', 'venmo-option'],
+            ],
+        ])('keeps the payment radio the confirm click found checked when the page %s before delivery', (_, setup, change, names) => {
+            startTracker();
+            const radio = setup();
+
+            listener(docAdd, 'click')(trustedClick(button('Place order')));
+            change(radio);
+            afterPaint();
+
+            expect(pick).toHaveBeenCalledWith(expect.objectContaining({ names }));
+            expect(notify).toHaveBeenCalledWith(expect.objectContaining({ kind: 'commit' }));
+            expect(pick.mock.invocationCallOrder[0]).toBeLessThan(notify.mock.invocationCallOrder[0]);
+        });
+
+        it.each([
+            ['hands over', true],
+            ['hands over nothing for', false],
+        ])('%s the checked payment radio on a checkout link logged as a link click, by whether the kit receives link clicks', (_, forwarded) => {
+            roktManager.setAutoLinkClicksForwarded(forwarded);
+            startTracker(true, { logButtons: true, logLinks: true });
+            paymentRadio(true);
+            const link = document.createElement('a');
+            link.href = '/checkout/payment';
+            link.textContent = 'Checkout';
+            document.body.appendChild(link);
+
+            click(link);
+
+            expect(logEvent.mock.calls[0][0].name).toBe('Auto Link Click');
+            if (forwarded) {
+                expect(pick).toHaveBeenCalledWith(expect.objectContaining({ names: ['paypal', 'paypal-option'] }));
+            } else {
+                expect(pick).not.toHaveBeenCalled();
+                expect(notify).not.toHaveBeenCalled();
+            }
+        });
+
+        it.each([
+            ['hands over', true],
+            ['hands over nothing for', false],
+        ])('%s a payment option link logged as a link click, by whether the kit receives link clicks', (_, forwarded) => {
+            roktManager.setAutoLinkClicksForwarded(forwarded);
+            startTracker(true, { logButtons: true, logLinks: true });
+            document.body.innerHTML =
+                '<div role="radiogroup" aria-label="Payment method"><a href="/checkout/paypal" role="radio" aria-checked="true" id="paypal-link">PayPal</a></div>';
+
+            click(document.getElementById('paypal-link')!);
+
+            expect(logEvent.mock.calls[0][0].name).toBe('Auto Link Click');
+            if (forwarded) {
+                expect(pick).toHaveBeenCalledWith(expect.objectContaining({ names: ['paypal', 'paypal-link'] }));
+            } else {
+                expect(pick).not.toHaveBeenCalled();
+            }
+        });
+
+        it('hands over nothing on a confirm click while no payment radio is checked', () => {
+            startTracker();
+            paymentRadio(false);
+
+            click(button('Place order'));
+
+            expect(pick).not.toHaveBeenCalled();
+            expect(notify).toHaveBeenCalledWith(expect.objectContaining({ kind: 'commit' }));
+        });
+
+        it.each([
+            ['a wallet tap', 'Apple Pay', 'wallet'],
+            ['a cart click', 'Add to bag', 'cart'],
+            ['a confirm click that names a wallet', 'Place order with PayPal', 'commit'],
+            ['a confirm click that names a wallet after its verb', 'Complete purchase with Apple Pay', 'commit'],
+            ['a confirm click that names a wallet before punctuation', 'Place order with PayPal!', 'commit'],
+        ])('hands over no checked payment radio on %s', (_, label, kind) => {
+            startTracker();
+            paymentRadio(true);
+
+            click(button(label));
+
+            expect(pick).not.toHaveBeenCalled();
+            expect(notify).toHaveBeenCalledWith(expect.objectContaining({ kind }));
+        });
+
+        it.each([
+            ['id', 'id', 'paypal-pay-button'],
+            ['test id', 'data-testid', 'applePayPlaceOrder'],
+            ['name', 'name', 'venmo_checkout'],
+            ['numbered id', 'id', 'paypal2'],
+            ['labelling element', 'aria-labelledby', 'pay-label'],
+        ])('hands over no checked payment radio on a confirm click whose %s names a wallet', (_, attribute, value) => {
+            startTracker();
+            paymentRadio(true);
+            document.body.insertAdjacentHTML('beforeend', '<span id="pay-label">Pay with PayPal</span>');
+            const control = button('Place order');
+            control.setAttribute(attribute, value);
+
+            click(control);
+
+            expect(pick).not.toHaveBeenCalled();
+            expect(notify).toHaveBeenCalledWith(expect.objectContaining({ kind: 'commit' }));
+        });
+
+        it('hands over no checked payment radio on a confirm click that names a wallet while clicks are not logged', () => {
+            startTracker(true, { logButtons: false, logLinks: false });
+            paymentRadio(true);
+
+            click(button('Place order with PayPal'));
+
+            expect(pick).not.toHaveBeenCalled();
+            expect(notify).toHaveBeenCalledWith(expect.objectContaining({ kind: 'commit' }));
+        });
+
+        it('hands the kit the checked payment radio when only an identifier the logged click leaves out names a wallet', () => {
+            startTracker();
+            paymentRadio(true);
+            const control = button('Place order');
+            control.setAttribute('data-testid', 'place-order');
+            control.setAttribute('data-qa', 'paypal');
+
+            click(control);
+
+            expect(pick).toHaveBeenCalledWith(expect.objectContaining({ names: ['paypal', 'paypal-option'] }));
+        });
+
         it('hands the kit the family of a focused payment frame before the wallet intent', () => {
             startTracker();
 
@@ -543,6 +888,7 @@ describe('ButtonTracker', () => {
             const radio = paymentRadio(true);
 
             click(radio, [radio, radio.parentElement!, document.body, document]);
+            click(button('Place order'));
             focusFrame('https://pay.google.com/gp/p/ui/payframe');
 
             expect(pick).not.toHaveBeenCalled();
@@ -553,6 +899,7 @@ describe('ButtonTracker', () => {
             const radio = paymentRadio(true);
 
             click(radio, [radio, radio.parentElement!, document.body, document]);
+            click(button('Place order'));
 
             expect(pick).not.toHaveBeenCalled();
         });
@@ -753,7 +1100,7 @@ describe('ButtonTracker', () => {
                     hostname: window.location.hostname,
                     [AUTO_BUTTON_ATTRIBUTE]: true,
                 },
-            });
+            }, undefined, 1000000);
         });
 
         it('records a button as it was clicked, even if the page disables or relabels it', () => {
@@ -764,10 +1111,13 @@ describe('ButtonTracker', () => {
             // The page's own handler runs after this capture listener.
             target.disabled = true;
             target.textContent = 'Processing';
+            jest.setSystemTime(1000025);
             afterPaint();
 
             expect(logEvent).toHaveBeenCalledTimes(1);
             expect(logEvent.mock.calls[0][0].data.label).toBe('place order');
+            expect(logEvent.mock.calls[0][1]).toBeUndefined();
+            expect(logEvent.mock.calls[0][2]).toBe(1000000);
             expect(notify).toHaveBeenCalledWith(expect.objectContaining({ kind: 'commit', t: 1000000 }));
         });
 
@@ -805,6 +1155,123 @@ describe('ButtonTracker', () => {
             expect(resetSessionTimer.mock.invocationCallOrder[0]).toBeLessThan(
                 logEvent.mock.invocationCallOrder[0]
             );
+        });
+
+        describe('with Events and ServerModel', () => {
+            let sendEventToServer: jest.Mock;
+            let sessionStore: {
+                sessionId: string;
+                sessionStartDate: Date | null;
+                dateLastEventSent?: Date;
+                isEnabled: boolean;
+                SDKConfig: {
+                    isDevelopmentMode: boolean;
+                    flags: Record<string, unknown>;
+                };
+            };
+
+            const startRealEventsTracker = (
+                logs = { logButtons: true, logLinks: true }
+            ): ButtonTracker => {
+                sendEventToServer = jest.fn();
+                sessionStore = {
+                    sessionId: 'test-session-id',
+                    sessionStartDate: new Date(900000),
+                    isEnabled: true,
+                    SDKConfig: {
+                        isDevelopmentMode: false,
+                        flags: { autoButtonTracking: true },
+                    },
+                };
+                const mpInstance = ({
+                    _Store: sessionStore,
+                    _Helpers: {
+                        canLog: () => true,
+                        getFeatureFlag: () => false,
+                        sanitizeAttributes: (
+                            attributes: Record<string, unknown>
+                        ) => ({
+                            ...attributes,
+                        }),
+                        generateUniqueId: () => 'source-message-id',
+                    },
+                    _APIClient: { sendEventToServer },
+                    _RoktManager: roktManager,
+                    _SessionManager: { resetSessionTimer },
+                    _ServerModel: {},
+                    _Events: {},
+                    Identity: { getCurrentUser: () => null },
+                    Logger: { verbose: jest.fn() },
+                    getAppVersion: () => undefined,
+                    getAppName: () => undefined,
+                } as unknown) as IMParticleWebSDKInstance;
+                ServerModel.call(mpInstance._ServerModel, mpInstance);
+                Events.call(mpInstance._Events, mpInstance);
+                const tracker = new ButtonTracker(mpInstance);
+                tracker.init({ hasRoktKit: true, ...logs });
+                return tracker;
+            };
+
+            it('stamps queued Auto Button Click and Auto Link Click events with the click capture time on next-paint delivery', () => {
+                startRealEventsTracker();
+                const btn = button('Place order');
+                const link = document.createElement('a');
+                link.href = '/checkout/paypal';
+                link.setAttribute('role', 'button');
+                link.id = 'pay-paypal';
+                link.textContent = 'Continue';
+                document.body.appendChild(link);
+
+                listener(docAdd, 'click')(trustedClick(btn));
+                jest.setSystemTime(1000025);
+                afterPaint();
+
+                expect(sendEventToServer).toHaveBeenCalledTimes(1);
+                expect(sendEventToServer.mock.calls[0][0]).toEqual(
+                    expect.objectContaining({
+                        EventName: 'Auto Button Click',
+                        Timestamp: 1000000,
+                    })
+                );
+
+                jest.setSystemTime(1000100);
+                listener(docAdd, 'click')(trustedClick(link));
+                jest.setSystemTime(1000125);
+                afterPaint();
+
+                expect(sendEventToServer).toHaveBeenCalledTimes(2);
+                expect(sendEventToServer.mock.calls[1][0]).toEqual(
+                    expect.objectContaining({
+                        EventName: 'Auto Link Click',
+                        Timestamp: 1000100,
+                    })
+                );
+            });
+
+            it('falls back to the delivery time when resetSessionTimer starts a new session before the click is logged', () => {
+                startRealEventsTracker();
+                const clickedAt = Date.now();
+                let deliveredAt = 0;
+                resetSessionTimer.mockImplementation(() => {
+                    deliveredAt = Date.now();
+                    sessionStore.sessionStartDate = new Date(deliveredAt);
+                });
+
+                listener(docAdd, 'click')(trustedClick(button('Place order')));
+                jest.setSystemTime(1000025);
+                afterPaint();
+
+                expect(resetSessionTimer).toHaveBeenCalledTimes(1);
+                expect(deliveredAt).toBeGreaterThan(clickedAt);
+                expect(sendEventToServer).toHaveBeenCalledTimes(1);
+                expect(sendEventToServer.mock.calls[0][0]).toEqual(
+                    expect.objectContaining({
+                        EventName: 'Auto Button Click',
+                        Timestamp: deliveredAt,
+                        SessionStartDate: deliveredAt,
+                    })
+                );
+            });
         });
 
         it('logs every button the same way and sends only checkout intent to the kit', () => {
@@ -851,7 +1318,9 @@ describe('ButtonTracker', () => {
                 click(document.querySelector('[data-testid="header-cart"]')!);
 
                 expect(logEvent).toHaveBeenCalledWith(
-                    expect.objectContaining({ name: 'Auto Button Click' })
+                    expect.objectContaining({ name: 'Auto Button Click' }),
+                    undefined,
+                    1000000
                 );
                 expect(notify).not.toHaveBeenCalled();
             });
@@ -880,7 +1349,7 @@ describe('ButtonTracker', () => {
                         hostname: window.location.hostname,
                         [AUTO_BUTTON_ATTRIBUTE]: true,
                     },
-                });
+                }, undefined, 1000000);
                 expect(notify).toHaveBeenCalledTimes(1);
                 expect(notify.mock.calls[0][0]).toEqual({
                     kind: 'cart',
@@ -925,6 +1394,19 @@ describe('ButtonTracker', () => {
                 click(flyout);
 
                 expect(notify).toHaveBeenCalledWith(expect.objectContaining({ kind: 'cart' }));
+                expect(notify.mock.calls[0][0]).not.toHaveProperty('adds');
+            });
+
+            it('tells the kit an add-to-bag click adds to the cart', () => {
+                startTracker();
+
+                click(button('Add to bag'));
+
+                expect(notify).toHaveBeenCalledTimes(1);
+                expect(notify.mock.calls[0][0]).toEqual(
+                    expect.objectContaining({ kind: 'cart', source: 'label', adds: true })
+                );
+                expect(Object.isFrozen(notify.mock.calls[0][0])).toBe(true);
             });
 
             it('logs a cart-labelled checkbox and never signals the kit', () => {
@@ -1069,7 +1551,7 @@ describe('ButtonTracker', () => {
                         hostname: window.location.hostname,
                         [AUTO_LINK_ATTRIBUTE]: true,
                     },
-                });
+                }, undefined, 1000000);
             });
 
             it.each([
@@ -1134,6 +1616,48 @@ describe('ButtonTracker', () => {
                 expect(notify).toHaveBeenCalledWith(expect.objectContaining({ kind: 'checkout_step' }));
             });
 
+            describe('when the Rokt connection does not receive auto link clicks', () => {
+                beforeEach(() => roktManager.setAutoLinkClicksForwarded(false));
+
+                it('logs a link click but sends the kit no intent from it', () => {
+                    startTracker(true, bothOn);
+
+                    click(link('/checkout/payment', 'Checkout'));
+
+                    expect(logEvent.mock.calls[0][0].name).toBe('Auto Link Click');
+                    expect(notify).not.toHaveBeenCalled();
+                });
+
+                it('still sends the kit intent from a button click', () => {
+                    startTracker(true, bothOn);
+
+                    click(link('/checkout/payment', 'Checkout'));
+                    click(button('Place order'));
+
+                    expect(notify).toHaveBeenCalledTimes(1);
+                    expect(notify).toHaveBeenCalledWith(expect.objectContaining({ kind: 'commit' }));
+                });
+
+                it('sends no intent from a link click even when the click is not logged', () => {
+                    const tracker = startTracker(true, bothOn);
+                    jest.spyOn(tracker as any, 'eventsEnabled').mockReturnValue(false);
+
+                    click(link('/checkout/payment', 'Checkout'));
+
+                    expect(logEvent).not.toHaveBeenCalled();
+                    expect(notify).not.toHaveBeenCalled();
+                });
+
+                it('keeps intent from links while link tracking is off', () => {
+                    startTracker();
+
+                    click(link('/checkout/payment', 'Checkout'));
+
+                    expect(logEvent).not.toHaveBeenCalled();
+                    expect(notify).toHaveBeenCalledWith(expect.objectContaining({ kind: 'checkout_step' }));
+                });
+            });
+
             it('does not start with neither click stream on and the kit suppressed', () => {
                 store.SDKConfig.flags.autoButtonTracking = false;
                 startTracker(true, { logButtons: false, logLinks: false });
@@ -1168,7 +1692,7 @@ describe('ButtonTracker', () => {
                     hostname: window.location.hostname,
                     [AUTO_BUTTON_ATTRIBUTE]: true,
                 },
-            });
+            }, undefined, 1000000);
             expect(notify).not.toHaveBeenCalled();
         });
 
@@ -1343,13 +1867,19 @@ describe('ButtonTracker', () => {
         let originalFetch: typeof global.fetch;
 
         // Stands in for createEventObject with the fields an upload carries.
-        const toSDKEvent = (event: BaseEvent): SDKEvent =>
+        const toSDKEvent = (
+            event: BaseEvent,
+            capturedAt?: number
+        ): SDKEvent =>
             (({
                 EventName: event.name,
                 EventCategory: event.eventType,
                 EventDataType: event.messageType,
                 EventAttributes: event.data,
-                Timestamp: Date.now(),
+                Timestamp:
+                    typeof capturedAt === 'number'
+                        ? capturedAt
+                        : Date.now(),
                 SessionId: 'session-id',
                 MPID: 'test-mpid',
             } as unknown) as SDKEvent);
@@ -1380,8 +1910,9 @@ describe('ButtonTracker', () => {
                 intervalMillis
             );
             apiClient.uploader = uploader;
-            logEvent.mockImplementation((event: BaseEvent) =>
-                uploader.queueEvent(toSDKEvent(event))
+            logEvent.mockImplementation(
+                (event: BaseEvent, _options?: unknown, capturedAt?: number) =>
+                    uploader.queueEvent(toSDKEvent(event, capturedAt))
             );
             upload.mockImplementation(() =>
                 uploader.prepareAndUpload(false, false)
@@ -1408,163 +1939,72 @@ describe('ButtonTracker', () => {
             delete (navigator as any).sendBeacon;
         });
 
-        it('uploads a click at once, without waiting for the batch interval', () => {
-            startUploader(10000);
-            startTracker();
-
-            click(button('Add to cart'));
-
-            expect(upload).toHaveBeenCalledTimes(1);
-            expect(uploadedEventNames()).toEqual([['Auto Button Click']]);
-
-            jest.advanceTimersByTime(100);
-
-            expect(upload).toHaveBeenCalledTimes(1);
-        });
-
-        it('sends the first tap at once and the rest of a burst as one upload', () => {
-            startUploader(10000);
-            startTracker();
-            const target = button('Add');
-
-            // Taps 60 ms apart, each inside the wait the previous one started.
-            for (let i = 0; i < 4; i++) {
-                click(target);
-                jest.advanceTimersByTime(20);
-            }
-            // The burst outlasts one wait, so each tap restarted it.
-            expect(uploadedEventNames()).toEqual([['Auto Button Click']]);
-
-            jest.advanceTimersByTime(100);
-
-            expect(upload).toHaveBeenCalledTimes(2);
-            expect(uploadedEventNames()).toEqual([
-                ['Auto Button Click'],
-                [
-                    'Auto Button Click',
-                    'Auto Button Click',
-                    'Auto Button Click',
-                ],
-            ]);
-        });
-
-        it('leaves a checkbox or radio click for the batch interval', () => {
-            startUploader(10000);
-            startTracker();
-            document.body.insertAdjacentHTML(
-                'beforeend',
-                '<input type="checkbox" id="size"><input type="radio" id="speed">'
-            );
-
-            click(document.getElementById('size')!);
-            click(document.getElementById('speed')!);
-            jest.advanceTimersByTime(100);
-
-            expect(upload).not.toHaveBeenCalled();
-            expect(uploadedEventNames()).toEqual([]);
-
-            jest.advanceTimersByTime(10000);
-
-            expect(uploadedEventNames()).toEqual([
-                ['Auto Button Click', 'Auto Button Click'],
-            ]);
-        });
-
-        it('sends a waiting checkbox click with the next button click', () => {
-            startUploader(10000);
-            startTracker();
-            document.body.insertAdjacentHTML('beforeend', '<input type="checkbox" id="size">');
-
-            click(document.getElementById('size')!);
-            click(button('Add to cart'));
-
-            expect(upload).toHaveBeenCalledTimes(1);
-            expect(uploadedEventNames()).toEqual([
-                ['Auto Button Click', 'Auto Button Click'],
-            ]);
-        });
-
-        it('uploads clicks further apart than the wait each at once', () => {
-            startUploader(10000);
-            startTracker();
-            const target = button('Add');
-
-            click(target);
-            jest.advanceTimersByTime(110);
-            expect(uploadedEventNames()).toEqual([['Auto Button Click']]);
-
-            click(target);
-
-            expect(upload).toHaveBeenCalledTimes(2);
-            expect(uploadedEventNames()).toEqual([
-                ['Auto Button Click'],
-                ['Auto Button Click'],
-            ]);
-        });
-
-        it('adds no upload when batching is off and each click already went', () => {
-            startUploader(0);
-            startTracker();
-
-            click(button('Add'));
-            click(button('Add'));
-            jest.advanceTimersByTime(100);
-
-            expect(upload).not.toHaveBeenCalled();
-            expect(uploadedEventNames()).toEqual([
-                ['Auto Button Click'],
-                ['Auto Button Click'],
-            ]);
-        });
-
-        it('forces no upload for a click held back from the upload queue', () => {
-            startUploader(10000);
-            uploader.queueEvent(
-                toSDKEvent({ name: 'Earlier', messageType: 4, eventType: 8 })
-            );
-            startTracker();
-            // Held, as before an MPID: the click never reaches the uploader.
-            logEvent.mockImplementation(() => undefined);
-
-            click(button('Add'));
-            jest.advanceTimersByTime(100);
-
-            expect(upload).not.toHaveBeenCalled();
-            expect(fetchMock).not.toHaveBeenCalled();
-        });
-
-        it.each([
-            ['teardown', (tracker: ButtonTracker) => tracker.teardown()],
-            ['reset', () => resetButtonTracking()],
-            ['opt-out', (tracker: ButtonTracker) => tracker.clearPending()],
-        ])('cancels the early upload of a held tap on %s', (_, stop) => {
-            startUploader(10000);
-            const tracker = startTracker();
-            const target = button('Add');
-
-            click(target);
-            click(target);
-            stop(tracker);
-            jest.advanceTimersByTime(100);
-
-            expect(upload).toHaveBeenCalledTimes(1);
-        });
-
-        // Bodies the exit upload hands to sendBeacon.
-        const beaconBodies = (): string[] => {
-            const beacons: string[] = [];
+        // Event names in each upload sendBeacon was handed.
+        const beaconBodies = (): string[][] => {
+            const beacons: string[][] = [];
             jest.spyOn(window, 'Blob').mockImplementation(
                 (parts: BlobPart[]) =>
                     (({ body: parts[0] } as unknown) as Blob)
             );
             (navigator as any).sendBeacon = jest.fn(
                 (_url: string, blob: { body: string }) => {
-                    beacons.push(blob.body);
+                    beacons.push(
+                        JSON.parse(blob.body).events.map(
+                            (event: { data: { event_name: string } }) =>
+                                event.data.event_name
+                        )
+                    );
                     return true;
                 }
             );
             return beacons;
         };
+
+        it('leaves a click for the batch interval instead of uploading it at once', () => {
+            startUploader(10000);
+            startTracker();
+
+            click(button('Add to cart'));
+            jest.advanceTimersByTime(100);
+
+            expect(upload).not.toHaveBeenCalled();
+            expect(fetchMock).not.toHaveBeenCalled();
+
+            jest.advanceTimersByTime(10000);
+
+            expect(uploadedEventNames()).toEqual([['Auto Button Click']]);
+        });
+
+        it('sends a burst of taps in one batch', () => {
+            startUploader(10000);
+            startTracker();
+            const target = button('Add');
+
+            for (let i = 0; i < 3; i++) {
+                click(target);
+                jest.advanceTimersByTime(20);
+            }
+            jest.advanceTimersByTime(10000);
+
+            expect(upload).not.toHaveBeenCalled();
+            expect(uploadedEventNames()).toEqual([
+                ['Auto Button Click', 'Auto Button Click', 'Auto Button Click'],
+            ]);
+        });
+
+        it('sends each click as it is logged when batching is off', () => {
+            startUploader(0);
+            startTracker();
+
+            click(button('Add'));
+            click(button('Add'));
+
+            expect(upload).not.toHaveBeenCalled();
+            expect(uploadedEventNames()).toEqual([
+                ['Auto Button Click'],
+                ['Auto Button Click'],
+            ]);
+        });
 
         it.each(['beforeunload', 'pagehide'])(
             'leaves a click to the exit upload when the page is left before the next paint (%s)',
@@ -1579,51 +2019,27 @@ describe('ButtonTracker', () => {
 
                 expect(upload).not.toHaveBeenCalled();
                 expect(fetchMock).not.toHaveBeenCalled();
-                expect(
-                    beacons.map(body =>
-                        JSON.parse(body).events.map(
-                            (event: { data: { event_name: string } }) =>
-                                event.data.event_name
-                        )
-                    )
-                ).toEqual([['Auto Button Click']]);
+                expect(beacons).toEqual([['Auto Button Click']]);
             }
         );
 
-        it('has a click on its way when the page is left after the next paint', () => {
-            (navigator as any).sendBeacon = jest.fn(() => true);
+        // A fetch started on the click is cancelled when the click opens
+        // another page, so the exit upload is what carries it.
+        it('sends a click made before the page is left with the exit upload', () => {
+            const beacons = beaconBodies();
             startUploader(10000);
             startTracker();
 
             click(button('Add'));
+            click(button('Checkout'));
             window.dispatchEvent(new Event('pagehide'));
             jest.advanceTimersByTime(100);
 
-            expect(upload).toHaveBeenCalledTimes(1);
-            expect(uploadedEventNames()).toEqual([['Auto Button Click']]);
-            expect((navigator as any).sendBeacon).not.toHaveBeenCalled();
-        });
-
-        it('sends a held tap with the exit upload rather than after it', () => {
-            const beacons = beaconBodies();
-            startUploader(10000);
-            startTracker();
-            const target = button('Add');
-
-            click(target);
-            click(target);
-            window.dispatchEvent(new Event('pagehide'));
-            jest.advanceTimersByTime(100);
-
-            expect(upload).toHaveBeenCalledTimes(1);
-            expect(
-                beacons.map(body =>
-                    JSON.parse(body).events.map(
-                        (event: { data: { event_name: string } }) =>
-                            event.data.event_name
-                    )
-                )
-            ).toEqual([['Auto Button Click']]);
+            expect(upload).not.toHaveBeenCalled();
+            expect(fetchMock).not.toHaveBeenCalled();
+            expect(beacons).toEqual([
+                ['Auto Button Click', 'Auto Button Click'],
+            ]);
         });
     });
 
@@ -1847,6 +2263,26 @@ describe('ButtonTracker', () => {
                 })
             );
             expect(logEvent).not.toHaveBeenCalled();
+        });
+
+        it.each([
+            ['reports', true],
+            ['reports nothing for', false],
+        ])('%s Apple Pay begun right after a link tap logged as a link click, by whether the kit receives link clicks', (_, forwarded) => {
+            roktManager.setAutoLinkClicksForwarded(forwarded);
+            startTracker(true, { logButtons: true, logLinks: true });
+            document.body.innerHTML =
+                '<a href="https://pay.example.org/start" role="button"><span>More</span></a>';
+            clickInside(document.querySelector('span')!);
+
+            beginApplePay();
+            jest.advanceTimersByTime(0);
+
+            if (forwarded) {
+                expect(notify).toHaveBeenCalledWith(expect.objectContaining({ kind: 'wallet', source: 'api' }));
+            } else {
+                expect(notify).not.toHaveBeenCalled();
+            }
         });
 
         it('reports nothing when Apple Pay begins with no tap before it', () => {

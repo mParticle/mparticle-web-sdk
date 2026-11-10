@@ -204,7 +204,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "3.25.0";
+    var version = "3.32.2";
 
     var Constants = {
       sdkVersion: version,
@@ -2732,6 +2732,248 @@ var mParticle = (function () {
       }
     }
 
+    // Masks the parts of a page path that can single out one shopper: pagePath for
+    // the path a click logs, pageUrlPath for the page URL and page views every event
+    // carries.
+    // A token of letters and digits mixed, six or more long, as session ids,
+    // hex and UUID parts and invite codes are: `A1B2C3D4E5F6`, `550e8400`.
+    var MIXED_TOKEN = /^(?=[^0-9]*[0-9])(?=[^A-Za-z]*[A-Za-z])[A-Za-z0-9]{6,}$/;
+    // Letters alone, eight or more long, switching case three times or more, as a
+    // random code does (`xKpQzRtV`) and a camel-case route word rarely does.
+    var CASE_SWITCHING_TOKEN = /^(?=[A-Za-z]{8,}$)(?:[^a-z]*[a-z]+[A-Z]){3}/;
+    // Route words whose next segment names one person or carries a one-time code,
+    // as in `/profile/jane-smith` or `/reset/abcdefgh`.
+    var PERSONAL_ROUTE = /^(?:u|user|users|profile|profiles|member|members|people|reset|reset-password|password|verify|verification|confirm|activate|invite|invitation|token|unsubscribe|magic-link)$/i;
+    // Route words whose next segment is one shopper's order: any with `order` or
+    // `orders` as a whole word part, as in `view-order`, `order-received` or `order_id`.
+    var ORDER_ROUTE = /(?:^|[-_])orders?(?:[-_]|$)/i;
+    // Product words that name a way to buy, not an order: `pre-order`, `on-order`,
+    // `back-order`, `made-to-order`, as the whole route word only, so
+    // `return-to-order` and `pre-order-status` stay routes.
+    var PRODUCT_ORDER_WORD = /^(?:(?:pre|on|back)[-_]|made[-_]to[-_])orders?$/i;
+    // A `;` that starts a matrix parameter, plain or encoded any number of times.
+    var MATRIX_SEPARATOR = /;|%(?:25)*3B/i;
+    // A valid escape left after decoding stopped, as when a literal `%` before it
+    // can't be decoded again. What it hides is unknown, so it counts as sensitive.
+    var LEFTOVER_ESCAPE = /%[0-9A-F]{2}/i;
+    // Pages under a personal route that name no one: the sign-in, sign-up and
+    // account steps sites keep there, as in `/u/login` or `/u/mfa-sms-challenge`.
+    var ACCOUNT_PAGE = /^(?:log-?in|log-?out|sign-?in|sign-?out|sign-?up|register|registration|create-account|account|settings|forgot-password|reset-password|password|challenge|consent|callback|authorize|continue|mfa(?:-[a-z]+)*)$/i;
+    // Whether a segment after a route goes as `*`: always after an order route, and
+    // after a personal route unless it is one of the account pages kept there.
+    function hidesSegmentAfter(route, segment) {
+      return hidesNextSegment(route) && !(PERSONAL_ROUTE.test(route) && ACCOUNT_PAGE.test(segment));
+    }
+    function hidesNextSegment(route) {
+      return PERSONAL_ROUTE.test(route) || ORDER_ROUTE.test(route) && !PRODUCT_ORDER_WORD.test(route);
+    }
+    // How many times a value is decoded at most, so one encoded twice or more reads
+    // as its plain text.
+    var MAX_DECODES = 5;
+    // Decodes until the text stops changing. Undefined when the first decode fails;
+    // a later failure keeps what decoded so far, as a literal `%` would.
+    function decodeFully(text) {
+      var current = text;
+      for (var i = 0; i < MAX_DECODES; i++) {
+        var next = void 0;
+        try {
+          next = decodeURIComponent(current);
+        } catch (e) {
+          return i === 0 ? undefined : current;
+        }
+        if (next === current) {
+          return current;
+        }
+        current = next;
+      }
+      return current;
+    }
+    // The route word in a raw path segment: its last part behind an encoded slash,
+    // read before any matrix parameter such as `;jsessionid=`, its `;` encoded once,
+    // twice or not at all, so a parameter's own value never hides it. Undefined when
+    // it can't be decoded, or is still encoded after MAX_DECODES.
+    function routeWord(segment) {
+      var text = segment;
+      for (var i = 0; i < MAX_DECODES; i++) {
+        var route = text.split(MATRIX_SEPARATOR)[0];
+        var next = void 0;
+        try {
+          next = decodeURIComponent(route);
+        } catch (e) {
+          return i === 0 ? undefined : route.split('/').pop();
+        }
+        if (next === route) {
+          return route.split('/').pop();
+        }
+        text = next;
+      }
+      return undefined;
+    }
+    // The last segment before index i that isn't empty, so `/orders//12345678`
+    // still reads the order route.
+    function routeSegment(segments, i) {
+      var routeIndex = i - 1;
+      while (routeIndex > 0 && segments[routeIndex] === '') {
+        routeIndex--;
+      }
+      return segments[routeIndex];
+    }
+    // A piece with a lowercase letter right before an uppercase one, as a random
+    // code has and a Title-Case word doesn't.
+    var INNER_CASE_SWITCH = /[a-z][A-Z]/;
+    var isToken = function isToken(text) {
+      return MIXED_TOKEN.test(text) || CASE_SWITCHING_TOKEN.test(text);
+    };
+    var mixesLettersAndDigits = function mixesLettersAndDigits(piece) {
+      return /[0-9]/.test(piece) && /[A-Za-z]/.test(piece);
+    };
+    // `+` sits inside base64 tokens, so it never splits one. A token that `-` or `_`
+    // cuts into short pieces is still one when the pieces read as one joined and
+    // either a piece switches case inside it or two or more pieces mix letters and
+    // digits, as `a1b2-c3d4-e5f6` does. Title-Case-Words and plain slugs such as
+    // `iphone-15-pro` do neither.
+    function isTokenSegment(segment) {
+      var text = segment.replace(/\+/g, '');
+      var pieces = text.split(/[-_.~]/);
+      var joined = pieces.join('');
+      return pieces.some(isToken) || pieces.some(function (piece) {
+        return INNER_CASE_SWITCH.test(piece);
+      }) && isToken(joined) || pieces.filter(mixesLettersAndDigits).length >= 2 && MIXED_TOKEN.test(joined);
+    }
+    // A word a product name is made of: three or more letters, lowercase or
+    // Capitalised. A code's mixed case or capital-letter groups aren't words.
+    var isWord = function isWord(piece) {
+      return /^(?:[a-z]{3,}|[A-Z][a-z]{2,})$/.test(piece);
+    };
+    var UUID_IN_TEXT = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+    // Route words whose next segment names a product, as in `/p/<name>` or
+    // `/product/<name>`. Only there can words beside a token be a product's name
+    // rather than a person's or part of a code.
+    var PRODUCT_ROUTE = /^(?:p|product|products|item|items|dp|shop|catalog)$/i;
+    // A segment that holds a token goes as `*`. After a product route, only the
+    // token goes, so `/p/trail-runner-gtx-zq7Kd93Lm41` keeps its name as
+    // `/p/trail-runner-gtx-*`.
+    // Every piece that isn't a word in an unbroken run with the token goes with it
+    // as one `*`, so the rest of a UUID or of a code cut into short pieces never
+    // stays. A piece that can't be decoded or decodes to a separator counts as a
+    // token, and so does any piece that mixes letters and digits or switches case
+    // inside, as a code's short pieces do. The segment goes whole as `*` when no
+    // piece is a word or it holds a UUID. Undefined when it holds no token. `segment` is as the page
+    // has it, `text` decoded, `route` the route word before it.
+    function maskTokenSegment(segment, text, route) {
+      if (!isTokenSegment(text)) {
+        return undefined;
+      }
+      // A UUID anywhere in the decoded text, however its hyphens are escaped,
+      // takes the whole segment.
+      if (!route || !PRODUCT_ROUTE.test(route) || UUID_IN_TEXT.test(text)) {
+        return '*';
+      }
+      var parts = segment.split(/([-_.~])/);
+      var raws = parts.filter(function (_, i) {
+        return i % 2 === 0;
+      });
+      var separators = parts.filter(function (_, i) {
+        return i % 2 === 1;
+      });
+      var decoded = raws.map(function (raw) {
+        return decodeFully(raw);
+      });
+      var kinds = decoded.map(function (piece) {
+        if (piece === undefined || /[-_.~]/.test(piece)) {
+          return 'token';
+        }
+        var plain = piece.replace(/\+/g, '');
+        return isToken(plain) || mixesLettersAndDigits(plain) || INNER_CASE_SWITCH.test(plain) ? 'token' : isWord(plain) ? 'word' : 'other';
+      });
+      // Each unbroken run of pieces that aren't words is hidden when it holds a
+      // token.
+      var masked = kinds.map(function () {
+        return false;
+      });
+      for (var start = 0; start < kinds.length;) {
+        if (kinds[start] === 'word') {
+          start++;
+          continue;
+        }
+        var end = start;
+        while (end < kinds.length && kinds[end] !== 'word') {
+          end++;
+        }
+        // A run reads as a token also when only its pieces joined do.
+        if (kinds.slice(start, end).indexOf('token') !== -1 || isToken(raws.slice(start, end).join(''))) {
+          for (var k = start; k < end; k++) {
+            masked[k] = true;
+          }
+        }
+        start = end;
+      }
+      if (masked.indexOf(true) === -1 || kinds.indexOf('word') === -1) {
+        return '*';
+      }
+      var out = '';
+      for (var k = 0; k < raws.length; k++) {
+        if (masked[k] && k > 0 && masked[k - 1]) {
+          continue;
+        }
+        out += (k > 0 ? separators[k - 1] : '') + (masked[k] ? '*' : raws[k]);
+      }
+      return out;
+    }
+    // The path a click logs. A segment that can single out one shopper
+    // goes as `*`: one holding an @, `;` or `=`, an id, or the one after a route
+    // that names a person, carries a code or opens an order. A token inside a name
+    // goes as `*` alone. Kept segments stay exactly as the page has them, plain
+    // numbers included, since on a product page they name the product.
+    function pagePath(pathname) {
+      var segments = pathname.split('/');
+      return segments.map(function (segment, i) {
+        var text = decodeFully(segment);
+        var route = i > 0 ? routeWord(routeSegment(segments, i)) : '';
+        // A route word that can't be decoded may be any route, so the
+        // segment after it is hidden too.
+        var hiddenByRoute = i > 0 && !!text && (route === undefined || hidesSegmentAfter(route, text));
+        // An encoded slash hides several segments in one, so it goes whole.
+        if (text === undefined || /[@;=/]/.test(text) || LEFTOVER_ESCAPE.test(text) || hiddenByRoute) {
+          return '*';
+        }
+        var masked = maskTokenSegment(segment, text, route);
+        return masked === undefined ? segment : masked;
+      }).join('/');
+    }
+    // A token long enough that no page or product name looks like it: 16 or more
+    // letters and digits mixed, as checkout tokens are, 16 or more letters
+    // switching case like a random code, or a UUID.
+    var LONG_MIXED_TOKEN = /^(?=[^0-9]*[0-9])(?=[^A-Za-z]*[A-Za-z])[A-Za-z0-9]{16,}$/;
+    var LONG_CASE_SWITCHING_TOKEN = /^(?=[A-Za-z]{16,}$)(?:[^a-z]*[a-z]+[A-Z]){3}/;
+    var UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    // A token that `-` or `_` cuts into shorter pieces counts when two or more
+    // pieces mix letters and digits, as `a1b2c3d4-e5f6g7h8` does and a product slug
+    // such as `acmephone-15-pro-max-256gb` doesn't.
+    function isLongToken(segment) {
+      var pieces = segment.replace(/\+/g, '').split(/[-_.~]/);
+      return UUID.test(segment) || pieces.some(function (piece) {
+        return LONG_MIXED_TOKEN.test(piece) || LONG_CASE_SWITCHING_TOKEN.test(piece);
+      }) || pieces.filter(mixesLettersAndDigits).length >= 2 && LONG_MIXED_TOKEN.test(pieces.join(''));
+    }
+    // The path every event carries, in its page URL and page views, where a
+    // wrong `*` costs every output the page it names. Only what reliably singles
+    // out one shopper goes as `*`: a segment holding an @, `;` or `=`, one that
+    // can't be decoded or still holds an escape, a long token, and the one after a
+    // route that names a person or opens an order when it holds a digit or a token.
+    // Product codes and pages such as `/profile/edit` or `/orders/history` stay.
+    function pageUrlPath(pathname) {
+      var segments = pathname.split('/');
+      return segments.map(function (segment, i) {
+        var text = decodeFully(segment);
+        var route = i > 0 ? routeWord(routeSegment(segments, i)) : '';
+        var holdsId = !!text && (/[0-9]/.test(text) || isTokenSegment(text));
+        // A route word that can't be decoded may be any route.
+        var hiddenByRoute = i > 0 && !!text && (route === undefined || hidesNextSegment(route) && holdsId);
+        return text === undefined || /[@;=/]/.test(text) || LEFTOVER_ESCAPE.test(text) || isLongToken(text) || hiddenByRoute ? '*' : segment;
+      }).join('/');
+    }
+
     var HISTORY_METHODS = ['pushState', 'replaceState'];
     var WRAPPED_MARKER = '__mpApvWrapped__';
     var supportsHistoryTracking = function supportsHistoryTracking(win) {
@@ -3073,7 +3315,8 @@ var mParticle = (function () {
         data: __assign(__assign(__assign({}, paramsToAttributes(params)), {
           hostname: hostname,
           title: title,
-          path: path
+          // Masked here, not in the page snapshot, whose raw path tells one page from the next.
+          path: pageUrlPath(path)
         }), autoPageViewAttribute(isAutoPageView)),
         eventType: EventType.Unknown
       };
@@ -3169,7 +3412,9 @@ var mParticle = (function () {
         var name = _a.name;
         return name;
       });
-      return names.length ? "".concat(page.path, " (params: ").concat(names.join(), ")") : page.path;
+      // A log line is read by no output, so it takes the click path's fuller rules.
+      var path = pagePath(page.path);
+      return names.length ? "".concat(path, " (params: ").concat(names.join(), ")") : path;
     };
     // ---------------------------------------------------------------------------
     // History patching
@@ -3343,7 +3588,9 @@ var mParticle = (function () {
           title: title,
           isAutoPageView: this.isAutoPageView
         }));
-        this.log("[fire] deferred flush -> _Events.logEvent(PageView) (page: ".concat(describePage(page), ", title: ").concat(title, ")"));
+        // A title can name the shopper or an order, so it stays out of the log
+        // line, for the same reason describePage omits param values.
+        this.log("[fire] deferred flush -> _Events.logEvent(PageView) (page: ".concat(describePage(page), ")"));
         this.mpInstance._Events.logEvent(event);
       };
       PageViewTracker.prototype.log = function (message) {
@@ -3353,12 +3600,16 @@ var mParticle = (function () {
     }();
 
     // The one rule for a URL that leaves the SDK, shared with kits through
-    // `mParticle._cleanUrl`. `path` keeps scheme, host and path. `full` adds the
+    // `mParticle._cleanUrl`. `path` keeps scheme, host and path, with any path
+    // segment that can single out one shopper as `*` (see pageUrlPath). `full` adds the
     // query params an auto page view captures by default and the campaign
-    // attribution params, then the fragment.
+    // attribution params, then the fragment, a hash route's path masked the same way.
     var UrlMode = {
       Path: 'path',
-      Full: 'full'
+      Full: 'full',
+      // A path for a log or an error report, masked with the click path's fuller
+      // rules, since no output reads it as a page.
+      Report: 'report'
     };
     // Campaign attribution and ad-network click ids. URLs keep them; an auto page view
     // carries one as an attribute only when an input configures it.
@@ -3377,6 +3628,31 @@ var mParticle = (function () {
     // Allowlisted params whose value is itself a URL, so it can carry a query.
     var URL_VALUED_QUERY_PARAMS = ['ref', 'referrer'];
     var USERINFO = /^((?:[a-z][a-z0-9+.-]*:)?\/\/)[^/]*@/i;
+    var ORIGIN = /^(?:[a-z][a-z0-9+.-]*:)?\/\/[^/]*/i;
+    // Only a URL or a path is masked. A bare value, such as `ref=spring2024`, is a
+    // code rather than a page, and stays as written.
+    var maskPath = function maskPath(url, mask) {
+      if (mask === void 0) {
+        mask = pageUrlPath;
+      }
+      var origin = ORIGIN.exec(url);
+      if (origin) {
+        return origin[0] + mask(url.slice(origin[0].length));
+      }
+      return url.charAt(0) === '/' ? mask(url) : url;
+    };
+    // A hash route keeps its `#` or `#!` and has its path masked as the URL's own.
+    // The `&` pairs or flags after the path lose the OAuth/OIDC ones, as a bare
+    // fragment's pairs do.
+    var maskRoute = function maskRoute(route) {
+      var prefix = /^#!?/.exec(route)[0];
+      var pairsStart = route.indexOf('&');
+      var pathEnd = pairsStart === -1 ? route.length : pairsStart;
+      var pairs = route.slice(pathEnd).split('&').slice(1).filter(keepsFragmentPair).map(function (pair) {
+        return "&".concat(pair);
+      }).join('');
+      return prefix + pageUrlPath(route.slice(prefix.length, pathEnd)) + pairs;
+    };
     var decodeQueryComponent = function decodeQueryComponent(component) {
       return decodeURIComponent(component.replace(/\+/g, ' '));
     };
@@ -3424,15 +3700,24 @@ var mParticle = (function () {
     var cleanFragment = function cleanFragment(hash) {
       var queryStart = hash.indexOf('?');
       var route = queryStart === -1 ? hash : hash.slice(0, queryStart);
-      var isRoute = /^#[/!]/.test(hash) || queryStart !== -1 && route.indexOf('=') === -1;
+      // `#/\u2026`, `#!\u2026`, or a fragment with a `/` before any `&` or `?`, as
+      // `#orders/12345678` is in routers that drop the leading slash.
+      // A `/` counts only before any `=`, so a bare pair such as
+      // `#access_token=abc/def` is never read as a route.
+      var isHashRoute = /^#!|^#[^?&=]*\//.test(hash);
+      var isRoute = isHashRoute || queryStart !== -1 && route.indexOf('=') === -1;
       if (isRoute && queryStart !== -1) {
         var query = cleanQuery(hash.slice(queryStart + 1));
-        return route + (query ? "?".concat(query) : '');
+        return maskRoute(route) + (query ? "?".concat(query) : '');
       }
+      // A plain anchor such as `#reviews` names a part of the page, not a route.
       if (hash.indexOf('=') === -1) {
-        return hash;
+        return isHashRoute ? maskRoute(hash) : hash;
       }
-      var pairs = hash.slice(1).split('&').filter(keepsFragmentPair).join('&');
+      // A hash route's path leads its pairs, as in `#/cb&tab=2`.
+      var pairs = hash.slice(1).split('&').map(function (pair, i) {
+        return i === 0 && isHashRoute ? maskRoute("#".concat(pair)).slice(1) : pair;
+      }).filter(keepsFragmentPair).join('&');
       return pairs ? "#".concat(pairs) : '';
     };
     // String-based rather than `new URL`, so kept pairs and the fragment go out
@@ -3446,7 +3731,7 @@ var mParticle = (function () {
       var hash = hashStart === -1 ? '' : href.slice(hashStart);
       var beforeHash = hashStart === -1 ? href : href.slice(0, hashStart);
       var queryStart = beforeHash.indexOf('?');
-      var path = (queryStart === -1 ? beforeHash : beforeHash.slice(0, queryStart)).replace(USERINFO, '$1');
+      var path = maskPath((queryStart === -1 ? beforeHash : beforeHash.slice(0, queryStart)).replace(USERINFO, '$1'), mode === UrlMode.Report ? pagePath : pageUrlPath);
       if (mode !== UrlMode.Full) {
         return path;
       }
@@ -4079,13 +4364,12 @@ var mParticle = (function () {
                   // TODO: https://go.mparticle.com/work/SQDSDKS-5165
                   (_d = this.batchesQueuedForProcessing).unshift.apply(_d, batchesThatDidNotUpload);
                 }
-                // Update Offline Storage with current state of batch queue
-                if (!useBeacon && this.offlineStorageEnabled && this.batchVault) {
-                  // Note: since beacon is "Fire and forget" it will empty `batchesThatDidNotUplod`
-                  // regardless of whether the batches were successfully uploaded or not. We should
-                  // therefore NOT overwrite Offline Storage when beacon returns, so that we can retry
-                  // uploading saved batches at a later time. Batches should only be removed from
-                  // Local Storage once we can confirm they are successfully uploaded.
+                // Update Offline Storage with current state of batch queue. Storage was
+                // purged before sending. A beacon the browser accepted counts as sent, so
+                // the beacon path writes nothing unless the browser refused a batch: then
+                // `batchesThatDidNotUpload` holds it, and it is stored since the page may
+                // be going away.
+                if (this.offlineStorageEnabled && this.batchVault && (!useBeacon || !isEmpty(batchesThatDidNotUpload))) {
                   this.storeBatchesQueuedForProcessing();
                 }
                 if (triggerFuture && !this.destroyed) {
@@ -4142,7 +4426,7 @@ var mParticle = (function () {
       };
       BatchUploader.prototype.uploadBatches = function (batches, useBeacon) {
         return __awaiter(this, void 0, void 0, function () {
-          var uploads, uploadsToLog, i, fetchPayload, blob, response, e_1;
+          var uploads, uploadsToLog, refused, i, fetchPayload, blob, response, e_1;
           return __generator(this, function (_a) {
             switch (_a.label) {
               case 0:
@@ -4157,6 +4441,7 @@ var mParticle = (function () {
                   this.mpInstance.Logger.verbose("Uploading batches: ".concat(JSON.stringify(uploadsToLog)));
                   this.mpInstance.Logger.verbose("Batch count: ".concat(uploads.length));
                 }
+                refused = [];
                 i = 0;
                 _a.label = 1;
               case 1:
@@ -4173,7 +4458,13 @@ var mParticle = (function () {
                 blob = new Blob([fetchPayload.body], {
                   type: 'text/plain;charset=UTF-8'
                 });
-                navigator.sendBeacon(this.uploadUrl, blob);
+                // The browser refuses a beacon it won't send, such as one over its
+                // size limit, which says nothing about the next batch. Keep it and
+                // try the rest. Only false is a refusal: a wrapper that returns
+                // nothing has still sent it.
+                if (navigator.sendBeacon(this.uploadUrl, blob) === false) {
+                  refused.push(uploads[i]);
+                }
                 return [3 /*break*/, 5];
               case 2:
                 _a.trys.push([2, 4,, 5]);
@@ -4204,6 +4495,10 @@ var mParticle = (function () {
                 i++;
                 return [3 /*break*/, 1];
               case 6:
+                if (!isEmpty(refused)) {
+                  this.mpInstance.Logger.warning("The browser refused the exit upload of ".concat(refused.length, " batch(es). Keeping them for the next upload."));
+                  return [2 /*return*/, refused];
+                }
                 return [2 /*return*/, null];
             }
           });
@@ -4220,7 +4515,8 @@ var mParticle = (function () {
       UNHANDLED_EXCEPTION: 'UNHANDLED_EXCEPTION',
       IDENTITY_REQUEST: 'IDENTITY_REQUEST',
       IDENTITY_MISMATCH: 'IDENTITY_MISMATCH',
-      MP_DEPRECATED_METHOD_USAGE: 'MP_DEPRECATED_METHOD_USAGE'
+      MP_DEPRECATED_METHOD_USAGE: 'MP_DEPRECATED_METHOD_USAGE',
+      SELECT_PLACEMENTS_IDENTITY_IN_FLIGHT: 'SELECT_PLACEMENTS_IDENTITY_IN_FLIGHT'
     };
     var WSDKErrorSeverity = {
       ERROR: 'ERROR',
@@ -5830,7 +6126,7 @@ var mParticle = (function () {
           mpInstance.Logger.error('Price is required when creating a product, and must be a string or a number');
           return null;
         } else {
-          price = mpInstance._Helpers.parseNumber(price);
+          price = parseNumber(price);
         }
         if (position && !mpInstance._Helpers.Validators.isNumber(position)) {
           mpInstance.Logger.error('Position must be a number, it will be set to null.');
@@ -5839,7 +6135,7 @@ var mParticle = (function () {
         if (!mpInstance._Helpers.Validators.isStringOrNumber(quantity)) {
           quantity = 1;
         } else {
-          quantity = mpInstance._Helpers.parseNumber(quantity);
+          quantity = parseNumber(quantity);
         }
         return {
           Name: name,
@@ -6022,7 +6318,7 @@ var mParticle = (function () {
           return 0;
         }
         // if amount is a string, it will be parsed into a number if possible, or set to 0
-        return mpInstance._Helpers.parseNumber(amount);
+        return parseNumber(amount);
       };
     }
 
@@ -6938,7 +7234,7 @@ var mParticle = (function () {
           return null;
         }
         var record = JSON.parse(decoded);
-        return mpInstance._Helpers.isObject(record) && Object.keys(record).length ? record : null;
+        return isObject(record) && Object.keys(record).length ? record : null;
       }
       this.getLocalStorage = function () {
         if (!mpInstance._Store.isLocalStorageAvailable) {
@@ -7138,7 +7434,7 @@ var mParticle = (function () {
         if (Array.isArray(value)) {
           return value.length > 0;
         }
-        if (!mpInstance._Helpers.isObject(value)) {
+        if (!isObject(value)) {
           return false;
         }
         return Object.keys(value).length > 0;
@@ -7170,7 +7466,7 @@ var mParticle = (function () {
       }
       function encodeMpidBase64Field(container, key) {
         var value = container[key];
-        if (mpInstance._Helpers.isObject(value) && Object.keys(value).length) {
+        if (isObject(value) && Object.keys(value).length) {
           container[key] = Base64.encode(JSON.stringify(value));
           return;
         }
@@ -7241,7 +7537,7 @@ var mParticle = (function () {
             continue;
           }
           if (!SDKv2NonMPIDCookieKeys[mpid]) {
-            if (!mpInstance._Helpers.isObject(persistence[mpid])) {
+            if (!isObject(persistence[mpid])) {
               delete persistence[mpid];
               continue;
             }
@@ -7261,7 +7557,7 @@ var mParticle = (function () {
             return;
           }
           var persistence = JSON.parse(revertCookieString(persistenceString));
-          if (mpInstance._Helpers.isObject(persistence) && Object.keys(persistence).length) {
+          if (isObject(persistence) && Object.keys(persistence).length) {
             decodeGlobalSettings(persistence.gs);
             decodeMpidRecords(persistence);
           }
@@ -7306,7 +7602,7 @@ var mParticle = (function () {
         if (csd) {
           var persistence = self.getPersistence();
           if (persistence) {
-            if (mpInstance._Helpers.isObject(persistence[mpid])) {
+            if (isObject(persistence[mpid])) {
               persistence[mpid].csd = csd;
             } else {
               persistence[mpid] = {
@@ -7387,7 +7683,7 @@ var mParticle = (function () {
         }
         var persistence = self.getPersistence();
         if (persistence) {
-          if (!mpInstance._Helpers.isObject(persistence[mpid])) {
+          if (!isObject(persistence[mpid])) {
             persistence[mpid] = {};
           }
           if (!persistence[mpid].fst) {
@@ -7425,7 +7721,7 @@ var mParticle = (function () {
           time = new Date().getTime();
         }
         var persistence = self.getPersistence();
-        if (persistence && mpInstance._Helpers.isObject(persistence[mpid])) {
+        if (persistence && isObject(persistence[mpid])) {
           persistence[mpid].lst = time;
           self.savePersistence(persistence);
         }
@@ -7462,10 +7758,11 @@ var mParticle = (function () {
     var Messages$3 = Constants.Messages;
     function Events(mpInstance) {
       var self = this;
-      this.logEvent = function (event, options) {
+      this.logEvent = function (event, options, capturedAt) {
         mpInstance.Logger.verbose(Messages$3.InformationMessages.StartingLogEvent + ': ' + event.name);
         if (mpInstance._Helpers.canLog()) {
-          var uploadObject = mpInstance._ServerModel.createEventObject(event);
+          var createEventObject = mpInstance._ServerModel.createEventObject;
+          var uploadObject = createEventObject(event, undefined, capturedAt);
           mpInstance._APIClient.sendEventToServer(uploadObject, options);
         } else {
           mpInstance.Logger.verbose(Messages$3.InformationMessages.AbandonLogEvent);
@@ -7579,7 +7876,7 @@ var mParticle = (function () {
             event.CustomFlags = event.CustomFlags || {};
             event.CustomFlags['Rokt.CommerceEventType'] = Types.ProductActionType.getExpansionName(productActionType);
           }
-          if (mpInstance._Helpers.isObject(transactionAttributes)) {
+          if (isObject(transactionAttributes)) {
             mpInstance._Ecommerce.convertTransactionAttributesToProductAction(transactionAttributes, event.ProductAction);
           }
           self.logCommerceEvent(event, customAttrs, options);
@@ -7956,7 +8253,7 @@ var mParticle = (function () {
         }
       };
       this.isEnabledForUserAttributes = function (filterObject, user) {
-        if (!filterObject || !mpInstance._Helpers.isObject(filterObject) || !Object.keys(filterObject).length) {
+        if (!filterObject || !isObject(filterObject) || !Object.keys(filterObject).length) {
           return true;
         }
         if (!user) {
@@ -7964,7 +8261,7 @@ var mParticle = (function () {
         }
         var userAttributes = user.getAllUserAttributes();
         try {
-          var hasUserAttributes = userAttributes && mpInstance._Helpers.isObject(userAttributes) && Object.keys(userAttributes).length > 0;
+          var hasUserAttributes = userAttributes && isObject(userAttributes) && Object.keys(userAttributes).length > 0;
           var isMatch = hasUserAttributes ? userAttributesMatchFilter(userAttributes, filterObject) : false;
           return filterObject.includeOnMatch === isMatch;
         } catch (e) {
@@ -8393,7 +8690,7 @@ var mParticle = (function () {
         }
         return jsonObject;
       };
-      this.createEventObject = function (event, user) {
+      this.createEventObject = function (event, user, capturedAt) {
         var _a, _b, _c;
         var uploadObject = {};
         var eventObject = {};
@@ -8481,7 +8778,9 @@ var mParticle = (function () {
             mpInstance._Store.currentSessionMPIDs = [];
             mpInstance._Store.sessionStartDate = null;
           }
-          uploadObject.Timestamp = mpInstance._Store.dateLastEventSent.getTime();
+          var now = mpInstance._Store.dateLastEventSent.getTime();
+          var sessionStartTime = mpInstance._Store.sessionStartDate ? mpInstance._Store.sessionStartDate.getTime() : 0;
+          uploadObject.Timestamp = typeof capturedAt === 'number' && Number.isFinite(capturedAt) && capturedAt <= now && capturedAt >= sessionStartTime ? capturedAt : now;
           return extend({}, eventObject, uploadObject);
         }
         return null;
@@ -9322,7 +9621,7 @@ var mParticle = (function () {
                 var userAttributes = this.getAllUserAttributes();
                 var previousUserAttributeValue = void 0;
                 var isNewAttribute = void 0;
-                var existingProp = mpInstance._Helpers.findKeyInObject(userAttributes, key);
+                var existingProp = findKeyInObject(userAttributes, key);
                 if (existingProp) {
                   isNewAttribute = false;
                   previousUserAttributeValue = userAttributes[existingProp];
@@ -9379,7 +9678,7 @@ var mParticle = (function () {
             } else {
               cookies = mpInstance._Persistence.getPersistence();
               userAttributes = this.getAllUserAttributes();
-              var existingProp = mpInstance._Helpers.findKeyInObject(userAttributes, key);
+              var existingProp = findKeyInObject(userAttributes, key);
               if (existingProp) {
                 key = existingProp;
               }
@@ -9422,7 +9721,7 @@ var mParticle = (function () {
               var previousUserAttributeValue = void 0;
               var isNewAttribute = void 0;
               var userAttributeChange = void 0;
-              var existingProp = mpInstance._Helpers.findKeyInObject(userAttributes, key);
+              var existingProp = findKeyInObject(userAttributes, key);
               if (existingProp) {
                 isNewAttribute = false;
                 previousUserAttributeValue = userAttributes[existingProp];
@@ -10476,7 +10775,7 @@ var mParticle = (function () {
         var clonedEvent = __assign({}, event);
         if (this.blockUserAttributes) {
           var matchedAttributes = this.dataPlanMatchLookups['user_attributes'];
-          if (this.mpInstance._Helpers.isObject(matchedAttributes) && clonedEvent.UserAttributes) {
+          if (isObject(matchedAttributes) && clonedEvent.UserAttributes) {
             var plannedUserAttributes = {};
             for (var _i = 0, _a = Object.keys(clonedEvent.UserAttributes); _i < _a.length; _i++) {
               var ua = _a[_i];
@@ -10534,15 +10833,14 @@ var mParticle = (function () {
         return false;
       };
       KitBlocker.prototype.transformUserIdentities = function (event) {
-        var _this = this;
         var _a;
         var clonedEvent = __assign({}, event);
         if (this.blockUserIdentities) {
           var matchedIdentities_1 = this.dataPlanMatchLookups['user_identities'];
-          if (this.mpInstance._Helpers.isObject(matchedIdentities_1)) {
+          if (isObject(matchedIdentities_1)) {
             if ((_a = clonedEvent === null || clonedEvent === void 0 ? void 0 : clonedEvent.UserIdentities) === null || _a === void 0 ? void 0 : _a.length) {
               clonedEvent.UserIdentities = clonedEvent.UserIdentities.filter(function (uiByType) {
-                var identityName = Types.IdentityType.getIdentityName(_this.mpInstance._Helpers.parseNumber(uiByType.Type));
+                var identityName = Types.IdentityType.getIdentityName(parseNumber(uiByType.Type));
                 return matchedIdentities_1[identityName];
               });
             }
@@ -10881,8 +11179,9 @@ var mParticle = (function () {
     }
 
     var PASSBACK_CONVERSION_TRACKING_ID = 'passbackconversiontrackingid';
-    // One signal per kind (commit, wallet, checkout_step, frame and cart), so a new kind never evicts another.
-    var CHECKOUT_INTENT_BUFFER_LIMIT = 5;
+    // One signal per kind (commit, wallet, checkout_step, frame and cart), with an
+    // add-to-cart click apart from a cart open, so a new one never evicts another.
+    var CHECKOUT_INTENT_BUFFER_LIMIT = 6;
     var CHECKOUT_INTENT_MAX_AGE_MS = 30000;
     var ON_SHOPPABLE_ADS_READY_METHOD = 'onShoppableAdsReady';
     // The purpose of this class is to create a link between the Core mParticle SDK and the
@@ -10913,6 +11212,9 @@ var mParticle = (function () {
         this.pendingCheckoutIntents = [];
         // Off until SDK init finds the Rokt connection receives auto button clicks.
         this.autoButtonClicksForwarded = false;
+        // Off until SDK init finds the Rokt connection receives auto link clicks, or
+        // link tracking is off. Only link clicks lose their intent without it.
+        this.autoLinkClicksForwarded = false;
       }
       /**
        * Sets a callback to be invoked when RoktManager becomes ready
@@ -11042,6 +11344,14 @@ var mParticle = (function () {
       RoktManager.prototype.setAutoButtonClicksForwarded = function (forwarded) {
         this.autoButtonClicksForwarded = forwarded;
       };
+      RoktManager.prototype.setAutoLinkClicksForwarded = function (forwarded) {
+        this.autoLinkClicksForwarded = forwarded;
+      };
+      // The Rokt kit reads this too: while false, its page views keep
+      // dispatchDelayMs, since a checkout link could never release the wait.
+      RoktManager.prototype.areAutoLinkClicksForwarded = function () {
+        return this.autoLinkClicksForwarded;
+      };
       // noTargeting (which noDeviceId implies), doNotShareOrSell or Global Privacy
       // Control. Unlike noFunctional, these also stop auto button and link clicks
       // from being logged.
@@ -11085,8 +11395,10 @@ var mParticle = (function () {
         }
         var kit = this.kit;
         if (!kit) {
+          // One per kind, with an add-to-cart click kept apart from a
+          // click that opens the cart.
           this.pendingCheckoutIntents = this.pendingCheckoutIntents.filter(function (pending) {
-            return pending.signal.kind !== signal.kind;
+            return pending.signal.kind !== signal.kind || !!pending.signal.adds !== !!signal.adds;
           }).concat({
             signal: signal,
             pathname: pathname
@@ -11100,6 +11412,12 @@ var mParticle = (function () {
         } catch (e) {
           (_a = this.logger) === null || _a === void 0 ? void 0 : _a.error("RoktManager: Error in onCheckoutIntent: ".concat(getErrorMessage(e)));
         }
+      };
+      // Read at click time, so selectors from a kit that attaches later apply to
+      // the next click.
+      RoktManager.prototype.getCheckoutIntentSelectors = function () {
+        var kit = this.kit;
+        return kit ? kit.checkoutIntentSelectors : undefined;
       };
       RoktManager.prototype.discardCheckoutIntents = function () {
         this.pendingCheckoutIntents = [];
@@ -11161,26 +11479,33 @@ var mParticle = (function () {
        * });
        */
       RoktManager.prototype.selectPlacements = function (options) {
-        var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q, _r, _s;
+        var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q, _r, _s, _t;
         return __awaiter(this, void 0, void 0, function () {
           var attributes, sandboxValue, mappedAttributes, attributesToLog, currentUserIdentities, currentEmail, newEmail, currentHashedEmail, newHashedEmail, isValidHashedEmailIdentityType, emailChanged, hashedEmailChanged, newIdentities_1, msg, msg, userAttributes_1, roktUser, roktUserIdentities, timeOnSite, totalTimeOnSite, enrichedAttributes, hashedEmail, capturedAttrs, passbackId, enrichedOptions;
           var _this = this;
-          return __generator(this, function (_t) {
+          return __generator(this, function (_u) {
             (_a = this.captureTiming) === null || _a === void 0 ? void 0 : _a.call(this, PerformanceMarkType.JointSdkSelectPlacements);
-            // Queue if kit isn't ready OR if identity is in flight
-            if (!this.isReady() || ((_b = this.store) === null || _b === void 0 ? void 0 : _b.identityCallInFlight)) {
+            if (!this.isReady()) {
               return [2 /*return*/, this.deferredCall('selectPlacements', options)];
+            }
+            // Like the iOS and Android SDKs, this does not wait for an identity request, so the
+            // selection can go out for the user from before it. The log counts how often that happens.
+            if ((_b = this.store) === null || _b === void 0 ? void 0 : _b.identityCallInFlight) {
+              (_c = this.loggingService) === null || _c === void 0 ? void 0 : _c.log({
+                message: 'RoktManager: selectPlacements ran while an identity request was in flight',
+                code: ErrorCodes.SELECT_PLACEMENTS_IDENTITY_IN_FLIGHT
+              });
             }
             try {
               attributes = options.attributes;
               sandboxValue = (attributes === null || attributes === void 0 ? void 0 : attributes.sandbox) || null;
               mappedAttributes = this.mapPlacementAttributes(attributes, this.placementAttributesMapping);
-              if ((_c = this.logger) === null || _c === void 0 ? void 0 : _c.isVerbose()) {
-                attributesToLog = obfuscateDevData(attributes, (_e = (_d = this.store) === null || _d === void 0 ? void 0 : _d.SDKConfig) === null || _e === void 0 ? void 0 : _e.isDevelopmentMode);
+              if ((_d = this.logger) === null || _d === void 0 ? void 0 : _d.isVerbose()) {
+                attributesToLog = obfuscateDevData(attributes, (_f = (_e = this.store) === null || _e === void 0 ? void 0 : _e.SDKConfig) === null || _f === void 0 ? void 0 : _f.isDevelopmentMode);
                 this.logger.verbose("mParticle.Rokt selectPlacements called with attributes:\n".concat(JSON.stringify(attributesToLog, null, 2)));
               }
               this.currentUser = this.identityService.getCurrentUser();
-              currentUserIdentities = ((_g = (_f = this.currentUser) === null || _f === void 0 ? void 0 : _f.getUserIdentities()) === null || _g === void 0 ? void 0 : _g.userIdentities) || {};
+              currentUserIdentities = ((_h = (_g = this.currentUser) === null || _g === void 0 ? void 0 : _g.getUserIdentities()) === null || _h === void 0 ? void 0 : _h.userIdentities) || {};
               currentEmail = currentUserIdentities.email;
               newEmail = mappedAttributes.email;
               currentHashedEmail = void 0;
@@ -11198,7 +11523,7 @@ var mParticle = (function () {
                 if (newEmail) {
                   msg = 'Email mismatch detected. Current email differs from email passed to selectPlacements call. Proceeding to call identify with email from selectPlacements call. Please verify your implementation.';
                   this.logger.warning(msg);
-                  (_h = this.errorReporter) === null || _h === void 0 ? void 0 : _h.report({
+                  (_j = this.errorReporter) === null || _j === void 0 ? void 0 : _j.report({
                     message: msg,
                     code: ErrorCodes.IDENTITY_MISMATCH,
                     severity: WSDKErrorSeverity.WARNING
@@ -11209,7 +11534,7 @@ var mParticle = (function () {
                 newIdentities_1[this.mappedEmailShaIdentityType] = newHashedEmail;
                 msg = 'emailsha256 mismatch detected. Current mParticle hashedEmail differs from hashedEmail passed to selectPlacements call. Proceeding to call identify with hashedEmail from selectPlacements call. Please verify your implementation.';
                 this.logger.warning(msg);
-                (_j = this.errorReporter) === null || _j === void 0 ? void 0 : _j.report({
+                (_k = this.errorReporter) === null || _k === void 0 ? void 0 : _k.report({
                   message: msg,
                   code: ErrorCodes.IDENTITY_MISMATCH,
                   severity: WSDKErrorSeverity.WARNING
@@ -11230,10 +11555,6 @@ var mParticle = (function () {
                       _this.logger.error('Background identify failed with HTTP ' + httpCode);
                     }
                     _this.setUserAttributes((_a = result === null || result === void 0 ? void 0 : result.getUser) === null || _a === void 0 ? void 0 : _a.call(result), userAttributes_1, newIdentities_1);
-                    // Drain any selectPlacements calls that were deferred while
-                    // identify was in-flight. By the time this callback fires,
-                    // identityCallInFlight has already been reset to false.
-                    _this.processMessageQueue();
                   });
                 } catch (error) {
                   this.logger.error('Background identify threw an error: ' + getErrorMessage(error));
@@ -11241,9 +11562,9 @@ var mParticle = (function () {
                 }
               }
               roktUser = this.currentUser && this.createFilteredUser ? this.createFilteredUser(this.currentUser.getMPID()) : null;
-              roktUserIdentities = ((_k = roktUser === null || roktUser === void 0 ? void 0 : roktUser.getUserIdentities()) === null || _k === void 0 ? void 0 : _k.userIdentities) || {};
-              timeOnSite = (_m = (_l = this.store) === null || _l === void 0 ? void 0 : _l.getTimeOnSite) === null || _m === void 0 ? void 0 : _m.call(_l);
-              totalTimeOnSite = (_p = (_o = this.store) === null || _o === void 0 ? void 0 : _o.getTotalTimeOnSite) === null || _p === void 0 ? void 0 : _p.call(_o);
+              roktUserIdentities = ((_l = roktUser === null || roktUser === void 0 ? void 0 : roktUser.getUserIdentities()) === null || _l === void 0 ? void 0 : _l.userIdentities) || {};
+              timeOnSite = (_o = (_m = this.store) === null || _m === void 0 ? void 0 : _m.getTimeOnSite) === null || _o === void 0 ? void 0 : _o.call(_m);
+              totalTimeOnSite = (_q = (_p = this.store) === null || _p === void 0 ? void 0 : _p.getTotalTimeOnSite) === null || _q === void 0 ? void 0 : _q.call(_p);
               enrichedAttributes = __assign(__assign(__assign(__assign({}, mappedAttributes), sandboxValue !== null ? {
                 sandbox: sandboxValue
               } : {}), timeOnSite ? {
@@ -11269,9 +11590,9 @@ var mParticle = (function () {
                 }
               }
               if (!enrichedAttributes[PASSBACK_CONVERSION_TRACKING_ID]) {
-                (_q = this.integrationCapture) === null || _q === void 0 ? void 0 : _q.capture();
-                capturedAttrs = (_r = this.integrationCapture) === null || _r === void 0 ? void 0 : _r.getClickIdsAsIntegrationAttributes();
-                passbackId = (_s = capturedAttrs === null || capturedAttrs === void 0 ? void 0 : capturedAttrs[PARTNER_MODULE_IDS.Rokt]) === null || _s === void 0 ? void 0 : _s[PASSBACK_CONVERSION_TRACKING_ID];
+                (_r = this.integrationCapture) === null || _r === void 0 ? void 0 : _r.capture();
+                capturedAttrs = (_s = this.integrationCapture) === null || _s === void 0 ? void 0 : _s.getClickIdsAsIntegrationAttributes();
+                passbackId = (_t = capturedAttrs === null || capturedAttrs === void 0 ? void 0 : capturedAttrs[PARTNER_MODULE_IDS.Rokt]) === null || _t === void 0 ? void 0 : _t[PASSBACK_CONVERSION_TRACKING_ID];
                 if (passbackId) {
                   enrichedAttributes[PASSBACK_CONVERSION_TRACKING_ID] = passbackId;
                 }
@@ -11551,7 +11872,6 @@ var mParticle = (function () {
       RoktManager.prototype.onIdentityComplete = function () {
         if (this.isReady()) {
           this.currentUser = this.identityService.getCurrentUser();
-          // Process any queued selectPlacements calls that were waiting for identity
           this.processMessageQueue();
         }
       };
@@ -11781,7 +12101,7 @@ var mParticle = (function () {
         label_source: click.labelSource,
         element: click.element,
         type: click.type,
-        path: pathname,
+        path: pagePath(pathname),
         hostname: window.location.hostname
       };
       // Optional fields are left out when the control has no safe value for them.
@@ -11794,8 +12114,10 @@ var mParticle = (function () {
         test_id: click.testId,
         controls: click.controls,
         form: click.form,
+        group: click.group,
         link_type: click.linkType,
         link_domain: click.linkDomain,
+        link_path: click.linkPath,
         file_extension: click.fileExtension
       };
       for (var _i = 0, _a = Object.keys(optional); _i < _a.length; _i++) {
@@ -11822,8 +12144,9 @@ var mParticle = (function () {
     };
     // One custom event per click on a link that leaves the page. Typed Other, not
     // Navigation, so no kit reads it as a page change. A plain link to another page
-    // of the site goes without its text, which can name the shopper ("Hi, Jane");
-    // a button or wallet acting as a link keeps its name.
+    // of the site goes without its text, which can name the shopper ("Hi, Jane"), and
+    // with its destination path instead; a button or wallet acting as a link keeps
+    // its name.
     var buildLinkClickEvent = function buildLinkClickEvent(click, pathname) {
       var data = clickAttributes(click.linkType === 'internal' && click.element === 'link' ? __assign(__assign({}, click), {
         label: undefined,
@@ -11841,7 +12164,7 @@ var mParticle = (function () {
     // Every attribute buildButtonClickEvent can set apart from the marker and the
     // hostname, which is the same on every click on this page. A spec checks the
     // two stay in step.
-    var CLICK_ATTRIBUTES = ['label_source', 'element', 'type', 'path', 'label', 'aria_label', 'icon', 'element_id', 'element_name', 'test_id', 'controls', 'form', 'link_type', 'link_domain', 'file_extension', 'checked'];
+    var CLICK_ATTRIBUTES = ['label_source', 'element', 'type', 'path', 'label', 'aria_label', 'icon', 'element_id', 'element_name', 'test_id', 'controls', 'form', 'group', 'link_type', 'link_domain', 'link_path', 'file_extension', 'checked'];
     // Which check keeps some or all auto button clicks, or auto link clicks with
     // `link`, from a kit, or undefined when the kit receives every one. A forwarding
     // rule on an attribute whose value differs between clicks lets some through and
@@ -12055,9 +12378,12 @@ var mParticle = (function () {
     // or around it never becomes its tap. Excluded clicks give nothing; disabled controls are skipped, a
     // wallet-named one also by its `disabled` class. A caller that has already
     // found the path not excluded passes `included` so the walk runs once.
-    function findControl(path, included) {
+    function findControl(path, included, limit) {
       if (included === void 0) {
         included = false;
+      }
+      if (limit === void 0) {
+        limit = 12;
       }
       if (!included && isExcludedPath(path)) {
         return undefined;
@@ -12065,7 +12391,7 @@ var mParticle = (function () {
       var control;
       var option;
       var picked = false;
-      for (var _i = 0, _a = path.slice(0, 12); _i < _a.length; _i++) {
+      for (var _i = 0, _a = path.slice(0, limit); _i < _a.length; _i++) {
         var target = _a[_i];
         if (control) {
           break;
@@ -12087,6 +12413,39 @@ var mParticle = (function () {
         return undefined;
       }
       return control;
+    }
+    // Roles that act as controls without being buttons or links: pickers, tabs,
+    // options and links run by script. A role can list fallbacks, so any of its
+    // tokens counts.
+    var ROLE_CONTROL = '[role~="radio"], [role~="menuitemradio"], [role~="checkbox"], [role~="menuitemcheckbox"], ' + '[role~="switch"], [role~="option"], [role~="tab"], [role~="link"]';
+    var TYPING_FIELD = 'input:not([type="submit"]):not([type="button"]):not([type="image"]):not([type="reset"]):not([type="radio"]):not([type="checkbox"]), ' + 'textarea, select, ' + EDITABLE;
+    // The nearest role control on the click path, for logging the click alone:
+    // checkout intent and payment choices only ever read what findControl finds.
+    // None when anything disabled sits on the path, so a role control around or
+    // inside a disabled control never logs the click it suppressed.
+    function findRoleControl(path, limit) {
+      var entries = path.slice(0, limit).filter(function (target) {
+        return target instanceof Element;
+      });
+      if (entries.some(function (target) {
+        return target.matches(':disabled, [aria-disabled="true"]') || target.classList.contains('disabled') && isWalletNamed(target);
+      })) {
+        return undefined;
+      }
+      for (var _i = 0, entries_3 = entries; _i < entries_3.length; _i++) {
+        var target = entries_3[_i];
+        if (target.matches(ROLE_CONTROL)) {
+          // A typing field, or anything in an editable region, takes typing
+          // whatever role it carries.
+          return target.matches(TYPING_FIELD) || hasComposedAncestor(target, EDITABLE) ? undefined : target;
+        }
+        // A click in a typing field belongs to the field, not to the role
+        // control around it.
+        if (target.matches(TYPING_FIELD)) {
+          return undefined;
+        }
+      }
+      return undefined;
     }
     // Text that may hold what a shopper typed or what the page opted out: form
     // fields, editable regions, and anything under data-mp-no-track. `own` is a
@@ -12128,8 +12487,16 @@ var mParticle = (function () {
       var masked = text.replace(digitPatterns.number, '#').slice(0, 64).trim();
       return masked || undefined;
     }
+    // Masks numbers and amounts in any script as '#', or undefined where the browser
+    // can't see every script's digits.
+    function maskNumbers(text) {
+      return digitPatterns ? text.replace(digitPatterns.number, '#') : undefined;
+    }
 
     var DOWNLOAD_EXTENSIONS = /\.(pdf|zip|csv|txt|ics|docx?|xlsx?|pptx?|dmg|exe|apk|mp3|mp4)$/i;
+    // A link run by script reads as a link, as an anchor does, so whoever reads
+    // the click treats it the same.
+    var LINK_CONTROL = 'a[href]:not([role="button"]), [role~="link"]:not([role~="button"])';
     function elementKind(control) {
       if (isWalletElement(control)) {
         return 'wallet';
@@ -12138,7 +12505,7 @@ var mParticle = (function () {
       if (tag === 'button' || tag === 'input') {
         return tag;
       }
-      return control.matches('a[href]:not([role="button"])') ? 'link' : 'role';
+      return control.matches(LINK_CONTROL) ? 'link' : 'role';
     }
     var NOT_RENDERED = 'script, style, template, [hidden], [aria-hidden="true"], [inert]';
     // The most nodes read for one label source, and images looked at for one
@@ -12243,12 +12610,14 @@ var mParticle = (function () {
     function textOf(element) {
       return element && !isUnsafeTextSource(element) && isShown(element) ? renderedText(element) : '';
     }
-    // The control itself is already known to be shown.
+    // The control itself is already known to be shown. An inline icon names
+    // itself with aria-label rather than alt.
     function shownImageAlt(control) {
-      var images = control.querySelectorAll('img[alt]');
+      var images = control.querySelectorAll('img[alt], svg[aria-label], [role="img"][aria-label]');
       for (var i = 0; i < images.length && i < MAX_READS; i++) {
-        if (isShown(images[i], control) && isVisible(images[i])) {
-          return nonBlank(images[i].getAttribute('alt'));
+        var alt = nonBlank(images[i].getAttribute('alt') || images[i].getAttribute('aria-label'));
+        if (alt && isShown(images[i], control) && isVisible(images[i])) {
+          return alt;
         }
       }
       return undefined;
@@ -12320,7 +12689,7 @@ var mParticle = (function () {
       } else if (readable && isShown(control)) {
         var text = renderedText(control);
         if (text === undefined) {
-          return {
+          return headingName(control) || {
             source: 'none'
           };
         }
@@ -12338,6 +12707,12 @@ var mParticle = (function () {
           };
         }
       }
+      if (!(control instanceof HTMLInputElement) && isShown(control)) {
+        var heading = headingName(control);
+        if (heading) {
+          return heading;
+        }
+      }
       var title = nonBlank(control.getAttribute('title'));
       if (title) {
         return {
@@ -12348,6 +12723,25 @@ var mParticle = (function () {
       return {
         source: 'none'
       };
+    }
+    // A card whose text runs too long to keep, or has too many parts to read, is
+    // named by its first heading, as a product or menu card usually is. Not a card
+    // holding a form field, nor one that takes in slotted content or holds a
+    // shadow root, whose fields the form field check can't see.
+    function headingName(control) {
+      if (isUnsafeTextSource(control) || control.shadowRoot || control.querySelector('slot') ||
+      // A custom element can hide fields in a closed shadow root, which
+      // nothing outside it can see.
+      control.tagName.indexOf('-') !== -1 || Array.from(control.querySelectorAll('*')).some(function (element) {
+        return !!element.shadowRoot || element.tagName.indexOf('-') !== -1;
+      })) {
+        return undefined;
+      }
+      var text = textOf(control.querySelector('h1, h2, h3, h4, h5, h6, [role="heading"]'));
+      return text ? {
+        raw: text,
+        source: 'heading'
+      } : undefined;
     }
     var ICON_CLASS = /^(?:fa|fas|far|fal|icon|bi|glyphicon|ti|mdi|ri|la|lucide|ion|feather|ph)-([a-z][a-z-]{1,31})$/;
     // Size, style and animation classes that share the icon prefixes.
@@ -12402,6 +12796,29 @@ var mParticle = (function () {
       var digits = id.replace(/[^0-9]/g, '').length;
       return id.length <= 64 && digits <= 3 && HAND_WRITTEN_ID.test(id) ? id : undefined;
     }
+    // An id React's useId generates, in any of the forms React has used: `:r1:`,
+    // `\u00ABr1\u00BB` and `_r_1_`. On the client it is r and a short base-32 counter; on
+    // the server, R and a base-32 tree id, where a component's later ids add an H
+    // and a counter (`:R1H1:`). A word that only starts with r, such as
+    // `:region:`, is not one.
+    var REACT_ID = /:(?:r[0-9a-v]{1,4}|R[0-9a-v]+(?:H[0-9a-v]+)?):|\u00ab(?:r[0-9a-v]{1,4}|R[0-9a-v]+(?:H[0-9a-v]+)?)\u00bb|_(?:r_[0-9a-v]{1,4}|R_[0-9a-v]+(?:H[0-9a-v]+)?)_/g;
+    // What a UI library puts before the React id it names an unnamed group with
+    // (`radix-:r1:`, `react-aria-:R1:`). Left on its own once that id is removed,
+    // it names the library, not the question.
+    var LIBRARY_ID_PREFIX = /^(?:radix|react-aria|headlessui(?:-[a-z]+)*|mui|chakra|reach|ark|mantine|base-ui)$/i;
+    // A picker's input name, which names its question. Sites often end it with the
+    // id of the product it belongs to (`color-swatches-48213907`), or build it
+    // with a React id (`variant_group__R_1mn59b_`); without either it still names
+    // the question.
+    function questionName(value) {
+      if (!value) {
+        return undefined;
+      }
+      var trimmed = value.trim();
+      var withoutReactId = trimmed.replace(REACT_ID, '-');
+      var name = stableIdentifier(withoutReactId.replace(/([-_])[-_]+/g, '$1').replace(/^[-_]+|[-_]+$/g, '').replace(/[-_][0-9]{4,}$/, ''));
+      return name && withoutReactId !== trimmed && LIBRARY_ID_PREFIX.test(name) ? undefined : name;
+    }
     var TEST_ID_ATTRIBUTES = ['data-testid', 'data-test-id', 'data-test', 'data-qa', 'data-cy'];
     // The first of these attributes that holds a developer-written identifier.
     function firstIdentifier(control, attributes) {
@@ -12421,23 +12838,71 @@ var mParticle = (function () {
       return stableIdentifier(ariaControls ? ariaControls.trim().split(/\s+/)[0] : null) || firstIdentifier(control, ['popovertarget', 'commandfor']);
     }
     // The id of the form a button or input actually submits, which the browser
-    // resolves from its form attribute or its owning form. getAttribute, because a
-    // field named "id" shadows form.id.
+    // resolves from its form attribute or its owning form. A role control, such as
+    // a styled radio box, belongs to the form around it, read without following a
+    // form attribute or leaving its shadow root, since neither makes it part of
+    // the form; a link, anchor or role, to none. getAttribute, because a field
+    // named "id" shadows form.id.
     function formIdentifier(control) {
-      var form = control instanceof HTMLButtonElement || control instanceof HTMLInputElement ? control.form : null;
+      var form = control instanceof HTMLButtonElement || control instanceof HTMLInputElement ? control.form : control.matches(LINK_CONTROL) ? null : control.closest('form');
       return form ? stableIdentifier(form.getAttribute('id')) : undefined;
     }
     // The browser's normalised type: a button defaults to 'submit' and an unknown
     // input type reads as 'text'. A native button or input reports its own type, a
-    // wallet-named one included; any other control, such as a role button or a
-    // vendor's wallet element, reads as 'button'.
+    // wallet-named one included. A role control that isn't a button reads as its
+    // role: 'radio', 'option', 'tab', 'link' and so on. Any other control, such as
+    // a role button or a vendor's wallet element, reads as 'button'.
+    var CONTROL_ROLES = ['radio', 'menuitemradio', 'checkbox', 'menuitemcheckbox', 'switch', 'option', 'tab', 'link'];
     function controlType(control) {
       var tag = control.tagName.toLowerCase();
-      return tag === 'button' || tag === 'input' ? control.type : 'button';
+      if (tag === 'button' || tag === 'input') {
+        return control.type;
+      }
+      if (control.matches('[role~="button"]')) {
+        return 'button';
+      }
+      var roles = (control.getAttribute('role') || '').trim().split(/\s+/);
+      for (var _i = 0, roles_1 = roles; _i < roles_1.length; _i++) {
+        var role = roles_1[_i];
+        if (CONTROL_ROLES.indexOf(role) !== -1) {
+          return role;
+        }
+      }
+      return 'button';
+    }
+    // The page a link to another page of the site opens: its decoded path alone,
+    // since an id in a path can point at one shopper. A segment holding a token,
+    // or following a route word that names a person or carries a code, goes as
+    // `*`, and numbers in any script are masked as in labels. Dropped when it
+    // holds an @, `;` or `=` (session ids and matrix parameters), is too long to
+    // be a route, or the browser can't mask every script's digits.
+    function linkPath(link) {
+      // Each segment decodes on its own, so a literal `%` in one never stops the
+      // next from decoding.
+      var decoded = link.pathname.split('/').map(decodeFully);
+      if (decoded.some(function (segment) {
+        return segment === undefined;
+      })) {
+        return undefined;
+      }
+      var path = decoded.join('/');
+      if (path.length > MAX_RAW_LABEL_LENGTH || /[@;=]/.test(path) || LEFTOVER_ESCAPE.test(path)) {
+        return undefined;
+      }
+      var segments = path.split('/');
+      var masked = segments.map(function (segment, i) {
+        if (i > 0 && segment && hidesSegmentAfter(routeSegment(segments, i), segment)) {
+          return '*';
+        }
+        var tokens = maskTokenSegment(segment, segment, i > 0 ? routeSegment(segments, i) : undefined);
+        return tokens === undefined ? segment : tokens;
+      });
+      return maskNumbers(masked.join('/'));
     }
     // Reads the link's own resolved URL parts, never its full href: only the hostname of
-    // a link that leaves the site and the extension of a file it downloads travel.
-    // mailto:, tel: and other schemes give undefined.
+    // a link that leaves the site, the path of one to another page of the site and the
+    // extension of a file it downloads travel. mailto:, tel: and other schemes give
+    // undefined.
     function describeLink(link) {
       var href = (link.getAttribute('href') || '').trim();
       if (!href || href.charAt(0) === '#') {
@@ -12475,7 +12940,8 @@ var mParticle = (function () {
       return link.pathname === window.location.pathname && link.search === window.location.search ? {
         type: 'same_page'
       } : {
-        type: 'internal'
+        type: 'internal',
+        path: linkPath(link)
       };
     }
     // Whether a described click is on a link that leaves the page, logged as a link
@@ -12485,7 +12951,7 @@ var mParticle = (function () {
     }
     // Checkboxes and radios, and the roles that act as them. A role can list
     // fallbacks, so any of its tokens counts.
-    var CHOICE = 'input[type="checkbox"], input[type="radio"], [role~="checkbox"], [role~="radio"], ' + '[role~="switch"], [role~="menuitemcheckbox"], [role~="menuitemradio"]';
+    var CHOICE = 'input[type="checkbox"], input[type="radio"], [role~="checkbox"], [role~="radio"], ' + '[role~="switch"], [role~="menuitemcheckbox"], [role~="menuitemradio"], [role~="option"]';
     var RADIO_ROLE = '[role~="radio"], [role~="menuitemradio"]';
     function boxOf(element) {
       var box = element instanceof HTMLLabelElement ? element.control : element;
@@ -12543,31 +13009,287 @@ var mParticle = (function () {
       // radio's id, test id and the panel it opens name the option picked, so
       // only the name of its input, the question, goes with it. A wrapper's own
       // name, or a role radio's, can name the option instead.
-      var radio = isRadio(choice);
-      var named = !radio ? control : choice instanceof HTMLInputElement ? choice : null;
-      var name = choice ? undefined : accessibleName(control);
+      // An option of a list box, like a radio, names the answer picked.
+      var radio = isRadio(choice) || !!choice && choice.matches('[role~="option"]');
+      var named = !radio ? control : choice instanceof HTMLInputElement && !choice.matches('[role~="option"]') ? choice : null;
+      // A link run by script has no address to say where it goes, so it goes
+      // without its text, as a plain link to another page of the site does: the
+      // text can name the shopper ("Hi, Jane").
+      // A native button keeps its name whatever its role, as it always has.
+      var textless = !!choice || !link && element !== 'wallet' && control.matches('[role~="link"]') && !control.matches(CONTROL_SELECTOR);
+      var name = textless ? undefined : accessibleName(control);
       var label = name ? maskLabel(name.raw) : undefined;
       return {
         label: label,
         labelSource: label ? name.source : 'none',
         // Kept on its own as well: it often says more than the visible text,
         // such as which item a remove button removes.
-        ariaLabel: choice ? undefined : maskLabel(control.getAttribute('aria-label')),
+        ariaLabel: textless ? undefined : maskLabel(control.getAttribute('aria-label')),
         icon: choice ? undefined : iconHint(control),
         elementId: radio ? undefined : stableIdentifier(control.getAttribute('id')),
-        elementName: stableIdentifier(named && named.getAttribute('name')),
+        elementName: (choice ? questionName : stableIdentifier)(named && named.getAttribute('name')),
         testId: radio ? undefined : firstIdentifier(control, TEST_ID_ATTRIBUTES),
         controls: radio ? undefined : controlsIdentifier(control),
         form: formIdentifier(control),
+        group: choice ? groupName(choice) : undefined,
         element: element,
         type: controlType(control),
         linkType: link ? link.type : undefined,
         linkDomain: link ? link.domain : undefined,
+        linkPath: link ? link.path : undefined,
         fileExtension: link ? link.fileExtension : undefined,
         // The box as the click left it: the browser toggles it before the click
         // reaches listeners, and puts it back if the click is cancelled.
         checked: box ? box.checked : undefined
       };
+    }
+    // The question a picker answers, from the group around it: the group's
+    // aria-label, aria-labelledby or legend, masked like a label and cut at its
+    // first colon, since a legend can repeat the pick ("Color: Navy"). Never the
+    // option's own text, which is the shopper's answer.
+    var NAMED_GROUP = '[role="radiogroup"], [role="listbox"], [role="group"], fieldset, ' + '[role="region"][aria-label], [role="region"][aria-labelledby]';
+    // A control such as the button that opens a list box shows the option picked.
+    var NOT_A_QUESTION = CHOICE + ', ' + CONTROL_SELECTOR + ', a[href], input, select, textarea, slot, [aria-haspopup], [role~="button"], ' + '[role~="link"], [role~="tab"], [role~="combobox"]';
+    var OPTION_KINDS = ['radio', 'menuitemradio', 'checkbox', 'menuitemcheckbox', 'switch', 'option'];
+    function optionKind(option) {
+      if (option instanceof HTMLInputElement) {
+        return option.type;
+      }
+      var roles = (option.getAttribute('role') || '').trim().split(/\s+/);
+      return roles.filter(function (role) {
+        return OPTION_KINDS.indexOf(role) !== -1;
+      })[0];
+    }
+    // Whether two options answer the same question. A native box shares its
+    // question only with a box of the same name in the same form, as the browser
+    // groups radios, so separate shipping and billing radios ask two.
+    function sameQuestion(option, choice) {
+      if (!(choice instanceof HTMLInputElement)) {
+        // A role option answers only within its own radio group or list box.
+        var container = '[role="radiogroup"], [role="listbox"]';
+        return !(option instanceof HTMLInputElement) && optionKind(option) === optionKind(choice) && option.closest(container) === choice.closest(container);
+      }
+      var name = choice.getAttribute('name');
+      return option instanceof HTMLInputElement && option.type === choice.type && !!name && option.getAttribute('name') === name && option.form === choice.form;
+    }
+    function isTransparent(element, until) {
+      return someComposedAncestor(element, function (node) {
+        return window.getComputedStyle(node).opacity === '0';
+      }, until);
+    }
+    // Content that is never painted where it sits: SVG that is only referenced or
+    // read, and a canvas's fallback, which some browsers still give boxes.
+    var UNDRAWN = 'svg title, svg desc, svg metadata, svg defs, svg symbol, svg clipPath, ' + 'svg mask, svg pattern, svg marker, svg linearGradient, ' + 'svg radialGradient, svg filter, canvas';
+    // Whether text sits in any closed details element outside its summary.
+    function isInClosedDetails(text, parent) {
+      var details = parent.closest('details:not([open])');
+      while (details) {
+        var summary = Array.from(details.children).filter(function (child) {
+          return child.tagName === 'SUMMARY';
+        })[0];
+        if (!summary || !summary.contains(text)) {
+          return true;
+        }
+        details = details.parentElement ? details.parentElement.closest('details:not([open])') : null;
+      }
+      return false;
+    }
+    // Whether the browser shows an element through every ancestor it renders
+    // under, shadow trees included, which a walk of light ancestors can't see
+    // into when a shadow root is closed. Where it can't say (checkVisibility
+    // arrived in Chrome 105, Firefox 125 and Safari 17.4), the element counts as
+    // not shown, so option rows name no group in older browsers.
+    function isComposedVisible(element) {
+      var check = element.checkVisibility;
+      return isFunction(check) &&
+      // Older Chrome versions read the first two names, newer browsers the rest.
+      check.call(element, {
+        checkOpacity: true,
+        checkVisibilityCSS: true,
+        opacityProperty: true,
+        visibilityProperty: true
+      });
+    }
+    // Whether the browser lays a text node out in a box of its own. Text it never
+    // draws, such as an SVG definition, canvas fallback, closed details or an
+    // unslotted child of a shadow host, has none. Where boxes can't be read, the
+    // text counts as not drawn.
+    function isDrawn(text) {
+      var range = isFunction(document.createRange) ? document.createRange() : null;
+      if (!range || !isFunction(range.getClientRects)) {
+        return false;
+      }
+      range.selectNodeContents(text);
+      return Array.from(range.getClientRects()).some(function (box) {
+        return box.width > 0 && box.height > 0;
+      });
+    }
+    // Whether a row shows text of its own: a drawn, shown, non-transparent text
+    // node, outside any form field, editable area or opted-out part, beside
+    // nothing but the row's own input. Not a row with a shadow root, slot or
+    // custom element, whose rendered text a walk of its light children can't see.
+    function showsText(row, own) {
+      if (isUnsafeTextSource(row, own) || hasComposedAncestor(own, '[data-mp-no-track]') || row.shadowRoot || row.tagName.indexOf('-') !== -1 || row.querySelector('slot')) {
+        return false;
+      }
+      // A row too large to check in full counts as showing nothing.
+      var descendants = row.querySelectorAll('*');
+      if (descendants.length > MAX_READS) {
+        return false;
+      }
+      for (var i = 0; i < descendants.length; i++) {
+        if (descendants[i].shadowRoot || descendants[i].tagName.indexOf('-') !== -1) {
+          return false;
+        }
+      }
+      var walker = document.createTreeWalker(row, NodeFilter.SHOW_TEXT);
+      for (var i = 0; i < MAX_READS && walker.nextNode(); i++) {
+        var parent_1 = walker.currentNode.parentElement;
+        if (parent_1 && nonBlank(walker.currentNode.nodeValue) &&
+        // Undrawn content, and the body of a closed details element,
+        // which browsers still give layout boxes.
+        !parent_1.closest(UNDRAWN) && !isInClosedDetails(walker.currentNode, parent_1) && isShown(parent_1, row) && isVisible(parent_1) && !isTransparent(parent_1, row) && isComposedVisible(parent_1) && isDrawn(walker.currentNode)) {
+          return true;
+        }
+      }
+      return false;
+    }
+    // A native input inside a shown control of its own, such as a menu option row
+    // with a styled radio, which shows text of its own and doesn't also hold the
+    // option picked.
+    function showsRow(option, choice, group) {
+      var row = option instanceof HTMLInputElement && option.parentElement ? option.parentElement.closest(CONTROL_SELECTOR) : null;
+      return !!row && group.contains(row) && !row.contains(choice) && isShown(row, group) && isVisible(row) && !isTransparent(row, group) && showsText(row, option);
+    }
+    // Native boxes with no name, which the browser doesn't group, answer one
+    // question only as menu option rows do: each in a shown row of its own, in the
+    // same group. A card around a "make default" checkbox and another box has no
+    // such rows. Rows alone can't tell a question from a card named for a person
+    // around separate settings, so only a group that shows its question and holds
+    // the rows directly counts.
+    function unnamedOptionRows(option, choice, group) {
+      return option instanceof HTMLInputElement && choice instanceof HTMLInputElement && option.type === choice.type && !option.getAttribute('name') && !choice.getAttribute('name') && option.form === choice.form && option.closest(NAMED_GROUP) === group && choice.closest(NAMED_GROUP) === group && showsRow(option, choice, group) && showsRow(choice, option, group) && showsQuestion(group);
+    }
+    // A native input the page hides, styling its label as the option instead, is
+    // shown by that label: one of its own, in the group, that the browser draws
+    // and that shows text of its own, as an option row must. Neither an opted-out
+    // input nor an opted-out label counts.
+    function showsLabel(option, choice, group) {
+      return option instanceof HTMLInputElement && !!option.labels && !hasComposedAncestor(option, '[data-mp-no-track]') && Array.from(option.labels).some(function (label) {
+        return group.contains(label) && !label.contains(choice) && !hasComposedAncestor(label, '[data-mp-no-track]') && isShown(label, group) && isVisible(label) && !isTransparent(label, group) && isComposedVisible(label) && showsText(label, option);
+      });
+    }
+    // Whether a group offers another answer to the question picked: a shown option
+    // to the same question that isn't part of the one picked. A card around one
+    // address radio and a "make default" checkbox, or around a role radio and the
+    // hidden input behind it, offers none.
+    function holdsOptions(group, choice) {
+      var options = group.querySelectorAll(CHOICE);
+      for (var i = 0; i < options.length; i++) {
+        var option = options[i];
+        if (!option.contains(choice) && !choice.contains(option) && (sameQuestion(option, choice) || unnamedOptionRows(option, choice, group)) && (isShown(option, group) && isVisible(option) && (
+        // A fully transparent option, as a native input behind a
+        // styled one often is, shows the shopper no second answer,
+        // unless a shown row around it does.
+        !isTransparent(option, group) || showsRow(option, choice, group)) || showsLabel(option, choice, group))) {
+          return true;
+        }
+      }
+      return false;
+    }
+    // The elements an option is named by: those its aria-labelledby points at and
+    // a native box's labels.
+    function optionLabels(option, root) {
+      var labels = option instanceof HTMLInputElement && option.labels ? Array.from(option.labels) : [];
+      (option.getAttribute('aria-labelledby') || '').trim().split(/\s+/).forEach(function (ref) {
+        var target = ref && root.getElementById ? root.getElementById(ref) : null;
+        if (target) {
+          labels.push(target);
+        }
+      });
+      return labels;
+    }
+    // The name of the group asking the question a pick answers. A role radio's
+    // group is its radiogroup and an option's its list box; a role toggle, such as
+    // a switch, stands alone. A native box's is the nearest group offering other
+    // answers, since a group around one option, such as a saved address card, can
+    // be named by that option. A region with no usable name is passed over, so a
+    // group around it can still name the pick. Each group's name is read once.
+    function groupName(choice) {
+      if (!(choice instanceof HTMLInputElement)) {
+        var container = choice.matches('[role~="option"]') ? choice.closest('[role="listbox"]') : choice.matches('[role~="radio"]') ? choice.closest('[role="radiogroup"]') : null;
+        return container && holdsOptions(container, choice) ? nameOf(container) : undefined;
+      }
+      var group = choice.closest(NAMED_GROUP);
+      while (group) {
+        if (holdsOptions(group, choice)) {
+          var name_2 = nameOf(group);
+          if (name_2 || !group.matches('[role="region"]')) {
+            return name_2;
+          }
+        }
+        group = group.parentElement ? group.parentElement.closest(NAMED_GROUP) : null;
+      }
+      return undefined;
+    }
+    // Whether what names a group is shown as its question: a fieldset's own
+    // legend, or the header that opens a section. nameOf reads an aria-label first,
+    // so a group carrying one is named by that instead.
+    function showsQuestion(group) {
+      if (group.tagName === 'FIELDSET') {
+        return namedByLegend(group);
+      }
+      return !nonBlank(group.getAttribute('aria-label')) && opensRegion(group, labelledBy(group));
+    }
+    // A fieldset's own legend, a direct child, as the browser reads it.
+    function legendOf(group) {
+      return group.tagName === 'FIELDSET' ? Array.from(group.children).filter(function (child) {
+        return child.tagName === 'LEGEND';
+      })[0] : undefined;
+    }
+    // Whether a fieldset is named by its own legend, which nameOf reads only when
+    // no aria-label overrides it and any aria-labelledby points at that legend.
+    function namedByLegend(group) {
+      var legend = legendOf(group);
+      return !!legend && !nonBlank(group.getAttribute('aria-label')) && (!group.getAttribute('aria-labelledby') || labelledBy(group) === legend);
+    }
+    // The first element a group's aria-labelledby points at.
+    function labelledBy(group) {
+      var ids = group.getAttribute('aria-labelledby');
+      var root = isFunction(group.getRootNode) ? group.getRootNode() : document;
+      return ids && root.getElementById ? root.getElementById(ids.trim().split(/\s+/)[0]) : null;
+    }
+    // Whether a region is opened by this accordion header: a tab outside any tab
+    // list, holding no control or option of its own.
+    function opensRegion(group, header) {
+      return !!header && group.matches('[role="region"]') && (header.getAttribute('role') || '').trim() === 'tab' && !hasComposedAncestor(header, '[role~="tablist"]') && !header.querySelector(NOT_A_QUESTION);
+    }
+    function nameOf(group) {
+      var raw = nonBlank(group.getAttribute('aria-label'));
+      if (!raw) {
+        var ids = group.getAttribute('aria-labelledby');
+        var legend = legendOf(group);
+        var root_2 = isFunction(group.getRootNode) ? group.getRootNode() : document;
+        var target = ids ? labelledBy(group) : legend || null;
+        // A region opened by an accordion header is named by the header's
+        // first heading, never the rest of what it shows.
+        var header_1 = ids && opensRegion(group, target) ? target : null;
+        var source_1 = header_1 ? header_1.querySelector('h1, h2, h3, h4, h5, h6, [role="heading"]') : target;
+        // A label that is, holds or sits in an option or a control, or in an
+        // option's label, would name the answer.
+        var holder = source_1 ? source_1.closest('label') : null;
+        // Nor one that holds, or sits in, what an option of the group names
+        // itself by.
+        var labelsOption = !!source_1 && Array.from(group.querySelectorAll(CHOICE)).some(function (option) {
+          return optionLabels(option, root_2).some(function (label) {
+            return source_1.contains(label) || label.contains(source_1);
+          });
+        });
+        raw = source_1 && !labelsOption && !someComposedAncestor(source_1, function (node) {
+          return node !== header_1 && node.matches(NOT_A_QUESTION);
+        }) && !source_1.querySelector(NOT_A_QUESTION) && !(holder && (holder.control || holder.querySelector(CHOICE))) ? textOf(source_1) : undefined;
+      }
+      return raw ? maskLabel(raw.split(':')[0]) : undefined;
     }
     // A question about payment, read from the names its author gave it, so
     // "checkout[payment_gateway]", "paymentMethod" and "tender_type" all count and
@@ -12583,9 +13305,9 @@ var mParticle = (function () {
         return PAYMENT_QUESTION.test(nameWords(words));
       });
     }
-    // What names a payment option: the radio's accessible name, the text and
-    // image of each label, and its hand-written ids, text masked like a label.
-    function optionNames(radio) {
+    // What names a payment option to shoppers: the radio's accessible name and the
+    // text and image of each label, masked like a label.
+    function shownOptionNames(radio) {
       var names = [maskLabel(accessibleName(radio).raw)];
       var labels = radio instanceof HTMLInputElement && radio.labels ? Array.from(radio.labels).slice(0, 2) : [];
       labels.forEach(function (label) {
@@ -12594,10 +13316,17 @@ var mParticle = (function () {
           names.push(maskLabel(shownImageAlt(label)));
         }
       });
-      names.push(stableIdentifier(radio.getAttribute('id')), firstIdentifier(radio, TEST_ID_ATTRIBUTES));
+      return names;
+    }
+    function distinctNames(names) {
       return names.filter(function (name, index) {
         return !!name && names.indexOf(name) === index;
       });
+    }
+    // What names a payment option: the names shoppers read, then its hand-written
+    // ids.
+    function optionNames(radio) {
+      return distinctNames(shownOptionNames(radio).concat(stableIdentifier(radio.getAttribute('id')), firstIdentifier(radio, TEST_ID_ATTRIBUTES)));
     }
     function describePaymentChoice(control, path) {
       if (path === void 0) {
@@ -12613,12 +13342,58 @@ var mParticle = (function () {
         names: names
       } : undefined;
     }
+    var CHECKED_RADIO = 'input[type="radio"]:checked, [role~="radio"][aria-checked="true"], [role~="menuitemradio"][aria-checked="true"]';
+    // The payment radio the page holds checked, such as a card option checked by
+    // default that the shopper never clicked. A page holding more than one option
+    // names no single method, so it describes nothing. One option drawn twice
+    // counts once: a role radio wrapping its native input, a hidden input a
+    // component library keeps beside its role radio, or one group rendered for two
+    // layouts, whose copies share the names shoppers read but not their ids. An
+    // option shoppers see no name for is told apart by its ids.
+    function describeCheckedPaymentChoice() {
+      var radios = Array.from(document.querySelectorAll(CHECKED_RADIO)).filter(function (radio) {
+        return isPicked(radio) && radio.getAttribute('aria-hidden') !== 'true' && !hasComposedAncestor(radio, '[data-mp-no-track]') && isPaymentQuestion(radio);
+      });
+      var choices = radios.filter(function (radio) {
+        return !radios.some(function (other) {
+          return other !== radio && radio.contains(other);
+        });
+      }).map(function (radio) {
+        var shown = distinctNames(shownOptionNames(radio));
+        var names = optionNames(radio);
+        return {
+          radio: radio,
+          names: names,
+          option: (shown.length ? shown : names).join('\n')
+        };
+      });
+      var options = new Set(choices.map(function (choice) {
+        return choice.option;
+      }));
+      return options.size === 1 && choices[0].names.length ? {
+        radio: choices[0].radio,
+        names: choices[0].names
+      } : undefined;
+    }
     // Read once the page has handled the click, which may have cancelled it.
     function isPicked(radio) {
       return radio instanceof HTMLInputElement ? radio.checked : radio.getAttribute('aria-checked') === 'true';
     }
 
-    var checkoutPath = /(?:^|\/)(?:checkouts?|payment|order|kasse|paiement|commander?|pago)(?:\/|$)/i;
+    // A checkout segment may name its kind or its version, as /express-checkout, /checkout-v2 and /checkout-external do.
+    // Other hyphenated words make it a content slug, such as /help/checkout-faq or /products/self-checkout-kiosk.
+    var CHECKOUT_SEGMENT = '(?:(?:express|guest|quick|secure|complete|one-?page|single-?page|mobile)-)?checkouts?' + '(?:-(?:v\\d+|\\d+|flow|external|process|step(?:-\\d+)?))?';
+    var checkoutPath = new RegExp('(?:^|\\/)(?:' + CHECKOUT_SEGMENT + '|payment|order|kasse|paiement|commander?|pago)(?:\\/|$)', 'i');
+    // A route with a checkout segment itself, not just a payment or order one, which account pages also use.
+    var checkoutSegmentPath = new RegExp('(?:^|\\/)' + CHECKOUT_SEGMENT + '(?:\\/|$)', 'i');
+    // A confirmation page under a checkout route, such as /checkout/thankyou/<order> or /checkouts/<token>/thank_you, comes
+    // after the confirm click. "Complete" and "success" mark one only as the last word of a segment, so /complete-checkout
+    // and /checkout/complete-registration stay checkout routes.
+    var confirmationPath = /(?:^|[\/_-])(?:thank[-_]?you|thanks|confirmation|confirmed|receipt|received)(?:[\/_-]|$)|(?:^|[\/_-])(?:complete|completed|success)(?:\/|$)/i;
+    // A bare "Register" creates an account, rather than placing the order, on a checkout's sign-in or account step or in a
+    // form that asks for a password.
+    var bareRegister = /^register(?: now)?$/;
+    var accountStepPath = /(?:^|\/)(?:register|registration|login|log-in|signin|sign-in|signup|sign-up|account|create-account)(?:\/|$)/i;
     // English look-alikes are whole words; the other languages stay substring
     // matches, since several of them do not separate words with spaces.
     var englishExclusions = new RegExp('\\b(?:coupon|promo(?: code)?|newsletter|sign in|sign up|log in|login|add to (?:cart|bag|basket)|' + 'gift card balance|(?:add|apply|redeem|check|enter|use) (?:a |an |your )?gift card|pay later|' + 'interest free|as low as|learn more|prequalify|apply (?:now|for)|payment plan|available|accepted|' + 'we accept|set up|add money|reload|top up|add to (?:apple|google) wallet|connect|link your|unlink|' + 'remove|delete|edit|change|manage|use a different|switch)\\b|^pay in$|\\bpay in (?:installments|instalments)\\b');
@@ -12629,8 +13404,11 @@ var mParticle = (function () {
     // A plain link is navigation, so in English only an order or purchase it
     // places, submits or completes counts as the confirm click.
     var linkCommits = new RegExp('^(?:(?:place|submit|complete)(?!(?: [^ ]+){0,2} (?:another|new|next)(?: |$))(?: [^ ]+){0,2} (?:order|purchase)|' + otherCommits + ')$');
-    var routeGatedCommits = new RegExp('^(?:buy now|purchase|jetzt kaufen|kaufen|commander|(?:passer|valider) (?:la |ma )?commande|finalizar (?:la |mi )?compra|' + 'comprar ahora|acquista ora|nu kopen|\u4ECA\u3059\u3050\u8CFC\u5165|\u8CFC\u5165\u3059\u308B|\u3053\u306E\u5185\u5BB9\u3067\u7533\u3057\u8FBC\u3080)$');
-    var steps = new RegExp('^(?:' + ["(?:let's |lets |go to |proceed to |secure )?(?:check ?out|checkout)(?: now| securely| as guest)?", '(?:continue|proceed) to (?:payment|review|billing|shipping|delivery|order review)|review (?:my |your )?order', 'guest checkout|(?:pay|continue|check ?out) (?:with|by) (?:card|credit card|debit card|credit or debit card)', 'zur kasse|zur kasse gehen|auschecken|weiter zur zahlung', 'passer \u00E0 la caisse|continuer vers le paiement|proc\u00E9der au paiement', 'ir a caja|continuar al pago|tramitar pedido', "procedi al checkout|procedi all'acquisto|procedi al pagamento|vai alla cassa", 'afrekenen|verder naar betalen|doorgaan naar betalen', '\u30EC\u30B8\u306B\u9032\u3080|\u3054?(?:\u8CFC\u5165|\u6CE8\u6587)\u624B\u7D9A\u304D(?:\u3078|\u306B)(?:\u9032\u3080)?|\u304A?\u652F\u6255\u3044(?:\u3078|\u306B)\u9032\u3080|(?:\u3054\u6CE8\u6587\u5185\u5BB9\u306E)?\u78BA\u8A8D\u753B\u9762\u3078(?:\u9032\u3080)?'].join('|') + ')$');
+    var routeGatedCommits = new RegExp('^(?:buy now|purchase|register(?: now)?|complete (?:my |your )?registration|jetzt kaufen|kaufen|commander|(?:passer|valider) (?:la |ma )?commande|finalizar (?:la |mi )?compra|' + 'comprar ahora|acquista ora|nu kopen|\u4ECA\u3059\u3050\u8CFC\u5165|\u8CFC\u5165\u3059\u308B|\u3053\u306E\u5185\u5BB9\u3067\u7533\u3057\u8FBC\u3080)$');
+    var steps = new RegExp('^(?:' + ["(?:let's |lets |go to |proceed to |secure )?(?:check ?out|checkout)(?: now| securely| as guest)?", '(?:continue|proceed) to (?:payment|review|billing|shipping|delivery|order review)|review (?:my |your )?order', 'guest checkout|(?:pay|continue|check ?out) (?:with|by) (?:card|credit card|debit card|credit or debit card)', 'zur kasse|zur kasse gehen|auschecken|weiter zur zahlung', 'passer \u00E0 la caisse|continuer vers le paiement|proc\u00E9der au paiement', 'ir a caja|continuar al pago|tramitar pedido', "procedi al checkout|procedi all'acquisto|procedi al pagamento|vai alla cassa", 'afrekenen|verder naar betalen|doorgaan naar betalen', '\u30EC\u30B8\u306B\u9032\u3080|\u3054?(?:\u8CFC\u5165|\u6CE8\u6587)\u624B\u7D9A\u304D(?:(?:\u3078|\u306B)(?:\u9032\u3080)?)?|\u304A?\u652F\u6255\u3044(?:\u3078|\u306B)\u9032\u3080|(?:\u3054\u6CE8\u6587\u5185\u5BB9\u306E)?\u78BA\u8A8D\u753B\u9762\u3078(?:\u9032\u3080)?'].join('|') + ')$');
+    // "Save and continue" also saves profile, address and card forms, so it is a step only on a checkout segment's route
+    // that isn't an account or confirmation page.
+    var routeGatedSteps = /^save and continue$/;
     var CART_NOUN = '(?:(?:my|your|the) )?(?:shopping )?(?:cart|bag|basket)';
     // "Add to bag" and "Add 2 to cart": a click that puts something in the cart.
     var addToCartLabels = new RegExp('^add(?: [^ ]+){0,5} to ' + CART_NOUN + '$');
@@ -12643,6 +13421,9 @@ var mParticle = (function () {
     var walletPhrases = new RegExp('^(?:(?:' + WALLET_VERBS + ')(?: now| securely)? (?:with|using|via|through|by) (?:' + WALLET_NAMES + ')(?: express(?: checkout)?| checkout)?|(?:continue|proceed|go) (?:to|with) (?:' + WALLET_NAMES + '))$');
     // A wallet's own name on a button: "PayPal", "Klarna checkout", "Apple Pay logo".
     var walletBrands = new RegExp('^(?:' + WALLET_NAMES + ')(?: (?:checkout|check out|express(?: checkout)?|express pay|buy now|pay now|pay|now)' + '| (?:logo|icon|mark|button)(?: (?:logo|icon|mark|button))*)?$');
+    // The wallets the Rokt kit reads from a click's label or identifiers, as words:
+    // "Place order with PayPal!" and "paypal-pay-button" both name PayPal.
+    var KIT_WALLET_WORDS = /(?:^| )(?:apple ?pay|google ?pay|g ?pay|android ?pay|venmo|pay ?pal|amazon ?pay|shop ?pay|klarna|after ?pay|clear ?pay|affirm|cash ?app|sezzle|samsung ?pay)(?= |$)/;
     // Exact HTTPS hosts of hosted wallet button frames.
     var walletFrameFamilies = {
       'pay.google.com': 'google_pay',
@@ -12676,7 +13457,7 @@ var mParticle = (function () {
     var EDGE = "[\\s!-/:-@\\[-`{-~\\u00A1-\\u00BF\\u00D7\\u00F7\\u2000-\\u206F\\u20A0-\\u20CF\\u2190-\\u2BFF" + "\\u3000-\\u3003\\u3008-\\u3011\\u3014-\\u301F\\u30FB\\uD800-\\uDFFF\\uFE00-\\uFE0F" + "\\uFF01-\\uFF0F\\uFF1A-\\uFF20\\uFF3B-\\uFF40\\uFF5B-\\uFF65]+";
     var EDGE_SYMBOLS = new RegExp('^' + EDGE + '|' + EDGE + '$', 'g');
     function getIntentRouteClass(pathname) {
-      return checkoutPath.test(pathname) ? 'checkout_path' : 'other';
+      return checkoutPath.test(pathname) && !confirmationPath.test(pathname) ? 'checkout_path' : 'other';
     }
     var SEPARATORS = /[-_|\u00B7\u2022]/g;
     var CURRENCY_CODES = /(?:^| )(?:usd|aud|cad|nzd|gbp|eur|chf|sgd|hkd|jpy|inr|mxn)(?= |$)|\b(?:a|au|ca|c|us|nz|hk|s)\$/g;
@@ -12729,33 +13510,62 @@ var mParticle = (function () {
     // does. Only the cart rule reads the title. Opening the cart counts only for a
     // control that opens it on the page, such as a flyout: one that leads to the cart
     // page unloads before a call made on the click can return.
-    function isCartControl(control, cores) {
+    function cartControlAction(control, cores) {
       var title = cores.length ? undefined : normalize(control.getAttribute('title'));
       var texts = title ? [coreLabel(title)] : cores;
       if (texts.some(function (text) {
         return addToCartLabels.test(text);
       })) {
-        return true;
+        return 'add';
       }
       return (control.hasAttribute('aria-expanded') || control.hasAttribute('aria-haspopup')) && texts.some(function (text) {
         return openCartLabels.test(text);
+      }) ? 'open' : undefined;
+    }
+    // A selector the browser can't parse is skipped rather than thrown.
+    function matchesAnySelector(control, selectors) {
+      if (!selectors) {
+        return false;
+      }
+      return selectors.some(function (selector) {
+        try {
+          return control.matches(selector);
+        } catch (e) {
+          return false;
+        }
       });
     }
-    // "Buy now" and "Purchase" count only on a checkout route, and never on a plain
-    // link, which is navigation.
-    function isCommitLabel(text, isLink, pathname) {
+    // Every field the browser counts as the form's own, form-attribute fields included. Read through the native getter
+    // where the browser has one, since a field named "elements" shadows the form's own property.
+    function formFields(form) {
+      var descriptor = Object.getOwnPropertyDescriptor(HTMLFormElement.prototype, 'elements');
+      return descriptor && descriptor.get ? descriptor.get.call(form) : form.elements;
+    }
+    // The form a button or input submits, which its form attribute can name from outside it.
+    function createsAccount(control, pathname) {
+      var form = control instanceof HTMLButtonElement || control instanceof HTMLInputElement ? control.form : control.closest('form');
+      return accountStepPath.test(pathname) || !!form && Array.prototype.some.call(formFields(form), function (field) {
+        return field instanceof HTMLInputElement && field.type === 'password';
+      });
+    }
+    // "Buy now", "Purchase" and "Register" count only on a checkout route that isn't a
+    // confirmation page, and never on a plain link, which is navigation.
+    function isCommitLabel(text, isLink, pathname, control) {
       if (isLink) {
         return linkCommits.test(text);
       }
-      return commits.test(text) || routeGatedCommits.test(text) && getIntentRouteClass(pathname) === 'checkout_path';
+      return commits.test(text) || routeGatedCommits.test(text) && getIntentRouteClass(pathname) === 'checkout_path' && !(bareRegister.test(text) && createsAccount(control, pathname));
     }
     // Classifies a clicked or submitting control found by findControl, in order:
     // pickers, toggles and pay-later messages never count; a vendor's own wallet
-    // button counts before any label rule; a confirm label on any source counts
-    // before the look-alike exclusions veto; then a wallet-named control, wallet
-    // phrases and steps. An add-to-cart label, links included, or a control that
-    // opens the cart on the page counts only where none of those do.
-    function classifyIntent(control, pathname) {
+    // button keeps its vendor kind; a control matching a kit-supplied commit
+    // selector counts as a commit before any label rule, and one matching a
+    // checkout-step selector as a step unless its labels make it a confirm, a
+    // wallet or an add-to-cart click; a confirm label on any source
+    // counts before the look-alike exclusions veto; then a wallet-named control,
+    // wallet phrases and steps. An add-to-cart label, links included, or a control
+    // that opens the cart on the page counts only where none of those do.
+    function classifyIntent(control, pathname, selectors) {
       var vendor = vendorButtonKind(control);
       if (vendor === 'none') {
         return undefined;
@@ -12766,12 +13576,43 @@ var mParticle = (function () {
           source: 'vendor'
         };
       }
+      if (selectors && !isQuietIntentControl(control, false)) {
+        if (matchesAnySelector(control, selectors.commit)) {
+          return {
+            kind: 'commit',
+            source: 'selector'
+          };
+        }
+        if (matchesAnySelector(control, selectors.checkout_step)) {
+          // A confirm, wallet or add-to-cart label still wins, so a class those
+          // buttons share with a step button can't turn their clicks into steps.
+          var byLabel = classifyLabels(control, pathname);
+          return byLabel && (byLabel.kind === 'commit' || byLabel.kind === 'wallet' || byLabel.adds === true) ? byLabel : {
+            kind: 'checkout_step',
+            source: 'selector'
+          };
+        }
+      }
+      return classifyLabels(control, pathname);
+    }
+    // The label rules, read once the vendor and selector checks have passed.
+    function classifyLabels(control, pathname) {
       var texts = labels(control);
       var cores = texts.map(coreLabel);
-      var cart = isCartControl(control, cores) ? {
-        kind: 'cart',
-        source: 'label'
-      } : undefined;
+      var cartAction = cartControlAction(control, cores);
+      var cart;
+      if (cartAction === 'add') {
+        cart = {
+          kind: 'cart',
+          source: 'label',
+          adds: true
+        };
+      } else if (cartAction === 'open') {
+        cart = {
+          kind: 'cart',
+          source: 'label'
+        };
+      }
       if (isQuietIntentControl(control, false, !!cart)) {
         return undefined;
       }
@@ -12781,7 +13622,7 @@ var mParticle = (function () {
       }
       var isLink = control.matches('a[href]:not([role="button"])');
       if (cores.some(function (text) {
-        return isCommitLabel(text, isLink, pathname);
+        return isCommitLabel(text, isLink, pathname, control);
       })) {
         return {
           kind: 'commit',
@@ -12814,7 +13655,7 @@ var mParticle = (function () {
             source: 'brand'
           };
         }
-        if (steps.test(text)) {
+        if (steps.test(text) || isButton && routeGatedSteps.test(text) && checkoutSegmentPath.test(pathname) && !confirmationPath.test(pathname) && !accountStepPath.test(pathname)) {
           return {
             kind: 'checkout_step',
             source: 'label'
@@ -12822,6 +13663,24 @@ var mParticle = (function () {
         }
       }
       return cart;
+    }
+    // The Rokt kit's own word split, so "PayPal!" and "paypal2" both read as
+    // "paypal" here as they do there.
+    function kitWords(value) {
+      return (value || '').replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase().replace(/[^a-z]+/g, ' ').trim();
+    }
+    // A confirm control may name its wallet, so "Place order with PayPal" and a
+    // "Place order" button with id paypal-pay-button are confirm clicks that still
+    // name their own method. A logged click is judged on the fields the kit reads
+    // a method from; a click that isn't logged, on the control's own label and
+    // identifiers.
+    function namesWallet(control, click) {
+      var values = click ? [click.label, click.ariaLabel, click.elementId, click.elementName, click.testId] : labelSources(control).concat(['id', 'name'].concat(TEST_ID_ATTRIBUTES).map(function (attribute) {
+        return control.getAttribute(attribute);
+      }));
+      return values.some(function (value) {
+        return KIT_WALLET_WORDS.test(kitWords(value));
+      });
     }
     // The host is the domain or one of its subdomains, never a look-alike suffix.
     function isOnDomain(host, domain) {
@@ -12902,13 +13761,12 @@ var mParticle = (function () {
     var SUBMIT_AFTER_COMMIT_CLICK_MS = 1000;
     // Apple Pay must begin inside the tap's own handler, so the tap is this recent.
     var APPLE_PAY_AFTER_CLICK_MS = 1000;
-    var PATH_LIMIT = 12;
+    // How far up from the clicked element a control is looked for. Checkout intent
+    // keeps findControl's own 12; logging looks further, past deep product cards.
+    var PATH_LIMIT = 20;
     // A ceiling, not a dedupe: a held Enter key or browser automation fires a
     // trusted click per repeat, and each one is forwarded to every kit.
     var PAGE_EVENT_LIMIT = 100;
-    // A click uploads at once. Taps that follow it this quickly are held and share
-    // one upload once they stop.
-    var UPLOAD_DEBOUNCE_MS = 100;
     var btnWindow = function btnWindow() {
       return typeof window === 'undefined' ? null : window;
     };
@@ -13005,8 +13863,9 @@ var mParticle = (function () {
       passive: true
     };
     // Logs button clicks and clicks on links that leave the page as mParticle events, and hands checkout
-    // intent to the Rokt kit as a frozen {kind, t, source, pathname}. Submits and wallet frame focus feed the kit only,
-    // and so do payment picks: a payment radio's option names, or the payment family of a focused frame.
+    // intent to the Rokt kit as a frozen {kind, t, source, pathname}, with adds on an add-to-cart click.
+    // Submits and wallet frame focus feed the kit only, and so do payment picks: a payment radio's option
+    // names, or the payment family of a focused frame.
     var ButtonTracker = /** @class */function () {
       function ButtonTracker(mpInstance) {
         var _this = this;
@@ -13017,18 +13876,15 @@ var mParticle = (function () {
         // Bumped on reset so classification queued before it is dropped.
         this.generation = 0;
         this.lastCommitClick = -Infinity;
-        // The latest trusted click: whether the page excluded it, and the intent it
-        // already carries to the kit, with its source, if any.
+        // The latest trusted click: whether the page excluded it or it was withheld
+        // from the kit, and the intent it already carries to the kit, with its
+        // source, if any.
         this.lastClick = null;
         this.lastSent = {};
         this.pagePath = null;
         this.pageEvents = 0;
         // Clicks read at dispatch and waiting for the next paint.
         this.pending = [];
-        this.uploadTimerId = null;
-        this.uploadHeld = false;
-        // Set while the page is left, when the SDK's exit upload sends the queue.
-        this.leaving = false;
         this.drain = function () {
           var queue = _this.pending;
           _this.pending = [];
@@ -13042,14 +13898,8 @@ var mParticle = (function () {
         // beforeunload, the first of them.
         this.onHide = function (event) {
           if (event.type === 'beforeunload' || event.type === 'pagehide' || document.visibilityState === 'hidden') {
-            _this.leaving = true;
-            try {
-              _this.drain();
-            } finally {
-              _this.leaving = false;
-            }
-            // The SDK's exit upload sends the queue, held taps included.
-            _this.cancelUpload();
+            // The SDK's exit upload then sends these clicks with the queue.
+            _this.drain();
           }
         };
         this.onPageShow = function (event) {
@@ -13176,7 +14026,6 @@ var mParticle = (function () {
         this.lastSent = {};
         this.pagePath = null;
         this.pageEvents = 0;
-        this.cancelUpload();
       };
       ButtonTracker.prototype.enqueue = function (delivery) {
         this.pending.push(delivery);
@@ -13206,7 +14055,9 @@ var mParticle = (function () {
         var box;
         var kind;
         var source;
+        var adds;
         var choice;
+        var checkedNames;
         var family;
         var unconfirmedCommit = false;
         if (layer === 'click') {
@@ -13214,31 +14065,54 @@ var mParticle = (function () {
           var path = isFunction(event.composedPath) ? event.composedPath().slice(0, PATH_LIMIT) : [];
           var excluded = isExcludedPath(path);
           var control = excluded ? undefined : findControl(path, true);
-          if (control) {
+          var logged = control || (excluded ? undefined : findControl(path, true, PATH_LIMIT) || findRoleControl(path, PATH_LIMIT));
+          // A click that link tracking logs as Auto Link Click gives the kit no
+          // intent when the Rokt connection does not receive those events.
+          var withheld = false;
+          if (logged) {
             // With links alone, only an anchor can be logged.
-            click = logsEvents && (this.logButtons || control.matches('a[href]')) ? describeButtonClick(control, path) : undefined;
+            var logsThis = logsEvents && (this.logButtons || logged.matches('a[href]'));
+            var linksWithheld = signalsKit && this.logLinks && !this.linkClicksReachKit();
+            var described = logsThis || linksWithheld ? describeButtonClick(logged, path) : undefined;
+            var linkClick = this.logLinks && !!described && isLinkClick(described);
+            withheld = linksWithheld && linkClick;
+            click = logsThis ? described : undefined;
             if (click) {
-              asLink = this.logLinks && isLinkClick(click);
+              asLink = linkClick;
               // Without link tracking, a link that leaves the page stays a
               // button click, except a plain link to another page of the
               // site, which button tracking never logged.
-              var asButton = this.logButtons && !asLink && !(click.linkType === 'internal' && control.matches('a[href]:not([role="button"])'));
+              var asButton = this.logButtons && !asLink && !(click.linkType === 'internal' && logged.matches('a[href]:not([role="button"])'));
               if (!asLink && !asButton) {
                 click = undefined;
               }
             }
             if (click && click.checked !== undefined) {
-              box = control;
+              box = logged;
             }
+          }
+          if (control && !withheld) {
             // Checkout intent is only worked out when the kit can use it.
-            var intent = signalsKit ? classifyIntent(control, pathname) : undefined;
+            var intent = signalsKit ? classifyIntent(control, pathname, this.checkoutIntentSelectors()) : undefined;
             kind = intent ? intent.kind : undefined;
             source = intent ? intent.source : undefined;
+            adds = intent ? intent.adds : undefined;
             choice = signalsKit ? describePaymentChoice(control, path) : undefined;
+            // A confirm or checkout-step click picks no radio itself, so it
+            // carries the one the page holds checked as read here. It is not
+            // read again at delivery: the page's own handlers may clear or
+            // replace it by then. A wallet tap names its own method, and
+            // so does a confirm that names a wallet.
+            if (!choice && (kind === 'commit' || kind === 'checkout_step') && !namesWallet(control, click)) {
+              var checked = describeCheckedPaymentChoice();
+              checkedNames = checked ? checked.names : undefined;
+            }
           }
+          // A withheld click cannot start an Apple Pay session for the kit
+          // either.
           this.lastClick = {
             t: t,
-            excluded: excluded,
+            excluded: excluded || withheld,
             kind: kind,
             source: source
           };
@@ -13251,9 +14125,10 @@ var mParticle = (function () {
             kind = 'commit';
             source = 'submit';
           } else if (control) {
-            var intent = classifyIntent(control, pathname);
+            var intent = classifyIntent(control, pathname, this.checkoutIntentSelectors());
             kind = intent ? intent.kind : undefined;
             source = intent ? intent.source : undefined;
+            adds = intent ? intent.adds : undefined;
           }
           unconfirmedCommit = !submitter;
         }
@@ -13282,17 +14157,19 @@ var mParticle = (function () {
               if (box && event.defaultPrevented) {
                 click.checked = box.type === 'checkbox' ? !click.checked : box.checked;
               }
-              _this.logClick(click, pathname, asLink);
+              _this.logClick(click, pathname, asLink, t);
             }
             // Ahead of the intent, so a pre-selection it fires goes out
             // with this pick.
             if (choice && isPicked(choice.radio)) {
               _this.pickPayment(t, pathname, choice.names);
+            } else if (checkedNames) {
+              _this.pickPayment(t, pathname, checkedNames);
             } else if (family) {
               _this.pickPayment(t, pathname, undefined, family);
             }
             if (kind) {
-              _this.emit(kind, source, layer, t, pathname);
+              _this.emit(kind, source, layer, t, pathname, adds);
             }
           } catch (e) {
             _this.log('[error] delivery threw: ' + e);
@@ -13300,7 +14177,7 @@ var mParticle = (function () {
         });
       };
       // Every real click is one event, repeats included, up to a ceiling per page.
-      ButtonTracker.prototype.logClick = function (click, pathname, asLink) {
+      ButtonTracker.prototype.logClick = function (click, pathname, asLink, t) {
         if (!this.eventsEnabled() || this.hasTargetingOptOut()) {
           return;
         }
@@ -13314,63 +14191,36 @@ var mParticle = (function () {
         this.pageEvents++;
         // Restarts an expired session, as public logEvent() and page views do.
         this.mpInstance._SessionManager.resetSessionTimer();
-        var queued = this.queuedForUpload();
-        this.mpInstance._Events.logEvent(asLink ? buildLinkClickEvent(click, pathname) : buildButtonClickEvent(click, pathname));
-        // Only a click waiting for the batch interval is sent early: a held
-        // one goes out when released, and with batching off it already has.
-        // A checkbox or radio waits for the batch, since choosing an option
-        // doesn't leave the page the way a confirm click can.
-        if (!this.leaving && click.checked === undefined && this.queuedForUpload() > queued) {
-          this.uploadNow();
-        }
+        // No upload of its own, which a click that opens another page would
+        // cancel: with batching on, the next batch or the exit upload sends it.
+        var logEvent = this.mpInstance._Events.logEvent;
+        logEvent(asLink ? buildLinkClickEvent(click, pathname) : buildButtonClickEvent(click, pathname), undefined, t);
       };
-      // Events waiting in the upload queue for the next batch interval.
-      ButtonTracker.prototype.queuedForUpload = function () {
-        var uploader = this.mpInstance._APIClient.uploader;
-        return uploader ? uploader.eventsQueuedForProcessing.length : 0;
-      };
-      // Uploads a click without waiting for the batch interval. A tap inside the
-      // wait after the last one is held, and each restarts the wait, so a burst
-      // after the first click goes out in one request once the taps stop.
-      ButtonTracker.prototype.uploadNow = function () {
-        var _this = this;
-        if (this.uploadTimerId === null) {
-          this.mpInstance.upload();
-        } else {
-          clearTimeout(this.uploadTimerId);
-          this.uploadHeld = true;
-        }
-        this.uploadTimerId = setTimeout(function () {
-          _this.uploadTimerId = null;
-          if (_this.uploadHeld) {
-            _this.uploadHeld = false;
-            _this.mpInstance.upload();
-          }
-        }, UPLOAD_DEBOUNCE_MS);
-      };
-      ButtonTracker.prototype.cancelUpload = function () {
-        if (this.uploadTimerId !== null) {
-          clearTimeout(this.uploadTimerId);
-          this.uploadTimerId = null;
-        }
-        this.uploadHeld = false;
-      };
-      ButtonTracker.prototype.emit = function (kind, source, layer, t, pathname) {
+      ButtonTracker.prototype.emit = function (kind, source, layer, t, pathname, adds) {
         if (this.isKitSuppressed()) {
           return;
         }
         if (kind === 'commit' && layer === 'click') {
           this.lastCommitClick = t;
         }
-        var last = this.lastSent[kind];
+        // An add-to-cart click throttles apart from a click that opens the
+        // cart, so opening the cart first never drops the add.
+        var key = adds ? kind + ':adds' : kind;
+        var last = this.lastSent[key];
         if (last && last.pathname === pathname && t - last.t < THROTTLE_MS) {
           return;
         }
-        this.lastSent[kind] = {
+        this.lastSent[key] = {
           t: t,
           pathname: pathname
         };
-        this.mpInstance._RoktManager.notifyCheckoutIntent(Object.freeze({
+        this.mpInstance._RoktManager.notifyCheckoutIntent(Object.freeze(adds ? {
+          kind: kind,
+          t: t,
+          source: source,
+          pathname: pathname,
+          adds: adds
+        } : {
           kind: kind,
           t: t,
           source: source,
@@ -13405,6 +14255,14 @@ var mParticle = (function () {
       ButtonTracker.prototype.isKitSuppressed = function () {
         var roktManager = this.mpInstance._RoktManager;
         return !this.hasRoktKit || !roktManager || roktManager.isCheckoutIntentSuppressed();
+      };
+      ButtonTracker.prototype.checkoutIntentSelectors = function () {
+        var roktManager = this.mpInstance._RoktManager;
+        return roktManager ? roktManager.getCheckoutIntentSelectors() : undefined;
+      };
+      ButtonTracker.prototype.linkClicksReachKit = function () {
+        var roktManager = this.mpInstance._RoktManager;
+        return !!roktManager && roktManager.areAutoLinkClicksForwarded();
       };
       ButtonTracker.prototype.log = function (message) {
         this.mpInstance.Logger.verbose('mParticle button tracking: ' + message);
@@ -13880,11 +14738,11 @@ var mParticle = (function () {
               hostname: window.location.hostname,
               title: window.document.title
             };
-          } else if (!self._Helpers.isObject(attrs)) {
+          } else if (!isObject(attrs)) {
             self.Logger.error('The attributes argument must be an object. A ' + _typeof(attrs) + ' was entered. Please correct and retry.');
             return;
           }
-          if (customFlags && !self._Helpers.isObject(customFlags)) {
+          if (customFlags && !isObject(customFlags)) {
             self.Logger.error('The customFlags argument must be an object. A ' + _typeof(customFlags) + ' was entered. Please correct and retry.');
             return;
           }
@@ -14148,7 +15006,7 @@ var mParticle = (function () {
               value: value
             }));
           } else {
-            var existingProp = self._Helpers.findKeyInObject(self._Store.sessionAttributes, key);
+            var existingProp = findKeyInObject(self._Store.sessionAttributes, key);
             if (existingProp) {
               key = existingProp;
             }
@@ -14213,14 +15071,14 @@ var mParticle = (function () {
         }
         if (attrs === null) {
           self._Store.integrationAttributes[integrationId] = {};
-        } else if (self._Helpers.isObject(attrs)) {
+        } else if (isObject(attrs)) {
           if (Object.keys(attrs).length === 0) {
             self._Store.integrationAttributes[integrationId] = {};
           } else {
             for (var key in attrs) {
               if (typeof key === 'string') {
                 if (typeof attrs[key] === 'string') {
-                  if (self._Helpers.isObject(self._Store.integrationAttributes[integrationId])) {
+                  if (isObject(self._Store.integrationAttributes[integrationId])) {
                     self._Store.integrationAttributes[integrationId][key] = attrs[key];
                   } else {
                     self._Store.integrationAttributes[integrationId] = {};
@@ -14364,6 +15222,7 @@ var mParticle = (function () {
         // Button tracking never runs as a native passthrough.
         resetButtonTracking();
         mpInstance._RoktManager.setAutoButtonClicksForwarded(false);
+        mpInstance._RoktManager.setAutoLinkClicksForwarded(false);
       } else {
         // Main SDK initialization flow
         // Load any settings/identities/attributes from cookie or localStorage
@@ -14414,14 +15273,15 @@ var mParticle = (function () {
         // init or from a returning shopper's landing page view.
         var logButtons = !!getFeatureFlag(AutoButtonTracking);
         var logLinks = !!getFeatureFlag(AutoLinkTracking);
-        // Links feed intent too, so with link tracking on the kit must also
-        // receive Auto Link Click events.
+        // With link tracking on, a click logged as Auto Link Click feeds intent
+        // only when the kit also receives those events; button clicks still do.
         var buttonClickBlocker = roktConfig_1 ? getButtonClickBlocker(roktConfig_1, kitBlocker) : undefined;
         var linkClickBlocker = roktConfig_1 && logLinks ? getButtonClickBlocker(roktConfig_1, kitBlocker, true) : undefined;
         if (logButtons && (buttonClickBlocker || linkClickBlocker)) {
-          mpInstance.Logger.warning(buttonClickBlocker ? "Checkout intent is off: the ".concat(buttonClickBlocker, " keeps some or all Auto Button Click events from the Rokt kit.") : "Checkout intent is off: the ".concat(linkClickBlocker, " keeps some or all Auto Link Click events from the Rokt kit."));
+          mpInstance.Logger.warning(buttonClickBlocker ? "Checkout intent is off: the ".concat(buttonClickBlocker, " keeps some or all Auto Button Click events from the Rokt kit.") : "Checkout intent skips link clicks: the ".concat(linkClickBlocker, " keeps some or all Auto Link Click events from the Rokt kit."));
         }
-        mpInstance._RoktManager.setAutoButtonClicksForwarded(!!roktConfig_1 && !buttonClickBlocker && !linkClickBlocker);
+        mpInstance._RoktManager.setAutoButtonClicksForwarded(!!roktConfig_1 && !buttonClickBlocker);
+        mpInstance._RoktManager.setAutoLinkClicksForwarded(!!roktConfig_1 && !linkClickBlocker);
         mpInstance._Forwarders.processForwarders(config, mpInstance._APIClient.prepareForwardingStats);
         mpInstance._Forwarders.processPixelConfigs(config);
         // Checks if session is created, resumed, or needs to be ended

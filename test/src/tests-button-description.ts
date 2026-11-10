@@ -29,6 +29,72 @@ describe('button description in a browser', () => {
         root.remove();
     });
 
+    describe('option rows beside a picked answer', () => {
+        // A card with one shown radio and a row holding a transparent radio:
+        // the group name may go out only when the row draws text of its own.
+        const groupOf = (row: string, setUp?: (row: Element) => void) => {
+            root.innerHTML =
+                '<div role="group" aria-label="Jane Doe"><input type="radio" name="to">' +
+                '<div role="button" id="mp-test-row"><input type="radio" name="to" style="opacity:0">' +
+                row +
+                '</div></div>';
+            if (setUp) {
+                setUp(root.querySelector('#mp-test-row'));
+            }
+            const choice = root.querySelector('input');
+            return describeButtonClick(choice, [choice, root, document.body]).group;
+        };
+
+        // Older browsers can't report composed visibility, so no row counts.
+        const readsVisibility = typeof Element.prototype.checkVisibility === 'function';
+
+        it('names the group when the row draws text, where the browser reports visibility', () => {
+            expect(groupOf('<span>Home</span>')).to.equal(
+                readsVisibility ? expectedLabel('jane doe') : undefined
+            );
+        });
+
+        [
+            ['an SVG title', '<svg><title>Home</title></svg>'],
+            ['an SVG definition', '<svg><defs style="display:inline"><text>Home</text></defs></svg>'],
+            ['canvas fallback', '<canvas>Home</canvas>'],
+            ['closed details', '<details><summary></summary>Home</details>'],
+        ].forEach(([name, row]) => {
+            it(`names no group for a row whose only text is ${name}`, () => {
+                expect(groupOf(row)).to.equal(undefined);
+            });
+        });
+
+        it('names no group for a row whose summary sits in nested closed details', () => {
+            expect(
+                groupOf('<details><summary></summary><details><summary>Home</summary></details></details>')
+            ).to.equal(undefined);
+        });
+
+        it('names no group for a row whose text a closed shadow root shows only through a transparent wrapper', function(this: Mocha.Context) {
+            if (typeof root.attachShadow !== 'function') {
+                this.skip();
+            }
+            const group = groupOf('<span>Home</span>', row => {
+                row.querySelector('input').setAttribute('slot', 'r');
+                row.attachShadow({ mode: 'closed' }).innerHTML =
+                    '<slot name="r"></slot><div style="opacity:0"><slot></slot></div>';
+            });
+            expect(group).to.equal(undefined);
+        });
+
+        it('names no group for a row whose text a closed shadow root leaves unslotted', function(this: Mocha.Context) {
+            if (typeof root.attachShadow !== 'function') {
+                this.skip();
+            }
+            const group = groupOf('Home', row => {
+                row.querySelector('input').setAttribute('slot', 'r');
+                row.attachShadow({ mode: 'closed' }).innerHTML = '<slot name="r"></slot>';
+            });
+            expect(group).to.equal(undefined);
+        });
+    });
+
     it('reads screen-reader-only text', () => {
         expect(
             labelOf(

@@ -2055,131 +2055,6 @@ describe('RoktManager', () => {
             );
         });
 
-        it('should propagate email after identify completes when identify is called during init', async () => {
-            // Set initial currentUser with first email to mimic real user flow
-            roktManager['currentUser'] = {
-                getUserIdentities: () => ({
-                    userIdentities: {
-                        email: 'first@gmail.com'
-                    }
-                }),
-                setUserAttributes: jest.fn()
-            } as unknown as IMParticleUser;
-
-            const kit: Partial<IRoktKit> = {
-                launcher: {
-                    selectPlacements: jest.fn(),
-                    hashAttributes: jest.fn(),
-                    use: jest.fn(),
-                },
-                selectPlacements: jest.fn().mockResolvedValue({}),
-                hashAttributes: jest.fn(),
-                setExtensionData: jest.fn(),
-            };
-            
-            roktManager['placementAttributesMapping'] = [];
-            roktManager.kit = kit as IRoktKit;
-
-            let identifyCallback: (() => void) | null = null;
-            let identifyResolve: (() => void) | null = null;
-            const identifyPromise = new Promise<void>((resolve) => {
-                identifyResolve = resolve;
-            });
-
-            const userWithEmail = {
-                getMPID: () => testMPID,
-                getUserIdentities: () => ({
-                    userIdentities: {
-                        email: 'user@example.com'
-                    }
-                }),
-                setUserAttributes: jest.fn()
-            };
-            
-            const mockIdentity = {
-                getCurrentUser: jest.fn()
-                    .mockReturnValueOnce({
-                        getMPID: () => testMPID,
-                        getUserIdentities: () => ({
-                            userIdentities: {}
-                        }),
-                        setUserAttributes: jest.fn()
-                    })
-                    .mockReturnValue(userWithEmail),
-                identify: jest.fn().mockImplementation((data, callback) => {
-                    identifyCallback = callback;
-                    setTimeout(() => {
-                        if (identifyCallback) {
-                            identifyCallback();
-                        }
-                        if (identifyResolve) {
-                            identifyResolve();
-                        }
-                    }, 150);
-                })
-            } as unknown as SDKIdentityApi;
-
-            roktManager['identityService'] = mockIdentity;
-            allowEveryIdentity(roktManager);
-
-            // Create a store mock that simulates identity call in flight
-            const mockStore: any = {
-                identityCallInFlight: true
-            };
-            roktManager['store'] = mockStore as IStore;
-
-            mockIdentity.identify({
-                userIdentities: {
-                    email: 'user@example.com'
-                }
-            }, () => {});
-
-            // Simulate identity call completing after a delay
-            const identityCompletePromise = new Promise<void>((resolve) => {
-                setTimeout(() => {
-                    mockStore.identityCallInFlight = false;
-                    resolve();
-                }, 150);
-            });
-
-            const options: IRoktSelectPlacementsOptions = {
-                attributes: {
-                    firstname: 'John'
-                }
-            };
-
-            const selectPlacementsPromise = roktManager.selectPlacements(options);
-            
-            // Verify it was queued (not called yet)
-            expect(kit.selectPlacements).not.toHaveBeenCalled();
-            expect(roktManager['messageQueue'].size).toBe(1);
-
-            // Wait for identity to complete
-            await identityCompletePromise;
-            await identifyPromise;
-            
-            // Ensure setTimeout has completed
-            await new Promise(resolve => setTimeout(resolve, 10));
-
-            // Process queued messages (simulating what identity.js does)
-            roktManager.onIdentityComplete();
-            
-            // Wait for async processing to complete
-            await resolvePromise();
-
-            // Wait for selectPlacements to finish
-            await selectPlacementsPromise;
-
-            expect(kit.selectPlacements).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    attributes: expect.objectContaining({
-                        email: 'user@example.com',
-                        firstname: 'John'
-                    })
-                })
-            );
-        });
-
         it('should not override email in attributes with current user email', async () => {
             const kit: Partial<IRoktKit> = {
                 launcher: {
@@ -2437,7 +2312,7 @@ describe('RoktManager', () => {
             expect(roktManager.filters.filteredUser).not.toBe(initialUser);
         });
 
-        it('should queue selectPlacements when identity call is in flight', async () => {
+        it('should run selectPlacements at once, and log it, while an identity request is in flight', async () => {
             const kit: Partial<IRoktKit> = {
                 launcher: {
                     selectPlacements: jest.fn(),
@@ -2461,39 +2336,49 @@ describe('RoktManager', () => {
             } as unknown as SDKIdentityApi;
 
             roktManager['identityService'] = mockIdentity;
-            
-            // Use the store from beforeEach and set identityCallInFlight to true
+            const log = jest.fn();
+            roktManager['loggingService'] = { log };
             roktManager['store'].identityCallInFlight = true;
 
-            const options: IRoktSelectPlacementsOptions = {
-                attributes: {}
+            await roktManager.selectPlacements({ attributes: {} });
+
+            expect(roktManager['messageQueue'].size).toBe(0);
+            expect(kit.selectPlacements).toHaveBeenCalledTimes(1);
+            expect(log).toHaveBeenCalledTimes(1);
+            expect(log).toHaveBeenCalledWith({
+                message: 'RoktManager: selectPlacements ran while an identity request was in flight',
+                code: 'SELECT_PLACEMENTS_IDENTITY_IN_FLIGHT',
+            });
+        });
+
+        it('should log nothing about identity when no identity request is in flight', async () => {
+            const kit: Partial<IRoktKit> = {
+                launcher: {
+                    selectPlacements: jest.fn(),
+                    hashAttributes: jest.fn(),
+                    use: jest.fn(),
+                },
+                selectPlacements: jest.fn().mockResolvedValue({}),
+                hashAttributes: jest.fn(),
+                setExtensionData: jest.fn(),
             };
 
-            // Call selectPlacements while identity is in flight - should be queued
-            const selectPlacementsPromise = roktManager.selectPlacements(options);
-            
-            // Give it a moment to queue the message
-            await resolvePromise();
-            
-            // Verify it was queued (not called yet)
-            expect(kit.selectPlacements).not.toHaveBeenCalled();
-            expect(roktManager['messageQueue'].size).toBe(1);
+            roktManager.kit = kit as IRoktKit;
+            roktManager['placementAttributesMapping'] = [];
+            roktManager['identityService'] = {
+                getCurrentUser: jest.fn().mockReturnValue({
+                    getUserIdentities: () => ({ userIdentities: {} }),
+                    setUserAttributes: jest.fn()
+                }),
+                identify: jest.fn()
+            } as unknown as SDKIdentityApi;
+            const log = jest.fn();
+            roktManager['loggingService'] = { log };
 
-            // Simulate identity call completing
-            roktManager['store'].identityCallInFlight = false;
-            
-            // Process queued messages (simulating what identity.js does)
-            roktManager.onIdentityComplete();
-            
-            // Wait for async processing to complete
-            await resolvePromise();
-            
-            // Now await the promise task to verify the actual result
-            await selectPlacementsPromise;
+            await roktManager.selectPlacements({ attributes: {} });
 
-            // Verify selectPlacements was called after processing the queue
-            expect(roktManager['messageQueue'].size).toBe(0);
-            expect(kit.selectPlacements).toHaveBeenCalled();
+            expect(kit.selectPlacements).toHaveBeenCalledTimes(1);
+            expect(log).not.toHaveBeenCalled();
         });
 
         it('should set filters.filteredUser with the current user at call time when identify is fired in background', async () => {
@@ -2679,53 +2564,6 @@ describe('RoktManager', () => {
                 expect(sentAttributes()).not.toHaveProperty('email');
                 expect(sentAttributes()).not.toHaveProperty('emailsha256');
                 expect(kitUserIdentities()).toEqual({ customerid: storedCustomerId });
-            });
-
-            it('should still send an email that an identify call in flight adds when the connection allows it', async () => {
-                const freshEmail = 'fresh@example.com';
-                storedIdentities = { [IdentityType.CustomerId]: storedCustomerId };
-                currentUserIdentities = { customerid: storedCustomerId };
-                initWithFilters([IdentityType.CustomerId]);
-                roktManager['store'].identityCallInFlight = true;
-
-                const selection = roktManager.selectPlacements({ attributes: {} });
-                expect(kit.selectPlacements).not.toHaveBeenCalled();
-
-                storedIdentities = { ...storedIdentities, [IdentityType.Email]: freshEmail };
-                currentUserIdentities = { ...currentUserIdentities, email: freshEmail };
-                roktManager['store'].identityCallInFlight = false;
-                roktManager.onIdentityComplete();
-                await selection;
-
-                expect(sentAttributes()).toHaveProperty('email', freshEmail);
-                expect(kitUserIdentities()).toEqual({ email: freshEmail });
-                expect(verboseLogs()).not.toContain('did not add');
-            });
-
-            it('should still send a hashed email that an identify call in flight adds when the connection allows it', async () => {
-                const freshEmail = 'fresh@example.com';
-                const freshHashedEmail = 'fresh-email-sha256';
-                storedIdentities = { [IdentityType.CustomerId]: storedCustomerId };
-                currentUserIdentities = { customerid: storedCustomerId };
-                initWithFilters([IdentityType.CustomerId, IdentityType.Email]);
-                roktManager['store'].identityCallInFlight = true;
-
-                const selection = roktManager.selectPlacements({ attributes: {} });
-                expect(kit.selectPlacements).not.toHaveBeenCalled();
-
-                storedIdentities = {
-                    ...storedIdentities,
-                    [IdentityType.Email]: freshEmail,
-                    [IdentityType.Other5]: freshHashedEmail,
-                };
-                currentUserIdentities = { ...currentUserIdentities, email: freshEmail, other5: freshHashedEmail };
-                roktManager['store'].identityCallInFlight = false;
-                roktManager.onIdentityComplete();
-                await selection;
-
-                expect(sentAttributes()).toHaveProperty('emailsha256', freshHashedEmail);
-                expect(sentAttributes()).not.toHaveProperty('email');
-                expect(kitUserIdentities()).toEqual({ other5: freshHashedEmail });
             });
 
             it('should log the type of each identity the connection filters, never its value', async () => {
@@ -3008,7 +2846,7 @@ describe('RoktManager', () => {
                 expect(launcherOptions()).toBe(JSON.stringify([{ attributes: { firstname: 'Jane' } }]));
             });
 
-            it('does not write them, and still runs queued calls, when the resolved user cannot report its identities', async () => {
+            it('does not write them when the resolved user cannot report its identities', async () => {
                 const currentUser = createUser('current-mpid', { email: currentEmail });
                 const unreadableUser = {
                     getMPID: () => 'resolved-mpid',
@@ -3017,54 +2855,61 @@ describe('RoktManager', () => {
                     },
                     setUserAttributes: jest.fn(),
                 } as unknown as IMParticleUser;
-                const laterUser = createUser('later-mpid', {});
                 useIdentityService(currentUser);
 
                 const selection = roktManager.selectPlacements({ attributes: passedAttributes });
-                roktManager['store'].identityCallInFlight = true;
-                const queuedSelection = roktManager.selectPlacements({ attributes: { firstname: 'Janet' } });
-                roktManager['store'].identityCallInFlight = false;
-                (roktManager['identityService'].getCurrentUser as jest.Mock).mockReturnValue(laterUser);
 
                 expect(() => completeIdentify(identifyResult(200, unreadableUser))).not.toThrow();
-                await Promise.all([selection, queuedSelection]);
+                await selection;
 
-                expect(writesByMPID(currentUser, unreadableUser, laterUser)).toEqual({
-                    'later-mpid': [{ firstname: 'Janet' }],
-                });
+                expect(writesByMPID(currentUser, unreadableUser)).toEqual({});
                 expect(mockMPInstance.Logger.error).toHaveBeenCalledWith(
                     'Error setting user attributes: Error: identities unavailable'
                 );
-                expect(launcherOptions()).toBe(
-                    JSON.stringify([{ attributes: passedAttributes }, { attributes: { firstname: 'Janet' } }])
-                );
+                expect(launcherOptions()).toBe(expectedLauncherOptions);
             });
 
-            it('writes them before running selectPlacements calls queued behind the identify', async () => {
+            it('writes those of a call made during the identify to the user current at call time', async () => {
                 const currentUser = createUser('current-mpid', { email: currentEmail });
                 const resolvedUser = createUser('resolved-mpid', { email: passedEmail });
                 useIdentityService(currentUser);
 
                 const selection = roktManager.selectPlacements({ attributes: passedAttributes });
                 roktManager['store'].identityCallInFlight = true;
-                const queuedSelection = roktManager.selectPlacements({
-                    attributes: { email: passedEmail, firstname: 'Janet' },
-                });
-                roktManager['store'].identityCallInFlight = false;
-                (roktManager['identityService'].getCurrentUser as jest.Mock).mockReturnValue(resolvedUser);
+                await roktManager.selectPlacements({ attributes: { firstname: 'Janet' } });
 
-                completeIdentify(identifyResult(200, resolvedUser));
-                await Promise.all([selection, queuedSelection]);
-
-                expect(writesByMPID(currentUser, resolvedUser)).toEqual({
-                    'resolved-mpid': [expectedUserAttributes, { email: passedEmail, firstname: 'Janet' }],
+                expect(writesByMPID(currentUser, resolvedUser), 'the second call does not wait for the identify').toEqual({
+                    'current-mpid': [{ firstname: 'Janet' }],
                 });
                 expect(launcherOptions()).toBe(
                     JSON.stringify([
                         { attributes: passedAttributes },
-                        { attributes: { email: passedEmail, firstname: 'Janet' } },
+                        { attributes: { firstname: 'Janet', email: currentEmail } },
                     ])
                 );
+
+                roktManager['store'].identityCallInFlight = false;
+                completeIdentify(identifyResult(200, resolvedUser));
+                await selection;
+
+                expect(writesByMPID(currentUser, resolvedUser)).toEqual({
+                    'current-mpid': [{ firstname: 'Janet' }],
+                    'resolved-mpid': [expectedUserAttributes],
+                });
+            });
+
+            it('does not write them when another identify in flight refuses the one the passed email starts', async () => {
+                const currentUser = createUser('current-mpid', { email: currentEmail });
+                useIdentityService(currentUser);
+                roktManager['store'].identityCallInFlight = true;
+
+                const selection = roktManager.selectPlacements({ attributes: passedAttributes });
+                completeIdentify(identifyResult(-2, currentUser));
+                await selection;
+
+                expect(writesByMPID(currentUser)).toEqual({});
+                expect(mockMPInstance.Logger.warning).toHaveBeenCalledWith(unresolvedIdentityWarning);
+                expect(launcherOptions()).toBe(expectedLauncherOptions);
             });
 
             it('applies the same rule to a hashed email', async () => {
@@ -4422,21 +4267,37 @@ describe('checkout intent', () => {
         expect(onCheckoutIntent).toHaveBeenCalledWith({ kind: 'commit', t: 999000 });
     });
 
-    it('keeps one buffered signal of every kind, so a later kind never evicts a commit', () => {
-        roktManager.notifyCheckoutIntent({ kind: 'commit', t: 995000 });
-        roktManager.notifyCheckoutIntent({ kind: 'wallet', t: 996000 });
-        roktManager.notifyCheckoutIntent({ kind: 'checkout_step', t: 997000 });
-        roktManager.notifyCheckoutIntent({ kind: 'frame', t: 998000 });
+    it('keeps a buffered add-to-cart click when a later cart click only opens the cart', () => {
+        roktManager.notifyCheckoutIntent({ kind: 'cart', t: 997000, adds: true });
+        roktManager.notifyCheckoutIntent({ kind: 'cart', t: 998000, adds: true });
         roktManager.notifyCheckoutIntent({ kind: 'cart', t: 999000 });
         const onCheckoutIntent = jest.fn();
 
         attachKitWith(onCheckoutIntent);
 
-        expect(onCheckoutIntent.mock.calls.map(call => call[0].kind)).toEqual([
+        expect(onCheckoutIntent.mock.calls.map(call => call[0])).toEqual([
+            { kind: 'cart', t: 998000, adds: true },
+            { kind: 'cart', t: 999000 },
+        ]);
+    });
+
+    it('keeps one buffered signal of every kind, so a later kind never evicts a commit', () => {
+        roktManager.notifyCheckoutIntent({ kind: 'commit', t: 995000 });
+        roktManager.notifyCheckoutIntent({ kind: 'wallet', t: 996000 });
+        roktManager.notifyCheckoutIntent({ kind: 'checkout_step', t: 997000 });
+        roktManager.notifyCheckoutIntent({ kind: 'frame', t: 998000 });
+        roktManager.notifyCheckoutIntent({ kind: 'cart', t: 998500, adds: true });
+        roktManager.notifyCheckoutIntent({ kind: 'cart', t: 999000 });
+        const onCheckoutIntent = jest.fn();
+
+        attachKitWith(onCheckoutIntent);
+
+        expect(onCheckoutIntent.mock.calls.map(call => call[0].kind + (call[0].adds ? ':adds' : ''))).toEqual([
             'commit',
             'wallet',
             'checkout_step',
             'frame',
+            'cart:adds',
             'cart',
         ]);
     });

@@ -5,6 +5,7 @@ import KitFilterHelper from '../kitFilterHelper';
 import { BaseEvent, SDKEvent } from '../sdkRuntimeModels';
 import { EventType, MessageType } from '../types';
 import { IButtonClick } from './buttonDescription';
+import { pagePath } from '../pathMasking';
 
 // Marks an automatically logged button click, like `is_auto_page_view`.
 export const AUTO_BUTTON_ATTRIBUTE = 'is_auto_button_click';
@@ -27,7 +28,7 @@ const clickAttributes = (
         label_source: click.labelSource,
         element: click.element,
         type: click.type,
-        path: pathname,
+        path: pagePath(pathname),
         hostname: window.location.hostname,
     };
     // Optional fields are left out when the control has no safe value for them.
@@ -40,8 +41,10 @@ const clickAttributes = (
         test_id: click.testId,
         controls: click.controls,
         form: click.form,
+        group: click.group,
         link_type: click.linkType,
         link_domain: click.linkDomain,
+        link_path: click.linkPath,
         file_extension: click.fileExtension,
     };
     for (const key of Object.keys(optional)) {
@@ -72,8 +75,9 @@ export const buildButtonClickEvent = (
 
 // One custom event per click on a link that leaves the page. Typed Other, not
 // Navigation, so no kit reads it as a page change. A plain link to another page
-// of the site goes without its text, which can name the shopper ("Hi, Jane");
-// a button or wallet acting as a link keeps its name.
+// of the site goes without its text, which can name the shopper ("Hi, Jane"), and
+// with its destination path instead; a button or wallet acting as a link keeps
+// its name.
 export const buildLinkClickEvent = (
     click: IButtonClick,
     pathname: string
@@ -114,8 +118,10 @@ const CLICK_ATTRIBUTES = [
     'test_id',
     'controls',
     'form',
+    'group',
     'link_type',
     'link_domain',
+    'link_path',
     'file_extension',
     'checked',
 ];

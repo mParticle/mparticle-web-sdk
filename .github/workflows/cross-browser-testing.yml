@@ -23,13 +23,13 @@ jobs:
     steps:
 
       - name: 'BrowserStack Env Setup'  # Invokes the setup-env action
-        uses: browserstack/github-actions/setup-env@master
+        uses: browserstack/github-actions/setup-env@1fad39ae4755588f7fc6854da6c3efba2bf5d08f # v1.0.6
         with:
           username:  ${{ secrets.BROWSERSTACK_USERNAME }}
           access-key: ${{ secrets.BROWSERSTACK_ACCESS_KEY }}
 
       - name: 'BrowserStack Local Tunnel Setup'  # Invokes the setup-local action
-        uses: browserstack/github-actions/setup-local@master
+        uses: browserstack/github-actions/setup-local@1fad39ae4755588f7fc6854da6c3efba2bf5d08f # v1.0.6
         with:
           local-testing: start
           local-identifier: random
@@ -54,6 +54,6 @@ jobs:
 
       - name: 'BrowserStackLocal Stop'  # Terminating the BrowserStackLocal tunnel connection
         if: always()
-        uses: browserstack/github-actions/setup-local@master
+        uses: browserstack/github-actions/setup-local@1fad39ae4755588f7fc6854da6c3efba2bf5d08f # v1.0.6
         with:
           local-testing: stop
