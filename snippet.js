@@ -117,6 +117,7 @@
     // add mParticle script dynamically to the page, insert before the first script tag
     var mp = document.createElement('script');
     mp.type = 'text/javascript';
+    mp.charset = 'utf-8';
     mp.async = true;
     mp.src =
         'https://jssdkcdns.mparticle.com/js/v3/' +
