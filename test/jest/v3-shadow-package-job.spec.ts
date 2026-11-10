@@ -49,7 +49,11 @@ describe('shadow V3 candidate packaging job in V3 Step 1', () => {
         expect(jobNames).toContain('upload-v3-candidate');
         expect(packageJob).toContain('\n        needs: release\n');
         jobs.forEach((job, name) => {
-            if (name !== 'package-v3-candidate' && name !== 'upload-v3-candidate') {
+            if (
+                name !== 'package-v3-candidate' &&
+                name !== 'advance-staging' &&
+                name !== 'upload-v3-candidate'
+            ) {
                 expect(job).not.toContain('package-v3-candidate');
             }
         });
@@ -338,6 +342,7 @@ describe('shadow V3 candidate packaging job in V3 Step 1', () => {
         for (const condition of [
             'always() &&',
             '!cancelled() &&',
+            "github.repository == 'mParticle/mparticle-web-sdk' &&",
             "needs.confirm-staging-branch.result == 'success'",
             "needs.release.result == 'success'",
             "needs.package-v3-candidate.result == 'success'",
@@ -397,6 +402,23 @@ describe('shadow V3 candidate packaging job in V3 Step 1', () => {
             expect(ok.calls).toContain(RUN_READ);
             expect(ok.calls).not.toContain('/cancel');
             expect(ok.summary).toContain('`987654`');
+
+            const withReleaseTag = runStep(dispatchScript, {
+                RELEASE_TAG: 'v3.32.0',
+                FAKE_FIRST_RUN_JSON: RUN_IN_PROGRESS,
+            });
+            expect(withReleaseTag.status).toBe(0);
+            expect(withReleaseTag.calls).toContain(
+                'api --method POST repos/mParticle/mparticle-web-sdk/actions/workflows/v3-shadow-candidate.yml/dispatches -f ref=main -f inputs[step1_run_id]=123456 -f inputs[release_gate]=true -f inputs[release_tag]=v3.32.0 -F return_run_details=true'
+            );
+
+            const invalidReleaseTag = runStep(dispatchScript, {
+                RELEASE_TAG: 'v2.80.0',
+            });
+            expect(invalidReleaseTag.status).toBe(1);
+            expect(invalidReleaseTag.output).toContain(
+                'RELEASE_TAG must be a stable V3 release tag.'
+            );
 
             // A completed child cannot be cancelled, so the step tries no cancel.
             const failedChild = runStep(dispatchScript, {

@@ -123,11 +123,17 @@ describe('V3 shadow release workflows', () => {
             expect(Object.keys(CANDIDATE.on.workflow_dispatch.inputs)).toEqual([
                 'step1_run_id',
                 'release_gate',
+                'release_tag',
             ]);
             expect(CANDIDATE.on.workflow_dispatch.inputs.release_gate).toMatchObject({
                 required: true,
                 type: 'boolean',
                 default: false,
+            });
+            expect(CANDIDATE.on.workflow_dispatch.inputs.release_tag).toMatchObject({
+                required: false,
+                type: 'string',
+                default: '',
             });
         });
 
@@ -696,6 +702,172 @@ describe('V3 shadow release workflows', () => {
                 expect(command).toMatch(
                     /--trigger workflow_dispatch --release-gate false --release-please-mode true --artifacts \S+\/step1-artifacts\.json --jobs \S+\/step1-jobs\.json$/
                 );
+            });
+
+            it('passes --release-tag to the trigger script on a manual recovery dispatch when release_tag is set', () => {
+                const validateRun = stepNamed(jobs.resolve, 'Validate the Step 1 run');
+                expect(validateRun.env.RELEASE_TAG).toBe('${{ inputs.release_tag }}');
+                const eventPath = path.join(directory, 'event.json');
+                fs.writeFileSync(eventPath, JSON.stringify({}));
+                const result = runScript(script(), {
+                    PATH: `${path.join(directory, 'bin')}:${process.env.PATH}`,
+                    GITHUB_EVENT_NAME: 'workflow_dispatch',
+                    GITHUB_EVENT_PATH: eventPath,
+                    GITHUB_REPOSITORY: 'example-org/example-repo',
+                    GITHUB_OUTPUT: path.join(directory, 'outputs'),
+                    RUNNER_TEMP: directory,
+                    STEP1_RUN_ID: '456',
+                    RELEASE_GATE: 'true',
+                    RELEASE_PLEASE_ENABLED: 'true',
+                    RELEASE_TAG: 'v3.32.0',
+                });
+                expect(result.status).toBe(1);
+                const [command] = fs.readFileSync(nodeLog, 'utf8').split('\n');
+                expect(command).toMatch(
+                    /--trigger workflow_dispatch --release-gate true --release-please-mode true --artifacts \S+\/step1-artifacts\.json --jobs \S+\/step1-jobs\.json --release-tag v3\.32\.0$/
+                );
+            });
+
+            itStripsTypes('supports cross-version release_tag pairings and fails closed when release_tag mismatches head_branch', () => {
+                const bin = path.join(directory, 'bin');
+                const declaredInputs = Object.keys(
+                    CANDIDATE.on.workflow_dispatch.inputs
+                );
+                expect(declaredInputs).toContain('release_tag');
+                const dispatchedInputsFile = path.join(
+                    directory,
+                    'dispatched-inputs.txt'
+                );
+                fs.writeFileSync(
+                    path.join(bin, 'gh'),
+                    [
+                        '#!/bin/sh',
+                        'case "$*" in',
+                        '  *"/workflows/v3-shadow-candidate.yml/dispatches"*)',
+                        `    : > "${dispatchedInputsFile}"`,
+                        '    for arg in "$@"; do',
+                        '      case "$arg" in',
+                        '        inputs\\[*\\]=*)',
+                        '          key="${arg#inputs[}"',
+                        '          key="${key%%]=*}"',
+                        '          val="${arg#*=}"',
+                        `          case ",${declaredInputs.join(',')}," in`,
+                        '            *,"$key",*)',
+                        `              printf '%s=%s\\n' "$key" "$val" >> "${dispatchedInputsFile}" ;;`,
+                        '            *)',
+                        '              echo "HTTP 422: Unexpected inputs provided: [\\"$key\\"]" >&2',
+                        '              exit 1 ;;',
+                        '          esac ;;',
+                        '      esac',
+                        '    done',
+                        '    echo \'{"workflow_run_id":987654}\' ;;',
+                        '  *"/actions/runs/987654"*)',
+                        '    echo \'{"status":"completed","conclusion":"success","html_url":"https://example.test/runs/987654"}\' ;;',
+                        '  *"/workflows/staging-step-1.yml"*) echo 101 ;;',
+                        '  *"/workflows/v3-release-step-1.yml"*) echo 102 ;;',
+                        '  *"/jobs?"*) echo \'{"jobs":[{"run_id":456,"run_attempt":1,"name":"Perform Release","status":"completed","conclusion":"success"},{"run_id":456,"run_attempt":1,"name":"Package V3 candidate (shadow)","status":"completed","conclusion":"success","started_at":"2026-11-09T20:00:00Z","completed_at":"2026-11-09T20:05:00Z"}]}\' ;;',
+                        '  *"/artifacts?"*) echo \'{"artifacts":[{"name":"v3-candidate-456-1","expired":false,"created_at":"2026-11-09T20:02:00Z","workflow_run":{"id":456}}]}\' ;;',
+                        '  *"/actions/runs/456") echo \'{"id":456,"run_attempt":1,"status":"completed","conclusion":"success","event":"workflow_dispatch","path":".github/workflows/v3-release-step-1.yml","workflow_id":102,"head_branch":"v3.32.0","display_title":"V3 Release - Step 1","head_repository":{"full_name":"mParticle/mparticle-web-sdk"},"repository":{"full_name":"mParticle/mparticle-web-sdk"}}\' ;;',
+                        '  *) echo 101 ;;',
+                        'esac',
+                        '',
+                    ].join('\n'),
+                    { mode: 0o755 }
+                );
+                fs.rmSync(path.join(bin, 'node'), { force: true });
+                const eventPath = path.join(directory, 'event.json');
+                fs.writeFileSync(eventPath, JSON.stringify({}));
+                const outputsPath = path.join(directory, 'outputs');
+                const runGate = (
+                    releaseTag: string,
+                    receiverScript: string = script()
+                ) => {
+                    fs.writeFileSync(outputsPath, '');
+                    return runScript(receiverScript, {
+                        PATH: `${bin}:${path.dirname(process.execPath)}:${process.env.PATH}`,
+                        GITHUB_EVENT_NAME: 'workflow_dispatch',
+                        GITHUB_EVENT_PATH: eventPath,
+                        GITHUB_REPOSITORY: 'mParticle/mparticle-web-sdk',
+                        GITHUB_OUTPUT: outputsPath,
+                        RUNNER_TEMP: directory,
+                        STEP1_RUN_ID: '456',
+                        RELEASE_GATE: 'true',
+                        RELEASE_PLEASE_ENABLED: 'true',
+                        RELEASE_TAG: releaseTag,
+                    });
+                };
+
+                // Pairing 1: an old caller (no release_tag) with the new receiver
+                // takes head_branch, logs a warning, and passes.
+                const oldCallerNewReceiver = runGate('');
+                expect(oldCallerNewReceiver.status).toBe(0);
+                expect(oldCallerNewReceiver.output).toContain(
+                    '::warning::release_tag was not passed; caller predates release_tag, using Step 1 head_branch (v3.32.0)'
+                );
+                expect(oldCallerNewReceiver.output).toContain(
+                    'release_tag=v3.32.0'
+                );
+                expect(fs.readFileSync(outputsPath, 'utf8')).toContain(
+                    'release_tag=v3.32.0\n'
+                );
+                expect(fs.readFileSync(outputsPath, 'utf8')).not.toContain(
+                    '::warning::'
+                );
+
+                // Pairing 2: a new caller (with release_tag) with a receiver that
+                // keeps the release_tag input declaration on v3-shadow-candidate.yml
+                // (so GitHub accepts the dispatch) but does not pass --release-tag
+                // to the check passes.
+                const step1Workflow = load(
+                    `${WORKFLOW_DIRECTORY}/v3-release-step-1.yml`
+                );
+                const callerDispatch = stepNamed(
+                    step1Workflow.jobs['upload-v3-candidate'],
+                    'Dispatch and wait for V3 candidate upload and stage'
+                ).run;
+                const callerResult = runScript(callerDispatch, {
+                    PATH: `${bin}:${path.dirname(process.execPath)}:${process.env.PATH}`,
+                    GITHUB_REPOSITORY: 'mParticle/mparticle-web-sdk',
+                    GITHUB_OUTPUT: path.join(directory, 'caller-outputs'),
+                    GITHUB_STEP_SUMMARY: path.join(directory, 'caller-summary'),
+                    STEP1_RUN_ID: '456',
+                    RELEASE_TAG: 'v3.32.0',
+                    WAIT_TIMEOUT_SECONDS: '30',
+                    POLL_INTERVAL_SECONDS: '1',
+                    CANCEL_ATTEMPTS: '3',
+                    CANCEL_RETRY_SECONDS: '1',
+                });
+                expect(callerResult.status).toBe(0);
+                expect(fs.readFileSync(dispatchedInputsFile, 'utf8')).toContain(
+                    'release_tag=v3.32.0\n'
+                );
+                const receiverWithoutCheck = script().replace(
+                    /if \[ -n "\$\{RELEASE_TAG:-\}" \]; then\s+set -- "\$@" --release-tag "\$RELEASE_TAG"\s+fi/,
+                    ''
+                );
+                expect(receiverWithoutCheck).not.toContain('--release-tag');
+                const newCallerRolledBackReceiver = runGate(
+                    'v3.32.0',
+                    receiverWithoutCheck
+                );
+                expect(newCallerRolledBackReceiver.status).toBe(0);
+                expect(newCallerRolledBackReceiver.output).toContain(
+                    'release_tag=v3.32.0'
+                );
+
+                // Mismatch: when release_tag is given and differs from head_branch,
+                // the receiver fails closed.
+                const mismatchedTag = runGate('v3.31.0');
+                expect(mismatchedTag.status).toBe(1);
+                expect(mismatchedTag.output).toContain(
+                    'The candidate release_tag must equal the Step 1 run head_branch'
+                );
+
+                // Matching new caller and new receiver passes with no warning.
+                const matchingTag = runGate('v3.32.0');
+                expect(matchingTag.status).toBe(0);
+                expect(matchingTag.output).toContain('release_tag=v3.32.0');
+                expect(matchingTag.output).not.toContain('::warning::');
             });
 
             it('fails closed in release-gate mode when the Step 1 plan returns skip=true', () => {
