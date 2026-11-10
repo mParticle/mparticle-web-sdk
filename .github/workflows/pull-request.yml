@@ -422,6 +422,7 @@ jobs:
         name: Required checks
         if: always()
         runs-on: ubuntu-latest
+        timeout-minutes: 5
         permissions: {}
         needs:
             - build-bundle
