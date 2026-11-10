@@ -711,6 +711,108 @@ describe('ServerModel', () => {
                 Types.MessageType.Media
             );
         });
+
+        it('uses an internal capturedAt timestamp when within the current session and not in the future', () => {
+            const mpInstance = mParticle.getInstance();
+            mpInstance._Store.sessionStartDate = new Date(1000);
+            const event: BaseEvent = {
+                name: 'Auto Button Click',
+                messageType: Types.MessageType.PageEvent,
+                eventType: Types.EventType.Other,
+            };
+            const createEventObject = mpInstance._ServerModel
+                .createEventObject as (
+                event: BaseEvent,
+                user?: IMParticleUser,
+                capturedAt?: number
+            ) => SDKEvent;
+
+            const actualEventObject = createEventObject(
+                event,
+                undefined,
+                12345
+            );
+
+            expect(actualEventObject.Timestamp, 'Timestamp').to.equal(12345);
+        });
+
+        it('ignores capturedAt when it is earlier than sessionStartDate', () => {
+            const mpInstance = mParticle.getInstance();
+            mpInstance._Store.sessionStartDate = new Date(20000);
+            const event: BaseEvent = {
+                name: 'Auto Button Click',
+                messageType: Types.MessageType.PageEvent,
+                eventType: Types.EventType.Other,
+            };
+            const createEventObject = mpInstance._ServerModel
+                .createEventObject as (
+                event: BaseEvent,
+                user?: IMParticleUser,
+                capturedAt?: number
+            ) => SDKEvent;
+
+            const actualEventObject = createEventObject(
+                event,
+                undefined,
+                12345
+            );
+
+            expect(actualEventObject.Timestamp, 'Timestamp').to.equal(
+                mpInstance._Store.dateLastEventSent.getTime()
+            );
+        });
+
+        it('ignores capturedAt when it is non-finite or in the future', () => {
+            const mpInstance = mParticle.getInstance();
+            mpInstance._Store.sessionStartDate = new Date(1000);
+            const event: BaseEvent = {
+                name: 'Auto Button Click',
+                messageType: Types.MessageType.PageEvent,
+                eventType: Types.EventType.Other,
+            };
+            const createEventObject = mpInstance._ServerModel
+                .createEventObject as (
+                event: BaseEvent,
+                user?: IMParticleUser,
+                capturedAt?: number
+            ) => SDKEvent;
+
+            const nanEventObject = createEventObject(
+                event,
+                undefined,
+                Number.NaN
+            );
+            expect(nanEventObject.Timestamp, 'NaN Timestamp').to.equal(
+                mpInstance._Store.dateLastEventSent.getTime()
+            );
+
+            const futureEventObject = createEventObject(
+                event,
+                undefined,
+                Date.now() + 60000
+            );
+            expect(futureEventObject.Timestamp, 'future Timestamp').to.equal(
+                mpInstance._Store.dateLastEventSent.getTime()
+            );
+        });
+
+        it('ignores a timestamp property on the event object itself', () => {
+            const mpInstance = mParticle.getInstance();
+            const event = ({
+                name: 'Custom',
+                messageType: Types.MessageType.PageEvent,
+                eventType: Types.EventType.Navigation,
+                timestamp: 1,
+            } as unknown) as BaseEvent;
+
+            const actualEventObject = mpInstance._ServerModel.createEventObject(
+                event
+            );
+
+            expect(actualEventObject.Timestamp, 'Timestamp').to.equal(
+                mpInstance._Store.dateLastEventSent.getTime()
+            );
+        });
     });
 
     describe('#convertEventToDTO', () => {

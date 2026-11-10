@@ -221,6 +221,32 @@ describe('event logging', function() {
         Should(bypassedEvent).not.be.ok();
     });
 
+    it('should ignore a timestamp property on a logBaseEvent object and upload the time it was logged', async () => {
+        await waitForCondition(hasIdentifyReturned);
+
+        const before = Date.now();
+        window.mParticle.logBaseEvent(
+            ({
+                name: 'Custom',
+                messageType: MessageType.PageEvent,
+                eventType: mParticle.EventType.Navigation,
+                timestamp: 1,
+            } as unknown) as Parameters<typeof window.mParticle.logBaseEvent>[0],
+            {
+                shouldUploadEvent: true,
+            }
+        );
+        const after = Date.now();
+
+        const uploadEvent = findEventFromRequest(fetchMock.calls(), 'Custom');
+
+        uploadEvent.should.be.ok();
+        expect(uploadEvent.data.timestamp_unixtime_ms).to.be.within(
+            before,
+            after
+        );
+    });
+
     it('should log an error', async () => {
         await waitForCondition(hasIdentifyReturned);
 
