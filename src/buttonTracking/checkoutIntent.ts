@@ -71,7 +71,7 @@ const otherCommits = [
     '(?:nu )?betalen|bestellen en betalen|bestelling plaatsen|plaats bestelling|bestelling afronden',
     'bestelling met betalingsverplichting',
     '(?:この内容で|上記の?内容で)?ご?(?:注文|購入|予約|決済|お?支払い?)を?(?:確定|完了)(?:する)?',
-    '(?:この内容で|上記の?内容で)ご?(?:注文|購入|予約)する|ご?注文する|決済する|(?:今すぐ|を)?支払う',
+    '(?:この内容で|上記の?内容で)ご?(?:注文|購入|予約)する|ご?注文する|決済する|(?:今すぐ|を)?支払う|お?支払いを行う',
 ].join('|');
 const commits = new RegExp('^(?:' + englishCommits + '|' + otherCommits + ')$');
 // A plain link is navigation, so in English only an order or purchase it
@@ -104,8 +104,10 @@ const steps = new RegExp(
 // that isn't an account or confirmation page.
 const routeGatedSteps = /^save and continue$/;
 const CART_NOUN = '(?:(?:my|your|the) )?(?:shopping )?(?:cart|bag|basket)';
-// "Add to bag" and "Add 2 to cart": a click that puts something in the cart.
-const addToCartLabels = new RegExp('^add(?: [^ ]+){0,5} to ' + CART_NOUN + '$');
+// "Add to bag", "Add 2 to cart", and "カートに追加する": a click that puts something in the cart.
+const addToCartLabels = new RegExp(
+    '^(?:add(?: [^ ]+){0,5} to ' + CART_NOUN + '|(?:[^を]{0,40}を)?カートに追加(?:する)?)$'
+);
 // "View cart", "Shopping bag", "Bag", and a count badge such as "1 item in bag",
 // which reads "item in bag" once digits are stripped: a click that opens the cart.
 const openCartLabels = new RegExp(
