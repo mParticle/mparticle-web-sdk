@@ -1,48 +1,190 @@
 name: "Android Bridge Tests"
-on: push
+on:
+    push:
+    schedule:
+        # Daily non-required canary against mParticle/mparticle-android-sdk main
+        - cron: "0 6 * * *"
+    workflow_dispatch:
+        inputs:
+            android_sdk_ref:
+                description: "mParticle/mparticle-android-sdk ref to test (defaults to main for manual canary)"
+                required: false
+                type: string
+                default: "main"
+
+concurrency:
+    group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}-${{ (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') && github.sha) || (github.event_name == 'workflow_dispatch' && (inputs.android_sdk_ref || 'main')) || 'branch' }}
+    cancel-in-progress: ${{ github.event_name == 'push' && github.ref != 'refs/heads/main' && github.ref != 'refs/heads/master' }}
+
+permissions:
+    contents: read
+
+env:
+    # Reviewed mParticle/mparticle-android-sdk commit SHA used by push runs;
+    # scheduled and manual canary runs test main to surface cross-repo drift.
+    ANDROID_SDK_PINNED_SHA: "cc21fe77686c1e93762a3c10443a97be518d6393"
+    EMULATOR_BUILD: "16740729"
+    EMULATOR_SHA1: "f41f9e31eb5ca64926603c03265c50bbc0ff4172"
+    SYSTEM_IMAGE_REVISION: "8"
+    SYSTEM_IMAGE_ARCHIVE: "x86_64-29_r08-linux.zip"
+    SYSTEM_IMAGE_SHA1: "e4b798d6fcddff90d528d74ef22ce3dd4a2ca798"
+
 jobs:
     test:
-        timeout-minutes: 15
+        timeout-minutes: 25
         runs-on: ubuntu-latest
         steps:
             - name: "Checkout internal"
-              uses: actions/checkout@v6
+              uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+              with:
+                persist-credentials: false
 
             - name: "Clone Android Repo"
-              uses: actions/checkout@v6
+              uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
               with:
+                persist-credentials: false
                 repository: mParticle/mparticle-android-sdk
-                ref: main
+                ref: ${{ github.event_name == 'schedule' && 'main' || (github.event_name == 'workflow_dispatch' && (inputs.android_sdk_ref || 'main')) || env.ANDROID_SDK_PINNED_SHA }}
                 path: mparticle-android-sdk
+
             - name: "Install JDK 17"
-              uses: actions/setup-java@v6
+              uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
               with:
                 distribution: "zulu"
-                java-version: "17"    
+                java-version: "17"
+
+            - name: "Setup Gradle"
+              uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+
             - name: "Build Files"
               run: |
                 npm ci
                 npm run build:iife
-            - name: "Install Emulator and System Image"
+
+            - name: "Enable KVM"
               run: |
+                echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules > /dev/null
+                sudo udevadm control --reload-rules
+                sudo udevadm trigger --name-match=kvm
+
+            - name: "Install Pinned Emulator and System Image"
+              run: |
+                set -eu
+                SYSIMG_DIR="$ANDROID_HOME/system-images/android-29/default"
+                mkdir -p "$SYSIMG_DIR"
                 for attempt in 1 2 3; do
-                  "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install emulator 'system-images;android-29;default;x86_64' > /dev/null && exit 0
-                  echo "sdkmanager attempt $attempt failed; retrying"
-                  rm -rf "$ANDROID_HOME/.temp" "$ANDROID_HOME/.downloadIntermediates"
+                  if "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install 'platforms;android-29' > /dev/null &&
+                     curl -fsSL -o "$RUNNER_TEMP/emulator.zip" "https://dl.google.com/android/repository/emulator-linux_x64-${EMULATOR_BUILD}.zip" &&
+                     echo "${EMULATOR_SHA1}  $RUNNER_TEMP/emulator.zip" | sha1sum -c - &&
+                     unzip -o -q "$RUNNER_TEMP/emulator.zip" -d "$ANDROID_HOME" &&
+                     curl -fsSL -o "$RUNNER_TEMP/sysimg.zip" "https://dl.google.com/android/repository/sys-img/android/${SYSTEM_IMAGE_ARCHIVE}" &&
+                     echo "${SYSTEM_IMAGE_SHA1}  $RUNNER_TEMP/sysimg.zip" | sha1sum -c - &&
+                     rm -rf "$SYSIMG_DIR/x86_64" &&
+                     unzip -o -q "$RUNNER_TEMP/sysimg.zip" -d "$SYSIMG_DIR" &&
+                     rm -f "$RUNNER_TEMP/emulator.zip" "$RUNNER_TEMP/sysimg.zip"; then
+                    ACTUAL_REV="$(sed -n 's/^Pkg\.Revision=//p' "$SYSIMG_DIR/x86_64/source.properties" | tr -d '[:space:]')"
+                    if [ "$ACTUAL_REV" != "$SYSTEM_IMAGE_REVISION" ]; then
+                      echo "Unexpected system image revision: got '$ACTUAL_REV', expected '$SYSTEM_IMAGE_REVISION'" >&2
+                      exit 1
+                    fi
+                    ACTUAL_BUILD="$(sed -n 's/^Pkg\.BuildId=//p' "$ANDROID_HOME/emulator/source.properties" | tr -d '[:space:]')"
+                    if [ "$ACTUAL_BUILD" != "$EMULATOR_BUILD" ]; then
+                      echo "Unexpected emulator build: got '$ACTUAL_BUILD', expected '$EMULATOR_BUILD'" >&2
+                      exit 1
+                    fi
+                    exit 0
+                  fi
+                  echo "Pinned emulator/system-image install attempt $attempt failed; retrying"
+                  rm -rf "$ANDROID_HOME/.temp" "$ANDROID_HOME/.downloadIntermediates" "$RUNNER_TEMP/emulator.zip" "$RUNNER_TEMP/sysimg.zip"
                   sleep 15
                 done
                 exit 1
+
             - name: "Run Instrumented Tests"
-              uses: reactivecircus/android-emulator-runner@v2.35.0
+              uses: reactivecircus/android-emulator-runner@b530d96654c385303d652368551fb075bc2f0b6b # v2.35.0
+              env:
+                ANDROID_EMULATOR_WAIT_TIME_BEFORE_KILL: 60
               with:
                 working-directory: mparticle-android-sdk
                 api-level: 29
+                target: default
                 arch: x86_64
+                emulator-build: ${{ env.EMULATOR_BUILD }}
                 force-avd-creation: true
-                script: ./gradlew :android-core:cAT -Pandroid.testInstrumentationRunnerArguments.class=com.mparticle.internal.MParticleJSInterfaceITest -Pjs-sdk-file=${{ github.workspace }}/dist/mparticle.js
+                emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+                disable-animations: true
+                script: set -eu && test "$(sed -n 's/^Pkg\.Revision=//p' "$ANDROID_HOME/system-images/android-29/default/x86_64/source.properties" | tr -d '[:space:]')" = "$SYSTEM_IMAGE_REVISION" && test "$(sed -n 's/^Pkg\.BuildId=//p' "$ANDROID_HOME/emulator/source.properties" | tr -d '[:space:]')" = "$EMULATOR_BUILD" && DIAG_DIR="$PWD/android-core/build/bridge-diagnostics" && mkdir -p "$DIAG_DIR" && (adb -s emulator-5554 shell dumpsys webviewupdate > "$DIAG_DIR/webview-version.txt" 2>&1 || true) && (adb -s emulator-5554 shell pm dump com.android.webview | grep -E "versionName|versionCode|codePath" >> "$DIAG_DIR/webview-version.txt" 2>&1 || true) && (adb -s emulator-5554 logcat -c || true) && trap 'adb -s emulator-5554 logcat -d -v threadtime > "$DIAG_DIR/logcat.txt" 2>&1 || true; adb -s emulator-5554 shell dmesg > "$DIAG_DIR/emulator-dmesg.txt" 2>&1 || true' EXIT && ./gradlew :android-core:cAT -Pandroid.testInstrumentationRunnerArguments.class=com.mparticle.internal.MParticleJSInterfaceITest -Pjs-sdk-file=${{ github.workspace }}/dist/mparticle.js
+
+            - name: "Verify System Image Revision and Emulator Build After Runner"
+              run: |
+                set -eu
+                ACTUAL_REV="$(sed -n 's/^Pkg\.Revision=//p' "$ANDROID_HOME/system-images/android-29/default/x86_64/source.properties" | tr -d '[:space:]')"
+                if [ "$ACTUAL_REV" != "$SYSTEM_IMAGE_REVISION" ]; then
+                  echo "Unexpected system image revision after runner: got '$ACTUAL_REV', expected '$SYSTEM_IMAGE_REVISION'" >&2
+                  exit 1
+                fi
+                ACTUAL_BUILD="$(sed -n 's/^Pkg\.BuildId=//p' "$ANDROID_HOME/emulator/source.properties" | tr -d '[:space:]')"
+                if [ "$ACTUAL_BUILD" != "$EMULATOR_BUILD" ]; then
+                  echo "Unexpected emulator build after runner: got '$ACTUAL_BUILD', expected '$EMULATOR_BUILD'" >&2
+                  exit 1
+                fi
+
+            - name: "Collect Emulator and Version Diagnostics"
+              id: diagnostics
+              if: ${{ always() }}
+              env:
+                EVENT_NAME: ${{ github.event_name }}
+                INPUT_ANDROID_SDK_REF: ${{ inputs.android_sdk_ref }}
+              run: |
+                DIAG_DIR="$GITHUB_WORKSPACE/mparticle-android-sdk/android-core/build/bridge-diagnostics"
+                mkdir -p "$DIAG_DIR"
+                git -C "$GITHUB_WORKSPACE/mparticle-android-sdk" rev-parse HEAD > "$DIAG_DIR/android-sdk-sha.txt" 2>/dev/null || true
+                cp -f "$ANDROID_HOME/emulator/source.properties" "$DIAG_DIR/emulator-source.properties" 2>/dev/null || true
+                cp -f "$ANDROID_HOME/system-images/android-29/default/x86_64/source.properties" "$DIAG_DIR/system-image-source.properties" 2>/dev/null || true
+                cp -f "$HOME"/.android/avd/test.avd/*.ini "$HOME"/.android/avd/test.avd/*.log "$DIAG_DIR/" 2>/dev/null || true
+                cp -rf /tmp/android-* "$DIAG_DIR/" 2>/dev/null || true
+                if [ "$EVENT_NAME" = "schedule" ]; then
+                  echo "artifact_name=test-results-canary-main" >> "$GITHUB_OUTPUT"
+                elif [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+                  RAW_REF="${INPUT_ANDROID_SDK_REF:-main}"
+                  if [ "$RAW_REF" = "main" ]; then
+                    echo "artifact_name=test-results-canary-main" >> "$GITHUB_OUTPUT"
+                  else
+                    SAFE_REF="$(printf '%s' "$RAW_REF" | tr -c 'A-Za-z0-9._-' '-' | sed 's/^-*//;s/-*$//')"
+                    echo "artifact_name=test-results-canary-${SAFE_REF:-custom}" >> "$GITHUB_OUTPUT"
+                  fi
+                else
+                  echo "artifact_name=test-results-pinned" >> "$GITHUB_OUTPUT"
+                fi
+
+            - name: "Alert on Canary Failure"
+              if: ${{ failure() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}
+              env:
+                EVENT_NAME: ${{ github.event_name }}
+                INPUT_ANDROID_SDK_REF: ${{ inputs.android_sdk_ref }}
+                RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+              run: |
+                DIAG_DIR="$GITHUB_WORKSPACE/mparticle-android-sdk/android-core/build/bridge-diagnostics"
+                ANDROID_SHA="$(sed -n '1p' "$DIAG_DIR/android-sdk-sha.txt" 2>/dev/null | grep -E '^[0-9a-f]{40}$' || true)"
+                ANDROID_SHA="${ANDROID_SHA:-unknown}"
+                REQ_REF="${INPUT_ANDROID_SDK_REF:-main}"
+                echo "::error title=Android Bridge Canary Failure::Android Bridge Tests canary (${EVENT_NAME}, ref=${REQ_REF}, sha=${ANDROID_SHA}) failed. See diagnostics artifact and ${RUN_URL}"
+                {
+                  echo "### Android Bridge Canary Failure Alert"
+                  echo "- **Trigger:** \`${EVENT_NAME}\`"
+                  echo "- **Requested Android SDK ref:** \`${REQ_REF}\`"
+                  echo "- **Resolved Android SDK SHA:** \`${ANDROID_SHA}\`"
+                  echo "- **Pinned Emulator Build:** \`${EMULATOR_BUILD}\`"
+                  echo "- **Pinned System Image Revision:** \`${SYSTEM_IMAGE_REVISION}\`"
+                  echo "- **Run URL:** ${RUN_URL}"
+                } >> "$GITHUB_STEP_SUMMARY"
+
             - name: "Archive Test Results"
               if: ${{ always() }}
-              uses: actions/upload-artifact@v7.0.2
+              uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
               with:
-                  name: test-results
-                  path: mparticle-android-sdk/android-core/build/reports/androidTests/connected/**
+                  name: ${{ steps.diagnostics.outputs.artifact_name || 'test-results-pinned' }}
+                  path: |
+                    mparticle-android-sdk/android-core/build/reports/androidTests/connected/**
+                    mparticle-android-sdk/android-core/build/outputs/androidTest-results/connected/**
+                    mparticle-android-sdk/android-core/build/bridge-diagnostics/**
