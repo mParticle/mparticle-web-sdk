@@ -86,8 +86,7 @@ jobs:
                       printf '## V3 release created\n\n'
                       printf -- '- Tag: `%s`\n' "$TAG_NAME"
                       printf -- '- Dispatched: `gh workflow run v3-release-step-1.yml --ref %s -f dryRun=false`\n\n' "$TAG_NAME"
-                      printf 'Approve the `v3-release-publish` deployment in the Step 1 workflow run once the build, bundle check and tests pass.\n\n'
-                      printf 'To re-run Step 1 from the tag for recovery:\n\n```sh\n'
+                      printf 'If Step 1 fails after packaging or staging has started, use **Re-run failed jobs** on that original Step 1 run so the candidate build ID stays unchanged. Only dispatch a fresh Step 1 run from the tag if the automatic dispatch did not start or failed before packaging or staging:\n\n```sh\n'
                       printf 'gh workflow run v3-release-step-1.yml --ref %s -f dryRun=false\n' "$TAG_NAME"
                       printf '```\n'
                   } >> "$GITHUB_STEP_SUMMARY"

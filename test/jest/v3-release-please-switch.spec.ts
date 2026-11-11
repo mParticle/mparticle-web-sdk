@@ -145,7 +145,8 @@ describe('V3 Release Please on main', () => {
             expect(run.summary).toContain(
                 `gh workflow run v3-release-step-1.yml --ref ${tag} -f dryRun=false`
             );
-            expect(run.summary).toContain('v3-release-publish');
+            expect(run.summary).toContain('Re-run failed jobs');
+            expect(run.summary).not.toContain('v3-release-publish');
         }
 
         for (const enabled of ['', 'false', 'TRUE', '1']) {
