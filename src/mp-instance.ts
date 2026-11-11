@@ -68,6 +68,7 @@ import {
 } from './pageViewTracker';
 import { ButtonTracker, resetButtonTracking } from './buttonTracking/buttonTracker';
 import { getButtonClickBlocker } from './buttonTracking/buttonClickEvent';
+import Validators from './validators';
 
 export interface IErrorLogMessage {
     message?: string;
@@ -699,7 +700,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
         self._SessionManager.resetSessionTimer();
 
         if (self._Helpers.canLog()) {
-            if (!self._Helpers.Validators.isStringOrNumber(eventName)) {
+            if (!Validators.isStringOrNumber(eventName)) {
                 eventName = 'PageView';
             }
             if (!attrs) {
@@ -1096,12 +1097,12 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
         // And logs to in-memory object
         // Example: mParticle.setSessionAttribute('location', '33431');
         if (self._Helpers.canLog()) {
-            if (!self._Helpers.Validators.isValidAttributeValue(value)) {
+            if (!Validators.isValidAttributeValue(value)) {
                 self.Logger.error(Messages.ErrorMessages.BadAttribute);
                 return;
             }
 
-            if (!self._Helpers.Validators.isValidKeyValue(key)) {
+            if (!Validators.isValidKeyValue(key)) {
                 self.Logger.error(Messages.ErrorMessages.BadKey);
                 return;
             }
