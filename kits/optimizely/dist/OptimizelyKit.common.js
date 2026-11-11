@@ -23,10 +23,15 @@ var helpers = {
         }, {});
         return newObj;
     },
-    loadScript: function(src, callback) {
+    loadScript: function(src, callback, integrity) {
         var script = document.createElement('script');
         script.type = 'text/javascript';
         script.onload = callback;
+        if (integrity) {
+            // The browser runs the script only if its bytes match this hash.
+            script.integrity = integrity;
+            script.crossOrigin = 'anonymous';
+        }
         script.src = src;
         document.head.appendChild(script);
     },
@@ -379,6 +384,9 @@ var identityHandler = IdentityHandler;
 
 var optimizelyFsSdkUrl =
         'https://unpkg.com/@optimizely/optimizely-sdk@3.5.0/dist/optimizely.browser.umd.min.js',
+    // The Subresource Integrity hash of the file above. Update both together.
+    optimizelyFsSdkIntegrity =
+        'sha256-7xlyPsgKmldoP2Wgc+c48o92PeZn4vvrbO4JVh/ikAQ=',
     dataFilePrefix = 'https://cdn.optimizely.com/datafiles/',
     dataFileURLending = '.json/tag.js';
 
@@ -455,12 +463,18 @@ var initialization = {
                     });
                 };
 
-                helpers_1.loadScript(optimizelyFsSdkUrl, function() {
+                var loadDatafile = function() {
                     helpers_1.loadScript(
                         dataFilePrefix + settings.projectId + dataFileURLending,
                         instantiateFSClient
                     );
-                });
+                };
+
+                helpers_1.loadScript(
+                    optimizelyFsSdkUrl,
+                    loadDatafile,
+                    optimizelyFsSdkIntegrity
+                );
             } else {
                 common.userIdField = settings.userIdField;
                 common.userAttributes = userAttributes;

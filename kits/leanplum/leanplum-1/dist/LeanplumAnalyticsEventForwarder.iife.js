@@ -259,8 +259,14 @@ var mpLeanplumKit = (function (exports) {
                   var leanplumScript = document.createElement('script');
                   leanplumScript.type = 'text/javascript';
                   leanplumScript.async = true;
+                  // Load one pinned Leanplum SDK release and let the browser check
+                  // its bytes against this hash before running it. Update the
+                  // version and the hash together.
                   leanplumScript.src =
-                      'https://cdn.jsdelivr.net/npm/leanplum-sdk@1';
+                      'https://cdn.jsdelivr.net/npm/leanplum-sdk@1.14.0/dist/leanplum.min.js';
+                  leanplumScript.integrity =
+                      'sha256-EDuMO5jxy4J8BR29F8ebVin0CFFS2xby9uzQVUAZfxg=';
+                  leanplumScript.crossOrigin = 'anonymous';
 
                   leanplumScript.onload = initialize;
                   (

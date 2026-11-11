@@ -204,7 +204,7 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    var version = "3.32.2";
+    var version = "3.32.3";
 
     var Constants = {
       sdkVersion: version,
@@ -2809,14 +2809,20 @@ var mParticle = (function () {
       }
       return undefined;
     }
-    // The last segment before index i that isn't empty, so `/orders//12345678`
-    // still reads the order route.
-    function routeSegment(segments, i) {
-      var routeIndex = i - 1;
-      while (routeIndex > 0 && segments[routeIndex] === '') {
-        routeIndex--;
+    // For each index i > 0, the last segment before i that isn't empty, so
+    // `/orders//12345678` still reads the order route; the first segment when all
+    // before i are empty. Found in one pass, so a path of many empty segments, such
+    // as a fragment of slashes, takes time in proportion to its length.
+    function routeSegments(segments) {
+      var routes = [];
+      var routeIndex = 0;
+      for (var i = 0; i < segments.length; i++) {
+        routes.push(segments[routeIndex]);
+        if (i > 0 && segments[i] !== '') {
+          routeIndex = i;
+        }
       }
-      return segments[routeIndex];
+      return routes;
     }
     // A piece with a lowercase letter right before an uppercase one, as a random
     // code has and a Title-Case word doesn't.
@@ -2927,9 +2933,10 @@ var mParticle = (function () {
     // numbers included, since on a product page they name the product.
     function pagePath(pathname) {
       var segments = pathname.split('/');
+      var routes = routeSegments(segments);
       return segments.map(function (segment, i) {
         var text = decodeFully(segment);
-        var route = i > 0 ? routeWord(routeSegment(segments, i)) : '';
+        var route = i > 0 && segment ? routeWord(routes[i]) : '';
         // A route word that can't be decoded may be any route, so the
         // segment after it is hidden too.
         var hiddenByRoute = i > 0 && !!text && (route === undefined || hidesSegmentAfter(route, text));
@@ -2964,9 +2971,10 @@ var mParticle = (function () {
     // Product codes and pages such as `/profile/edit` or `/orders/history` stay.
     function pageUrlPath(pathname) {
       var segments = pathname.split('/');
+      var routes = routeSegments(segments);
       return segments.map(function (segment, i) {
         var text = decodeFully(segment);
-        var route = i > 0 ? routeWord(routeSegment(segments, i)) : '';
+        var route = i > 0 && segment ? routeWord(routes[i]) : '';
         var holdsId = !!text && (/[0-9]/.test(text) || isTokenSegment(text));
         // A route word that can't be decoded may be any route.
         var hiddenByRoute = i > 0 && !!text && (route === undefined || hidesNextSegment(route) && holdsId);
@@ -4117,8 +4125,7 @@ var mParticle = (function () {
           deviceId = _Store.deviceId,
           sessionStartDate = _Store.sessionStartDate,
           SDKConfig = _Store.SDKConfig;
-        var generateUniqueId = _Helpers.generateUniqueId,
-          getFeatureFlag = _Helpers.getFeatureFlag;
+        var getFeatureFlag = _Helpers.getFeatureFlag;
         var getCurrentUser = Identity.getCurrentUser;
         var event = {
           AppName: SDKConfig.appName,
@@ -4129,7 +4136,7 @@ var mParticle = (function () {
           SessionId: sessionId,
           DeviceId: deviceId,
           IsFirstRun: false,
-          SourceMessageId: generateUniqueId(),
+          SourceMessageId: _generateUniqueId(),
           SDKVersion: Constants.sdkVersion,
           CustomFlags: {},
           EventAttributes: {},
@@ -5145,7 +5152,7 @@ var mParticle = (function () {
         try {
           url = mpInstance._Helpers.createServiceUrl(mpInstance._Store.SDKConfig.v2SecureServiceUrl, mpInstance._Store.devToken);
           data = {
-            uuid: mpInstance._Helpers.generateUniqueId(),
+            uuid: _generateUniqueId(),
             data: forwardingStatsData
           };
           if (xhr) {
@@ -7108,8 +7115,8 @@ var mParticle = (function () {
       };
       function applyEmptyPersistenceDefaults() {
         mpInstance.Logger.verbose(Messages$4.InformationMessages.CookieNotFound);
-        mpInstance._Store.clientId = mpInstance._Store.clientId || mpInstance._Helpers.generateUniqueId();
-        mpInstance._Store.deviceId = mpInstance._Store.deviceId || mpInstance._Helpers.generateUniqueId();
+        mpInstance._Store.clientId = mpInstance._Store.clientId || _generateUniqueId();
+        mpInstance._Store.deviceId = mpInstance._Store.deviceId || _generateUniqueId();
       }
       function hydrateStoreFromPersistence(obj, currentMPID) {
         // Set MPID first, then change object to match MPID data
@@ -7124,16 +7131,16 @@ var mParticle = (function () {
         mpInstance._Store.sessionAttributes = obj.gs.sa || mpInstance._Store.sessionAttributes;
         mpInstance._Store.localSessionAttributes = obj.gs.lsa || mpInstance._Store.localSessionAttributes;
         mpInstance._Store.serverSettings = obj.gs.ss || mpInstance._Store.serverSettings;
-        mpInstance._Store.devToken = mpInstance._Store.devToken || obj.gs.dt;
+        // gs.dt is written for older readers but never read back: the API key comes only from init.
         mpInstance._Store.SDKConfig.appVersion = mpInstance._Store.SDKConfig.appVersion || obj.gs.av;
-        mpInstance._Store.clientId = obj.gs.cgid || mpInstance._Store.clientId || mpInstance._Helpers.generateUniqueId();
+        mpInstance._Store.clientId = obj.gs.cgid || mpInstance._Store.clientId || _generateUniqueId();
         // For most persistence values, we prioritize localstorage/cookie values over
         // Store. However, we allow device ID to be overriden via a config value and
         // thus the priority of the deviceId value is
         // 1. value passed via config.deviceId
         // 2. previous value in persistence
         // 3. generate new guid
-        mpInstance._Store.deviceId = mpInstance._Store.deviceId || obj.gs.das || mpInstance._Helpers.generateUniqueId();
+        mpInstance._Store.deviceId = mpInstance._Store.deviceId || obj.gs.das || _generateUniqueId();
         mpInstance._Store.integrationAttributes = obj.gs.ia || {};
         mpInstance._Store.context = obj.gs.c || mpInstance._Store.context;
         mpInstance._Store.currentSessionMPIDs = obj.gs.csm || mpInstance._Store.currentSessionMPIDs;
@@ -7218,7 +7225,9 @@ var mParticle = (function () {
         data.gs.sa = store.sessionAttributes;
         data.gs.lsa = store.localSessionAttributes;
         data.gs.ss = store.serverSettings;
-        data.gs.dt = store.devToken;
+        if (store.devToken) {
+          data.gs.dt = store.devToken;
+        }
         data.gs.les = store.dateLastEventSent ? store.dateLastEventSent.getTime() : null;
         data.gs.av = store.SDKConfig.appVersion;
         data.gs.cgid = store.clientId;
@@ -9102,7 +9111,7 @@ var mParticle = (function () {
             },
             context: context,
             environment: mpInstance._Store.SDKConfig.isDevelopmentMode ? 'development' : 'production',
-            request_id: mpInstance._Helpers.generateUniqueId(),
+            request_id: _generateUniqueId(),
             request_timestamp_ms: new Date().getTime(),
             previous_mpid: mpid || null,
             known_identities: createKnownIdentities(identityApiData, deviceId)
@@ -9118,7 +9127,7 @@ var mParticle = (function () {
             },
             context: context,
             environment: mpInstance._Store.SDKConfig.isDevelopmentMode ? 'development' : 'production',
-            request_id: mpInstance._Helpers.generateUniqueId(),
+            request_id: _generateUniqueId(),
             request_timestamp_ms: new Date().getTime(),
             identity_changes: this.createIdentityChanges(currentUserIdentities, newUserIdentities)
           };
@@ -9151,7 +9160,7 @@ var mParticle = (function () {
         },
         createAliasNetworkRequest: function createAliasNetworkRequest(aliasRequest) {
           return {
-            request_id: mpInstance._Helpers.generateUniqueId(),
+            request_id: _generateUniqueId(),
             request_type: 'alias',
             environment: mpInstance._Store.SDKConfig.isDevelopmentMode ? 'development' : 'production',
             api_key: mpInstance._Store.devToken,
@@ -11020,11 +11029,11 @@ var mParticle = (function () {
         });
       };
       this.sendIdentityRequest = function (identityApiRequest, method, callback, originalIdentityApiData, parseIdentityResponse, mpid, knownIdentities) {
-        var _a, _b, _c, _d;
+        var _a, _b, _c, _d, _e, _f;
         return __awaiter(this, void 0, void 0, function () {
-          var requestCount, invokeCallback, Logger, errorReporter, previousMPID, uploadUrl, uploader, fetchPayload, response, identityResponse, message, _e, responseBody, errorResponse, errorMessage, responseText, isDevelopmentMode, responseToLog, errorMessage, requestCount, err_1, requestCount, errorMessage, msg;
-          return __generator(this, function (_f) {
-            switch (_f.label) {
+          var requestCount, invokeCallback, Logger, errorReporter, previousMPID, uploadUrl, uploader, fetchPayload, response, identityResponse, message, _g, responseBody, errorResponse, errorMessage, responseText, isDevelopmentMode, responseToLog, errorMessage, requestCount, err_1, requestCount, errorMessage, msg;
+          return __generator(this, function (_h) {
+            switch (_h.label) {
               case 0:
                 if ((_a = mpInstance._RoktManager) === null || _a === void 0 ? void 0 : _a.isInitialized) {
                   mpInstance._Store.identifyRequestCount = (mpInstance._Store.identifyRequestCount || 0) + 1;
@@ -11056,16 +11065,16 @@ var mParticle = (function () {
                   body: JSON.stringify(identityApiRequest)
                 };
                 mpInstance._Store.identityCallInFlight = true;
-                _f.label = 1;
+                _h.label = 1;
               case 1:
-                _f.trys.push([1, 9,, 10]);
+                _h.trys.push([1, 9,, 10]);
                 return [4 /*yield*/, uploader.upload(fetchPayload)];
               case 2:
-                response = _f.sent();
+                response = _h.sent();
                 identityResponse = void 0;
                 message = void 0;
-                _e = response.status;
-                switch (_e) {
+                _g = response.status;
+                switch (_g) {
                   case HTTP_ACCEPTED:
                     return [3 /*break*/, 3];
                   case HTTP_OK:
@@ -11078,12 +11087,12 @@ var mParticle = (function () {
                 if (!response.json) return [3 /*break*/, 5];
                 return [4 /*yield*/, response.json()];
               case 4:
-                responseBody = _f.sent();
+                responseBody = _h.sent();
                 identityResponse = this.getIdentityResponseFromFetch(response, responseBody);
                 return [3 /*break*/, 6];
               case 5:
                 identityResponse = this.getIdentityResponseFromXHR(response);
-                _f.label = 6;
+                _h.label = 6;
               case 6:
                 if (identityResponse.status === HTTP_BAD_REQUEST) {
                   errorResponse = identityResponse.responseText;
@@ -11115,6 +11124,9 @@ var mParticle = (function () {
                   mpInstance._Store.identityCallFailed = false;
                   errorMessage = 'Received HTTP Code of ' + response.status;
                   Logger.error('Error sending identity request to servers - ' + errorMessage);
+                  // A selectPlacements call with no MPID waits for this request, and this
+                  // response reaches neither onIdentityComplete nor processQueueOnIdentityFailure.
+                  (_b = mpInstance._RoktManager) === null || _b === void 0 ? void 0 : _b.processMessageQueue();
                   invokeCallback(callback, HTTPCodes$1.noHttpCoverage, errorMessage);
                   return [2 /*return*/];
                 }
@@ -11124,17 +11136,17 @@ var mParticle = (function () {
                 if (message) {
                   Logger.verbose(message);
                 }
-                if ((_b = mpInstance._RoktManager) === null || _b === void 0 ? void 0 : _b.isInitialized) {
+                if ((_c = mpInstance._RoktManager) === null || _c === void 0 ? void 0 : _c.isInitialized) {
                   requestCount = mpInstance._Store.identifyRequestCount;
                   mpInstance.captureTiming("".concat(requestCount, "-identityRequestEnd"));
                 }
                 parseIdentityResponse(identityResponse, previousMPID, callback, originalIdentityApiData, method, knownIdentities, false);
                 return [3 /*break*/, 10];
               case 9:
-                err_1 = _f.sent();
+                err_1 = _h.sent();
                 mpInstance._Store.identityCallInFlight = false;
                 mpInstance._Store.identityCallFailed = true;
-                if ((_c = mpInstance._RoktManager) === null || _c === void 0 ? void 0 : _c.isInitialized) {
+                if ((_d = mpInstance._RoktManager) === null || _d === void 0 ? void 0 : _d.isInitialized) {
                   requestCount = mpInstance._Store.identifyRequestCount;
                   mpInstance.captureTiming("".concat(requestCount, "-identityRequestEnd"));
                 }
@@ -11146,7 +11158,10 @@ var mParticle = (function () {
                   code: ErrorCodes.IDENTITY_REQUEST,
                   severity: WSDKErrorSeverity.ERROR
                 });
-                (_d = mpInstance.processQueueOnIdentityFailure) === null || _d === void 0 ? void 0 : _d.call(mpInstance);
+                (_e = mpInstance.processQueueOnIdentityFailure) === null || _e === void 0 ? void 0 : _e.call(mpInstance);
+                // processQueueOnIdentityFailure does nothing once the SDK is initialized, and a
+                // selectPlacements call with no MPID can still be waiting for this request.
+                (_f = mpInstance._RoktManager) === null || _f === void 0 ? void 0 : _f.processMessageQueue();
                 invokeCallback(callback, HTTPCodes$1.noHttpCoverage, errorMessage);
                 return [3 /*break*/, 10];
               case 10:
@@ -11479,19 +11494,20 @@ var mParticle = (function () {
        * });
        */
       RoktManager.prototype.selectPlacements = function (options) {
-        var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q, _r, _s, _t;
+        var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q, _r, _s, _t, _u, _v;
         return __awaiter(this, void 0, void 0, function () {
-          var attributes, sandboxValue, mappedAttributes, attributesToLog, currentUserIdentities, currentEmail, newEmail, currentHashedEmail, newHashedEmail, isValidHashedEmailIdentityType, emailChanged, hashedEmailChanged, newIdentities_1, msg, msg, userAttributes_1, roktUser, roktUserIdentities, timeOnSite, totalTimeOnSite, enrichedAttributes, hashedEmail, capturedAttrs, passbackId, enrichedOptions;
+          var awaitingFirstMPID, attributes, sandboxValue, mappedAttributes, attributesToLog, currentUserIdentities, currentEmail, newEmail, currentHashedEmail, newHashedEmail, isValidHashedEmailIdentityType, emailChanged, hashedEmailChanged, newIdentities_1, msg, msg, userAttributes_1, roktUser, roktUserIdentities, timeOnSite, totalTimeOnSite, enrichedAttributes, hashedEmail, capturedAttrs, passbackId, enrichedOptions;
           var _this = this;
-          return __generator(this, function (_u) {
+          return __generator(this, function (_w) {
             (_a = this.captureTiming) === null || _a === void 0 ? void 0 : _a.call(this, PerformanceMarkType.JointSdkSelectPlacements);
-            if (!this.isReady()) {
+            awaitingFirstMPID = ((_b = this.store) === null || _b === void 0 ? void 0 : _b.identityCallInFlight) && !((_c = this.identityService.getCurrentUser()) === null || _c === void 0 ? void 0 : _c.getMPID());
+            if (!this.isReady() || awaitingFirstMPID) {
               return [2 /*return*/, this.deferredCall('selectPlacements', options)];
             }
-            // Like the iOS and Android SDKs, this does not wait for an identity request, so the
-            // selection can go out for the user from before it. The log counts how often that happens.
-            if ((_b = this.store) === null || _b === void 0 ? void 0 : _b.identityCallInFlight) {
-              (_c = this.loggingService) === null || _c === void 0 ? void 0 : _c.log({
+            // Like the iOS and Android SDKs, a user with an MPID does not wait for an identity request,
+            // so the selection can go out for the user from before it. The log counts how often that happens.
+            if ((_d = this.store) === null || _d === void 0 ? void 0 : _d.identityCallInFlight) {
+              (_e = this.loggingService) === null || _e === void 0 ? void 0 : _e.log({
                 message: 'RoktManager: selectPlacements ran while an identity request was in flight',
                 code: ErrorCodes.SELECT_PLACEMENTS_IDENTITY_IN_FLIGHT
               });
@@ -11500,12 +11516,12 @@ var mParticle = (function () {
               attributes = options.attributes;
               sandboxValue = (attributes === null || attributes === void 0 ? void 0 : attributes.sandbox) || null;
               mappedAttributes = this.mapPlacementAttributes(attributes, this.placementAttributesMapping);
-              if ((_d = this.logger) === null || _d === void 0 ? void 0 : _d.isVerbose()) {
-                attributesToLog = obfuscateDevData(attributes, (_f = (_e = this.store) === null || _e === void 0 ? void 0 : _e.SDKConfig) === null || _f === void 0 ? void 0 : _f.isDevelopmentMode);
+              if ((_f = this.logger) === null || _f === void 0 ? void 0 : _f.isVerbose()) {
+                attributesToLog = obfuscateDevData(attributes, (_h = (_g = this.store) === null || _g === void 0 ? void 0 : _g.SDKConfig) === null || _h === void 0 ? void 0 : _h.isDevelopmentMode);
                 this.logger.verbose("mParticle.Rokt selectPlacements called with attributes:\n".concat(JSON.stringify(attributesToLog, null, 2)));
               }
               this.currentUser = this.identityService.getCurrentUser();
-              currentUserIdentities = ((_h = (_g = this.currentUser) === null || _g === void 0 ? void 0 : _g.getUserIdentities()) === null || _h === void 0 ? void 0 : _h.userIdentities) || {};
+              currentUserIdentities = ((_k = (_j = this.currentUser) === null || _j === void 0 ? void 0 : _j.getUserIdentities()) === null || _k === void 0 ? void 0 : _k.userIdentities) || {};
               currentEmail = currentUserIdentities.email;
               newEmail = mappedAttributes.email;
               currentHashedEmail = void 0;
@@ -11523,7 +11539,7 @@ var mParticle = (function () {
                 if (newEmail) {
                   msg = 'Email mismatch detected. Current email differs from email passed to selectPlacements call. Proceeding to call identify with email from selectPlacements call. Please verify your implementation.';
                   this.logger.warning(msg);
-                  (_j = this.errorReporter) === null || _j === void 0 ? void 0 : _j.report({
+                  (_l = this.errorReporter) === null || _l === void 0 ? void 0 : _l.report({
                     message: msg,
                     code: ErrorCodes.IDENTITY_MISMATCH,
                     severity: WSDKErrorSeverity.WARNING
@@ -11534,7 +11550,7 @@ var mParticle = (function () {
                 newIdentities_1[this.mappedEmailShaIdentityType] = newHashedEmail;
                 msg = 'emailsha256 mismatch detected. Current mParticle hashedEmail differs from hashedEmail passed to selectPlacements call. Proceeding to call identify with hashedEmail from selectPlacements call. Please verify your implementation.';
                 this.logger.warning(msg);
-                (_k = this.errorReporter) === null || _k === void 0 ? void 0 : _k.report({
+                (_m = this.errorReporter) === null || _m === void 0 ? void 0 : _m.report({
                   message: msg,
                   code: ErrorCodes.IDENTITY_MISMATCH,
                   severity: WSDKErrorSeverity.WARNING
@@ -11562,9 +11578,9 @@ var mParticle = (function () {
                 }
               }
               roktUser = this.currentUser && this.createFilteredUser ? this.createFilteredUser(this.currentUser.getMPID()) : null;
-              roktUserIdentities = ((_l = roktUser === null || roktUser === void 0 ? void 0 : roktUser.getUserIdentities()) === null || _l === void 0 ? void 0 : _l.userIdentities) || {};
-              timeOnSite = (_o = (_m = this.store) === null || _m === void 0 ? void 0 : _m.getTimeOnSite) === null || _o === void 0 ? void 0 : _o.call(_m);
-              totalTimeOnSite = (_q = (_p = this.store) === null || _p === void 0 ? void 0 : _p.getTotalTimeOnSite) === null || _q === void 0 ? void 0 : _q.call(_p);
+              roktUserIdentities = ((_o = roktUser === null || roktUser === void 0 ? void 0 : roktUser.getUserIdentities()) === null || _o === void 0 ? void 0 : _o.userIdentities) || {};
+              timeOnSite = (_q = (_p = this.store) === null || _p === void 0 ? void 0 : _p.getTimeOnSite) === null || _q === void 0 ? void 0 : _q.call(_p);
+              totalTimeOnSite = (_s = (_r = this.store) === null || _r === void 0 ? void 0 : _r.getTotalTimeOnSite) === null || _s === void 0 ? void 0 : _s.call(_r);
               enrichedAttributes = __assign(__assign(__assign(__assign({}, mappedAttributes), sandboxValue !== null ? {
                 sandbox: sandboxValue
               } : {}), timeOnSite ? {
@@ -11590,9 +11606,9 @@ var mParticle = (function () {
                 }
               }
               if (!enrichedAttributes[PASSBACK_CONVERSION_TRACKING_ID]) {
-                (_r = this.integrationCapture) === null || _r === void 0 ? void 0 : _r.capture();
-                capturedAttrs = (_s = this.integrationCapture) === null || _s === void 0 ? void 0 : _s.getClickIdsAsIntegrationAttributes();
-                passbackId = (_t = capturedAttrs === null || capturedAttrs === void 0 ? void 0 : capturedAttrs[PARTNER_MODULE_IDS.Rokt]) === null || _t === void 0 ? void 0 : _t[PASSBACK_CONVERSION_TRACKING_ID];
+                (_t = this.integrationCapture) === null || _t === void 0 ? void 0 : _t.capture();
+                capturedAttrs = (_u = this.integrationCapture) === null || _u === void 0 ? void 0 : _u.getClickIdsAsIntegrationAttributes();
+                passbackId = (_v = capturedAttrs === null || capturedAttrs === void 0 ? void 0 : capturedAttrs[PARTNER_MODULE_IDS.Rokt]) === null || _v === void 0 ? void 0 : _v[PASSBACK_CONVERSION_TRACKING_ID];
                 if (passbackId) {
                   enrichedAttributes[PASSBACK_CONVERSION_TRACKING_ID] = passbackId;
                 }
@@ -12890,11 +12906,12 @@ var mParticle = (function () {
         return undefined;
       }
       var segments = path.split('/');
+      var routes = routeSegments(segments);
       var masked = segments.map(function (segment, i) {
-        if (i > 0 && segment && hidesSegmentAfter(routeSegment(segments, i), segment)) {
+        if (i > 0 && segment && hidesSegmentAfter(routes[i], segment)) {
           return '*';
         }
-        var tokens = maskTokenSegment(segment, segment, i > 0 ? routeSegment(segments, i) : undefined);
+        var tokens = maskTokenSegment(segment, segment, i > 0 ? routes[i] : undefined);
         return tokens === undefined ? segment : tokens;
       });
       return maskNumbers(masked.join('/'));
@@ -14373,8 +14390,12 @@ var mParticle = (function () {
         // to it for it to be run after fetched
         if (config) {
           if (!config.hasOwnProperty('requestConfig') || config.requestConfig) {
+            var initStore_1 = this._Store;
             var configApiClient = new ConfigAPIClient(apiKey, config, this);
             configApiClient.getSDKConfiguration().then(function (result) {
+              if (_this._Store !== initStore_1) {
+                return;
+              }
               var mergedConfig = extend({}, config, result);
               completeSDKInitialization(apiKey, mergedConfig, _this);
             });
@@ -15182,7 +15203,7 @@ var mParticle = (function () {
       var launcherInstanceGuidKey = Constants.Rokt.LauncherInstanceGuidKey;
       this.setLauncherInstanceGuid = function () {
         if (!window[launcherInstanceGuidKey] || typeof window[launcherInstanceGuidKey] !== 'string') {
-          window[launcherInstanceGuidKey] = self._Helpers.generateUniqueId();
+          window[launcherInstanceGuidKey] = _generateUniqueId();
         }
       };
       this.getLauncherInstanceGuid = function () {
