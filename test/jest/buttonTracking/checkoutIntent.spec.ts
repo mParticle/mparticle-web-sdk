@@ -95,6 +95,14 @@ describe('checkoutIntent', () => {
                 source: 'label',
                 adds: true,
             });
+            const jpAdd = control(
+                '<button class="btn-primary">カートに追加</button>'
+            );
+            expect(classifyIntent(jpAdd, '/product/123', shared)).toEqual({
+                kind: 'cart',
+                source: 'label',
+                adds: true,
+            });
             const payWith = control(
                 '<button class="btn-primary">Pay with PayPal</button>'
             );
@@ -116,6 +124,12 @@ describe('checkoutIntent', () => {
                 source: 'label',
             });
             expect(classifyIntent(opener, '/product/123', shared)).toEqual({
+                kind: 'checkout_step',
+                source: 'selector',
+            });
+            // A generic "Add" label without a cart noun stays the step.
+            const genericAdd = control('<button class="btn-primary">追加</button>');
+            expect(classifyIntent(genericAdd, '/checkout', shared)).toEqual({
                 kind: 'checkout_step',
                 source: 'selector',
             });
@@ -345,6 +359,11 @@ describe('checkoutIntent', () => {
             ['Add 2 to cart'],
             ["Add Women's Crew Sweater to Bag"],
             ['Add to bag - $49.99'],
+            ['カートに追加'],
+            ['カートに追加する'],
+            ['マルゲリータをカートに追加する'],
+            ['1,980円をカートに追加する'],
+            ['￥1,980をカートに追加'],
         ])('reads "%s" as a cart click', text => {
             const button = document.createElement('button');
             button.textContent = text;
@@ -409,6 +428,14 @@ describe('checkoutIntent', () => {
             ['Basketball'],
             ['Warenkorb'],
             ['3'],
+            ['追加'],
+            ['住所を追加'],
+            ['クーポンを追加'],
+            ['カードを追加'],
+            ['お気に入りに追加'],
+            ['ウィッシュリストに追加'],
+            ['支払い方法を追加'],
+            ['あ'.repeat(41) + 'をカートに追加する'],
         ])('does not read "%s" as a cart click', text => {
             const button = document.createElement('button');
             button.textContent = text;
@@ -803,6 +830,10 @@ describe('checkoutIntent', () => {
         ['今すぐ支払う', 'commit'],
         ['１，９８０円を支払う', 'commit'],
         ['￥1,980を支払う', 'commit'],
+        ['支払いを行う', 'commit'],
+        ['お支払いを行う', 'commit'],
+        ['支払い方法を追加', undefined],
+        ['お支払い方法を選択', undefined],
         ['Check out', 'checkout_step'],
         ['Tramitar pedido', 'checkout_step'],
         ['Procedi al pagamento', 'checkout_step'],
@@ -824,6 +855,11 @@ describe('checkoutIntent', () => {
         ['Achteraf betalen', undefined],
         ['カートに入れる', undefined],
         ['クーポンを使う', undefined],
+        ['追加', undefined],
+        ['住所を追加', undefined],
+        ['クーポンを追加', undefined],
+        ['カードを追加', undefined],
+        ['お気に入りに追加', undefined],
         ['Place another order', undefined],
         ['Place a new order', undefined],
         ['Place new order', undefined],
