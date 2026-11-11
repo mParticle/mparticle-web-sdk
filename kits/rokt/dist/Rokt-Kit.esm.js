@@ -2339,7 +2339,7 @@ function Fi(t, e, i) {
   return g().generateHash([t, e, i].join(""));
 }
 function Mo(t) {
-  let n = "mParticle_wsdkv_" + g().getVersion() + "_kitv_" + "3.32.2";
+  let n = "mParticle_wsdkv_" + g().getVersion() + "_kitv_" + "3.32.3";
   return t && (n += "_" + t), n;
 }
 function Mi(t) {
