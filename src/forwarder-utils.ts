@@ -1,18 +1,9 @@
-import Types, {
-    EventType,
-    getMessageTypeFromEventType,
-    getIdentityTypeFromBatchKey,
-} from './types';
+import Types, { EventType } from './types';
 import { inArray, valueof } from './utils';
 import KitFilterHelper from './kitFilterHelper';
-import * as EventsApi from '@mparticle/event-models';
 import { IKitFilterSettings } from './configAPIClient';
 import type { SDKEvent } from './sdkRuntimeModels';
 import type KitBlocker from './kitBlocking';
-import {
-    getEventNameFromBatchEvent,
-    getEventCategoryFromBatchEvent,
-} from './sdkToEventsApiConverter';
 
 type ForwarderFilterConfig = Pick<
     IKitFilterSettings,
@@ -208,91 +199,4 @@ export function filterUserIdentities(
             KitFilterHelper.hashUserIdentity(userIdentity.Type)
         );
     });
-}
-
-export function isBatchEventAllowed(
-    batchEvent: EventsApi.BaseEvent,
-    forwarder: ForwarderFilterConfig
-): boolean {
-    if (!batchEvent || !(batchEvent as any).data) {
-        return true;
-    }
-
-    const messageType = getMessageTypeFromEventType(
-        (batchEvent as any).event_type
-    );
-    const eventName = getEventNameFromBatchEvent(batchEvent);
-    const eventCategory = getEventCategoryFromBatchEvent(batchEvent);
-
-    if (
-        isBlockedByForwardingRule(
-            messageType,
-            (batchEvent as any).data.custom_attributes,
-            forwarder
-        )
-    ) {
-        return false;
-    }
-
-    const hashedEventName = KitFilterHelper.hashEventName(
-        eventName,
-        eventCategory as valueof<typeof EventType>
-    );
-    const hashedEventType = KitFilterHelper.hashEventType(
-        eventCategory as valueof<typeof EventType>
-    );
-
-    return !isBlockedByEventFilter(
-        messageType,
-        hashedEventName,
-        hashedEventType,
-        forwarder
-    );
-}
-
-export function filterBatchEventAttributes(
-    batchEvent: EventsApi.BaseEvent,
-    forwarder: ForwarderFilterConfig
-): void {
-    if (!batchEvent || !(batchEvent as any).data) {
-        return;
-    }
-
-    const messageType = getMessageTypeFromEventType(
-        (batchEvent as any).event_type
-    );
-    const eventName = getEventNameFromBatchEvent(batchEvent);
-    const eventCategory = getEventCategoryFromBatchEvent(batchEvent);
-
-    (batchEvent as any).data.custom_attributes = filterEventAttributes(
-        messageType,
-        eventCategory,
-        eventName,
-        (batchEvent as any).data.custom_attributes,
-        forwarder
-    );
-}
-
-export function filterBatchIdentities(
-    userIdentities: Record<string, unknown> | undefined,
-    filterList: number[] | undefined
-): Record<string, unknown> | undefined {
-    if (!userIdentities || !filterList) {
-        return userIdentities;
-    }
-
-    const filtered: Record<string, unknown> = {};
-    for (const key in userIdentities) {
-        if (userIdentities.hasOwnProperty(key)) {
-            const identityType = getIdentityTypeFromBatchKey(key);
-
-            if (
-                identityType === -1 ||
-                !inArray(filterList, identityType)
-            ) {
-                filtered[key] = userIdentities[key];
-            }
-        }
-    }
-    return filtered;
 }
