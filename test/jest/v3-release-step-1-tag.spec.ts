@@ -1034,6 +1034,59 @@ describe('V3 Step 1 from a release tag: release jobs', () => {
             )
         ).toBe(false);
     });
+
+    it('gates release publishing jobs behind one v3-release-publish Environment after the build, bundle check and tests pass', () => {
+        const gateJob = workflow.jobs['create-release-branch'];
+        expect(gateJob.environment).toBe('v3-release-publish');
+        expect(gateJob.needs).toEqual([
+            'build-bundle',
+            'build-release-tag',
+            'test-jest',
+            'test-core',
+            'test-stub',
+            'test-integrations-common-js-browserfy',
+            'test-integrations-common-js-webpack',
+            'test-integrations-common-js-rollup',
+            'test-integrations-module-js-webpack',
+            'test-integrations-module-js-rollup',
+            'test-integrations-require-js',
+            'load-kit-matrix',
+            'run-kit-tests',
+            'confirm-staging-branch',
+        ]);
+        const gateCondition = gateJob.if.replace(/\s+/g, ' ');
+        for (const part of [
+            "needs.confirm-staging-branch.result == 'success'",
+            "needs.build-bundle.result == 'success'",
+            "( needs.confirm-staging-branch.outputs.release_mode != 'tag' || needs.build-release-tag.result == 'success' )",
+            "needs.test-jest.result == 'success'",
+            "needs.test-core.result == 'success'",
+            "needs.test-stub.result == 'success'",
+            "needs.load-kit-matrix.result == 'success'",
+            "needs.run-kit-tests.result == 'success'",
+        ]) {
+            expect(gateCondition).toContain(part);
+        }
+
+        const jobsWithEnvironment = Object.entries(workflow.jobs)
+            .filter(([, job]: [string, any]) => job.environment !== undefined)
+            .map(([name]) => name);
+        expect(jobsWithEnvironment).toEqual(['create-release-branch']);
+
+        expect(workflow.jobs.release.needs).toContain('create-release-branch');
+        expect(workflow.jobs.release.if.replace(/\s+/g, ' ')).toContain(
+            "needs.create-release-branch.result == 'success'"
+        );
+        for (const downstream of [
+            'publish-kits',
+            'advance-staging',
+            'package-v3-candidate',
+            'upload-v3-candidate',
+        ]) {
+            const needs = workflow.jobs[downstream].needs;
+            expect(Array.isArray(needs) ? needs : [needs]).toContain('release');
+        }
+    });
 });
 
 // npm ci and npm install run the lifecycle scripts of every dependency, so

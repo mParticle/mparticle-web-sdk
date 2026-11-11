@@ -10,9 +10,12 @@ run-name: 'V3 Release - Step 1'
 # - v3-staging (the default until Release Please is on): semantic-release cuts
 #   the release commit and tag from v3-development.
 # - a stable v3.X.Y tag (Release Please mode): the release PR already put the
-#   version, the changelog and the bundles on main, and the tag on that commit.
-#   Step 1 checks a fresh build against the tag's bundles, publishes core and
-#   the kits from the tag, fast-forwards v3-staging to the tag commit, then
+#   version, the changelog and the bundles on main, and the tag on that commit,
+#   and v3-release-please.yml dispatches this workflow on that tag (or a
+#   maintainer dispatches it manually from the tag for recovery). Step 1
+#   checks a fresh build against the tag's bundles, runs the tests, pauses at
+#   the v3-release-publish Environment for approval, publishes core and the
+#   kits from the tag, fast-forwards v3-staging to the tag commit, then
 #   uploads and stages the V3 candidate.
 
 on:
@@ -671,6 +674,10 @@ jobs:
                 !cancelled() &&
                 needs.confirm-staging-branch.result == 'success' &&
                 needs.build-bundle.result == 'success' &&
+                (
+                    needs.confirm-staging-branch.outputs.release_mode != 'tag' ||
+                    needs.build-release-tag.result == 'success'
+                ) &&
                 needs.test-jest.result == 'success' &&
                 needs.test-core.result == 'success' &&
                 needs.test-stub.result == 'success' &&
@@ -685,6 +692,7 @@ jobs:
             }}
         needs:
             - build-bundle
+            - build-release-tag
             - test-jest
             - test-core
             - test-stub
@@ -697,10 +705,22 @@ jobs:
             - load-kit-matrix
             - run-kit-tests
             - confirm-staging-branch
+        # Temporary release gate: once the build, bundle check and tests above
+        # have passed, waits for one "Review deployments -> Approve" click on
+        # v3-release-publish before Perform Release, Publish V3 kits,
+        # Fast-forward v3-staging or Upload and stage V3 candidate can run
+        # (except the legacy resumeKitReleaseTag kit-recovery path from
+        # v3-staging when Release Please is off, which skips this job).
+        # Putting the Environment here (rather than on Perform Release or
+        # Publish V3 kits) also keeps those jobs' OIDC subject claims unchanged
+        # for npm trusted publishing. Drop this environment line once a few
+        # releases have gone cleanly.
+        environment: v3-release-publish
         permissions:
             contents: write # Push the release branch with checkout's default token.
         # A tag run pushes no release branch; this job then only holds the
-        # release until every test above has passed.
+        # release until every build, bundle check and test above has passed
+        # and the v3-release-publish deployment is approved.
         steps:
             - name: Checkout frozen release candidate
               if: ${{ needs.confirm-staging-branch.outputs.release_mode == 'semantic-release' }}

@@ -1,5 +1,6 @@
 import { spawnSync } from 'child_process';
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 
 const yaml = require('js-yaml');
@@ -12,10 +13,59 @@ function read(relativePath: string): string {
 
 const WORKFLOW = yaml.load(read('.github/workflows/v3-release-please.yml'));
 const JOB = WORKFLOW.jobs['release-please'];
+const DISPATCH_JOB = WORKFLOW.jobs['dispatch-step-1'];
 const ACTION_STEP = JOB.steps.find(
     (step: any) => step.name === 'Run Release Please'
 );
+const DISPATCH_STEP = DISPATCH_JOB.steps.find(
+    (step: any) => step.name === 'Dispatch V3 Release - Step 1'
+);
 const PR_WORKFLOW = yaml.load(read('.github/workflows/pull-request.yml'));
+
+function runDispatchStep(env: Record<string, string>) {
+    const root = fs.realpathSync(
+        fs.mkdtempSync(path.join(os.tmpdir(), 'mparticle-rp-dispatch-'))
+    );
+    const bin = path.join(root, 'bin');
+    const callsFile = path.join(root, 'gh-calls.txt');
+    const summaryFile = path.join(root, 'summary.md');
+    fs.mkdirSync(bin);
+    fs.writeFileSync(
+        path.join(bin, 'gh'),
+        `#!/bin/sh\nprintf '%s|%s|%s\\n' "\${GH_TOKEN:-}" "\${GH_REPO:-}" "$*" >> '${callsFile}'\n`,
+        { mode: 0o755 }
+    );
+    try {
+        const result = spawnSync(
+            'bash',
+            ['--noprofile', '--norc', '-eo', 'pipefail', '-c', DISPATCH_STEP.run],
+            {
+                cwd: root,
+                encoding: 'utf8',
+                env: {
+                    ...process.env,
+                    PATH: `${bin}:${process.env.PATH}`,
+                    GH_TOKEN: 'ghs_builtin_token',
+                    GH_REPO: 'mParticle/mparticle-web-sdk',
+                    GITHUB_STEP_SUMMARY: summaryFile,
+                    ...env,
+                },
+            }
+        );
+        return {
+            status: result.status,
+            output: `${result.stdout}${result.stderr}`,
+            calls: fs.existsSync(callsFile)
+                ? fs.readFileSync(callsFile, 'utf8').trim().split('\n')
+                : [],
+            summary: fs.existsSync(summaryFile)
+                ? fs.readFileSync(summaryFile, 'utf8')
+                : '',
+        };
+    } finally {
+        fs.rmSync(root, { force: true, recursive: true });
+    }
+}
 const REQUIRED_UPSTREAM_JOBS = [
     'build-bundle',
     'test-jest',
@@ -51,11 +101,99 @@ describe('V3 Release Please on main', () => {
         });
         expect(WORKFLOW.permissions).toEqual({});
         expect(JOB.permissions).toEqual({ contents: 'read' });
+        expect(JOB.steps).toHaveLength(1);
+        expect(JOB.outputs).toEqual({
+            release_created: '${{ steps.release.outputs.release_created }}',
+            tag_name: '${{ steps.release.outputs.tag_name }}',
+        });
+    });
+
+    it('dispatches V3 Step 1 in a separate least-privilege job with the built-in token only when a strict v3.X.Y release was created while enabled', () => {
+        expect(DISPATCH_JOB).toBeDefined();
+        expect(DISPATCH_JOB.needs).toBe('release-please');
+        expect(DISPATCH_JOB.permissions).toEqual({ actions: 'write' });
+        expect(DISPATCH_STEP).toBeDefined();
+        const condition = String(DISPATCH_JOB.if).replace(/\s+/g, ' ');
+        expect(condition).toContain("github.repository_owner == 'mParticle'");
+        expect(condition).toContain("vars.V3_RELEASE_PLEASE_ENABLED == 'true'");
+        expect(condition).toContain(
+            "needs.release-please.outputs.release_created == 'true'"
+        );
+        expect(condition).toContain(
+            "startsWith(needs.release-please.outputs.tag_name, 'v3.')"
+        );
+        expect(DISPATCH_STEP.env).toEqual({
+            GH_TOKEN: '${{ github.token }}',
+            GH_REPO: '${{ github.repository }}',
+            RELEASE_PLEASE_ENABLED: '${{ vars.V3_RELEASE_PLEASE_ENABLED }}',
+            RELEASE_CREATED:
+                '${{ needs.release-please.outputs.release_created }}',
+            TAG_NAME: '${{ needs.release-please.outputs.tag_name }}',
+        });
+
+        for (const tag of ['v3.0.0', 'v3.32.0', 'v3.32.1']) {
+            const run = runDispatchStep({
+                RELEASE_PLEASE_ENABLED: 'true',
+                RELEASE_CREATED: 'true',
+                TAG_NAME: tag,
+            });
+            expect(run.status).toBe(0);
+            expect(run.calls).toEqual([
+                `ghs_builtin_token|mParticle/mparticle-web-sdk|workflow run v3-release-step-1.yml --ref ${tag} -f dryRun=false`,
+            ]);
+            expect(run.summary).toContain(`- Tag: \`${tag}\``);
+            expect(run.summary).toContain(
+                `gh workflow run v3-release-step-1.yml --ref ${tag} -f dryRun=false`
+            );
+            expect(run.summary).toContain('v3-release-publish');
+        }
+
+        for (const enabled of ['', 'false', 'TRUE', '1']) {
+            const run = runDispatchStep({
+                RELEASE_PLEASE_ENABLED: enabled,
+                RELEASE_CREATED: 'true',
+                TAG_NAME: 'v3.32.0',
+            });
+            expect(run.status).toBe(1);
+            expect(run.calls).toEqual([]);
+        }
+
+        for (const created of ['', 'false', 'TRUE']) {
+            const run = runDispatchStep({
+                RELEASE_PLEASE_ENABLED: 'true',
+                RELEASE_CREATED: created,
+                TAG_NAME: 'v3.32.0',
+            });
+            expect(run.status).toBe(1);
+            expect(run.calls).toEqual([]);
+        }
+
+        for (const badTag of [
+            '',
+            'v3.32.0-rc.1',
+            'v3.032.0',
+            'v3.32.00',
+            'v3.32',
+            'v4.0.0',
+            'v2.1.0',
+            '3.32.0',
+            'v3.32.0\nv3.33.0',
+        ]) {
+            const run = runDispatchStep({
+                RELEASE_PLEASE_ENABLED: 'true',
+                RELEASE_CREATED: 'true',
+                TAG_NAME: badTag,
+            });
+            expect(run.status).toBe(1);
+            expect(run.calls).toEqual([]);
+        }
     });
 
     it('passes values to shell steps through env only', () => {
-        for (const step of JOB.steps) {
-            expect(step.run || '').not.toContain('${{');
+        for (const job of Object.values(WORKFLOW.jobs) as any[]) {
+            for (const step of job.steps) {
+                expect(step.run || '').not.toContain('${{');
+            }
         }
     });
 
