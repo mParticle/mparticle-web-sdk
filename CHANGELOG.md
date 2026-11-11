@@ -1,5 +1,54 @@
 # Changelog
 
+## [3.32.3](https://github.com/mParticle/mparticle-web-sdk/compare/v3.32.2...v3.32.3) (2026-11-11)
+
+
+### Bug Fixes
+
+* **build:** preserve sourcemaps and guard escaped non-ascii ([#1816](https://github.com/mParticle/mparticle-web-sdk/issues/1816)) ([51f2b6e](https://github.com/mParticle/mparticle-web-sdk/commit/51f2b6ea8ab6d5dc3bb90a6435429e34db009747))
+* **deps-dev:** bump lodash-es ([#1753](https://github.com/mParticle/mparticle-web-sdk/issues/1753)) ([df53b4b](https://github.com/mParticle/mparticle-web-sdk/commit/df53b4baf27efb189dd13d0172916e397b13d946))
+* **deps-dev:** bump lodash-es from 4.17.21 to 4.18.1 in /kits/facebook ([#1758](https://github.com/mParticle/mparticle-web-sdk/issues/1758)) ([2107a95](https://github.com/mParticle/mparticle-web-sdk/commit/2107a95fce196e84f88b04d5d0d1d0348bc0b754))
+* **deps-dev:** bump lodash-es in /kits/mixpanel/mixpanel-2 ([#1763](https://github.com/mParticle/mparticle-web-sdk/issues/1763)) ([ea8a4bf](https://github.com/mParticle/mparticle-web-sdk/commit/ea8a4bf88fa6fed061e52caf6177f0b76dc0959b))
+* **deps-dev:** bump vite from 6.4.1 to 6.4.5 in /kits/rokt ([#1675](https://github.com/mParticle/mparticle-web-sdk/issues/1675)) ([73bc8c8](https://github.com/mParticle/mparticle-web-sdk/commit/73bc8c85dcf5f8603aa6e3c2fa5ad418334329ed))
+* **deps-dev:** bump vite from 6.4.4 to 6.4.5 in /kits/roktpayplus ([#1737](https://github.com/mParticle/mparticle-web-sdk/issues/1737)) ([80d159b](https://github.com/mParticle/mparticle-web-sdk/commit/80d159b040816a2765cb611921bc02762f8240d8))
+* **deps:** bump @vitest/mocker, @vitest/coverage-v8 and vitest ([#1676](https://github.com/mParticle/mparticle-web-sdk/issues/1676)) ([024bb88](https://github.com/mParticle/mparticle-web-sdk/commit/024bb88819c831903c4091afcb82e7d7fe812272))
+* **deps:** bump brace-expansion in /kits/doubleclick ([#1674](https://github.com/mParticle/mparticle-web-sdk/issues/1674)) ([a07ac65](https://github.com/mParticle/mparticle-web-sdk/commit/a07ac65cb5a07cc9ea4fde0586b3c6133abd5527))
+* **deps:** bump fast-uri from 3.0.1 to 3.1.9 in /kits/id5/id5-1 ([#1690](https://github.com/mParticle/mparticle-web-sdk/issues/1690)) ([bac0091](https://github.com/mParticle/mparticle-web-sdk/commit/bac0091e860e7228adebba77ed84ac1804539e84))
+* **deps:** bump qs and body-parser in /kits/taplytics ([#1698](https://github.com/mParticle/mparticle-web-sdk/issues/1698)) ([bdfdea8](https://github.com/mParticle/mparticle-web-sdk/commit/bdfdea8f012b5cc07e17c82314fb7e7d0bbd1a0e))
+* **deps:** bump serialize-javascript and mocha in /kits/onetrust ([#1689](https://github.com/mParticle/mparticle-web-sdk/issues/1689)) ([b87b443](https://github.com/mParticle/mparticle-web-sdk/commit/b87b4439d235f58c3428829f72efa5d73a4d1c53))
+* **deps:** bump the babel group across 1 directory with 20 updates ([#1779](https://github.com/mParticle/mparticle-web-sdk/issues/1779)) ([f43c529](https://github.com/mParticle/mparticle-web-sdk/commit/f43c529d357d77f213fb8848eb618a7c69ed39e4))
+* **deps:** bump undici from 7.24.6 to 7.30.1 in /kits/rokt ([#1688](https://github.com/mParticle/mparticle-web-sdk/issues/1688)) ([8078426](https://github.com/mParticle/mparticle-web-sdk/commit/8078426dbe21e9e3466c8138e900aeb942723e4b))
+* **leanplum:** load a pinned Leanplum SDK with Subresource Integrity ([#1792](https://github.com/mParticle/mparticle-web-sdk/issues/1792)) ([b9c7a66](https://github.com/mParticle/mparticle-web-sdk/commit/b9c7a66c4f8c380df2431ca8feadfdd8ee54b224))
+* **mixpanel:** take MIXPANEL_CUSTOM_LIB_URL only when it is a string ([#1794](https://github.com/mParticle/mparticle-web-sdk/issues/1794)) ([f1a391a](https://github.com/mParticle/mparticle-web-sdk/commit/f1a391a6afaa0f245bac0a08e843bfd20c583c90))
+* **optimizely:** check the Full Stack SDK with Subresource Integrity ([#1793](https://github.com/mParticle/mparticle-web-sdk/issues/1793)) ([3d6f09f](https://github.com/mParticle/mparticle-web-sdk/commit/3d6f09f984d4afc45e4d9aa102ee5c842b87aa78))
+* **page-url:** find route segments in one pass ([#1796](https://github.com/mParticle/mparticle-web-sdk/issues/1796)) ([e921c07](https://github.com/mParticle/mparticle-web-sdk/commit/e921c0776711386578423b7c5c68091e0ddee13f))
+* **persistence:** take the API key from init alone, never from storage ([#1795](https://github.com/mParticle/mparticle-web-sdk/issues/1795)) ([844fe3c](https://github.com/mParticle/mparticle-web-sdk/commit/844fe3c10bd3a92a9d3ad76019e0d0cde76b2b5e))
+* **rokt:** wait for the start-up identify when selectPlacements has no MPID ([#1822](https://github.com/mParticle/mparticle-web-sdk/issues/1822)) ([5244fec](https://github.com/mParticle/mparticle-web-sdk/commit/5244fec70373c703ca8e56002bc307adebb1a024))
+* **snippet:** force utf-8 for injected sdk scripts ([#1820](https://github.com/mParticle/mparticle-web-sdk/issues/1820)) ([f3d03ce](https://github.com/mParticle/mparticle-web-sdk/commit/f3d03ce36a9ee9290bd48b657e555d0a908f75f4))
+* **web SDK:** ignore stale config responses after re-init ([#1817](https://github.com/mParticle/mparticle-web-sdk/issues/1817)) ([141f5e2](https://github.com/mParticle/mparticle-web-sdk/commit/141f5e22998d58f5f501d8d1b32619d5d7af3402))
+
+
+### Miscellaneous
+
+* call generateUniqueId directly ([#1818](https://github.com/mParticle/mparticle-web-sdk/issues/1818)) ([d335189](https://github.com/mParticle/mparticle-web-sdk/commit/d335189605cbefa057da885bd7620f749c00c06b))
+* **check:** enforce ascii-only core bundles in v3 candidate ([#1813](https://github.com/mParticle/mparticle-web-sdk/issues/1813)) ([c34665f](https://github.com/mParticle/mparticle-web-sdk/commit/c34665f9520e11375f5e1ea54c599ce2150139f4))
+* **deps:** bump actions/download-artifact from 7 to 8 ([#1798](https://github.com/mParticle/mparticle-web-sdk/issues/1798)) ([a5645cb](https://github.com/mParticle/mparticle-web-sdk/commit/a5645cbda7a742ec15b9e9542b14bfb5b33344ff))
+* **deps:** bump actions/setup-java from 5 to 6 ([#1801](https://github.com/mParticle/mparticle-web-sdk/issues/1801)) ([700c8c7](https://github.com/mParticle/mparticle-web-sdk/commit/700c8c7032dbb5f709476c47cc55f416d7388e89))
+* **deps:** bump actions/setup-node from 6 to 7 ([#1800](https://github.com/mParticle/mparticle-web-sdk/issues/1800)) ([5f32ea7](https://github.com/mParticle/mparticle-web-sdk/commit/5f32ea7e996ebc3fcc757d3a79503eb3aa015d0c))
+* **deps:** bump actions/upload-artifact from 6.0.0 to 7.0.2 ([#1799](https://github.com/mParticle/mparticle-web-sdk/issues/1799)) ([27cfb1a](https://github.com/mParticle/mparticle-web-sdk/commit/27cfb1a69c35a1b0d6cf29c98c26aaa6aae4e2f6))
+* **deps:** bump codecov/codecov-action from 7.0.0 to 7.1.1 ([#1802](https://github.com/mParticle/mparticle-web-sdk/issues/1802)) ([8e4b4c9](https://github.com/mParticle/mparticle-web-sdk/commit/8e4b4c95f3c45507749c235dd81723e50803d8db))
+* **dist-guard:** skip dist folders inside kit node_modules ([#1825](https://github.com/mParticle/mparticle-web-sdk/issues/1825)) ([f890296](https://github.com/mParticle/mparticle-web-sdk/commit/f890296f40ccc7ee504b10591275af7f4c9e19a6))
+* **forwarder-utils:** add unit tests for the forwarding filter functions ([#1814](https://github.com/mParticle/mparticle-web-sdk/issues/1814)) ([db98c08](https://github.com/mParticle/mparticle-web-sdk/commit/db98c081064e19ad68aad1959f9e8a1acc054322))
+* remove nine duplicate test cases ([#1815](https://github.com/mParticle/mparticle-web-sdk/issues/1815)) ([9c3c73c](https://github.com/mParticle/mparticle-web-sdk/commit/9c3c73c80be3175907a4c4e4b341996cf5b71f00))
+* **uploaders:** add unit tests for the uploaders and forwarding stats uploader ([#1819](https://github.com/mParticle/mparticle-web-sdk/issues/1819)) ([4638852](https://github.com/mParticle/mparticle-web-sdk/commit/46388520d0abda796c2fd8ac7c9f2ab8524ae757))
+* **web SDK:** add shared CI-only local Karma browser timeouts across kits ([#1826](https://github.com/mParticle/mparticle-web-sdk/issues/1826)) ([3a8d902](https://github.com/mParticle/mparticle-web-sdk/commit/3a8d902d4f92822432f4035d60fd6a7c0f484b93))
+* **web SDK:** bound Required checks to 5m and pin trigger and needs ([#1810](https://github.com/mParticle/mparticle-web-sdk/issues/1810)) ([b84312b](https://github.com/mParticle/mparticle-web-sdk/commit/b84312b8f56f4a0ac4fafb61bdda7bed705010f8))
+* **web SDK:** exclude relative paths in git-dependency regex check ([#1811](https://github.com/mParticle/mparticle-web-sdk/issues/1811)) ([324a7cc](https://github.com/mParticle/mparticle-web-sdk/commit/324a7cc9518603b136bf06ae4cbe255e8baed37e))
+* **web SDK:** gate advance-staging, guard upload, audit recovery, and wire release-tag ([#1807](https://github.com/mParticle/mparticle-web-sdk/issues/1807)) ([c25d587](https://github.com/mParticle/mparticle-web-sdk/commit/c25d58798b2784d2da018cc30486d1bc67af9c60))
+* **web SDK:** harden Android bridge tests with KVM and pinned versions ([#1812](https://github.com/mParticle/mparticle-web-sdk/issues/1812)) ([4991720](https://github.com/mParticle/mparticle-web-sdk/commit/499172063c1cd331c0e190288d56c9f6e5faa391))
+* **web-sdk:** auto-dispatch V3 Step 1 and gate publishing ([#1821](https://github.com/mParticle/mparticle-web-sdk/issues/1821)) ([2baa393](https://github.com/mParticle/mparticle-web-sdk/commit/2baa3936c38b96bc1c8a26ade6e10b45b26cca73))
+* **web-sdk:** remove v3-release-publish Environment gate from V3 Step 1 ([#1823](https://github.com/mParticle/mparticle-web-sdk/issues/1823)) ([9b1cc92](https://github.com/mParticle/mparticle-web-sdk/commit/9b1cc92c35e4bc6035ddba3d42bf2a962f3f1282))
+
 ## [3.32.2](https://github.com/mParticle/mparticle-web-sdk/compare/v3.32.1...v3.32.2) (2026-11-10)
 
 
