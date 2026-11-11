@@ -68,8 +68,11 @@ module.exports = {
                     'package.json',
                     'package-lock.json',
                     'CHANGELOG.md',
-                    'kits/**/package.json',
-                    'kits/**/package-lock.json',
+                    // Kit manifests only, never the copies inside installed
+                    // dependencies (kits/<kit>/node_modules), which .gitignore
+                    // ignores.
+                    ['kits/**/package.json', '!**/node_modules/**'],
+                    ['kits/**/package-lock.json', '!**/node_modules/**'],
                 ],
                 message:
                     'chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}',
