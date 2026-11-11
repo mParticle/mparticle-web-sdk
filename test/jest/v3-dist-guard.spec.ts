@@ -436,6 +436,21 @@ describe('V3 bundle change guard', () => {
         expect(script.split(pathspec)).toHaveLength(3);
     });
 
+    it('excludes kit node_modules from both pathspecs', () => {
+        const script = step('Check every bundle change').run;
+        const exclude = "':(exclude,glob)kits/**/node_modules/**'";
+        expect(script.split(exclude)).toHaveLength(3);
+    });
+
+    it('passes a feature pull request that only removes a dependency dist under kit node_modules', () => {
+        const { change, guard } = fresh();
+        change(PERSON, 'kits/rokt/node_modules/rollup/dist/es/package.json', '{}\n', false);
+
+        const result = guard('feature');
+
+        expect(result.status).toBe(0);
+    });
+
     it.each([
         ['kits/rokt/dist', 'file'],
         ['kits/rokt/dist', 'symlink'],
