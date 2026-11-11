@@ -1,4 +1,5 @@
 const { DEBUG } = process.env || 'false';
+const { getLocalKarmaSettings } = require('../../../karma.local.shared');
 
 const files = [
     '../node_modules/@mparticle/web-sdk/dist/mparticle.js',
@@ -23,6 +24,7 @@ if (DEBUG === 'true') {
 
 module.exports = function (config) {
     config.set({
+        ...getLocalKarmaSettings(),
         frameworks: ['mocha', 'chai'],
         files,
         reporters: ['progress'],
