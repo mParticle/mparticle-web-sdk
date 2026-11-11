@@ -2,10 +2,12 @@ name: 'V3 Release Please'
 
 # On each push to main, Release Please opens or updates the V3 release pull
 # request. When that pull request merges, it publishes the GitHub release,
-# which creates the v3.X.Y tag. It runs as the release machine user, so pushes
-# to the release pull request run its checks (a GITHUB_TOKEN push would not),
-# and v3-release-please-dist.yml commits the bundles there. The repository
-# variable V3_RELEASE_PLEASE_ENABLED is the kill switch.
+# which creates the v3.X.Y tag, and dispatches v3-release-step-1.yml on that
+# tag with dryRun=false using the built-in token. Release Please runs as the
+# release machine user, so pushes to the release pull request run its checks
+# (a GITHUB_TOKEN push would not), and v3-release-please-dist.yml commits the
+# bundles there. The repository variable V3_RELEASE_PLEASE_ENABLED is the kill
+# switch.
 
 on:
     push:
@@ -41,16 +43,51 @@ jobs:
                   config-file: release-please-config.json
                   manifest-file: .release-please-manifest.json
 
-            - name: Report the release
-              if: ${{ steps.release.outputs.release_created == 'true' }}
+    dispatch-step-1:
+        name: Dispatch V3 Release - Step 1
+        needs: release-please
+        if: >-
+            ${{
+                github.repository_owner == 'mParticle' &&
+                vars.V3_RELEASE_PLEASE_ENABLED == 'true' &&
+                needs.release-please.outputs.release_created == 'true' &&
+                startsWith(needs.release-please.outputs.tag_name, 'v3.')
+            }}
+        runs-on: ubuntu-latest
+        timeout-minutes: 5
+        permissions:
+            actions: write # Dispatches v3-release-step-1.yml with the built-in token once a release is created.
+        steps:
+            - name: Dispatch V3 Release - Step 1
               env:
-                  TAG_NAME: ${{ steps.release.outputs.tag_name }}
+                  GH_TOKEN: ${{ github.token }}
+                  GH_REPO: ${{ github.repository }}
+                  RELEASE_PLEASE_ENABLED: ${{ vars.V3_RELEASE_PLEASE_ENABLED }}
+                  RELEASE_CREATED: ${{ needs.release-please.outputs.release_created }}
+                  TAG_NAME: ${{ needs.release-please.outputs.tag_name }}
               run: |
                   set -eu
+                  if [ "${RELEASE_PLEASE_ENABLED:-}" != 'true' ]; then
+                      echo "V3_RELEASE_PLEASE_ENABLED must be 'true' to dispatch Step 1"
+                      exit 1
+                  fi
+                  if [ "${RELEASE_CREATED:-}" != 'true' ]; then
+                      echo "release_created must be 'true' to dispatch Step 1"
+                      exit 1
+                  fi
+                  if [ "$(printf '%s\n' "${TAG_NAME:-}" | wc -l)" -ne 1 ] ||
+                      ! printf '%s\n' "${TAG_NAME:-}" |
+                          grep -Eq '^v3\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'; then
+                      echo "Invalid stable V3 release tag: ${TAG_NAME:-}"
+                      exit 1
+                  fi
+                  gh workflow run v3-release-step-1.yml --ref "$TAG_NAME" -f dryRun=false
                   {
                       printf '## V3 release created\n\n'
-                      printf -- '- Tag: `%s`\n\n' "$TAG_NAME"
-                      printf 'Run Step 1 from the tag:\n\n```sh\n'
+                      printf -- '- Tag: `%s`\n' "$TAG_NAME"
+                      printf -- '- Dispatched: `gh workflow run v3-release-step-1.yml --ref %s -f dryRun=false`\n\n' "$TAG_NAME"
+                      printf 'Approve the `v3-release-publish` deployment in the Step 1 workflow run once the build, bundle check and tests pass.\n\n'
+                      printf 'To re-run Step 1 from the tag for recovery:\n\n```sh\n'
                       printf 'gh workflow run v3-release-step-1.yml --ref %s -f dryRun=false\n' "$TAG_NAME"
                       printf '```\n'
                   } >> "$GITHUB_STEP_SUMMARY"

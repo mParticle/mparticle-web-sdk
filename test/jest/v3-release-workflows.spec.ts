@@ -1996,7 +1996,9 @@ describe('V3 Step 1 test jobs', () => {
         }
 
         const createBranch = jobs['create-release-branch'];
-        expect([...needsOf(createBranch)].sort()).toEqual([...TEST_JOBS, 'confirm-staging-branch'].sort());
+        expect([...needsOf(createBranch)].sort()).toEqual(
+            [...TEST_JOBS, 'build-release-tag', 'confirm-staging-branch'].sort()
+        );
         const condition = createBranch.if.replace(/\s+/g, ' ');
         expect(condition).toContain('always() && !cancelled() &&');
         for (const name of [...TEST_JOBS, 'confirm-staging-branch']) {
