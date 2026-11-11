@@ -370,6 +370,14 @@ export const hasExplicitIdentifier = (store: IStore | undefined | null): boolean
     return !!store?.SDKConfig?.deviceId;
 };
 
+// True when the noFunctional privacy flag is on and the page gave no explicit
+// identifier, so the SDK must not identify or queue on the user's behalf.
+export const isNoFunctionalWithoutId = (
+    mpInstance: Pick<IMParticleWebSDKInstance, '_CookieConsentManager' | '_Store'>
+): boolean =>
+    !!mpInstance._CookieConsentManager?.getNoFunctional() &&
+    !hasExplicitIdentifier(mpInstance._Store);
+
 /**
  * Builds the /v1/identify-style envelope (client_sdk, environment,
  * request_id, request_timestamp_ms) used to correlate IDSync requests
