@@ -306,6 +306,9 @@ export default function IdentityAPIClient(
                     mpInstance._Store.identityCallFailed = false;
                     const errorMessage = 'Received HTTP Code of ' + response.status;
                     Logger.error('Error sending identity request to servers - ' + errorMessage);
+                    // A selectPlacements call with no MPID waits for this request, and this
+                    // response reaches neither onIdentityComplete nor processQueueOnIdentityFailure.
+                    mpInstance._RoktManager?.processMessageQueue();
                     invokeCallback(callback, HTTPCodes.noHttpCoverage, errorMessage);
                     return;
                 }
@@ -348,6 +351,9 @@ export default function IdentityAPIClient(
             });
 
             mpInstance.processQueueOnIdentityFailure?.();
+            // processQueueOnIdentityFailure does nothing once the SDK is initialized, and a
+            // selectPlacements call with no MPID can still be waiting for this request.
+            mpInstance._RoktManager?.processMessageQueue();
             invokeCallback(callback, HTTPCodes.noHttpCoverage, errorMessage);
         }
     };

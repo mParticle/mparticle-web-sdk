@@ -495,12 +495,15 @@ export default class RoktManager {
     public async selectPlacements(options: IRoktSelectPlacementsOptions): Promise<IRoktSelection> {
         this.captureTiming?.(PerformanceMarkType.JointSdkSelectPlacements);
         
-        if (!this.isReady()) {
+        // A first visit has no MPID until its start-up identify returns, and a selection sent
+        // before then carries none, so only a user with no MPID waits for an identity request.
+        const awaitingFirstMPID = this.store?.identityCallInFlight && !this.identityService.getCurrentUser()?.getMPID();
+        if (!this.isReady() || awaitingFirstMPID) {
             return this.deferredCall<IRoktSelection>('selectPlacements', options);
         }
 
-        // Like the iOS and Android SDKs, this does not wait for an identity request, so the
-        // selection can go out for the user from before it. The log counts how often that happens.
+        // Like the iOS and Android SDKs, a user with an MPID does not wait for an identity request,
+        // so the selection can go out for the user from before it. The log counts how often that happens.
         if (this.store?.identityCallInFlight) {
             this.loggingService?.log({
                 message: 'RoktManager: selectPlacements ran while an identity request was in flight',

@@ -1,6 +1,7 @@
 import { IKitConfigs } from "../../src/configAPIClient";
 import { IMParticleUser } from "../../src/identity-user-interfaces";
-import { SDKIdentityApi } from "../../src/identity.interfaces";
+import { IIdentityAPIRequestData, SDKIdentityApi } from "../../src/identity.interfaces";
+import IdentityAPIClient, { IIdentityApiClient } from "../../src/identityApiClient";
 import { IMParticleWebSDKInstance } from "../../src/mp-instance";
 import RoktManager, { IRoktKit, IRoktSelectPlacementsOptions } from "../../src/roktManager";
 import { IStore } from "../../src/store";
@@ -2280,7 +2281,7 @@ describe('RoktManager', () => {
             expect(roktManager.filters.filteredUser).not.toBe(initialUser);
         });
 
-        it('should run selectPlacements at once, and log it, while an identity request is in flight', async () => {
+        it('should run selectPlacements at once, and log it, for a user with an MPID while an identity request is in flight', async () => {
             const kit: Partial<IRoktKit> = {
                 launcher: {
                     selectPlacements: jest.fn(),
@@ -2297,6 +2298,7 @@ describe('RoktManager', () => {
 
             const mockIdentity = {
                 getCurrentUser: jest.fn().mockReturnValue({
+                    getMPID: () => testMPID,
                     getUserIdentities: () => ({ userIdentities: {} }),
                     setUserAttributes: jest.fn()
                 }),
@@ -2316,6 +2318,168 @@ describe('RoktManager', () => {
             expect(log).toHaveBeenCalledWith({
                 message: 'RoktManager: selectPlacements ran while an identity request was in flight',
                 code: 'SELECT_PLACEMENTS_IDENTITY_IN_FLIGHT',
+            });
+        });
+
+        describe('for a user with no MPID while an identity request is in flight', () => {
+            const newMPID = 'identify-mpid';
+            let storedMPID: string | null;
+            let sentMPIDs: Array<string | null>;
+            let kit: Partial<IRoktKit>;
+            let log: jest.Mock;
+
+            beforeEach(() => {
+                storedMPID = null;
+                sentMPIDs = [];
+                kit = {
+                    launcher: {
+                        selectPlacements: jest.fn(),
+                        hashAttributes: jest.fn(),
+                        use: jest.fn(),
+                    },
+                    selectPlacements: jest.fn().mockImplementation(() => {
+                        sentMPIDs.push(roktManager.filters.filteredUser?.getMPID() ?? null);
+                        return Promise.resolve({});
+                    }),
+                    hashAttributes: jest.fn(),
+                    setExtensionData: jest.fn(),
+                };
+
+                roktManager.kit = kit as IRoktKit;
+                roktManager.filters.filteredUser = null;
+                roktManager['createFilteredUser'] = (mpid) =>
+                    ({
+                        getMPID: () => mpid,
+                        getUserIdentities: () => ({ userIdentities: {} }),
+                    } as unknown as IMParticleUser);
+                roktManager['placementAttributesMapping'] = [];
+                roktManager['identityService'] = {
+                    getCurrentUser: jest.fn().mockImplementation(() =>
+                        storedMPID
+                            ? {
+                                  getMPID: () => storedMPID,
+                                  getUserIdentities: () => ({ userIdentities: {} }),
+                                  setUserAttributes: jest.fn(),
+                              }
+                            : null
+                    ),
+                    identify: jest.fn(),
+                } as unknown as SDKIdentityApi;
+                log = jest.fn();
+                roktManager['loggingService'] = { log };
+                roktManager['store'].identityCallInFlight = true;
+            });
+
+            it('should wait for the identify and send the MPID it returns', async () => {
+                const selection = roktManager.selectPlacements({ attributes: {} });
+                await resolvePromise();
+
+                expect(kit.selectPlacements).not.toHaveBeenCalled();
+                expect(roktManager['messageQueue'].size).toBe(1);
+
+                storedMPID = newMPID;
+                roktManager['store'].identityCallInFlight = false;
+                roktManager.onIdentityComplete();
+                await selection;
+
+                expect(sentMPIDs).toEqual([newMPID]);
+                expect(roktManager['messageQueue'].size).toBe(0);
+                expect(log).not.toHaveBeenCalled();
+            });
+
+            it('should keep waiting when the kit attaches during the identify, then run once with its MPID', async () => {
+                roktManager.kit = null;
+                const selection = roktManager.selectPlacements({ attributes: {} });
+
+                roktManager.attachKit(kit as IRoktKit);
+                await resolvePromise();
+
+                expect(kit.selectPlacements).not.toHaveBeenCalled();
+                expect(roktManager['messageQueue'].size).toBe(1);
+
+                storedMPID = newMPID;
+                roktManager['store'].identityCallInFlight = false;
+                roktManager.onIdentityComplete();
+                await selection;
+
+                expect(sentMPIDs).toEqual([newMPID]);
+                expect(roktManager['messageQueue'].size).toBe(0);
+            });
+
+            it('should still run once a failed identify ends the wait', async () => {
+                const selection = roktManager.selectPlacements({ attributes: {} });
+                await resolvePromise();
+
+                expect(kit.selectPlacements).not.toHaveBeenCalled();
+
+                roktManager['store'].identityCallInFlight = false;
+                roktManager.processMessageQueue();
+                await selection;
+
+                expect(sentMPIDs).toEqual([null]);
+            });
+
+            describe('when the identity API client ends the identify without a new user', () => {
+                const originalFetch = global.fetch;
+                let identityApiClient: IIdentityApiClient;
+
+                beforeEach(() => {
+                    const store = {
+                        ...roktManager['store'],
+                        devToken: 'test_key',
+                        SDKConfig: { identityUrl: '' },
+                        identityCallInFlight: false,
+                        isInitialized: true,
+                    } as unknown as IStore;
+                    roktManager['store'] = store;
+                    identityApiClient = new IdentityAPIClient(({
+                        Logger: { verbose: jest.fn(), error: jest.fn(), isVerbose: () => false },
+                        _Helpers: { createServiceUrl: () => urls.identify, invokeCallback: jest.fn() },
+                        _Store: store,
+                        _RoktManager: roktManager,
+                        _ErrorReportingDispatcher: { report: jest.fn() },
+                        captureTiming: jest.fn(),
+                    } as unknown) as IMParticleWebSDKInstance);
+                });
+
+                afterEach(() => {
+                    global.fetch = originalFetch;
+                });
+
+                const identifyWhileSelecting = async (identifyResponse: () => Promise<unknown>) => {
+                    let respond: () => void;
+                    global.fetch = jest.fn(
+                        () => new Promise((resolve) => (respond = () => resolve(identifyResponse())))
+                    ) as jest.Mock;
+                    const request = identityApiClient.sendIdentityRequest(
+                        { known_identities: {} } as unknown as IIdentityAPIRequestData,
+                        'identify',
+                        jest.fn(),
+                        { userIdentities: {} },
+                        jest.fn(),
+                        null,
+                        {}
+                    );
+                    const selection = roktManager.selectPlacements({ attributes: {} });
+                    await resolvePromise();
+                    expect(kit.selectPlacements).not.toHaveBeenCalled();
+
+                    respond();
+                    await request;
+                    await selection;
+                };
+
+                it.each([401, 403, 429])('should run once the identify returns %d', async (status) => {
+                    await identifyWhileSelecting(() => Promise.resolve({ status }));
+
+                    expect(sentMPIDs).toEqual([null]);
+                });
+
+                it('should run once the identify fails on the network after the SDK is initialized', async () => {
+                    await identifyWhileSelecting(() => Promise.reject(new Error('offline')));
+
+                    expect(sentMPIDs).toEqual([null]);
+                });
             });
         });
 
