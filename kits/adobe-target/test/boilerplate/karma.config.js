@@ -1,5 +1,8 @@
+const { getLocalKarmaSettings } = require('../../../karma.local.shared');
+
 module.exports = function(config) {
     config.set({
+        ...getLocalKarmaSettings(),
         frameworks: ['mocha', 'chai'],
         files: ['../test-bundle.js'],
         reporters: ['progress'],
