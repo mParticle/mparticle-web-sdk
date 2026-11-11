@@ -1035,9 +1035,9 @@ describe('V3 Step 1 from a release tag: release jobs', () => {
         ).toBe(false);
     });
 
-    it('gates release publishing jobs behind one v3-release-publish Environment after the build, bundle check and tests pass', () => {
+    it('gates release publishing jobs behind create-release-branch after the build, bundle check and tests pass with no Environment', () => {
         const gateJob = workflow.jobs['create-release-branch'];
-        expect(gateJob.environment).toBe('v3-release-publish');
+        expect(gateJob.environment).toBeUndefined();
         expect(gateJob.needs).toEqual([
             'build-bundle',
             'build-release-tag',
@@ -1071,7 +1071,7 @@ describe('V3 Step 1 from a release tag: release jobs', () => {
         const jobsWithEnvironment = Object.entries(workflow.jobs)
             .filter(([, job]: [string, any]) => job.environment !== undefined)
             .map(([name]) => name);
-        expect(jobsWithEnvironment).toEqual(['create-release-branch']);
+        expect(jobsWithEnvironment).toEqual([]);
 
         expect(workflow.jobs.release.needs).toContain('create-release-branch');
         expect(workflow.jobs.release.if.replace(/\s+/g, ' ')).toContain(

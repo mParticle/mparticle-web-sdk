@@ -191,20 +191,18 @@ Commit titles and cuts each V3 release from `main`:
 4. **V3 Release - Step 1** checks that the tag is on `main`, builds the
    distribution bundle, rebuilds core and every kit and compares them with the
    tag's bundles, and runs the test suites. Once the build, bundle check and
-   tests pass, the run pauses at the `v3-release-publish` GitHub Environment
-   and waits for a required reviewer to click **Review deployments → Approve**.
-   After approval, it publishes core and every kit to npm `next`, moves
+   tests pass, it publishes core and every kit to npm `next`, moves
    `v3-staging` forward to the tag commit, and uploads and stages the V3
    candidate in S3. If the automatic dispatch from Release Please did not start
-   Step 1 (or if Step 1 failed before any pod staged and needs to be started
-   manually), run **V3 Release - Step 1** manually from that tag (in **Use
-   workflow from**, choose the tag, not a branch) with `dryRun=false` and
-   approve the `v3-release-publish` deployment: it skips every package npm
-   already holds with the same bytes. If a Step 1 run stops part-way after packaging or
-   staging, use **Re-run failed jobs** on that original Step 1 run (see
-   **Recover an incomplete v3 kit publication**). A Step 1 run from a tag runs
-   only while the repository variable `V3_RELEASE_PLEASE_ENABLED` is `true`,
-   and a run from `v3-staging` fails once it is.
+   Step 1 (or if Step 1 failed before packaging or staging started and needs to
+   be started manually), run **V3 Release - Step 1** manually from that tag (in
+   **Use workflow from**, choose the tag, not a branch) with `dryRun=false`: it
+   skips every package npm already holds with the same bytes. If a Step 1 run
+   stops part-way after packaging or staging, use **Re-run failed jobs** on
+   that original Step 1 run (see **Recover an incomplete v3 kit publication**).
+   A Step 1 run from a tag runs only while the repository variable
+   `V3_RELEASE_PLEASE_ENABLED` is `true`, and a run from `v3-staging` fails
+   once it is.
 5. Run Steps 2 and 3 from `main` as described below. Step 3 pushes only the
    three release-order branches, because `main` already holds the release.
    Don't change `V3_RELEASE_PLEASE_ENABLED` while a Step 3 run or its S3
@@ -273,9 +271,9 @@ result stands until the check runs again.
   releases. It does not bring back the semantic-release path (see **Fall back
   to the semantic-release path**). Don't use the `autorelease: snooze` label.
   With `always-update`, Release Please keeps force-updating a snoozed PR.
-  After the merge, if a release must not ship, reject or cancel the paused
-  **V3 Release - Step 1** run at the `v3-release-publish` Environment review
-  before anything ships, and do not dispatch Step 1 for its tag.
+  After the merge, if a release must not ship, cancel the in-progress
+  **V3 Release - Step 1** run if it is still running, do not run Steps 2 or 3
+  for that tag, and do not re-dispatch Step 1 for it.
   Leave the tag and the GitHub release in place, never reuse the version, and
   merge the fix to `main`. Release Please then cuts the next version, and Step
   1 from that tag moves `v3-staging` past the abandoned one. This roll-forward
