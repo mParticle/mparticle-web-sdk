@@ -27,6 +27,10 @@ import type { CheckoutIntentKind, CheckoutIntentSource, ICheckoutIntentSelectors
 export type { ICheckoutIntentSelectors } from "./buttonTracking/checkoutIntent";
 
 const PASSBACK_CONVERSION_TRACKING_ID = 'passbackconversiontrackingid';
+
+// selectPlacements attributes that go to Rokt but are never saved to the user's profile, so they
+// never reach the account's other outputs. Matched in any letter case.
+const ROKT_ONLY_ATTRIBUTES = ['sandbox', 'paypalpayerid'];
 // One signal per kind (commit, wallet, checkout_step, frame and cart), with an
 // add-to-cart click apart from a cart open, so a new one never evicts another.
 const CHECKOUT_INTENT_BUFFER_LIMIT = 6;
@@ -852,11 +856,10 @@ export default class RoktManager {
     }
 
     private toUserAttributes(attributes: RoktAttributes): Dictionary<RoktAttributeValueType> {
-        const reservedAttributes = ['sandbox'];
         const filteredAttributes = {};
         
         for (const key in attributes) {
-            if (attributes.hasOwnProperty(key) && reservedAttributes.indexOf(key) === -1) {
+            if (attributes.hasOwnProperty(key) && ROKT_ONLY_ATTRIBUTES.indexOf(key.toLowerCase()) === -1) {
                 const value = attributes[key];
                 filteredAttributes[key] = Array.isArray(value) ? JSON.stringify(value) : value;
             }
