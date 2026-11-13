@@ -76,18 +76,6 @@ export interface IPrivacyV2DTO {
     h: string; // HardwareID
 }
 
-export type IGDPRConsentStateV2DTO = Dictionary<IPrivacyV2DTO>;
-
-export interface ICCPAConsentStateV2DTO {
-    [CCPAPurpose]: IPrivacyV2DTO;
-}
-
-// TODO: Remove when Deprecating V2
-export interface IConsentStateV2DTO {
-    gdpr?: IGDPRConsentStateV2DTO;
-    ccpa?: ICCPAConsentStateV2DTO;
-}
-
 export interface IConsentRulesValues {
     consentPurpose: string;
     hasConsented: boolean;
