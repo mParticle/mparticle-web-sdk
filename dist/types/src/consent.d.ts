@@ -42,14 +42,6 @@ export interface IPrivacyV2DTO {
     l: string;
     h: string;
 }
-export type IGDPRConsentStateV2DTO = Dictionary<IPrivacyV2DTO>;
-export interface ICCPAConsentStateV2DTO {
-    [CCPAPurpose]: IPrivacyV2DTO;
-}
-export interface IConsentStateV2DTO {
-    gdpr?: IGDPRConsentStateV2DTO;
-    ccpa?: ICCPAConsentStateV2DTO;
-}
 export interface IConsentRulesValues {
     consentPurpose: string;
     hasConsented: boolean;
@@ -64,5 +56,5 @@ export interface IConsent {
     createConsentState: (consentState?: ConsentState) => ConsentState;
     ConsentSerialization: IConsentSerialization;
 }
-export default function Consent(this: IConsent, mpInstance: IMParticleWebSDKInstance): void;
+export default function Consent(this: IConsent, mpInstance: Pick<IMParticleWebSDKInstance, 'Logger'>): void;
 export {};

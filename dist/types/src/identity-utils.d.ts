@@ -39,6 +39,7 @@ export declare const hasIdentityRequestChanged: (currentUser: IMParticleUser, ne
  * @returns true if deviceId or other identifiers were explicitly provided in config, false otherwise
  */
 export declare const hasExplicitIdentifier: (store: IStore | undefined | null) => boolean;
+export declare const isNoFunctionalWithoutId: (mpInstance: Pick<IMParticleWebSDKInstance, '_CookieConsentManager' | '_Store'>) => boolean;
 /**
  * Builds the /v1/identify-style envelope (client_sdk, environment,
  * request_id, request_timestamp_ms) used to correlate IDSync requests
