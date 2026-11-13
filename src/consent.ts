@@ -109,7 +109,11 @@ export interface IConsent {
     ConsentSerialization: IConsentSerialization;
 }
 
-export default function Consent(this: IConsent, mpInstance: IMParticleWebSDKInstance) {
+// Consent reads only the logger from the instance.
+export default function Consent(
+    this: IConsent,
+    mpInstance: Pick<IMParticleWebSDKInstance, 'Logger'>
+) {
     const self = this;
 
     // this function is called when consent is required to
