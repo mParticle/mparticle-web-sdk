@@ -1,210 +1,6 @@
 var mParticle = (function () {
 
-    // Base64 encoder/decoder - http://www.webtoolkit.info/javascript_base64.html
-    var Base64$1 = {
-      _keyStr: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=',
-      // Input must be a string
-      encode: function encode(input) {
-        try {
-          if (window.btoa && window.atob) {
-            return window.btoa(unescape(encodeURIComponent(input)));
-          }
-        } catch (e) {
-          console.error('Error encoding cookie values into Base64:' + e);
-        }
-        return this._encode(input);
-      },
-      _encode: function _encode(input) {
-        var output = '';
-        var chr1, chr2, chr3, enc1, enc2, enc3, enc4;
-        var i = 0;
-        input = UTF8.encode(input);
-        while (i < input.length) {
-          chr1 = input.charCodeAt(i++);
-          chr2 = input.charCodeAt(i++);
-          chr3 = input.charCodeAt(i++);
-          enc1 = chr1 >> 2;
-          enc2 = (chr1 & 3) << 4 | chr2 >> 4;
-          enc3 = (chr2 & 15) << 2 | chr3 >> 6;
-          enc4 = chr3 & 63;
-          if (isNaN(chr2)) {
-            enc3 = enc4 = 64;
-          } else if (isNaN(chr3)) {
-            enc4 = 64;
-          }
-          output = output + Base64$1._keyStr.charAt(enc1) + Base64$1._keyStr.charAt(enc2) + Base64$1._keyStr.charAt(enc3) + Base64$1._keyStr.charAt(enc4);
-        }
-        return output;
-      },
-      decode: function decode(input) {
-        try {
-          if (window.btoa && window.atob) {
-            return decodeURIComponent(escape(window.atob(input)));
-          }
-        } catch (e) {
-          //log(e);
-        }
-        return Base64$1._decode(input);
-      },
-      _decode: function _decode(input) {
-        var output = '';
-        var chr1, chr2, chr3;
-        var enc1, enc2, enc3, enc4;
-        var i = 0;
-        input = input.replace(/[^A-Za-z0-9\+\/\=]/g, '');
-        while (i < input.length) {
-          enc1 = Base64$1._keyStr.indexOf(input.charAt(i++));
-          enc2 = Base64$1._keyStr.indexOf(input.charAt(i++));
-          enc3 = Base64$1._keyStr.indexOf(input.charAt(i++));
-          enc4 = Base64$1._keyStr.indexOf(input.charAt(i++));
-          chr1 = enc1 << 2 | enc2 >> 4;
-          chr2 = (enc2 & 15) << 4 | enc3 >> 2;
-          chr3 = (enc3 & 3) << 6 | enc4;
-          output = output + String.fromCharCode(chr1);
-          if (enc3 !== 64) {
-            output = output + String.fromCharCode(chr2);
-          }
-          if (enc4 !== 64) {
-            output = output + String.fromCharCode(chr3);
-          }
-        }
-        output = UTF8.decode(output);
-        return output;
-      }
-    };
-    var UTF8 = {
-      encode: function encode(s) {
-        var utftext = '';
-        for (var n = 0; n < s.length; n++) {
-          var c = s.charCodeAt(n);
-          if (c < 128) {
-            utftext += String.fromCharCode(c);
-          } else if (c > 127 && c < 2048) {
-            utftext += String.fromCharCode(c >> 6 | 192);
-            utftext += String.fromCharCode(c & 63 | 128);
-          } else {
-            utftext += String.fromCharCode(c >> 12 | 224);
-            utftext += String.fromCharCode(c >> 6 & 63 | 128);
-            utftext += String.fromCharCode(c & 63 | 128);
-          }
-        }
-        return utftext;
-      },
-      decode: function decode(utftext) {
-        var s = '';
-        var i = 0;
-        var c = 0,
-          c1 = 0,
-          c2 = 0;
-        while (i < utftext.length) {
-          c = utftext.charCodeAt(i);
-          if (c < 128) {
-            s += String.fromCharCode(c);
-            i++;
-          } else if (c > 191 && c < 224) {
-            c1 = utftext.charCodeAt(i + 1);
-            s += String.fromCharCode((c & 31) << 6 | c1 & 63);
-            i += 2;
-          } else {
-            c1 = utftext.charCodeAt(i + 1);
-            c2 = utftext.charCodeAt(i + 2);
-            s += String.fromCharCode((c & 15) << 12 | (c1 & 63) << 6 | c2 & 63);
-            i += 3;
-          }
-        }
-        return s;
-      }
-    };
-    var Polyfill = {
-      // forEach polyfill
-      // Production steps of ECMA-262, Edition 5, 15.4.4.18
-      // Reference: http://es5.github.io/#x15.4.4.18
-      forEach: function forEach(callback, thisArg) {
-        var T, k;
-        if (this == null) {
-          throw new TypeError(' this is null or not defined');
-        }
-        var O = Object(this);
-        var len = O.length >>> 0;
-        if (typeof callback !== 'function') {
-          throw new TypeError(callback + ' is not a function');
-        }
-        if (arguments.length > 1) {
-          T = thisArg;
-        }
-        k = 0;
-        while (k < len) {
-          var kValue = void 0;
-          if (k in O) {
-            kValue = O[k];
-            callback.call(T, kValue, k, O);
-          }
-          k++;
-        }
-      },
-      // map polyfill
-      // Production steps of ECMA-262, Edition 5, 15.4.4.19
-      // Reference: http://es5.github.io/#x15.4.4.19
-      map: function map(callback, thisArg) {
-        var T, A, k;
-        if (this === null) {
-          throw new TypeError(' this is null or not defined');
-        }
-        var O = Object(this);
-        var len = O.length >>> 0;
-        if (typeof callback !== 'function') {
-          throw new TypeError(callback + ' is not a function');
-        }
-        if (arguments.length > 1) {
-          T = thisArg;
-        }
-        A = new Array(len);
-        k = 0;
-        while (k < len) {
-          var kValue = void 0,
-            mappedValue = void 0;
-          if (k in O) {
-            kValue = O[k];
-            mappedValue = callback.call(T, kValue, k, O);
-            A[k] = mappedValue;
-          }
-          k++;
-        }
-        return A;
-      },
-      // filter polyfill
-      // Prodcution steps of ECMA-262, Edition 5
-      // Reference: http://es5.github.io/#x15.4.4.20
-      filter: function filter(fun /*, thisArg*/) {
-
-        if (this === void 0 || this === null) {
-          throw new TypeError();
-        }
-        var t = Object(this);
-        var len = t.length >>> 0;
-        if (typeof fun !== 'function') {
-          throw new TypeError();
-        }
-        var res = [];
-        var thisArg = arguments.length >= 2 ? arguments[1] : void 0;
-        for (var i = 0; i < len; i++) {
-          if (i in t) {
-            var val = t[i];
-            if (fun.call(thisArg, val, i, t)) {
-              res.push(val);
-            }
-          }
-        }
-        return res;
-      },
-      // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/isArray
-      isArray: function isArray(arg) {
-        return Object.prototype.toString.call(arg) === '[object Array]';
-      },
-      Base64: Base64$1
-    };
-
-    var version = "3.32.3";
+    var version = "3.33.0";
 
     var Constants = {
       sdkVersion: version,
@@ -676,14 +472,33 @@ var mParticle = (function () {
     var replaceMPID = function replaceMPID(value, mpid) {
       return value.replace('%%mpid%%', mpid);
     };
+    // The MPID can come from persisted storage, so it is encoded before it is
+    // placed in a URL. encodeURIComponent throws on a lone UTF-16 surrogate, so
+    // one is replaced with U+FFFD rather than letting the request fail. An MPID
+    // of '.' or '..' would become a dot segment that changes the request path,
+    // and URL parsers also treat '%2E' as a dot there, so each dot is sent as
+    // '%252E' instead. Numeric MPIDs are left unchanged.
+    /** @internal */
+    var encodeMPID = function encodeMPID(mpid) {
+      var encoded;
+      try {
+        encoded = encodeURIComponent(mpid);
+      } catch (e) {
+        encoded = encodeURIComponent(String(mpid).replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]|[\uD800-\uDFFF]/g, function (match) {
+          return match.length === 2 ? match : "\uFFFD";
+        }));
+      }
+      return encoded === '.' || encoded === '..' ? encoded.replace(/\./g, '%252E') : encoded;
+    };
     var replaceAmpWithAmpersand = function replaceAmpWithAmpersand(value) {
       return value.replace(/&amp;/g, '&');
     };
     var createCookieSyncUrl = function createCookieSyncUrl(mpid, pixelUrl, redirectUrl, domain, base64Mpid) {
       var modifiedPixelUrl = replaceAmpWithAmpersand(pixelUrl);
       var modifiedDirectUrl = redirectUrl ? replaceAmpWithAmpersand(redirectUrl) : null;
-      var url = replaceMPID(modifiedPixelUrl, mpid);
-      var redirect = modifiedDirectUrl ? replaceMPID(modifiedDirectUrl, mpid) : '';
+      var encodedMpid = encodeMPID(mpid);
+      var url = replaceMPID(modifiedPixelUrl, encodedMpid);
+      var redirect = modifiedDirectUrl ? replaceMPID(modifiedDirectUrl, encodedMpid) : '';
       var fullUrl = url + encodeURIComponent(redirect);
       if (domain) {
         var separator = fullUrl.includes('?') ? '&' : '?';
@@ -739,17 +554,11 @@ var mParticle = (function () {
     var isNumber = function isNumber(value) {
       return typeof value === 'number';
     };
-    var isBoolean = function isBoolean(value) {
-      return typeof value === 'boolean';
-    };
     var isFunction = function isFunction(fn) {
       return typeof fn === 'function';
     };
     var isValidAttributeValue = function isValidAttributeValue(value) {
       return value !== undefined && !isObject(value) && !Array.isArray(value);
-    };
-    var isValidCustomFlagProperty = function isValidCustomFlagProperty(value) {
-      return isNumber(value) || isString(value) || isBoolean(value);
     };
     var toDataPlanSlug = function toDataPlanSlug(value) {
       // Make sure we are only acting on strings or numbers
@@ -1497,7 +1306,7 @@ var mParticle = (function () {
     var ProfileMessageType = {
       Logout: 3
     };
-    var ApplicationTransitionType$1 = {
+    var ApplicationTransitionType = {
       AppInit: 1
     };
     var PerformanceMarkType = {
@@ -1522,7 +1331,7 @@ var mParticle = (function () {
       CommerceEventType: CommerceEventType,
       IdentityType: IdentityType,
       ProfileMessageType: ProfileMessageType,
-      ApplicationTransitionType: ApplicationTransitionType$1,
+      ApplicationTransitionType: ApplicationTransitionType,
       ProductActionType: ProductActionType,
       PromotionActionType: PromotionActionType,
       RoktEvents: RoktEvents,
@@ -4983,6 +4792,12 @@ var mParticle = (function () {
       }
       return !!((_c = store === null || store === void 0 ? void 0 : store.SDKConfig) === null || _c === void 0 ? void 0 : _c.deviceId);
     };
+    // True when the noFunctional privacy flag is on and the page gave no explicit
+    // identifier, so the SDK must not identify or queue on the user's behalf.
+    var isNoFunctionalWithoutId = function isNoFunctionalWithoutId(mpInstance) {
+      var _a;
+      return !!((_a = mpInstance._CookieConsentManager) === null || _a === void 0 ? void 0 : _a.getNoFunctional()) && !hasExplicitIdentifier(mpInstance._Store);
+    };
     /**
      * Builds the /v1/identify-style envelope (client_sdk, environment,
      * request_id, request_timestamp_ms) used to correlate IDSync requests
@@ -5079,8 +4894,7 @@ var mParticle = (function () {
       // The original event is queued for the MP server upload path so it can be sent once an MPID is returned.
       // Returns true if the event was handled by this path (caller should return early).
       var handleNoFunctionalPreMpidEvent = function handleNoFunctionalPreMpidEvent(event, mpid) {
-        var _a;
-        var noFunctionalWithoutId = ((_a = mpInstance._CookieConsentManager) === null || _a === void 0 ? void 0 : _a.getNoFunctional()) && !hasExplicitIdentifier(mpInstance._Store);
+        var noFunctionalWithoutId = isNoFunctionalWithoutId(mpInstance);
         if (!noFunctionalWithoutId || mpid || !mpInstance._Store.configurationLoaded || mpInstance._Store.requireDelay) {
           return false;
         }
@@ -5726,11 +5540,10 @@ var mParticle = (function () {
     function SessionManager(mpInstance) {
       var self = this;
       this.initialize = function () {
-        var _a;
         if (mpInstance._Store.sessionId) {
-          var _b = mpInstance._Store,
-            dateLastEventSent = _b.dateLastEventSent,
-            SDKConfig = _b.SDKConfig;
+          var _a = mpInstance._Store,
+            dateLastEventSent = _a.dateLastEventSent,
+            SDKConfig = _a.SDKConfig;
           var sessionTimeout = SDKConfig.sessionTimeout;
           if (hasSessionTimedOut(dateLastEventSent === null || dateLastEventSent === void 0 ? void 0 : dateLastEventSent.getTime(), sessionTimeout)) {
             self.endSession();
@@ -5740,7 +5553,7 @@ var mParticle = (function () {
             // https://go.mparticle.com/work/SQDSDKS-6323
             var currentUser = mpInstance.Identity.getCurrentUser();
             var sdkIdentityRequest = SDKConfig.identifyRequest;
-            var shouldSuppressIdentify = ((_a = mpInstance._CookieConsentManager) === null || _a === void 0 ? void 0 : _a.getNoFunctional()) && !hasExplicitIdentifier(mpInstance._Store);
+            var shouldSuppressIdentify = isNoFunctionalWithoutId(mpInstance);
             if (!shouldSuppressIdentify && hasIdentityRequestChanged(currentUser, sdkIdentityRequest)) {
               mpInstance.Identity.identify(sdkIdentityRequest, SDKConfig.identityCallback);
               mpInstance._Store.identifyCalled = true;
@@ -5762,7 +5575,6 @@ var mParticle = (function () {
         return mpInstance._Store.sessionId;
       };
       this.startNewSession = function () {
-        var _a;
         mpInstance.Logger.verbose(Messages$6.InformationMessages.StartingNewSession);
         if (mpInstance._Helpers.canLog()) {
           mpInstance._Store.sessionId = mpInstance._Helpers.generateUniqueId().toUpperCase();
@@ -5777,7 +5589,7 @@ var mParticle = (function () {
             mpInstance._Store.dateLastEventSent = date;
           }
           self.setSessionTimer();
-          var shouldSuppressIdentify = ((_a = mpInstance._CookieConsentManager) === null || _a === void 0 ? void 0 : _a.getNoFunctional()) && !hasExplicitIdentifier(mpInstance._Store);
+          var shouldSuppressIdentify = isNoFunctionalWithoutId(mpInstance);
           if (!mpInstance._Store.identifyCalled && !shouldSuppressIdentify) {
             mpInstance.Identity.identify(mpInstance._Store.SDKConfig.identifyRequest, mpInstance._Store.SDKConfig.identityCallback);
             mpInstance._Store.identifyCalled = true;
@@ -6125,21 +5937,21 @@ var mParticle = (function () {
           mpInstance.Logger.error('Name is required when creating a product');
           return null;
         }
-        if (!mpInstance._Helpers.Validators.isStringOrNumber(sku)) {
+        if (!Validators.isStringOrNumber(sku)) {
           mpInstance.Logger.error('SKU is required when creating a product, and must be a string or a number');
           return null;
         }
-        if (!mpInstance._Helpers.Validators.isStringOrNumber(price)) {
+        if (!Validators.isStringOrNumber(price)) {
           mpInstance.Logger.error('Price is required when creating a product, and must be a string or a number');
           return null;
         } else {
           price = parseNumber(price);
         }
-        if (position && !mpInstance._Helpers.Validators.isNumber(position)) {
+        if (position && !Validators.isNumber(position)) {
           mpInstance.Logger.error('Position must be a number, it will be set to null.');
           position = null;
         }
-        if (!mpInstance._Helpers.Validators.isStringOrNumber(quantity)) {
+        if (!Validators.isStringOrNumber(quantity)) {
           quantity = 1;
         } else {
           quantity = parseNumber(quantity);
@@ -6159,7 +5971,7 @@ var mParticle = (function () {
         };
       };
       this.createPromotion = function (id, creative, name, position) {
-        if (!mpInstance._Helpers.Validators.isStringOrNumber(id)) {
+        if (!Validators.isStringOrNumber(id)) {
           mpInstance.Logger.error(Messages$5.ErrorMessages.PromotionIdRequired);
           return null;
         }
@@ -6185,7 +5997,7 @@ var mParticle = (function () {
         };
       };
       this.createTransactionAttributes = function (id, affiliation, couponCode, revenue, shipping, tax) {
-        if (!mpInstance._Helpers.Validators.isStringOrNumber(id)) {
+        if (!Validators.isStringOrNumber(id)) {
           mpInstance.Logger.error(Messages$5.ErrorMessages.TransactionIdRequired);
           return null;
         }
@@ -6319,7 +6131,7 @@ var mParticle = (function () {
       };
       // sanitizes any non number, non string value to 0
       this.sanitizeAmount = function (amount, category) {
-        if (!mpInstance._Helpers.Validators.isStringOrNumber(amount)) {
+        if (!Validators.isStringOrNumber(amount)) {
           var message = [category, 'must be of type number. A', _typeof(amount), 'was passed. Converting to 0'].join(' ');
           mpInstance.Logger.warning(message);
           return 0;
@@ -6588,7 +6400,7 @@ var mParticle = (function () {
         }
         if (config.hasOwnProperty('identityCallback')) {
           var callback = config.identityCallback;
-          if (mpInstance._Helpers.Validators.isFunction(callback)) {
+          if (Validators.isFunction(callback)) {
             this.SDKConfig.identityCallback = config.identityCallback;
           } else {
             mpInstance.Logger.warning('The optional callback must be a function. You tried entering a(n) ' + _typeof(callback) + ' . Callback not set. Please set your callback again.');
@@ -6998,6 +6810,125 @@ var mParticle = (function () {
       };
       return ConsoleLogger;
     }();
+
+    // Base64 encoder/decoder - http://www.webtoolkit.info/javascript_base64.html
+    var Base64$1 = {
+      _keyStr: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=',
+      // Input must be a string
+      encode: function encode(input) {
+        try {
+          if (window.btoa && window.atob) {
+            return window.btoa(unescape(encodeURIComponent(input)));
+          }
+        } catch (e) {
+          console.error('Error encoding cookie values into Base64:' + e);
+        }
+        return this._encode(input);
+      },
+      _encode: function _encode(input) {
+        var output = '';
+        var chr1, chr2, chr3, enc1, enc2, enc3, enc4;
+        var i = 0;
+        input = UTF8.encode(input);
+        while (i < input.length) {
+          chr1 = input.charCodeAt(i++);
+          chr2 = input.charCodeAt(i++);
+          chr3 = input.charCodeAt(i++);
+          enc1 = chr1 >> 2;
+          enc2 = (chr1 & 3) << 4 | chr2 >> 4;
+          enc3 = (chr2 & 15) << 2 | chr3 >> 6;
+          enc4 = chr3 & 63;
+          if (isNaN(chr2)) {
+            enc3 = enc4 = 64;
+          } else if (isNaN(chr3)) {
+            enc4 = 64;
+          }
+          output = output + Base64$1._keyStr.charAt(enc1) + Base64$1._keyStr.charAt(enc2) + Base64$1._keyStr.charAt(enc3) + Base64$1._keyStr.charAt(enc4);
+        }
+        return output;
+      },
+      decode: function decode(input) {
+        try {
+          if (window.btoa && window.atob) {
+            return decodeURIComponent(escape(window.atob(input)));
+          }
+        } catch (e) {
+          //log(e);
+        }
+        return Base64$1._decode(input);
+      },
+      _decode: function _decode(input) {
+        var output = '';
+        var chr1, chr2, chr3;
+        var enc1, enc2, enc3, enc4;
+        var i = 0;
+        input = input.replace(/[^A-Za-z0-9\+\/\=]/g, '');
+        while (i < input.length) {
+          enc1 = Base64$1._keyStr.indexOf(input.charAt(i++));
+          enc2 = Base64$1._keyStr.indexOf(input.charAt(i++));
+          enc3 = Base64$1._keyStr.indexOf(input.charAt(i++));
+          enc4 = Base64$1._keyStr.indexOf(input.charAt(i++));
+          chr1 = enc1 << 2 | enc2 >> 4;
+          chr2 = (enc2 & 15) << 4 | enc3 >> 2;
+          chr3 = (enc3 & 3) << 6 | enc4;
+          output = output + String.fromCharCode(chr1);
+          if (enc3 !== 64) {
+            output = output + String.fromCharCode(chr2);
+          }
+          if (enc4 !== 64) {
+            output = output + String.fromCharCode(chr3);
+          }
+        }
+        output = UTF8.decode(output);
+        return output;
+      }
+    };
+    var UTF8 = {
+      encode: function encode(s) {
+        var utftext = '';
+        for (var n = 0; n < s.length; n++) {
+          var c = s.charCodeAt(n);
+          if (c < 128) {
+            utftext += String.fromCharCode(c);
+          } else if (c > 127 && c < 2048) {
+            utftext += String.fromCharCode(c >> 6 | 192);
+            utftext += String.fromCharCode(c & 63 | 128);
+          } else {
+            utftext += String.fromCharCode(c >> 12 | 224);
+            utftext += String.fromCharCode(c >> 6 & 63 | 128);
+            utftext += String.fromCharCode(c & 63 | 128);
+          }
+        }
+        return utftext;
+      },
+      decode: function decode(utftext) {
+        var s = '';
+        var i = 0;
+        var c = 0,
+          c1 = 0,
+          c2 = 0;
+        while (i < utftext.length) {
+          c = utftext.charCodeAt(i);
+          if (c < 128) {
+            s += String.fromCharCode(c);
+            i++;
+          } else if (c > 191 && c < 224) {
+            c1 = utftext.charCodeAt(i + 1);
+            s += String.fromCharCode((c & 31) << 6 | c1 & 63);
+            i += 2;
+          } else {
+            c1 = utftext.charCodeAt(i + 1);
+            c2 = utftext.charCodeAt(i + 2);
+            s += String.fromCharCode((c & 15) << 12 | (c1 & 63) << 6 | c2 & 63);
+            i += 3;
+          }
+        }
+        return s;
+      }
+    };
+    var Polyfill = {
+      Base64: Base64$1
+    };
 
     var Base64 = Polyfill.Base64,
       Messages$4 = Constants.Messages,
@@ -8606,99 +8537,7 @@ var mParticle = (function () {
 
     // TODO: This file is no longer the server model because the web SDK payload
     var MessageType = Types.MessageType;
-    var ApplicationTransitionType = Types.ApplicationTransitionType;
-    // TODO: Make this a pure function that returns a new object
-    function convertCustomFlags(event, dto) {
-      var valueArray = [];
-      dto.flags = {};
-      for (var prop in event.CustomFlags) {
-        valueArray = [];
-        if (event.CustomFlags.hasOwnProperty(prop)) {
-          if (Array.isArray(event.CustomFlags[prop])) {
-            event.CustomFlags[prop].forEach(function (customFlagProperty) {
-              if (isValidCustomFlagProperty(customFlagProperty)) {
-                valueArray.push(customFlagProperty.toString());
-              }
-            });
-          } else if (isValidCustomFlagProperty(event.CustomFlags[prop])) {
-            valueArray.push(event.CustomFlags[prop].toString());
-          }
-          if (valueArray.length) {
-            dto.flags[prop] = valueArray;
-          }
-        }
-      }
-    }
-    function convertProductToV2DTO(product) {
-      return {
-        id: parseStringOrNumber(product.Sku),
-        nm: parseStringOrNumber(product.Name),
-        pr: parseNumber(product.Price),
-        qt: parseNumber(product.Quantity),
-        br: parseStringOrNumber(product.Brand),
-        va: parseStringOrNumber(product.Variant),
-        ca: parseStringOrNumber(product.Category),
-        ps: parseNumber(product.Position),
-        cc: parseStringOrNumber(product.CouponCode),
-        tpa: parseNumber(product.TotalAmount),
-        attrs: product.Attributes
-      };
-    }
-    function convertProductListToV2DTO(productList) {
-      if (!productList) {
-        return [];
-      }
-      return productList.map(function (product) {
-        return convertProductToV2DTO(product);
-      });
-    }
     function ServerModel(mpInstance) {
-      var self = this;
-      this.convertToConsentStateV2DTO = function (state) {
-        if (!state) {
-          return null;
-        }
-        var jsonObject = {};
-        var gdprConsentState = state.getGDPRConsentState();
-        if (gdprConsentState) {
-          var gdpr = {};
-          jsonObject.gdpr = gdpr;
-          for (var purpose in gdprConsentState) {
-            if (gdprConsentState.hasOwnProperty(purpose)) {
-              var gdprConsent = gdprConsentState[purpose];
-              jsonObject.gdpr[purpose] = {};
-              if (typeof gdprConsent.Consented === 'boolean') {
-                gdpr[purpose].c = gdprConsent.Consented;
-              }
-              if (typeof gdprConsent.Timestamp === 'number') {
-                gdpr[purpose].ts = gdprConsent.Timestamp;
-              }
-              if (typeof gdprConsent.ConsentDocument === 'string') {
-                gdpr[purpose].d = gdprConsent.ConsentDocument;
-              }
-              if (typeof gdprConsent.Location === 'string') {
-                gdpr[purpose].l = gdprConsent.Location;
-              }
-              if (typeof gdprConsent.HardwareId === 'string') {
-                gdpr[purpose].h = gdprConsent.HardwareId;
-              }
-            }
-          }
-        }
-        var ccpaConsentState = state.getCCPAConsentState();
-        if (ccpaConsentState) {
-          jsonObject.ccpa = {
-            data_sale_opt_out: {
-              c: ccpaConsentState.Consented,
-              ts: ccpaConsentState.Timestamp,
-              d: ccpaConsentState.ConsentDocument,
-              l: ccpaConsentState.Location,
-              h: ccpaConsentState.HardwareId
-            }
-          };
-        }
-        return jsonObject;
-      };
       this.createEventObject = function (event, user, capturedAt) {
         var _a, _b, _c;
         var uploadObject = {};
@@ -8794,93 +8633,6 @@ var mParticle = (function () {
         }
         return null;
       };
-      this.convertEventToV2DTO = function (event) {
-        var dto = {
-          n: event.EventName,
-          et: event.EventCategory,
-          ua: event.UserAttributes,
-          ui: event.UserIdentities,
-          ia: event.IntegrationAttributes,
-          str: event.Store,
-          attrs: event.EventAttributes,
-          sdk: event.SDKVersion,
-          sid: event.SessionId,
-          sl: event.SessionLength,
-          ssd: event.SessionStartDate,
-          dt: event.EventDataType,
-          dbg: event.Debug,
-          ct: event.Timestamp,
-          lc: event.Location,
-          o: event.OptOut,
-          eec: event.ExpandedEventCount,
-          av: event.AppVersion,
-          cgid: event.ClientGeneratedId,
-          das: event.DeviceId,
-          mpid: event.MPID,
-          smpids: event.currentSessionMPIDs
-        };
-        if (event.DataPlan && event.DataPlan.PlanId) {
-          dto.dp_id = event.DataPlan.PlanId;
-          if (event.DataPlan.PlanVersion) {
-            dto.dp_v = event.DataPlan.PlanVersion;
-          }
-        }
-        var consent = self.convertToConsentStateV2DTO(event.ConsentState);
-        if (consent) {
-          dto.con = consent;
-        }
-        if (event.EventDataType === MessageType.AppStateTransition) {
-          dto.fr = event.IsFirstRun;
-          dto.iu = false;
-          dto.at = ApplicationTransitionType.AppInit;
-          dto.lr = event.LaunchReferral;
-          // Nullify Attributes in case AST Was logged manually or
-          // via logBaseEvent. AST should not have any attributes
-          dto.attrs = null;
-        }
-        if (event.CustomFlags) {
-          convertCustomFlags(event, dto);
-        }
-        if (event.EventDataType === MessageType.Commerce) {
-          dto.cu = event.CurrencyCode;
-          if (event.ProductAction) {
-            dto.pd = {
-              an: event.ProductAction.ProductActionType,
-              cs: mpInstance._Helpers.parseNumber(event.ProductAction.CheckoutStep),
-              co: event.ProductAction.CheckoutOptions,
-              pl: convertProductListToV2DTO(event.ProductAction.ProductList),
-              ti: event.ProductAction.TransactionId,
-              ta: event.ProductAction.Affiliation,
-              tcc: event.ProductAction.CouponCode,
-              tr: mpInstance._Helpers.parseNumber(event.ProductAction.TotalAmount),
-              ts: mpInstance._Helpers.parseNumber(event.ProductAction.ShippingAmount),
-              tt: mpInstance._Helpers.parseNumber(event.ProductAction.TaxAmount)
-            };
-          } else if (event.PromotionAction) {
-            dto.pm = {
-              an: event.PromotionAction.PromotionActionType,
-              pl: event.PromotionAction.PromotionList.map(function (promotion) {
-                return {
-                  id: promotion.Id,
-                  nm: promotion.Name,
-                  cr: promotion.Creative,
-                  ps: promotion.Position ? promotion.Position : 0
-                };
-              })
-            };
-          } else if (event.ProductImpressions) {
-            dto.pi = event.ProductImpressions.map(function (impression) {
-              return {
-                pil: impression.ProductImpressionList,
-                pl: convertProductListToV2DTO(impression.ProductList)
-              };
-            });
-          }
-        } else if (event.EventDataType === MessageType.Profile) {
-          dto.pet = event.ProfileMessageType;
-        }
-        return dto;
-      };
     }
 
     function forwardingStatsUploader(mpInstance) {
@@ -8949,7 +8701,7 @@ var mParticle = (function () {
                     Accept: '*/*'
                   }
                 };
-                audienceURLWithMPID = "".concat(this.url, "?mpid=").concat(mpid);
+                audienceURLWithMPID = "".concat(this.url, "?mpid=").concat(encodeMPID(mpid));
                 _a.label = 1;
               case 1:
                 _a.trys.push([1, 6,, 7]);
@@ -9076,12 +8828,12 @@ var mParticle = (function () {
         preProcessIdentityRequest: function preProcessIdentityRequest(identityApiData, callback, method) {
           mpInstance.Logger.verbose(Messages$2.InformationMessages.StartingLogEvent + ': ' + method);
           // First, remove any falsy identity values and warn about them
-          var removedFalsyIdentityData = mpInstance._Helpers.Validators.removeFalsyIdentityValues(identityApiData, mpInstance.Logger);
+          var removedFalsyIdentityData = Validators.removeFalsyIdentityValues(identityApiData, mpInstance.Logger);
           // Normalize convenience aliases (email_sha256 \u2192 other, mobile_sha256 \u2192 other2)
           var cleanedIdentityApiData = (removedFalsyIdentityData === null || removedFalsyIdentityData === void 0 ? void 0 : removedFalsyIdentityData.userIdentities) ? __assign(__assign({}, removedFalsyIdentityData), {
             userIdentities: normalizeUserIdentityKeys(removedFalsyIdentityData.userIdentities)
           }) : removedFalsyIdentityData;
-          var identityValidationResult = mpInstance._Helpers.Validators.validateIdentities(cleanedIdentityApiData, method);
+          var identityValidationResult = Validators.validateIdentities(cleanedIdentityApiData, method);
           if (!identityValidationResult.valid) {
             mpInstance.Logger.error('ERROR: ' + identityValidationResult.error);
             return {
@@ -9089,7 +8841,7 @@ var mParticle = (function () {
               error: identityValidationResult.error
             };
           }
-          if (callback && !mpInstance._Helpers.Validators.isFunction(callback)) {
+          if (callback && !Validators.isFunction(callback)) {
             var error = 'The optional callback must be a function. You tried entering a(n) ' + _typeof(callback);
             mpInstance.Logger.error(error);
             return {
@@ -9584,7 +9336,7 @@ var mParticle = (function () {
            * @param {String} tagName
            */
           setUserTag: function setUserTag(tagName) {
-            if (!mpInstance._Helpers.Validators.isValidKeyValue(tagName)) {
+            if (!Validators.isValidKeyValue(tagName)) {
               mpInstance.Logger.error(Messages$2.ErrorMessages.BadKey);
               return;
             }
@@ -9596,7 +9348,7 @@ var mParticle = (function () {
            * @param {String} tagName
            */
           removeUserTag: function removeUserTag(tagName) {
-            if (!mpInstance._Helpers.Validators.isValidKeyValue(tagName)) {
+            if (!Validators.isValidKeyValue(tagName)) {
               mpInstance.Logger.error(Messages$2.ErrorMessages.BadKey);
               return;
             }
@@ -9613,11 +9365,11 @@ var mParticle = (function () {
           setUserAttribute: function setUserAttribute(key, newValue) {
             mpInstance._SessionManager.resetSessionTimer();
             if (mpInstance._Helpers.canLog()) {
-              if (!mpInstance._Helpers.Validators.isValidAttributeValue(newValue)) {
+              if (!Validators.isValidAttributeValue(newValue)) {
                 mpInstance.Logger.error(Messages$2.ErrorMessages.BadAttribute);
                 return;
               }
-              if (!mpInstance._Helpers.Validators.isValidKeyValue(key)) {
+              if (!Validators.isValidKeyValue(key)) {
                 mpInstance.Logger.error(Messages$2.ErrorMessages.BadKey);
                 return;
               }
@@ -9675,7 +9427,7 @@ var mParticle = (function () {
             var cookies;
             var userAttributes;
             mpInstance._SessionManager.resetSessionTimer();
-            if (!mpInstance._Helpers.Validators.isValidKeyValue(key)) {
+            if (!Validators.isValidKeyValue(key)) {
               mpInstance.Logger.error(Messages$2.ErrorMessages.BadKey);
               return;
             }
@@ -9711,7 +9463,7 @@ var mParticle = (function () {
           // https://go.mparticle.com/work/SQDSDKS-6373
           setUserAttributeList: function setUserAttributeList(key, newValue) {
             mpInstance._SessionManager.resetSessionTimer();
-            if (!mpInstance._Helpers.Validators.isValidKeyValue(key)) {
+            if (!Validators.isValidKeyValue(key)) {
               mpInstance.Logger.error(Messages$2.ErrorMessages.BadKey);
               return;
             }
@@ -10070,6 +9822,7 @@ var mParticle = (function () {
     }
 
     var CCPAPurpose = Constants.CCPAPurpose;
+    // Consent reads only the logger from the instance.
     function Consent(mpInstance) {
       var self = this;
       // this function is called when consent is required to
@@ -11172,7 +10925,7 @@ var mParticle = (function () {
       };
       this.getUploadUrl = function (method, mpid) {
         var uploadServiceUrl = mpInstance._Helpers.createServiceUrl(mpInstance._Store.SDKConfig.identityUrl);
-        var uploadUrl = method === Modify ? uploadServiceUrl + mpid + '/' + method : uploadServiceUrl + method;
+        var uploadUrl = method === Modify ? uploadServiceUrl + encodeMPID(mpid) + '/' + method : uploadServiceUrl + method;
         return uploadUrl;
       };
       this.getIdentityResponseFromFetch = function (response, responseBody) {
@@ -11194,6 +10947,9 @@ var mParticle = (function () {
     }
 
     var PASSBACK_CONVERSION_TRACKING_ID = 'passbackconversiontrackingid';
+    // selectPlacements attributes that go to Rokt but are never saved to the user's profile, so they
+    // never reach the account's other outputs. Matched in any letter case.
+    var ROKT_ONLY_ATTRIBUTES = ['sandbox', 'paypalpayerid'];
     // One signal per kind (commit, wallet, checkout_step, frame and cart), with an
     // add-to-cart click apart from a cart open, so a new one never evicts another.
     var CHECKOUT_INTENT_BUFFER_LIMIT = 6;
@@ -11835,10 +11591,9 @@ var mParticle = (function () {
         return Boolean(this.kit && this.kit.launcher);
       };
       RoktManager.prototype.toUserAttributes = function (attributes) {
-        var reservedAttributes = ['sandbox'];
         var filteredAttributes = {};
         for (var key in attributes) {
-          if (attributes.hasOwnProperty(key) && reservedAttributes.indexOf(key) === -1) {
+          if (attributes.hasOwnProperty(key) && ROKT_ONLY_ATTRIBUTES.indexOf(key.toLowerCase()) === -1) {
             var value = attributes[key];
             filteredAttributes[key] = Array.isArray(value) ? JSON.stringify(value) : value;
           }
@@ -13416,7 +13171,7 @@ var mParticle = (function () {
     var englishExclusions = new RegExp('\\b(?:coupon|promo(?: code)?|newsletter|sign in|sign up|log in|login|add to (?:cart|bag|basket)|' + 'gift card balance|(?:add|apply|redeem|check|enter|use) (?:a |an |your )?gift card|pay later|' + 'interest free|as low as|learn more|prequalify|apply (?:now|for)|payment plan|available|accepted|' + 'we accept|set up|add money|reload|top up|add to (?:apple|google) wallet|connect|link your|unlink|' + 'remove|delete|edit|change|manage|use a different|switch)\\b|^pay in$|\\bpay in (?:installments|instalments)\\b');
     var otherExclusions = new RegExp(['gutschein|anmelden|warenkorb|bon cadeau|connexion|panier|cup\u00F3n|iniciar sesi\u00F3n|carrito', 'carrello|codice sconto|accedi|buono regalo|winkelwagen|kortingscode|inloggen|cadeaubon|achteraf betalen', '\u30AB\u30FC\u30C8|\u30AF\u30FC\u30DD\u30F3|\u30ED\u30B0\u30A4\u30F3|\u4F1A\u54E1\u767B\u9332|\u30AE\u30D5\u30C8|\u5F8C\u6255\u3044|\u30E1\u30EB\u30DE\u30AC'].join('|'));
     var englishCommits = '(?:(?:agree|accept|review) and )?(?:place|submit|complete|confirm|finali[sz]e)' + '(?!(?: [^ ]+){0,2} (?:another|new|next)(?: |$))(?! (?:[^ ]+ )?gift card)' + '(?: [^ ]+){0,2} (?:order|purchase|booking|reservation|payment|checkout|transaction)' + '(?: now| securely| and pay| (?:with|using) [^ ]+(?: [^ ]+)?)?(?: (?:total|subtotal|items?|tickets?))?' + '|pay(?: securely)?(?: now)?|(?:confirm|agree|accept|submit|order|book) and pay' + '|pay and place (?:my |your )?order|order with obligation to pay';
-    var otherCommits = ['(?:jetzt )?(?:zahlungs|kosten)pflichtig (?:bestellen|buchen)|(?:jetzt )?bezahlen|kauf abschlie\u00DFen|bestellung abschlie\u00DFen', 'commander et payer|payer(?: maintenant)?|(?:confirmer|finaliser) (?:ma |la )?commande', "valider et payer|confirmer et payer|commande avec obligation de paiement|finaliser l'achat", '(?:realizar|confirmar|completar) (?:el |mi |la )?(?:pedido|compra|reserva)|finalizar (?:el |mi )?pedido|pagar(?: ahora)?', 'pedido con obligaci\u00F3n de pago', "(?:effettua|conferma|concludi|completa) (?:l'|il )?(?:ordine|acquisto)|ordine con obbligo di pagamento", 'paga(?: ora| adesso)?|ordina e paga', '(?:nu )?betalen|bestellen en betalen|bestelling plaatsen|plaats bestelling|bestelling afronden', 'bestelling met betalingsverplichting', '(?:\u3053\u306E\u5185\u5BB9\u3067|\u4E0A\u8A18\u306E?\u5185\u5BB9\u3067)?\u3054?(?:\u6CE8\u6587|\u8CFC\u5165|\u4E88\u7D04|\u6C7A\u6E08|\u304A?\u652F\u6255\u3044?)\u3092?(?:\u78BA\u5B9A|\u5B8C\u4E86)(?:\u3059\u308B)?', '(?:\u3053\u306E\u5185\u5BB9\u3067|\u4E0A\u8A18\u306E?\u5185\u5BB9\u3067)\u3054?(?:\u6CE8\u6587|\u8CFC\u5165|\u4E88\u7D04)\u3059\u308B|\u3054?\u6CE8\u6587\u3059\u308B|\u6C7A\u6E08\u3059\u308B|(?:\u4ECA\u3059\u3050|\u3092)?\u652F\u6255\u3046'].join('|');
+    var otherCommits = ['(?:jetzt )?(?:zahlungs|kosten)pflichtig (?:bestellen|buchen)|(?:jetzt )?bezahlen|kauf abschlie\u00DFen|bestellung abschlie\u00DFen', 'commander et payer|payer(?: maintenant)?|(?:confirmer|finaliser) (?:ma |la )?commande', "valider et payer|confirmer et payer|commande avec obligation de paiement|finaliser l'achat", '(?:realizar|confirmar|completar) (?:el |mi |la )?(?:pedido|compra|reserva)|finalizar (?:el |mi )?pedido|pagar(?: ahora)?', 'pedido con obligaci\u00F3n de pago', "(?:effettua|conferma|concludi|completa) (?:l'|il )?(?:ordine|acquisto)|ordine con obbligo di pagamento", 'paga(?: ora| adesso)?|ordina e paga', '(?:nu )?betalen|bestellen en betalen|bestelling plaatsen|plaats bestelling|bestelling afronden', 'bestelling met betalingsverplichting', '(?:\u3053\u306E\u5185\u5BB9\u3067|\u4E0A\u8A18\u306E?\u5185\u5BB9\u3067)?\u3054?(?:\u6CE8\u6587|\u8CFC\u5165|\u4E88\u7D04|\u6C7A\u6E08|\u304A?\u652F\u6255\u3044?)\u3092?(?:\u78BA\u5B9A|\u5B8C\u4E86)(?:\u3059\u308B)?', '(?:\u3053\u306E\u5185\u5BB9\u3067|\u4E0A\u8A18\u306E?\u5185\u5BB9\u3067)\u3054?(?:\u6CE8\u6587|\u8CFC\u5165|\u4E88\u7D04)\u3059\u308B|\u3054?\u6CE8\u6587\u3059\u308B|\u6C7A\u6E08\u3059\u308B|(?:\u4ECA\u3059\u3050|\u3092)?\u652F\u6255\u3046|\u304A?\u652F\u6255\u3044\u3092\u884C\u3046'].join('|');
     var commits = new RegExp('^(?:' + englishCommits + '|' + otherCommits + ')$');
     // A plain link is navigation, so in English only an order or purchase it
     // places, submits or completes counts as the confirm click.
@@ -13427,8 +13182,8 @@ var mParticle = (function () {
     // that isn't an account or confirmation page.
     var routeGatedSteps = /^save and continue$/;
     var CART_NOUN = '(?:(?:my|your|the) )?(?:shopping )?(?:cart|bag|basket)';
-    // "Add to bag" and "Add 2 to cart": a click that puts something in the cart.
-    var addToCartLabels = new RegExp('^add(?: [^ ]+){0,5} to ' + CART_NOUN + '$');
+    // "Add to bag", "Add 2 to cart", and "\u30AB\u30FC\u30C8\u306B\u8FFD\u52A0\u3059\u308B": a click that puts something in the cart.
+    var addToCartLabels = new RegExp('^(?:add(?: [^ ]+){0,5} to ' + CART_NOUN + '|(?:[^\u3092]{0,40}\u3092)?\u30AB\u30FC\u30C8\u306B\u8FFD\u52A0(?:\u3059\u308B)?)$');
     // "View cart", "Shopping bag", "Bag", and a count badge such as "1 item in bag",
     // which reads "item in bag" once digits are stripped: a click that opens the cart.
     var openCartLabels = new RegExp('^(?:(?:(?:view|open|go to) )?' + CART_NOUN + '(?: items?)?' + '|items? in ' + CART_NOUN + ')$');
@@ -14350,11 +14105,11 @@ var mParticle = (function () {
        * Drains the ready queue for noFunctional sessions with no explicit identity.
        */
       this.processQueueOnNoFunctional = function () {
-        var _a, _b;
+        var _a;
         if ((_a = self._Store) === null || _a === void 0 ? void 0 : _a.isInitialized) {
           return;
         }
-        var noFunctionalWithoutId = ((_b = self._CookieConsentManager) === null || _b === void 0 ? void 0 : _b.getNoFunctional()) && !hasExplicitIdentifier(self._Store);
+        var noFunctionalWithoutId = isNoFunctionalWithoutId(self);
         if (noFunctionalWithoutId) {
           self._preInit.readyQueue = processReadyQueue(self._preInit.readyQueue, self.Logger);
         }
@@ -14471,9 +14226,9 @@ var mParticle = (function () {
        * @param {Function} f Callback to execute
        */
       this.ready = function (f) {
-        var _a, _b, _c;
-        var noFunctionalWithoutId = ((_a = self._CookieConsentManager) === null || _a === void 0 ? void 0 : _a.getNoFunctional()) && !hasExplicitIdentifier(self._Store);
-        var shouldExecute = isFunction(f) && (((_b = self._Store) === null || _b === void 0 ? void 0 : _b.isInitialized) || ((_c = self._Store) === null || _c === void 0 ? void 0 : _c.identityCallFailed) && self._RoktManager.isReady() || noFunctionalWithoutId);
+        var _a, _b;
+        var noFunctionalWithoutId = isNoFunctionalWithoutId(self);
+        var shouldExecute = isFunction(f) && (((_a = self._Store) === null || _a === void 0 ? void 0 : _a.isInitialized) || ((_b = self._Store) === null || _b === void 0 ? void 0 : _b.identityCallFailed) && self._RoktManager.isReady() || noFunctionalWithoutId);
         if (shouldExecute) {
           f();
         } else {
@@ -14751,7 +14506,7 @@ var mParticle = (function () {
         if (queued) return;
         self._SessionManager.resetSessionTimer();
         if (self._Helpers.canLog()) {
-          if (!self._Helpers.Validators.isStringOrNumber(eventName)) {
+          if (!Validators.isStringOrNumber(eventName)) {
             eventName = 'PageView';
           }
           if (!attrs) {
@@ -15001,8 +14756,7 @@ var mParticle = (function () {
        * @param {String or Number} value value for session attribute
        */
       this.setSessionAttribute = function (key, value) {
-        var _a;
-        var skipQueue = ((_a = self._CookieConsentManager) === null || _a === void 0 ? void 0 : _a.getNoFunctional()) && !hasExplicitIdentifier(self._Store);
+        var skipQueue = isNoFunctionalWithoutId(self);
         if (!skipQueue) {
           var queued = queueIfNotInitialized(function () {
             self.setSessionAttribute(key, value);
@@ -15013,11 +14767,11 @@ var mParticle = (function () {
         // And logs to in-memory object
         // Example: mParticle.setSessionAttribute('location', '33431');
         if (self._Helpers.canLog()) {
-          if (!self._Helpers.Validators.isValidAttributeValue(value)) {
+          if (!Validators.isValidAttributeValue(value)) {
             self.Logger.error(Messages.ErrorMessages.BadAttribute);
             return;
           }
-          if (!self._Helpers.Validators.isValidKeyValue(key)) {
+          if (!Validators.isValidKeyValue(key)) {
             self.Logger.error(Messages.ErrorMessages.BadKey);
             return;
           }
@@ -15499,12 +15253,12 @@ var mParticle = (function () {
       }
     }
     function queueIfNotInitialized(func, self) {
-      var _a, _b;
+      var _a;
       // When noFunctional is true with no explicit identifier, the SDK will never
       // receive an MPID. Let these calls through so events can still reach forwarders immediately.
       // sendEventToServer handles queuing for the MP server upload path separately.
-      var noFunctionalWithoutId = ((_a = self._CookieConsentManager) === null || _a === void 0 ? void 0 : _a.getNoFunctional()) && !hasExplicitIdentifier(self._Store);
-      if (((_b = self._Store) === null || _b === void 0 ? void 0 : _b.isInitialized) || noFunctionalWithoutId) {
+      var noFunctionalWithoutId = isNoFunctionalWithoutId(self);
+      if (((_a = self._Store) === null || _a === void 0 ? void 0 : _a.isInitialized) || noFunctionalWithoutId) {
         return false;
       }
       self._preInit.readyQueue.push(function () {
@@ -15702,20 +15456,6 @@ var mParticle = (function () {
       return MPSideloadedKit;
     }();
 
-    if (!Array.prototype.forEach) {
-      Array.prototype.forEach = Polyfill.forEach;
-    }
-    if (!Array.prototype.map) {
-      Array.prototype.map = Polyfill.map;
-    }
-    if (!Array.prototype.filter) {
-      Array.prototype.filter = Polyfill.filter;
-    }
-    // https://go.mparticle.com/work/SQDSDKS-6768
-    if (!Array.isArray) {
-      // @ts-ignore
-      Array.prototype.isArray = Polyfill.isArray;
-    }
     function mParticleInstanceManager() {
       var self = this;
       // Only leaving this here in case any clients are trying to access mParticle.Store, to prevent from throwing

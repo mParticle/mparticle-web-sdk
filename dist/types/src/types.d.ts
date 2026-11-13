@@ -97,10 +97,7 @@ export declare const PerformanceMarkType: {
     JointSdkSelectPlacements: "mp:jointSdkSelectPlacements";
     JointSdkRoktKitInit: "mp:jointSdkRoktKitInit";
 };
-export declare function getMessageTypeFromEventType(eventType: string): number;
-export declare function getEventCategoryFromCustomEventType(customEventType: string): number;
 export declare function getIdentityTypeFromStoredKey(key: string): number | null;
-export declare function getIdentityTypeFromBatchKey(key: string): number;
 declare const _default: {
     readonly MessageType: {
         SessionStart: 1;
