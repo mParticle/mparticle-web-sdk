@@ -1433,6 +1433,121 @@ describe('RoktManager', () => {
             });
         });
 
+        describe('paypalpayerid', () => {
+            let setUserAttributesSpy: jest.Mock;
+            let kit: Partial<IRoktKit>;
+
+            beforeEach(() => {
+                setUserAttributesSpy = jest.fn();
+                // The current user already has the passed email, so no identify starts and
+                // the attributes are written to this user straight away.
+                mockMPInstance.Identity.getCurrentUser = jest.fn().mockReturnValue({
+                    getMPID: () => testMPID,
+                    getUserIdentities: () => ({
+                        userIdentities: {
+                            email: 'test@example.com'
+                        }
+                    }),
+                    setUserAttributes: setUserAttributesSpy,
+                });
+
+                kit = {
+                    launcher: {
+                        selectPlacements: jest.fn(),
+                        hashAttributes: jest.fn(),
+                        use: jest.fn(),
+                    },
+                    selectPlacements: jest.fn().mockResolvedValue({}),
+                    hashAttributes: jest.fn(),
+                    setExtensionData: jest.fn(),
+                    use: jest.fn(),
+                    onShoppableAdsReady: jest.fn(),
+                };
+                roktManager.kit = kit as IRoktKit;
+            });
+
+            it('is sent to the kit and not saved to the current user', async () => {
+                await roktManager.selectPlacements({
+                    attributes: {
+                        email: 'test@example.com',
+                        firstname: 'Jane',
+                        paypalpayerid: 'PAYERID123',
+                    }
+                });
+
+                expect(setUserAttributesSpy).toHaveBeenCalledTimes(1);
+                expect(setUserAttributesSpy).toHaveBeenCalledWith({
+                    email: 'test@example.com',
+                    firstname: 'Jane',
+                });
+                expect(kit.selectPlacements).toHaveBeenCalledTimes(1);
+                expect((kit.selectPlacements as jest.Mock).mock.calls[0][0].attributes).toMatchObject({
+                    email: 'test@example.com',
+                    firstname: 'Jane',
+                    paypalpayerid: 'PAYERID123',
+                });
+            });
+
+            it('is kept off the current user in any letter case and sent to the kit as passed', async () => {
+                await roktManager.selectPlacements({
+                    attributes: {
+                        email: 'test@example.com',
+                        PayPalPayerID: 'PAYERID123',
+                    }
+                });
+
+                expect(setUserAttributesSpy).toHaveBeenCalledWith({
+                    email: 'test@example.com',
+                });
+                expect((kit.selectPlacements as jest.Mock).mock.calls[0][0].attributes).toMatchObject({
+                    PayPalPayerID: 'PAYERID123',
+                });
+            });
+
+            it('is kept off the current user when a placement attribute mapping renames a key to it', async () => {
+                roktManager['placementAttributesMapping'] = [
+                    {
+                        jsmap: null,
+                        map: 'payer_id',
+                        maptype: 'UserAttributeClass.Name',
+                        value: 'paypalpayerid'
+                    }
+                ];
+
+                await roktManager.selectPlacements({
+                    attributes: {
+                        email: 'test@example.com',
+                        payer_id: 'PAYERID123',
+                    }
+                });
+
+                expect(setUserAttributesSpy).toHaveBeenCalledWith({
+                    email: 'test@example.com',
+                });
+                expect((kit.selectPlacements as jest.Mock).mock.calls[0][0].attributes).toMatchObject({
+                    paypalpayerid: 'PAYERID123',
+                });
+            });
+
+            it('keeps sandbox off the current user in any letter case and sends it to the kit as passed', async () => {
+                await roktManager.selectPlacements({
+                    attributes: {
+                        email: 'test@example.com',
+                        Sandbox: true,
+                        SANDBOX: false,
+                    }
+                });
+
+                expect(setUserAttributesSpy).toHaveBeenCalledWith({
+                    email: 'test@example.com',
+                });
+                expect((kit.selectPlacements as jest.Mock).mock.calls[0][0].attributes).toMatchObject({
+                    Sandbox: true,
+                    SANDBOX: false,
+                });
+            });
+        });
+
         it('should stringify array attributes and preserve primitives when setting on current user', async () => {
             const setUserAttributesSpy = jest.fn();
             mockMPInstance.Identity.getCurrentUser = jest.fn().mockReturnValue({
@@ -2860,6 +2975,25 @@ describe('RoktManager', () => {
 
                 expect(writesByMPID(resolvedUser)).toEqual({
                     'resolved-mpid': [{ email: passedEmail, interests: JSON.stringify(['books']) }],
+                });
+            });
+
+            it('keeps paypalpayerid off the user identify resolves to and sends it to the kit', async () => {
+                const currentUser = createUser('current-mpid', { email: currentEmail });
+                const resolvedUser = createUser('resolved-mpid', { email: passedEmail });
+                useIdentityService(currentUser);
+
+                const selection = roktManager.selectPlacements({
+                    attributes: { ...passedAttributes, paypalpayerid: 'PAYERID123' },
+                });
+                completeIdentify(identifyResult(200, resolvedUser));
+                await selection;
+
+                expect(writesByMPID(currentUser, resolvedUser)).toEqual({
+                    'resolved-mpid': [expectedUserAttributes],
+                });
+                expect((kit.selectPlacements as jest.Mock).mock.calls[0][0].attributes).toMatchObject({
+                    paypalpayerid: 'PAYERID123',
                 });
             });
 

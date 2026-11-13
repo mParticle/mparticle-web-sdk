@@ -355,6 +355,9 @@ const name = 'Rokt';
 const EMAIL_IDENTITY_TYPE = 7; // mParticle IdentityType.Email
 const moduleId = 181;
 const EVENT_NAME_SELECT_PLACEMENTS = 'selectPlacements';
+// Attributes Rokt receives that the logged selectPlacements event leaves out, so they never reach the
+// account's other outputs. Matched in any letter case. The core SDK keeps them off the user's profile.
+const ROKT_ONLY_EVENT_ATTRIBUTES = ['paypalpayerid'];
 const AUTO_BUTTON_CLICK_EVENT_NAME = 'Auto Button Click';
 const AUTO_LINK_CLICK_EVENT_NAME = 'Auto Link Click';
 // Marks a placement click in a field core's own clicks carry, so a data plan that drops unplanned
@@ -1197,7 +1200,15 @@ class RoktKit implements KitInterface {
 
     const EVENT_TYPE_OTHER = mp().EventType.Other;
 
-    mp().logEvent(EVENT_NAME_SELECT_PLACEMENTS, EVENT_TYPE_OTHER, attributes as Record<string, unknown>);
+    const eventAttributes: Record<string, unknown> = {};
+    const keys = Object.keys(attributes);
+    for (let i = 0; i < keys.length; i++) {
+      if (ROKT_ONLY_EVENT_ATTRIBUTES.indexOf(keys[i].toLowerCase()) === -1) {
+        eventAttributes[keys[i]] = attributes[keys[i]];
+      }
+    }
+
+    mp().logEvent(EVENT_NAME_SELECT_PLACEMENTS, EVENT_TYPE_OTHER, eventAttributes);
   }
 
   private setRoktSessionId(sessionId: string): void {

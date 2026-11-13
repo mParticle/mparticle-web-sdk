@@ -3712,6 +3712,53 @@ describe('Rokt Forwarder', () => {
         expect(eventAttributes).toHaveProperty('cached-user-attr', 'cached-value');
       });
 
+      it('should send paypalpayerid to the launcher and leave it out of the logged event', async () => {
+        let launcherAttributes: Record<string, unknown> | undefined;
+        (window as any).Rokt.createLauncher = async function () {
+          return Promise.resolve({
+            selectPlacements: function (options: Record<string, unknown>) {
+              launcherAttributes = options.attributes as Record<string, unknown>;
+              return Promise.resolve({
+                context: {
+                  sessionId: Promise.resolve('rokt-session-abc'),
+                },
+              });
+            },
+          });
+        };
+
+        await (window as any).mParticle.forwarder.init(
+          {
+            accountId: '123456',
+          },
+          reportService.cb,
+          true,
+          null,
+          {},
+        );
+
+        await waitForCondition(() => (window as any).mParticle.forwarder.isInitialized);
+
+        await (window as any).mParticle.forwarder.selectPlacements({
+          identifier: 'test-placement',
+          attributes: {
+            'new-attr': 'new-value',
+            paypalpayerid: 'PAYERID123',
+            PayPalPayerID: 'PAYERID456',
+          },
+        });
+
+        await waitForCondition(() => mParticle.loggedEvents.length > 0);
+
+        expect(launcherAttributes).toHaveProperty('paypalpayerid', 'PAYERID123');
+        expect(launcherAttributes).toHaveProperty('PayPalPayerID', 'PAYERID456');
+
+        const eventAttributes = mParticle.loggedEvents[0].eventAttributes;
+        expect(eventAttributes).toHaveProperty('new-attr', 'new-value');
+        expect(eventAttributes).not.toHaveProperty('paypalpayerid');
+        expect(eventAttributes).not.toHaveProperty('PayPalPayerID');
+      });
+
       it('should log event when sessionId promise rejects', async () => {
         (window as any).Rokt.createLauncher = async function () {
           return Promise.resolve({
