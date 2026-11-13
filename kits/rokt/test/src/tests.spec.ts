@@ -2139,6 +2139,22 @@ describe('Rokt Forwarder', () => {
           expect.objectContaining({ email: 'b@example.com' }),
         );
       });
+
+      // Every rejecting case above dispatches as a logged-in user. A user who holds identities but is not logged
+      // in still owns the payload, so this case keeps the hasIdentities half of the check under test.
+      it('does not log the event when a dispatch user with identities but no login is replaced', async () => {
+        const kit = (window as any).mParticle.forwarder;
+        const logSpy = vi.spyOn(kit.loggingService, 'log');
+        setCoreUser('A', false, { email: 'a@example.com' });
+        kit._workspaceSearchInFlightPromise = null;
+        const selection = kit.selectPlacements({ identifier: 'test-placement', attributes: { email: 'a@example.com' } });
+        setCoreUser('B', true, { email: 'b@example.com', customerid: 'cust-B' });
+        await settle(selection);
+
+        expect((window as any).mParticle.loggedEvents).toEqual([]);
+        expect(logSpy).toHaveBeenCalledWith(expect.objectContaining({ code: 'SELECT_PLACEMENTS_EVENT_USER_CHANGED' }));
+        logSpy.mockRestore();
+      });
     });
 
     describe('Identity handling', () => {
