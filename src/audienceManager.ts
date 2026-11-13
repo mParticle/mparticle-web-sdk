@@ -6,6 +6,7 @@ import {
     IFetchPayload
 } from './uploaders';
 import Audience from './audience';
+import { encodeMPID } from './utils';
 
 export interface IAudienceMembershipsServerResponse {
     dt: 'cam';  // current audience memberships
@@ -44,7 +45,7 @@ export default class AudienceManager {
                 Accept: '*/*',
             },
         };
-        const audienceURLWithMPID = `${this.url}?mpid=${mpid}`;
+        const audienceURLWithMPID = `${this.url}?mpid=${encodeMPID(mpid)}`;
 
         try {
              const userAudiencePromise: Response = await this.userAudienceAPI.upload(
