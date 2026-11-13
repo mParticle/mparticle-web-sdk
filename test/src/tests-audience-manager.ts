@@ -103,6 +103,56 @@ describe('AudienceManager', () => {
             );
         });
 
+        it('should encode an MPID that contains query delimiters in the audience URL', async () => {
+            const callback = sinon.spy();
+            const unsafeMPID = '1&mpid=2#';
+
+            fetchMock.get(`${userAudienceUrl}?mpid=1%26mpid%3D2%23`, {
+                status: 200,
+                body: JSON.stringify(audienceMembershipServerResponse)
+            });
+
+            await audienceManager.sendGetUserAudienceRequest(unsafeMPID, callback);
+
+            expect(fetchMock.lastUrl()).to.equal(
+                `${userAudienceUrl}?mpid=1%26mpid%3D2%23`
+            );
+            expect(callback.calledOnce).to.eq(true);
+        });
+
+        it('should still request audiences and call back when the MPID contains a lone UTF-16 surrogate', async () => {
+            const callback = sinon.spy();
+
+            fetchMock.get(`${userAudienceUrl}?mpid=1%EF%BF%BD`, {
+                status: 200,
+                body: JSON.stringify(audienceMembershipServerResponse)
+            });
+
+            await audienceManager.sendGetUserAudienceRequest('1\ud800', callback);
+
+            expect(fetchMock.lastUrl()).to.equal(
+                `${userAudienceUrl}?mpid=1%EF%BF%BD`
+            );
+            expect(callback.calledOnce).to.eq(true);
+            expect(callback.getCall(0).lastArg).to.deep.equal(
+                expectedAudienceMembership
+            );
+        });
+
+        it('should encode an MPID of exactly "." or ".." in the audience URL', async () => {
+            const callback = sinon.spy();
+
+            fetchMock.get(`${userAudienceUrl}?mpid=%252E%252E`, {
+                status: 200,
+                body: JSON.stringify(audienceMembershipServerResponse)
+            });
+
+            await audienceManager.sendGetUserAudienceRequest('..', callback);
+
+            expect(fetchMock.lastUrl()).to.equal(`${userAudienceUrl}?mpid=%252E%252E`);
+            expect(callback.calledOnce).to.eq(true);
+        });
+
         it('should change the URL endpoint to a new MPID when switching users and attempting to retrieve audiences', async () => {
             const callback = sinon.spy();
             const newMPID = 'newMPID';
