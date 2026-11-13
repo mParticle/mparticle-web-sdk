@@ -1,4 +1,3 @@
-import Polyfill from './polyfill';
 import { CommerceEventType, EventType, IdentityType, PerformanceMarkType, ProductActionType, PromotionActionType, RoktEvents } from './types';
 import Constants from './constants';
 import mParticleInstance, { IMParticleWebSDKInstance } from './mp-instance.js';
@@ -8,24 +7,6 @@ import { IMParticleInstanceManager } from './sdkRuntimeModels';
 import { IStore } from './store';
 import { Dictionary } from '@mparticle/web-sdk';
 import { cleanUrl } from './pageUrl';
-
-if (!Array.prototype.forEach) {
-    Array.prototype.forEach = Polyfill.forEach;
-}
-
-if (!Array.prototype.map) {
-    Array.prototype.map = Polyfill.map;
-}
-
-if (!Array.prototype.filter) {
-    Array.prototype.filter = Polyfill.filter;
-}
-
-// https://go.mparticle.com/work/SQDSDKS-6768
-if (!Array.isArray) {
-    // @ts-ignore
-    Array.prototype.isArray = Polyfill.isArray;
-}
 
 function mParticleInstanceManager(this: IMParticleInstanceManager) {
     const self = this;
