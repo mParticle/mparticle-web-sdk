@@ -6,6 +6,20 @@ const mockPerformanceMark = (globalThis as any).__mockPerformanceMark;
 const mParticle = (globalThis as any).mParticle as IMParticleInstanceManager;
 
 describe('mParticle instance manager', () => {
+    let xhrSend: jest.SpyInstance;
+
+    // Each init still sends an identify request. Stub the send so the request never leaves the
+    // test and nothing completes after Jest tears the environment down.
+    beforeAll(() => {
+        xhrSend = jest
+            .spyOn(XMLHttpRequest.prototype, 'send')
+            .mockImplementation(() => undefined);
+    });
+
+    afterAll(() => {
+        xhrSend.mockRestore();
+    });
+
     beforeEach(() => {
         mockPerformanceMark.mockClear();
         delete (globalThis as any)[Constants.Rokt.LauncherInstanceGuidKey];
