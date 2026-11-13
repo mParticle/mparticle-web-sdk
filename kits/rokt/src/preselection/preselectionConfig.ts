@@ -63,8 +63,10 @@ export interface PreselectionConfigEntry {
   // confirm click happens on a page the kit doesn't run on. Off the route, such a click still only gets observed.
   checkoutStepIntent?: boolean;
   // CSS selectors naming the page's own confirm and checkout-step buttons. While checkout intent is active, a click on
-  // a control matching one counts as that kind before the core SDK's label rules, on any route; a checkout-step match
-  // still fires only an entry with checkoutStepIntent. Each selector must match the button itself, not a container.
+  // a control matching one, on any route, is read as follows. A commit match counts as a confirm before the core SDK's
+  // label rules. A checkoutStep match counts as a checkout step unless its labels make it a confirm, wallet or
+  // add-to-cart click, which then counts as that click; a checkout step still fires only an entry with
+  // checkoutStepIntent. Each selector must match the button itself, not a container.
   intentSelectors?: PreselectIntentSelectors;
   // Values the speculative call sends only for a key it has no value for, from the trigger event, the
   // shopper's saved attributes or an identity, in any casing; the shopper's own value wins unless the default
