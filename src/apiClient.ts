@@ -9,7 +9,7 @@ import { IMParticleUser, ISDKUserAttributes } from './identity-user-interfaces';
 import { AsyncUploader, FetchUploader, XHRUploader } from './uploaders';
 import { IMParticleWebSDKInstance } from './mp-instance';
 import { appendUserInfo } from './user-utils';
-import { hasExplicitIdentifier } from './identity-utils';
+import { isNoFunctionalWithoutId } from './identity-utils';
 
 export interface IAPIClient {
     uploader: BatchUploader | null;
@@ -93,9 +93,7 @@ export default function APIClient(
     // The original event is queued for the MP server upload path so it can be sent once an MPID is returned.
     // Returns true if the event was handled by this path (caller should return early).
     const handleNoFunctionalPreMpidEvent = (event: SDKEvent, mpid: string | undefined): boolean => {
-        const noFunctionalWithoutId =
-            mpInstance._CookieConsentManager?.getNoFunctional() &&
-            !hasExplicitIdentifier(mpInstance._Store);
+        const noFunctionalWithoutId = isNoFunctionalWithoutId(mpInstance);
 
         if (!noFunctionalWithoutId || mpid || !mpInstance._Store.configurationLoaded || mpInstance._Store.requireDelay) {
             return false;
