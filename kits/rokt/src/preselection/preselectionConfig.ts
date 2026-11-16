@@ -31,6 +31,8 @@ export interface PreselectIntentSelectors {
 export interface PreselectionConfigEntry {
   accountId: string;
   pathname: string;
+  // Additional pathnames (each starting with '/', '*' matching one segment) that also match this entry.
+  pathnames?: string[];
   targetPageIdentifier: string;
   // Attributes that gate the dispatch and form the cache key. Include one only if it is
   // stable between checkout and the target page and is used to select offers; an attribute

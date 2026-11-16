@@ -77,6 +77,18 @@ function getPreselectionEntries(accountId: string): PreselectionConfigEntry[] {
   return settingEntriesByAccount.get(accountId) ?? PRESELECTION_CONFIG.filter((entry) => entry.accountId === accountId);
 }
 
+function getEntryPathnames(entry: PreselectionConfigEntry): string[] {
+  return entry.pathnames ? [entry.pathname, ...entry.pathnames] : [entry.pathname];
+}
+
+function findMatchingEntryPathname(entry: PreselectionConfigEntry, pathname: string): string | undefined {
+  return getEntryPathnames(entry).find((configuredPathname) => pathnameMatches(configuredPathname, pathname));
+}
+
+function entryMatchesPathname(entry: PreselectionConfigEntry, pathname: string): boolean {
+  return findMatchingEntryPathname(entry, pathname) !== undefined;
+}
+
 // A '*' in a configured pathname matches exactly one non-empty path segment. Segment counts
 // must be equal, so the pattern is anchored at both ends and cannot widen to another page.
 function pathnameMatches(configuredPathname: string, pathname: string): boolean {
@@ -297,6 +309,7 @@ function fireMovedCheckoutStep(
   host: PreselectHost,
   signal: PreselectIntentSignal,
   entry: PreselectionConfigEntry,
+  clickPathname: string,
   visitKey: string,
 ): void {
   const observe = (cause: string): void => logObservedIntent(host, signal, 'entry', visitKey, { cause });
@@ -311,7 +324,7 @@ function fireMovedCheckoutStep(
     entry.targetPageIdentifier,
     collected,
     'intent',
-    describeTrigger('intent_checkout_step', entry),
+    describeTrigger('intent_checkout_step', entry, clickPathname),
     false,
     'intent_checkout_step',
     false,
@@ -469,7 +482,7 @@ export function handlePreselectIntentSignal(
   // routes client-side, so a live one whose page an SPA router already moved still fires, as a live cart click does.
   const stepFires = signal.kind === 'checkout_step' && clickEntry.checkoutStepIntent === true;
   if (stepFires && !samePath && isLiveIntent(signal)) {
-    fireMovedCheckoutStep(host, signal, clickEntry, visitKey);
+    fireMovedCheckoutStep(host, signal, clickEntry, clickPathname, visitKey);
     return;
   }
   if (!(firesOnIntent || stepFires) || !samePath) {
@@ -629,8 +642,14 @@ type PreselectTriggerKind =
   | IntentTriggerKind
   | OffEntryTriggerKind;
 
-function describeTrigger(kind: PreselectTriggerKind, configEntry: PreselectionConfigEntry): string {
-  return `${kind}|${configEntry.pathname}`;
+function describeTrigger(
+  kind: PreselectTriggerKind,
+  configEntry: PreselectionConfigEntry,
+  pathname?: string,
+): string {
+  const configuredPathname =
+    (pathname !== undefined ? findMatchingEntryPathname(configEntry, pathname) : undefined) ?? configEntry.pathname;
+  return `${kind}|${configuredPathname}`;
 }
 
 export function findPreselectionConfig(
@@ -641,7 +660,7 @@ export function findPreselectionConfig(
     return undefined;
   }
 
-  return getPreselectionEntries(accountId).find((entry) => pathnameMatches(entry.pathname, pathname));
+  return getPreselectionEntries(accountId).find((entry) => entryMatchesPathname(entry, pathname));
 }
 
 export function findPreselectionConfigByIdentifier(
@@ -1487,7 +1506,7 @@ function whyFormEmailUnreadable(
   eventAttributes: Record<string, unknown> = {},
 ): EmailMissReason | undefined {
   if (configEntry.readEmailInput !== true) return 'read_disabled';
-  if (!pathnameMatches(configEntry.pathname, window.location.pathname)) return 'off_route';
+  if (!entryMatchesPathname(configEntry, window.location.pathname)) return 'off_route';
   if (
     host.isForwardingAllowed?.() !== true ||
     host.isPreselectionPrivacyAllowed?.() === false ||
@@ -2076,7 +2095,7 @@ export function maybeFirePersistedPreselect(state: PreselectState, host: Presele
     persisted.identifier,
     attributes,
     'recovered',
-    describeTrigger('recovered', configEntry),
+    describeTrigger('recovered', configEntry, persisted.pathname),
   );
 }
 
@@ -2374,7 +2393,9 @@ function recordNearMissForArrival(host: PreselectHost, pathname: string): void {
   const accountId = host.accountId;
   if (!accountId || (host.isKitReady() && !host.isPreselectionEnabled())) return;
   getPreselectionEntries(accountId).forEach((entry) => {
-    if (nearlyMatches(entry.pathname, pathname)) recordPreselectNearMiss(accountId, entry.targetPageIdentifier);
+    if (getEntryPathnames(entry).some((configuredPathname) => nearlyMatches(configuredPathname, pathname))) {
+      recordPreselectNearMiss(accountId, entry.targetPageIdentifier);
+    }
   });
 }
 
@@ -2586,7 +2607,7 @@ function resolveAndDispatch(
     configEntry.targetPageIdentifier,
     collectedAttributes,
     reason ?? (intentKind ? 'intent' : isEventTrigger ? 'event_trigger' : 'fired'),
-    describeTrigger(kind, configEntry),
+    describeTrigger(kind, configEntry, pathname),
     isEventTrigger && !intentKind,
     intentKind,
     isEventTrigger,

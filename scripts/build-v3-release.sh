@@ -28,6 +28,11 @@ case "$V3_RELEASE_STOP_TIMEOUT_S" in
         ;;
 esac
 
+# Kit dependency installs must never run lifecycle scripts, even when this
+# script is invoked from semantic-release inside a credentialed release job.
+npm_config_ignore_scripts=true
+export npm_config_ignore_scripts
+
 BUILD_PATHS_FILE=
 KIT_LOG_DIR=
 RUNNING_PIDS=
@@ -140,7 +145,7 @@ build_kit() {
     KIT_START=$(date +%s)
     echo "$1: npm ci" >&3
     echo "Installing dependencies for $1"
-    run_kit_step npm ci --prefix "$1"
+    run_kit_step npm ci --prefix "$1" --ignore-scripts
     rm -rf "$1/dist"
     echo "$1: build" >&3
     echo "Building $1"

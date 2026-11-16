@@ -478,6 +478,9 @@ jobs:
             GIT_COMMITTER_EMAIL: developers@mparticle.com
             NPM_DIST_TAG: ${{ needs.confirm-staging-branch.outputs.npm_dist_tag }}
             NPM_CONFIG_TAG: ${{ needs.confirm-staging-branch.outputs.npm_dist_tag }}
+            # No dependency install script runs with this job's credentials,
+            # the kit installs of scripts/release.sh included.
+            npm_config_ignore_scripts: 'true'
 
         steps:
             - name: Checkout ${{ needs.confirm-staging-branch.outputs.staging_branch }}
@@ -539,7 +542,7 @@ jobs:
                   registry-url: 'https://registry.npmjs.org'
 
             - name: Install dependencies
-              run: npm ci
+              run: npm ci --ignore-scripts
 
             - name: Verify npm version
               run: npm --version
