@@ -1,5 +1,5 @@
-name: 'Staging Release - Step 2: Publish SDK Release to Release Order Branch'
-run-name: 'Staging Release - Step 2 [${{ inputs.releaseTag }} → ${{ inputs.releaseOrderBranch }}]'
+name: 'V2 Release - Step 2: Publish SDK Release to Release Order Branch'
+run-name: 'V2 Release - Step 2 [${{ inputs.releaseTag }} → ${{ inputs.releaseOrderBranch }}]'
 
 # The V2 release, Step 2. V3 releases with v3-release-step-2.yml.
 

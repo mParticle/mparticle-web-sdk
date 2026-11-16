@@ -109,17 +109,9 @@ const itStripsTypes = canStripTypes ? it : it.skip;
 
 describe('V3 shadow release workflows', () => {
     describe('triggers', () => {
-        it('runs the candidate workflow on workflow_run only for the transition shared Step 1, and takes release_gate on dispatch', () => {
-            expect(CANDIDATE.on.workflow_run).toEqual({
-                workflows: [stagingName(1)],
-                types: ['completed'],
-                branches: ['v3-staging'],
-            });
-            expect(CANDIDATE.on.workflow_run.workflows).not.toContain(v3Name(1));
-            expect(Object.keys(CANDIDATE.on).sort()).toEqual([
-                'workflow_dispatch',
-                'workflow_run',
-            ]);
+        it('takes release_gate on dispatch only, without a V2 subscription or a duplicate V3 Step 1 upload', () => {
+            expect(CANDIDATE.on.workflow_run).toBeUndefined();
+            expect(Object.keys(CANDIDATE.on)).toEqual(['workflow_dispatch']);
             expect(Object.keys(CANDIDATE.on.workflow_dispatch.inputs)).toEqual([
                 'step1_run_id',
                 'release_gate',
@@ -139,7 +131,7 @@ describe('V3 shadow release workflows', () => {
 
         it('runs the promote workflow after Steps 2 and 3 from the V3 trunk only', () => {
             expect(PROMOTE.on.workflow_run).toEqual({
-                workflows: [stagingName(2), stagingName(3), v3Name(2), v3Name(3)],
+                workflows: [v3Name(2), v3Name(3)],
                 types: ['completed'],
                 branches: ['main'],
             });
@@ -231,8 +223,13 @@ describe('V3 shadow release workflows', () => {
 
         it('names the V2 and V3 release workflows apart', () => {
             for (const step of [1, 2, 3]) {
-                expect(stagingName(step)).toMatch(new RegExp(`^Staging Release - Step ${step}: `));
+                expect(stagingName(step)).toMatch(new RegExp(`^V2 Release - Step ${step}: `));
                 expect(v3Name(step)).toMatch(new RegExp(`^V3 Release - Step ${step}: `));
+                expect(PROMOTE.on.workflow_run.workflows).not.toContain(stagingName(step));
+            }
+            for (const workflowPath of [CANDIDATE_PATH, PROMOTE_PATH]) {
+                expect(read(workflowPath)).not.toContain('Staging Release - Step');
+                expect(read(workflowPath)).not.toMatch(/actions\/workflows\/staging-step-/);
             }
         });
     });
@@ -572,7 +569,8 @@ describe('V3 shadow release workflows', () => {
             );
             expect(validate.run).toContain('--trigger "$GITHUB_EVENT_NAME"');
             expect(validate.run).toContain('--release-please-mode "$RELEASE_PLEASE_MODE"');
-            expect(validate.run).toContain('actions/workflows/staging-step-1.yml');
+            expect(validate.run).not.toContain('actions/workflows/staging-step-1.yml');
+            expect(validate.run).not.toContain('--workflow-id');
             expect(validate.run).toContain('actions/workflows/v3-release-step-1.yml');
             expect(validate.run).toContain('--v3-workflow-id "$V3_WORKFLOW_ID"');
             expect(stepNamed(jobs.resolve, 'Find the shadow candidate').if).toBe(
@@ -585,9 +583,10 @@ describe('V3 shadow release workflows', () => {
             let ghLog: string;
             let nodeLog: string;
             const script = () => stepNamed(jobs.resolve, 'Validate the Step 1 run').run;
-            const resolveWith = (run: Record<string, unknown>, event = 'workflow_run', runId = '') => {
+            const resolveWith = (run: Record<string, unknown>, event = 'workflow_dispatch', runId = '123') => {
                 const eventPath = path.join(directory, 'event.json');
-                fs.writeFileSync(eventPath, JSON.stringify({ workflow_run: run }));
+                fs.writeFileSync(eventPath, JSON.stringify({}));
+                fs.writeFileSync(path.join(directory, 'fixture-run.json'), JSON.stringify(run));
                 fs.writeFileSync(ghLog, '');
                 fs.writeFileSync(nodeLog, '');
                 return runScript(script(), {
@@ -616,6 +615,7 @@ describe('V3 shadow release workflows', () => {
                         'case "$*" in',
                         '  *"/jobs?"*) echo \'{"jobs":[{"name":"a"}]}\'; echo \'{"jobs":[{"name":"b"}]}\' ;;',
                         '  *"/artifacts?"*) echo \'{"artifacts":[{"name":"c"}]}\'; echo \'{"artifacts":[{"name":"d"}]}\' ;;',
+                        '  *"/actions/runs/123") cat "$RUNNER_TEMP/fixture-run.json" ;;',
                         '  *"/actions/runs/456") echo \'{"id":456,"run_attempt":3,"conclusion":"failure"}\' ;;',
                         '  *) echo 101 ;;',
                         'esac',
@@ -645,8 +645,8 @@ describe('V3 shadow release workflows', () => {
             });
 
             it.each([
-                ['an automatic failed run', 'failure'],
-                ['an automatic successful run', 'success'],
+                ['a completed failed run', 'failure'],
+                ['a completed successful run', 'success'],
             ])('passes the run\'s artifacts and the attempt\'s jobs, every page, for %s', (_label, conclusion) => {
                 const result = resolveWith({ id: 123, run_attempt: 2, conclusion });
                 expect(result.status).toBe(0);
@@ -659,10 +659,12 @@ describe('V3 shadow release workflows', () => {
                 );
                 const [command, artifacts, jobs] = fs.readFileSync(nodeLog, 'utf8').split('\n');
                 expect(command).toMatch(
-                    /--trigger workflow_run --release-gate false --release-please-mode false --artifacts \S+\/step1-artifacts\.json --jobs \S+\/step1-jobs\.json$/
+                    /--trigger workflow_dispatch --release-gate false --release-please-mode false --artifacts \S+\/step1-artifacts\.json --jobs \S+\/step1-jobs\.json$/
                 );
                 expect(JSON.parse(artifacts)).toEqual([{ name: 'c' }, { name: 'd' }]);
                 expect(JSON.parse(jobs)).toEqual([{ name: 'a' }, { name: 'b' }]);
+                expect(calls).not.toContain('/actions/workflows/staging-step-1.yml');
+                expect(command).not.toMatch(/--workflow-id\b/);
             });
 
             it('fetches the run, then its artifacts and the attempt\'s jobs, for a manual dispatch', () => {
@@ -763,7 +765,6 @@ describe('V3 shadow release workflows', () => {
                         '    echo \'{"workflow_run_id":987654}\' ;;',
                         '  *"/actions/runs/987654"*)',
                         '    echo \'{"status":"completed","conclusion":"success","html_url":"https://example.test/runs/987654"}\' ;;',
-                        '  *"/workflows/staging-step-1.yml"*) echo 101 ;;',
                         '  *"/workflows/v3-release-step-1.yml"*) echo 102 ;;',
                         '  *"/jobs?"*) echo \'{"jobs":[{"run_id":456,"run_attempt":1,"name":"Perform Release","status":"completed","conclusion":"success"},{"run_id":456,"run_attempt":1,"name":"Package V3 candidate (shadow)","status":"completed","conclusion":"success","started_at":"2026-11-09T20:00:00Z","completed_at":"2026-11-09T20:05:00Z"}]}\' ;;',
                         '  *"/artifacts?"*) echo \'{"artifacts":[{"name":"v3-candidate-456-1","expired":false,"created_at":"2026-11-09T20:02:00Z","workflow_run":{"id":456}}]}\' ;;',
@@ -915,8 +916,8 @@ describe('V3 shadow release workflows', () => {
 
         it('reads npm again for up to 10 minutes in release-gate mode only, inside the verify job timeout', () => {
             const parity = stepNamed(jobs.verify, 'Check parity with git and npm');
-            // A transition workflow_run, or a dispatch with release_gate=false,
-            // reads npm once (a window of 0), as before the retry existed.
+            // A dispatch with release_gate=false reads npm once (a window of 0),
+            // as before the retry existed.
             expect(parity.env).toEqual({
                 RELEASE_TAG: '${{ steps.candidate.outputs.release_tag }}',
                 NPM_RETRY_SECONDS:
@@ -943,7 +944,7 @@ describe('V3 shadow release workflows', () => {
 
             expect(runScript(gate.run, { NPM_PARITY: 'pass' }).status).toBe(0);
             // check-release-parity.ts reads an E404 for an unpublished kit as
-            // pending, which the transition workflow_run path still uploads.
+            // pending, which a non-gate recovery dispatch still uploads.
             for (const parity of ['pending', 'unavailable', 'fail', '']) {
                 const result = runScript(gate.run, { NPM_PARITY: parity });
                 expect(result.status).toBe(1);
@@ -1407,15 +1408,12 @@ describe('V3 shadow release workflows', () => {
     describe('promote workflow', () => {
         const jobs = PROMOTE.jobs;
 
-        it('passes the ID of every Step 2 and Step 3 file to the plan', () => {
+        it('passes only the split V3 Step 2 and Step 3 IDs to the plan', () => {
             const plan = stepNamed(jobs.resolve, 'Plan from the release run or the dispatch inputs').run;
-            for (const file of [
-                'staging-step-2.yml',
-                'staging-step-3.yml',
-                'v3-release-step-2.yml',
-                'v3-release-step-3.yml',
-            ]) {
-                expect(plan).toContain(`actions/workflows/${file}`);
+            for (const step of [2, 3]) {
+                expect(plan).toContain(`actions/workflows/v3-release-step-${step}.yml`);
+                expect(plan).not.toContain(`actions/workflows/staging-step-${step}.yml`);
+                expect(plan).not.toContain(`--step${step}-workflow-id`);
             }
             expect(plan).toContain('--v3-step2-workflow-id "$V3_STEP2_ID"');
             expect(plan).toContain('--v3-step3-workflow-id "$V3_STEP3_ID"');
@@ -2037,8 +2035,8 @@ describe('V3 Step 1 test jobs', () => {
     // worst-case startup), so every kit test and coverage job bounds execution
     // at 15 minutes rather than GitHub Actions' 6-hour default when Karma or
     // Vitest hangs.
-    it('bounds run-kit-tests and coverage-rokt-kit to 15 minutes across pull-request, v3-release-step-1, and staging-step-1', () => {
-        for (const workflowFile of ['pull-request.yml', 'v3-release-step-1.yml', 'staging-step-1.yml']) {
+    it('bounds run-kit-tests and coverage-rokt-kit to 15 minutes across pull-request and V3 Step 1', () => {
+        for (const workflowFile of ['pull-request.yml', 'v3-release-step-1.yml']) {
             const workflow = load(`${WORKFLOW_DIRECTORY}/${workflowFile}`);
             expect({
                 workflow: workflowFile,

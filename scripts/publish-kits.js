@@ -1335,7 +1335,6 @@ function appendRecoverySummary(version, remainingPackageNames = []) {
         '   - **Branch mode (dispatched from `v3-staging` before Release Please)**: dispatch **V3 Release - Step 1** from `v3-staging` with:',
         '     - `dryRun=false`',
         `     - \`resumeKitReleaseTag=${releaseTag}\``,
-        '     If `main` has no `v3-release-step-1.yml` yet (the first V3 release after the V2/V3 split), dispatch **Staging Release - Step 1** from `v3-staging` instead, with `track=v3` and the same two inputs.',
         '4. Wait for the recovery run to publish any missing kits and verify core and all 33 kits on `next` (`publish-kits.js` runs its integrated strict npm audit at the end of **Publish V3 kits**).',
         '5. Complete candidate upload and staging for the mode used:',
         `   - **Tag mode**: **Re-run failed jobs** on the original Step 1 run re-runs \`advance-staging\` and \`upload-v3-candidate\` using the original run's packaged candidate (or, if \`v3-staging\` already moved and only candidate upload or stage failed, dispatch **V3 shadow release: upload candidate** (\`v3-shadow-candidate.yml\`) on \`main\` with \`step1_run_id\` set to the original Step 1 run's ID, \`release_gate=true\`, and \`release_tag=${releaseTag}\` within the candidate's 7-day retention window).`,

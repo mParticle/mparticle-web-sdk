@@ -1,5 +1,5 @@
-name: "Staging Release - Step 3: Release to CDN and Synchronize Branches"
-run-name: 'Staging Release - Step 3 [${{ inputs.releaseTag }}]'
+name: "V2 Release - Step 3: Release to CDN and Synchronize Branches"
+run-name: 'V2 Release - Step 3 [${{ inputs.releaseTag }}]'
 
 # The V2 release, Step 3. V3 releases with v3-release-step-3.yml.
 

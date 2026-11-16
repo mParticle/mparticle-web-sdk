@@ -18,7 +18,7 @@ const WORKFLOW = yaml.load(
         'utf8'
     )
 );
-const SHARED_WORKFLOW = yaml.load(
+const V2_WORKFLOW = yaml.load(
     fs.readFileSync(
         path.join(__dirname, '../../.github/workflows/staging-step-3.yml'),
         'utf8'
@@ -265,10 +265,6 @@ function shadowPlan(
             runFile,
             '--repository',
             'example-org/example-repo',
-            '--step2-workflow-id',
-            '202',
-            '--step3-workflow-id',
-            '303',
             '--v3-step2-workflow-id',
             '212',
             '--v3-step3-workflow-id',
@@ -557,9 +553,9 @@ describe('V3 Step 3 Release Please mode', () => {
         expect(plan.run).toContain('--jobs "$JOBS_FILE"');
     });
 
-    it('names the push step that both Step 3 files run only on a real run', () => {
+    it('names the push step that the separate V2 and V3 Step 3 files run only on a real run', () => {
         expect(trigger.STEP3_PUSH_STEP).toBe(PUSH_STEP);
-        for (const workflow of [WORKFLOW, SHARED_WORKFLOW]) {
+        for (const workflow of [WORKFLOW, V2_WORKFLOW]) {
             expect(Object.keys(workflow.jobs)).toEqual(['synchronize-branches']);
             const pushes = workflow.jobs['synchronize-branches'].steps.filter(
                 (step: any) => step.name === PUSH_STEP
