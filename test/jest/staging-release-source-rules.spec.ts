@@ -646,3 +646,87 @@ describe('V3 Step 1 (v3-release-step-1.yml) workflow source validation', () => {
         );
     });
 });
+
+describe('shared Step 1 (staging-step-1.yml): no dependency install or lifecycle script with a credential', () => {
+    const parsed = yaml.load(readWorkflow('staging-step-1.yml'));
+    const INSTALL =
+        /\b(?:npm|pnpm)\s+(?:ci|install|i|add)\b|\byarn(?:\s+(?:install|add))?\b/;
+    const INSTALLING_SCRIPT = /scripts\/(?:build-v3-release|release)\.sh/;
+    const PUBLISH =
+        /\bnpm\s+publish\b|scripts\/publish-kits\.js|\bnpx\s+semantic-release\b/;
+    const holdsCredential = (job: any) =>
+        JSON.stringify(job).includes('secrets.') ||
+        Object.values(job.permissions || {}).includes('write');
+    const credentialedJobs = Object.entries(parsed.jobs).filter(([, job]) =>
+        holdsCredential(job)
+    ) as [string, any][];
+
+    it('finds the credentialed jobs in staging-step-1.yml', () => {
+        expect(credentialedJobs.map(([name]) => name).sort()).toEqual([
+            'publish-kits',
+            'release',
+        ]);
+    });
+
+    it('installs in a credentialed job only with --ignore-scripts and npm_config_ignore_scripts=true', () => {
+        const installs = credentialedJobs.flatMap(([name, job]) =>
+            (job.steps || [])
+                .filter(
+                    (step: { run?: string }) =>
+                        typeof step.run === 'string' &&
+                        (INSTALL.test(step.run) ||
+                            INSTALLING_SCRIPT.test(step.run))
+                )
+                .map((step: { name?: string; run?: string }) => [
+                    name,
+                    step.name,
+                    step.run,
+                ])
+        );
+        expect(installs).toEqual([
+            ['release', 'Install dependencies', 'npm ci --ignore-scripts'],
+        ]);
+        expect(parsed.jobs.release.env.npm_config_ignore_scripts).toBe('true');
+    });
+
+    it('runs every publish step in a credentialed job with npm_config_ignore_scripts=true', () => {
+        const publishes = credentialedJobs.flatMap(([name, job]) =>
+            (job.steps || [])
+                .filter(
+                    (step: { run?: string }) =>
+                        typeof step.run === 'string' &&
+                        step.run
+                            .split('\n')
+                            .some(
+                                line =>
+                                    !/^\s*#/.test(line) && PUBLISH.test(line)
+                            )
+                )
+                .map((step: { name?: string; env?: Record<string, string> }) => ({
+                    job: name,
+                    step: step.name,
+                    ignoreScripts: [step.env, job.env, parsed.env]
+                        .map(env => (env || {}).npm_config_ignore_scripts)
+                        .find(value => value !== undefined),
+                }))
+        );
+        expect(publishes).toEqual([
+            {
+                job: 'release',
+                step: 'Release --dry-run',
+                ignoreScripts: 'true',
+            },
+            {
+                job: 'release',
+                step: 'Release',
+                ignoreScripts: 'true',
+            },
+            {
+                job: 'publish-kits',
+                step: 'Publish kits concurrently',
+                ignoreScripts: 'true',
+            },
+        ]);
+    });
+});
+
