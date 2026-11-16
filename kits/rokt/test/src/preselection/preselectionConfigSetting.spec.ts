@@ -146,6 +146,14 @@ describe('parsePreselectionConfigSetting', () => {
     });
   });
 
+  it('parses pathnames', () => {
+    const entry = { ...ENTRY, pathname: '/checkout', pathnames: ['/checkout/payment', '/checkout/*/review'] };
+
+    expect(parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([entry]))).toEqual({
+      entries: [{ accountId: ACCOUNT_ID, ...entry }],
+    });
+  });
+
   it.each([true, false])('parses the boolean route-release flag %s', (releaseHoldOnRouteChange) => {
     const entry = { ...ENTRY, releaseHoldOnRouteChange };
     expect(parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([entry]))).toEqual({
@@ -258,6 +266,12 @@ describe('parsePreselectionConfigSetting', () => {
     ['another account', { ...ENTRY, accountId: 'some-other-account' }, 'accountId'],
     ['a pathname without a leading slash', { ...ENTRY, pathname: 'checkout' }, 'pathname'],
     ['a missing pathname', { ...ENTRY, pathname: undefined }, 'pathname'],
+    ['empty pathnames', { ...ENTRY, pathnames: [] }, 'pathnames'],
+    ['a pathnames entry without a leading slash', { ...ENTRY, pathnames: ['checkout'] }, 'pathnames'],
+    ['an empty pathnames entry', { ...ENTRY, pathnames: [''] }, 'pathnames'],
+    ['a non-string pathnames entry', { ...ENTRY, pathnames: ['/checkout', 7] }, 'pathnames'],
+    ['pathnames that are not an array', { ...ENTRY, pathnames: '/checkout' }, 'pathnames'],
+    ['a null pathnames', { ...ENTRY, pathnames: null }, 'pathnames'],
     ['an empty targetPageIdentifier', { ...ENTRY, targetPageIdentifier: '' }, 'targetPageIdentifier'],
     ['no attributeKeys', { ...ENTRY, attributeKeys: [] }, 'attributeKeys'],
     ['a non-string attribute key', { ...ENTRY, attributeKeys: ['email', 7] }, 'attributeKeys'],

@@ -1643,6 +1643,27 @@ describe('preselection', () => {
         flushPendingPreselectDispatches(state, host, '/shop/cart');
         expect(loggedDiagnostics.some((line) => line.message.includes('left_trigger_path'))).toBe(true);
       });
+      it('replaces the wait quietly across pathnames of one entry and tags the matched path', () => {
+        mockConfig.current = [
+          { ...CONFIG_ENTRY, pathname: '/checkout', pathnames: ['/checkout/payment'], dispatchDelayMs: 5000 },
+        ];
+        window.history.replaceState({}, '', '/checkout');
+        recordPreselectIntentPath('/checkout', Date.now());
+        maybeFirePreselect(state, host, buildEvent(), '/checkout');
+        window.history.replaceState({}, '', '/checkout/payment');
+        recordPreselectIntentPath('/checkout/payment', Date.now());
+        maybeFirePreselect(state, host, buildEvent(), '/checkout/payment');
+
+        expect(loggedDiagnostics.some((line) => line.message.includes('left_trigger_path'))).toBe(false);
+        expect(awaitingIntentLines()).toHaveLength(1);
+        expect(state.pending).toEqual([expect.objectContaining({ pathname: '/checkout/payment' })]);
+
+        send('commit');
+        expect(selectPlacementsCalls).toHaveLength(1);
+        expect(selectPlacementsCalls[0].attributes).toEqual(
+          tagged({ [ATTRIBUTE_KEY]: 'gold' }, 'intent_commit', '/checkout/payment'),
+        );
+      });
     });
 
     it('records the trigger at the page view, so an arrival after a missed click still shows it', () => {
@@ -1802,6 +1823,33 @@ describe('preselection', () => {
           mockConfig.current = [{ ...CONFIG_ENTRY, dispatchDelayMs: 5000 }];
           deliver(routeAway());
           expect(selectPlacementsCalls).toHaveLength(0);
+        });
+
+        it('tags a click on a wildcard route in pathnames with the configured pattern', () => {
+          const reviewPathname = '/checkout/order-42/review';
+          mockConfig.current = [
+            { ...CONFIG_ENTRY, dispatchDelayMs: 5000, checkoutStepIntent: true, pathnames: ['/checkout/*/review'] },
+          ];
+          window.history.replaceState({}, '', reviewPathname);
+          recordPreselectIntentPath(reviewPathname, clock);
+          maybeFirePreselect(state, host, buildEvent(), reviewPathname);
+          const clickedAt = clock + 1;
+          clock += 2;
+          vi.setSystemTime(clock);
+          window.history.replaceState({}, '', '/next');
+          recordPreselectIntentPath('/next', clock);
+          maybeFirePreselect(state, host, buildEvent(), '/next');
+
+          handlePreselectIntentSignal(
+            state,
+            host,
+            Object.freeze({ kind: 'checkout_step' as const, t: clickedAt, source: 'label', pathname: reviewPathname }),
+          );
+
+          expect(selectPlacementsCalls).toHaveLength(1);
+          expect(selectPlacementsCalls[0].attributes).toEqual(
+            tagged({ [ATTRIBUTE_KEY]: 'gold' }, 'intent_checkout_step', '/checkout/*/review'),
+          );
         });
       });
 
@@ -5641,6 +5689,16 @@ describe('preselection', () => {
           expect(recordPreselectNearMiss).not.toHaveBeenCalled();
         });
 
+        it('records a near miss against a path in pathnames without firing', () => {
+          mockConfig.current = [{ ...CONFIG_ENTRY, pathname: '/checkout', pathnames: ['/checkout/payment'] }];
+
+          maybeFirePreselect(state, host, buildEvent(), '/en/checkout/payment');
+
+          expect(recordPreselectNearMiss).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER);
+          expect(recordPreselectTrigger).not.toHaveBeenCalled();
+          expect(selectPlacementsCalls).toHaveLength(0);
+        });
+
         it('records nothing while targeting is disabled', () => {
           host.isTargetingDisabled = () => true;
 
@@ -6417,6 +6475,28 @@ describe('preselection', () => {
       ]);
     });
 
+    it('tags a saved attempt from a wildcard route in pathnames with the configured pattern', () => {
+      mockConfig.current = [{ ...CONFIG_ENTRY, pathnames: ['/checkout/*/review'] }];
+      vi.mocked(getPendingPreselect).mockReturnValue({
+        expiresAt: Date.now() + 60_000,
+        pathname: '/checkout/order-42/review',
+        identifier: TARGET_PAGE_IDENTIFIER,
+        attributes: { [ATTRIBUTE_KEY]: 'gold' },
+        mpid: MPID,
+      });
+
+      maybeFirePersistedPreselect(state, host);
+
+      expect(selectPlacementsCalls).toEqual([
+        {
+          attributes: tagged({ [ATTRIBUTE_KEY]: 'gold' }, 'recovered', '/checkout/*/review'),
+          preselect: true,
+          identifier: TARGET_PAGE_IDENTIFIER,
+          omitUrl: true,
+        },
+      ]);
+    });
+
     it.each([
       { change: 'removed', config: [] },
       { change: 'retargeted', config: [{ ...CONFIG_ENTRY, targetPageIdentifier: 'another-target' }] },
@@ -6714,6 +6794,35 @@ describe('preselection', () => {
       );
 
       it.each(['/secure-checkout', '/shopping-bag', '/confirmation', '/secure-checkout/review/edit'])(
+        'does not match %s',
+        (pathname) => {
+          expect(findPreselectionConfig(ACCOUNT_ID, pathname)).toBeUndefined();
+        },
+      );
+    });
+
+    describe('multiple pathnames on one entry', () => {
+      const MULTI_PATH_ENTRY = {
+        ...CONFIG_ENTRY,
+        pathname: '/checkout',
+        pathnames: ['/checkout/payment', '/checkout/*/review'],
+      };
+
+      beforeEach(() => {
+        mockConfig.current = [MULTI_PATH_ENTRY];
+      });
+
+      it.each([
+        '/checkout',
+        '/checkout/',
+        '/checkout/payment',
+        '/checkout/payment/',
+        '/checkout/order-42/review',
+      ])('matches %s against the single entry', (pathname) => {
+        expect(findPreselectionConfig(ACCOUNT_ID, pathname)).toEqual(MULTI_PATH_ENTRY);
+      });
+
+      it.each(['/checkout/shipping', '/checkout/delivery', '/checkout/confirmation', '/cart'])(
         'does not match %s',
         (pathname) => {
           expect(findPreselectionConfig(ACCOUNT_ID, pathname)).toBeUndefined();
@@ -7732,6 +7841,27 @@ describe('preselection', () => {
       maybeFirePreselect(state, host, buildEvent(), PATHNAME);
 
       expect(selectPlacementsCalls[0].attributes).toEqual(tagged({ email: 'guest@example.com' }));
+    });
+
+    it('reads a typed email on an additional route listed in pathnames', () => {
+      mockConfig.current = [
+        {
+          ...CONFIG_ENTRY,
+          pathname: '/checkout',
+          pathnames: ['/checkout/payment'],
+          attributeKeys: ['email'],
+          readEmailInput: true,
+        },
+      ];
+      window.history.replaceState({}, '', '/checkout/payment');
+      addInput('guest@example.com');
+
+      maybeFirePreselect(state, host, buildEvent(), '/checkout/payment');
+
+      expect(selectPlacementsCalls).toHaveLength(1);
+      expect(selectPlacementsCalls[0].attributes).toEqual(
+        tagged({ email: 'guest@example.com' }, 'pageview', '/checkout/payment'),
+      );
     });
 
     it('reads an email typed into a type="text" field', () => {

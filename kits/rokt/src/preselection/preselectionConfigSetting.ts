@@ -146,7 +146,7 @@ function parseEntry(accountId: string, raw: unknown): PreselectionConfigEntry | 
     return 'not an object';
   }
 
-  const { pathname, targetPageIdentifier, attributeKeys, optionalAttributeKeys, identityKeys, dispatchDelayMs } = raw;
+  const { pathname, pathnames, targetPageIdentifier, attributeKeys, optionalAttributeKeys, identityKeys, dispatchDelayMs } = raw;
   const { triggerEventNames, releaseHoldOnRouteChange, readEmailInput, cartIntent, cartUserAttribute } = raw;
   const { checkoutStepIntent, intentSelectors } = raw;
   // The older name for the same field, read until every setting has moved to the new one.
@@ -159,6 +159,14 @@ function parseEntry(accountId: string, raw: unknown): PreselectionConfigEntry | 
   }
   if (!isString(pathname) || !pathname.startsWith('/')) {
     return 'pathname';
+  }
+  if (
+    pathnames !== undefined &&
+    (!isStringArray(pathnames) ||
+      pathnames.length === 0 ||
+      !pathnames.every((entryPathname) => entryPathname.startsWith('/')))
+  ) {
+    return 'pathnames';
   }
   if (!isString(targetPageIdentifier) || targetPageIdentifier === '') {
     return 'targetPageIdentifier';
@@ -268,6 +276,9 @@ function parseEntry(accountId: string, raw: unknown): PreselectionConfigEntry | 
   }
 
   const entry: PreselectionConfigEntry = { accountId, pathname, targetPageIdentifier, attributeKeys };
+  if (pathnames !== undefined) {
+    entry.pathnames = pathnames;
+  }
   if (optionalAttributeKeys !== undefined) {
     entry.optionalAttributeKeys = optionalAttributeKeys;
   }
