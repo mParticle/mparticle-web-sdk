@@ -1146,6 +1146,14 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
                 self._ButtonTracker.clearPending();
             }
             self._RoktManager.discardCheckoutIntents();
+        } else if (self._Helpers.canLog()) {
+            const currentUser = self.Identity.getCurrentUser();
+            self._Forwarders.initForwarders(
+                currentUser
+                    ? currentUser.getUserIdentities().userIdentities
+                    : {},
+                self._APIClient.prepareForwardingStats
+            );
         }
 
         self._Events.logOptOut();

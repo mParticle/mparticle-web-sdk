@@ -87,6 +87,8 @@ declare global {
         mParticle: IMParticleInstanceManager;
         MockForwarder: IMockForwarder;
         MockForwarder1: IMockForwarder;
+        MockForwarder22: IMockForwarder;
+        MockForwarder33: IMockForwarder;
         SideloadedKit11: IMockForwarder;
         SideloadedKit22: IMockForwarder;
         fetchMock: any;
@@ -141,6 +143,8 @@ describe('forwarders', function() {
         fetchMock.restore();
         sinon.restore();
         delete window.MockForwarder1;
+        delete window.MockForwarder22;
+        delete window.MockForwarder33;
     });
 
     it('should add forwarders via dynamic script loading via the addForwarder method', () => {
@@ -1536,6 +1540,95 @@ describe('forwarders', function() {
             'removeUserAttributeCalled',
             true
         );
+    });
+
+    it('should not upload or forward user attribute changes after opt out, and still remove attributes in the browser', async () => {
+        mParticle.init(apiKey, window.mParticle.config);
+        await waitForCondition(hasIdentifyReturned);
+
+        mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'male');
+        mParticle.Identity.getCurrentUser().setUserAttribute('age', '25');
+
+        const mockForwarder = new MockForwarder();
+        const includeOnMatchForwarder = new MockForwarder('MockForwarder2', 2);
+        const excludeOnMatchForwarder = new MockForwarder('MockForwarder3', 3);
+
+        mockForwarder.register(window.mParticle.config);
+        includeOnMatchForwarder.register(window.mParticle.config);
+        excludeOnMatchForwarder.register(window.mParticle.config);
+
+        const config1 = forwarderDefaultConfiguration('MockForwarder', 1);
+        const config2 = forwarderDefaultConfiguration('MockForwarder2', 2);
+        config2.filteringUserAttributeValue = {
+            userAttributeName: mParticle.generateHash('gender').toString(),
+            userAttributeValue: mParticle.generateHash('male').toString(),
+            includeOnMatch: true,
+        };
+        const config3 = forwarderDefaultConfiguration('MockForwarder3', 3);
+        config3.filteringUserAttributeValue = {
+            userAttributeName: mParticle.generateHash('gender').toString(),
+            userAttributeValue: mParticle.generateHash('male').toString(),
+            includeOnMatch: false,
+        };
+        window.mParticle.config.kitConfigs.push(config1, config2, config3);
+
+        mParticle.init(apiKey, window.mParticle.config);
+        await waitForCondition(hasIdentityCallInflightReturned);
+
+        expect(window.MockForwarder1.instance.initCalled).to.equal(true);
+        expect(window.MockForwarder22.instance.initCalled).to.equal(true);
+        expect(window.MockForwarder33.instance.initCalled).to.equal(false);
+
+        const user = mParticle.Identity.getCurrentUser();
+
+        mParticle.setOptOut(true);
+        fetchMock.resetHistory();
+        window.MockForwarder1.instance.setUserAttributeCalled = false;
+        window.MockForwarder1.instance.removeUserAttributeCalled = false;
+
+        user.setUserAttributeList('colors', ['red', 'blue']);
+        expect(user.getAllUserAttributes()).to.deep.equal({
+            gender: 'male',
+            age: '25',
+        });
+        expect(window.MockForwarder1.instance.setUserAttributeCalled).to.equal(
+            false
+        );
+
+        user.removeUserAttribute('gender');
+        expect(user.getAllUserAttributes()).to.deep.equal({
+            age: '25',
+        });
+        expect(
+            window.MockForwarder1.instance.removeUserAttributeCalled
+        ).to.equal(true);
+        expect(window.MockForwarder1.instance.userAttributes).to.deep.equal({
+            age: '25',
+        });
+        expect(window.MockForwarder33.instance.initCalled).to.equal(false);
+
+        window.MockForwarder1.instance.removeUserAttributeCalled = false;
+        user.removeAllUserAttributes();
+        expect(user.getAllUserAttributes()).to.deep.equal({});
+        expect(
+            window.MockForwarder1.instance.removeUserAttributeCalled
+        ).to.equal(true);
+        expect(window.MockForwarder1.instance.userAttributes).to.deep.equal({});
+        expect(window.MockForwarder33.instance.initCalled).to.equal(false);
+
+        expect(
+            findEventFromRequest(fetchMock.calls(), 'user_attribute_change')
+        ).to.not.be.ok;
+
+        window.MockForwarder1.instance.receivedEvent = null;
+        window.MockForwarder22.instance.receivedEvent = null;
+
+        mParticle.setOptOut(false);
+        expect(window.MockForwarder33.instance.initCalled).to.equal(true);
+
+        mParticle.logEvent('test event');
+        expect(window.MockForwarder1.instance.receivedEvent).to.be.ok;
+        expect(window.MockForwarder22.instance.receivedEvent).to.equal(null);
     });
 
     it('should filter user attributes from forwarder on log event', async () => {
