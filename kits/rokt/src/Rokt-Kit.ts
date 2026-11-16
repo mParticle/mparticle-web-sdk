@@ -215,6 +215,7 @@ interface CallTimeUser {
   mpid: string;
   loggedIn: boolean;
   hasIdentities: boolean;
+  identityCallCount: number;
 }
 
 interface KitFilters {
@@ -960,6 +961,10 @@ class RoktKit implements KitInterface {
   private accountId: string | null = null;
   private _preselectState: PreselectState = createPreselectState();
   private _preselectEmailInputListener?: (event: Event) => void;
+  // Tracks identity callbacks so a modify that clears core's login flag is told apart from a logout that keeps the MPID.
+  private _identityCallCount = 0;
+  private _lastNonModifyCallCount = 0;
+  private _isModifyIdentityCallInProgress = false;
   // Set by core on each kit instance: the identity types this connection filters out.
   public userIdentityFilters?: number[];
 
@@ -1735,6 +1740,9 @@ class RoktKit implements KitInterface {
 
     const kitSettings = settings as unknown as RoktKitSettings;
     const accountId = kitSettings.accountId;
+    this._identityCallCount = 0;
+    this._lastNonModifyCallCount = 0;
+    this._isModifyIdentityCallInProgress = false;
     this._exitIntentEnabledForAccount = isExitIntentAccountOverrideEnabled(accountId);
     const exitIntentConfig = this._exitIntentEnabledForAccount ? this.getEffectiveExitIntentConfig(accountId) : null;
     if (this._exitIntentEnabledForAccount) {
@@ -1997,6 +2005,13 @@ class RoktKit implements KitInterface {
   }
 
   public onUserIdentified(user: IMParticleUser): string {
+    // Core's setForwarderCallbacks runs onModifyComplete and then onUserIdentified for the same modify response.
+    if (this._isModifyIdentityCallInProgress) {
+      this._isModifyIdentityCallInProgress = false;
+    } else {
+      this._identityCallCount += 1;
+      this._lastNonModifyCallCount = this._identityCallCount;
+    }
     const filteredUser = user as FilteredUser;
     this.filters.filteredUser = filteredUser;
     this._workspaceSearchInFlightPromise = this.search(filteredUser);
@@ -2089,10 +2104,16 @@ class RoktKit implements KitInterface {
   }
 
   public onLoginComplete(user: IMParticleUser, _filteredIdentityRequest: unknown): string {
+    this._isModifyIdentityCallInProgress = false;
+    this._identityCallCount += 1;
+    this._lastNonModifyCallCount = this._identityCallCount;
     return this.handleIdentityComplete(user, 'onLoginComplete');
   }
 
   public onLogoutComplete(user: IMParticleUser, _filteredIdentityRequest: unknown): string {
+    this._isModifyIdentityCallInProgress = false;
+    this._identityCallCount += 1;
+    this._lastNonModifyCallCount = this._identityCallCount;
     // Anonymous sessions must not carry the previous user's match forward.
     // Clear the flag explicitly here. Also clear the identities cache so a
     // re-login (possibly with the same identifiers) dispatches a fresh
@@ -2112,6 +2133,8 @@ class RoktKit implements KitInterface {
   }
 
   public onModifyComplete(user: IMParticleUser, _filteredIdentityRequest: unknown): string {
+    this._identityCallCount += 1;
+    this._isModifyIdentityCallInProgress = true;
     return this.handleIdentityComplete(user, 'onModifyComplete');
   }
 
@@ -2209,21 +2232,29 @@ class RoktKit implements KitInterface {
       hasIdentities: Object.values(currentUser?.getUserIdentities?.()?.userIdentities || {}).some(
         (value) => isString(value) && value !== '',
       ),
+      identityCallCount: this._identityCallCount,
     };
   }
 
+  // A modify response carries no login flag, so core clears isLoggedIn while keeping the MPID; exempt the cleared
+  // login flag only when every identity callback since the snapshot was a modify (core clears isLoggedIn on HTTP 400
+  // modify responses without calling onModifyComplete, so failed modifies still read as logged out until core
+  // preserves isLoggedIn on modify).
   private hasUserChangedSince(callTime: CallTimeUser): boolean {
     const currentUser = mp().Identity?.getCurrentUser?.() as FilteredUser | null | undefined;
+    const loginClearedByModify =
+      this._identityCallCount > callTime.identityCallCount &&
+      this._lastNonModifyCallCount <= callTime.identityCallCount;
     return (
       String(currentUser?.getMPID?.() ?? '') !== callTime.mpid ||
-      (callTime.loggedIn && currentUser?.isLoggedIn?.() !== true)
+      (callTime.loggedIn && !loginClearedByModify && currentUser?.isLoggedIn?.() !== true)
     );
   }
 
   // A call whose user changed while it waited goes out for the new user only when nothing it carries belongs to
   // someone else: its user had no identities and it carries no email, as when an anonymous shopper logs in, or the
   // new user holds every email form it carries, as when core identifies with a passed email that differs from the
-  // user's. A logout drops it even when the email survives the logout.
+  // user's. A logout during the wait drops the call even when the email or MPID survives the logout.
   private mayGoOutForNewUser(callTime: CallTimeUser, attributes: Record<string, unknown>): boolean {
     const currentUser = mp().Identity?.getCurrentUser?.() as FilteredUser | null | undefined;
     if (callTime.loggedIn && currentUser?.isLoggedIn?.() !== true) {
@@ -2430,7 +2461,11 @@ class RoktKit implements KitInterface {
       ...(cacheMatchValues ? { cacheMatchValues } : {}),
     };
 
-    const dispatchUser = this.currentUserSnapshot();
+    const snapshot = this.currentUserSnapshot();
+    const dispatchUser =
+      callTimeUser?.loggedIn && !userChanged && !snapshot.loggedIn
+        ? { ...snapshot, loggedIn: true, identityCallCount: callTimeUser.identityCallCount }
+        : snapshot;
     const selection = this.launcher!.selectPlacements(selectPlacementsOptions);
 
     const isPreselect = options.preselect === true;

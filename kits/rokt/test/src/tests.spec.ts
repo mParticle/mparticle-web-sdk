@@ -1735,6 +1735,28 @@ describe('Rokt Forwarder', () => {
         (window as any).mParticle.forwarder.onUserIdentified(makeUser(mpid, userIdentities, attributes));
       };
 
+      const modify = (
+        mpid: string,
+        userIdentities: Record<string, string> = {},
+        attributes: Record<string, unknown> = {},
+      ) => {
+        coreUser = { mpid, loggedIn: false, identities: userIdentities };
+        const user = makeUser(mpid, userIdentities, attributes);
+        (window as any).mParticle.forwarder.onModifyComplete(user, { userIdentities });
+        (window as any).mParticle.forwarder.onUserIdentified(user);
+      };
+
+      const logout = (
+        mpid: string,
+        userIdentities: Record<string, string> = {},
+        attributes: Record<string, unknown> = {},
+      ) => {
+        coreUser = { mpid, loggedIn: false, identities: userIdentities };
+        const user = makeUser(mpid, userIdentities, attributes);
+        (window as any).mParticle.forwarder.onLogoutComplete(user, { userIdentities });
+        (window as any).mParticle.forwarder.onUserIdentified(user);
+      };
+
       const callForA = () =>
         (window as any).mParticle.forwarder.selectPlacements({
           identifier: 'test-placement',
@@ -1930,6 +1952,59 @@ describe('Rokt Forwarder', () => {
         expect((window as any).Rokt.selectPlacementsCalled).toBeFalsy();
       });
 
+      // A modify keeps the MPID, but its response carries no login flag, so core sets isLoggedIn to false and calls
+      // onModifyComplete followed by onUserIdentified with the same user.
+      it('sends the call when a modify keeps the MPID but clears the login flag during the search', async () => {
+        const kit = (window as any).mParticle.forwarder;
+        const logSpy = vi.spyOn(kit.loggingService, 'log');
+        const selection = callForA();
+        modify('A', { email: 'a@example.com', customerid: 'cust-A' }, { tier: 'gold-A' });
+        kit.userIdentifiedInWorkspace = true;
+        finishSearch();
+        await selection;
+
+        expect((window as any).Rokt.selectPlacementsOptions.attributes).toEqual(
+          expect.objectContaining({
+            mpid: 'A',
+            email: 'a@example.com',
+            customerid: 'cust-A',
+            tier: 'gold-A',
+            firstname: 'call-for-A',
+            userIdentifiedInWorkspace: true,
+          }),
+        );
+        expect(logSpy).not.toHaveBeenCalledWith(expect.objectContaining({ code: 'SELECT_PLACEMENTS_USER_CHANGED' }));
+        logSpy.mockRestore();
+      });
+
+      it('drops the call when a modify is followed by a same-MPID logout during the search', async () => {
+        const kit = (window as any).mParticle.forwarder;
+        const logSpy = vi.spyOn(kit.loggingService, 'log');
+        const selection = callForA();
+        modify('A', { email: 'a@example.com', customerid: 'cust-A' }, { tier: 'gold-A' });
+        logout('A', { email: 'a@example.com' }, { tier: 'gold-A' });
+        finishSearch();
+
+        expect(await selection).toBeUndefined();
+        expect((window as any).Rokt.selectPlacementsCalled).toBeFalsy();
+        expect(logSpy).toHaveBeenCalledWith(expect.objectContaining({ code: 'SELECT_PLACEMENTS_USER_CHANGED' }));
+        logSpy.mockRestore();
+      });
+
+      it('drops the call when a same-MPID logout is followed by a modify during the search', async () => {
+        const kit = (window as any).mParticle.forwarder;
+        const logSpy = vi.spyOn(kit.loggingService, 'log');
+        const selection = callForA();
+        logout('A', { email: 'a@example.com' }, { tier: 'gold-A' });
+        modify('A', { email: 'a@example.com', customerid: 'cust-A' }, { tier: 'gold-A' });
+        finishSearch();
+
+        expect(await selection).toBeUndefined();
+        expect((window as any).Rokt.selectPlacementsCalled).toBeFalsy();
+        expect(logSpy).toHaveBeenCalledWith(expect.objectContaining({ code: 'SELECT_PLACEMENTS_USER_CHANGED' }));
+        logSpy.mockRestore();
+      });
+
       it('drops the call when another logged-in user is identified while the launcher is recreated', async () => {
         const kit = (window as any).mParticle.forwarder;
         kit._workspaceSearchInFlightPromise = null;
@@ -2035,6 +2110,28 @@ describe('Rokt Forwarder', () => {
           getUserIdentities: () => ({ userIdentities: identities }),
           getAllUserAttributes: () => ({}),
         });
+      };
+
+      const modifyCoreUser = (mpid: string, identities: Record<string, string> = {}) => {
+        coreUser = { mpid, loggedIn: false, identities };
+        const user = {
+          getMPID: () => mpid,
+          getUserIdentities: () => ({ userIdentities: identities }),
+          getAllUserAttributes: () => ({}),
+        };
+        (window as any).mParticle.forwarder.onModifyComplete(user, { userIdentities: identities });
+        (window as any).mParticle.forwarder.onUserIdentified(user);
+      };
+
+      const logoutCoreUser = (mpid: string, identities: Record<string, string> = {}) => {
+        coreUser = { mpid, loggedIn: false, identities };
+        const user = {
+          getMPID: () => mpid,
+          getUserIdentities: () => ({ userIdentities: identities }),
+          getAllUserAttributes: () => ({}),
+        };
+        (window as any).mParticle.forwarder.onLogoutComplete(user, { userIdentities: identities });
+        (window as any).mParticle.forwarder.onUserIdentified(user);
       };
 
       beforeEach(async () => {
@@ -2154,6 +2251,184 @@ describe('Rokt Forwarder', () => {
         expect((window as any).mParticle.loggedEvents).toEqual([]);
         expect(logSpy).toHaveBeenCalledWith(expect.objectContaining({ code: 'SELECT_PLACEMENTS_EVENT_USER_CHANGED' }));
         logSpy.mockRestore();
+      });
+
+      // A modify keeps the MPID, but its response carries no login flag, so core sets isLoggedIn to false and calls
+      // onModifyComplete followed by onUserIdentified with the same user. Core still files the event under that MPID,
+      // so it is the user's own event.
+      it('logs the event when a modify keeps the MPID but clears the login flag', async () => {
+        const kit = (window as any).mParticle.forwarder;
+        const logSpy = vi.spyOn(kit.loggingService, 'log');
+        const selection = kit.selectPlacements({ identifier: 'test-placement', attributes: { email: 'a@example.com' } });
+        modifyCoreUser('A', { email: 'a@example.com', customerid: 'cust-A' });
+        await settle(selection);
+
+        expect((window as any).mParticle.loggedEvents).toHaveLength(1);
+        expect((window as any).mParticle.loggedEvents[0].eventAttributes).toEqual(
+          expect.objectContaining({ mpid: 'A', email: 'a@example.com' }),
+        );
+        expect(logSpy).not.toHaveBeenCalledWith(
+          expect.objectContaining({ code: 'SELECT_PLACEMENTS_EVENT_USER_CHANGED' }),
+        );
+        logSpy.mockRestore();
+      });
+
+      it('does not log the event when a modify is followed by a same-MPID logout before the selection resolves', async () => {
+        const kit = (window as any).mParticle.forwarder;
+        const logSpy = vi.spyOn(kit.loggingService, 'log');
+        const selection = kit.selectPlacements({ identifier: 'test-placement', attributes: { email: 'a@example.com' } });
+        modifyCoreUser('A', { email: 'a@example.com', customerid: 'cust-A' });
+        logoutCoreUser('A', { email: 'a@example.com' });
+        await settle(selection);
+
+        expect((window as any).mParticle.loggedEvents).toEqual([]);
+        expect(logSpy).toHaveBeenCalledWith(expect.objectContaining({ code: 'SELECT_PLACEMENTS_EVENT_USER_CHANGED' }));
+        logSpy.mockRestore();
+      });
+
+      it('does not log the event when a same-MPID logout is followed by a modify before the selection resolves', async () => {
+        const kit = (window as any).mParticle.forwarder;
+        const logSpy = vi.spyOn(kit.loggingService, 'log');
+        const selection = kit.selectPlacements({ identifier: 'test-placement', attributes: { email: 'a@example.com' } });
+        logoutCoreUser('A', { email: 'a@example.com' });
+        modifyCoreUser('A', { email: 'a@example.com', customerid: 'cust-A' });
+        await settle(selection);
+
+        expect((window as any).mParticle.loggedEvents).toEqual([]);
+        expect(logSpy).toHaveBeenCalledWith(expect.objectContaining({ code: 'SELECT_PLACEMENTS_EVENT_USER_CHANGED' }));
+        logSpy.mockRestore();
+      });
+
+      it('sends a waiting call and logs the event after a real Identity.modify response clears the login flag', async () => {
+        const kit = (window as any).mParticle.forwarder;
+        const logSpy = vi.spyOn(kit.loggingService, 'log');
+        const onModifyCompleteSpy = vi.spyOn(kit, 'onModifyComplete');
+        const savedMParticle = (window as any).mParticle;
+        const savedIdentity = savedMParticle.Identity;
+        const savedIdentityType = savedMParticle.IdentityType;
+        let mpInstance: any;
+        let fetchSpy: ReturnType<typeof vi.spyOn> | undefined;
+
+        try {
+          const { default: mpSdk } = await import('@mparticle/web-sdk');
+          (window as any).mParticle = savedMParticle;
+          (window as any).mParticle.IdentityType = (mpSdk as any).IdentityType;
+          mpInstance = (mpSdk as any).getInstance();
+          mpInstance._resetForTests({ isDevelopmentMode: true }, true, mpInstance);
+          mpInstance._APIClient = { prepareForwardingStats: () => {} };
+          mpInstance._Store.devToken = 'test-api-key';
+          mpInstance._Store.storageName = 'mprtcl-v4_test';
+          mpInstance._Store.mpid = 'A';
+          mpInstance._Store.isLoggedIn = true;
+          mpInstance._Store.setFirstSeenTime('A', 1000);
+          mpInstance._Store.setUserIdentities('A', { 7: 'a@example.com', 1: 'cust-A' });
+          mpInstance._Store.setUserAttributes('A', { tier: 'gold-A' });
+          mpInstance._Forwarders = {
+            initForwarders: () => {},
+            setForwarderUserIdentities: () => {},
+            setForwarderOnIdentityComplete: (user: any, method: string) => {
+              if (method === 'modify') {
+                kit.onModifyComplete(user, user.getUserIdentities());
+              } else if (method === 'logout') {
+                kit.onLogoutComplete(user, user.getUserIdentities());
+              } else if (method === 'login') {
+                kit.onLoginComplete(user, user.getUserIdentities());
+              }
+            },
+            setForwarderOnUserIdentified: (user: any) => {
+              kit.onUserIdentified(user);
+            },
+          };
+          (window as any).mParticle.Identity = mpInstance.Identity;
+          const initialUser = mpInstance.Identity.getCurrentUser();
+          expect(initialUser.getMPID()).toBe('A');
+          expect(initialUser.isLoggedIn()).toBe(true);
+          kit.onUserIdentified(initialUser);
+          let finishSearch!: () => void;
+          kit._workspaceSearchInFlightPromise = new Promise<void>((resolve) => {
+            finishSearch = resolve;
+          });
+          let dispatched: Record<string, unknown> = {};
+          kit.launcher.selectPlacements = (options: Record<string, unknown>) => {
+            dispatched = options.attributes as Record<string, unknown>;
+            return new Promise((resolve) => {
+              resolveSelection = () => resolve({});
+            });
+          };
+          fetchSpy = vi.spyOn(window, 'fetch').mockResolvedValue({
+            status: 200,
+            headers: { get: () => null },
+            json: async () => ({
+              change_results: [{ identity_type: 'customerid', modified_mpid: 'A' }],
+            }),
+          } as unknown as Response);
+
+          const waitingSelection = kit.selectPlacements({
+            identifier: 'test-placement',
+            attributes: { email: 'a@example.com', firstname: 'call-for-A' },
+          });
+          await new Promise<void>((resolve) => {
+            (window as any).mParticle.Identity.modify(
+              { userIdentities: { email: 'a@example.com', customerid: 'cust-A-updated' } },
+              () => resolve(),
+            );
+          });
+          expect(onModifyCompleteSpy).toHaveBeenCalledTimes(1);
+          expect(mpInstance.Identity.getCurrentUser().getMPID()).toBe('A');
+          expect(mpInstance.Identity.getCurrentUser().isLoggedIn()).toBe(false);
+
+          finishSearch();
+          await new Promise((resolve) => setTimeout(resolve, 0));
+          await settle(waitingSelection);
+
+          expect(dispatched).toEqual(
+            expect.objectContaining({
+              mpid: 'A',
+              email: 'a@example.com',
+              customerid: 'cust-A-updated',
+              tier: 'gold-A',
+              firstname: 'call-for-A',
+            }),
+          );
+          expect((window as any).mParticle.loggedEvents).toHaveLength(1);
+          expect((window as any).mParticle.loggedEvents[0].eventAttributes).toEqual(
+            expect.objectContaining({ mpid: 'A', email: 'a@example.com', customerid: 'cust-A-updated' }),
+          );
+
+          mpInstance._Store.isLoggedIn = true;
+          kit._workspaceSearchInFlightPromise = null;
+          const eventSelection = kit.selectPlacements({
+            identifier: 'test-placement',
+            attributes: { email: 'a@example.com' },
+          });
+          await new Promise<void>((resolve) => {
+            (window as any).mParticle.Identity.modify(
+              { userIdentities: { email: 'a@example.com', customerid: 'cust-A-final' } },
+              () => resolve(),
+            );
+          });
+          expect(onModifyCompleteSpy).toHaveBeenCalledTimes(2);
+          expect(mpInstance.Identity.getCurrentUser().isLoggedIn()).toBe(false);
+          await settle(eventSelection);
+
+          expect((window as any).mParticle.loggedEvents).toHaveLength(2);
+          expect((window as any).mParticle.loggedEvents[1].eventAttributes).toEqual(
+            expect.objectContaining({ mpid: 'A', email: 'a@example.com', customerid: 'cust-A-updated' }),
+          );
+          expect(logSpy).not.toHaveBeenCalledWith(expect.objectContaining({ code: 'SELECT_PLACEMENTS_USER_CHANGED' }));
+          expect(logSpy).not.toHaveBeenCalledWith(
+            expect.objectContaining({ code: 'SELECT_PLACEMENTS_EVENT_USER_CHANGED' }),
+          );
+        } finally {
+          (window as any).mParticle = savedMParticle;
+          (window as any).mParticle.Identity = savedIdentity;
+          (window as any).mParticle.IdentityType = savedIdentityType;
+          mpInstance?._resetForTests({ isDevelopmentMode: true }, true, mpInstance);
+          window.localStorage.removeItem('mprtcl-v4_test');
+          fetchSpy?.mockRestore();
+          onModifyCompleteSpy.mockRestore();
+          logSpy.mockRestore();
+        }
       });
     });
 
