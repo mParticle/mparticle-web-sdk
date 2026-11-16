@@ -1074,10 +1074,12 @@ export default function Identity(
                 }
 
                 if (mpInstance._Store.webviewBridgeEnabled) {
-                    mpInstance._NativeSdkHelpers.sendToNative(
-                        Constants.NativeSdkPaths.RemoveUserAttribute,
-                        JSON.stringify({ key: key, value: null })
-                    );
+                    if (mpInstance._Helpers.canLog()) {
+                        mpInstance._NativeSdkHelpers.sendToNative(
+                            Constants.NativeSdkPaths.RemoveUserAttribute,
+                            JSON.stringify({ key: key, value: null })
+                        );
+                    }
                 } else {
                     cookies = mpInstance._Persistence.getPersistence();
 
@@ -1101,6 +1103,19 @@ export default function Identity(
                     if (cookies && isObject(cookies[mpid])) {
                         cookies[mpid].ua = userAttributes;
                         mpInstance._Persistence.savePersistence(cookies);
+                    }
+
+                    // When logging is off, as after setOptOut(true), the
+                    // attribute is removed from this browser and from kits
+                    // that are already active: no change event is uploaded
+                    // and no kit is initialized.
+                    if (!mpInstance._Helpers.canLog()) {
+                        mpInstance._Forwarders.handleForwarderUserAttributes(
+                            'removeUserAttribute',
+                            key,
+                            null
+                        );
+                        return;
                     }
 
                     self.sendUserAttributeChangeEvent(
@@ -1133,6 +1148,12 @@ export default function Identity(
             // https://go.mparticle.com/work/SQDSDKS-6373
             setUserAttributeList: function(key: string, newValue: UserAttributesValue[]) {
                 mpInstance._SessionManager.resetSessionTimer();
+
+                // As in setUserAttribute: when logging is off, as after
+                // setOptOut(true), nothing is stored, uploaded or forwarded.
+                if (!mpInstance._Helpers.canLog()) {
+                    return;
+                }
 
                 if (!Validators.isValidKeyValue(key)) {
                     mpInstance.Logger.error(Messages.ErrorMessages.BadKey);
@@ -1231,17 +1252,21 @@ export default function Identity(
                 mpInstance._SessionManager.resetSessionTimer();
 
                 if (mpInstance._Store.webviewBridgeEnabled) {
-                    mpInstance._NativeSdkHelpers.sendToNative(
-                        Constants.NativeSdkPaths.RemoveAllUserAttributes
-                    );
+                    if (mpInstance._Helpers.canLog()) {
+                        mpInstance._NativeSdkHelpers.sendToNative(
+                            Constants.NativeSdkPaths.RemoveAllUserAttributes
+                        );
+                    }
                 } else {
                     userAttributes = this.getAllUserAttributes();
 
-                    mpInstance._Forwarders.initForwarders(
-                        self.IdentityAPI.getCurrentUser().getUserIdentities()
-                            .userIdentities,
-                        mpInstance._APIClient.prepareForwardingStats
-                    );
+                    if (mpInstance._Helpers.canLog()) {
+                        mpInstance._Forwarders.initForwarders(
+                            self.IdentityAPI.getCurrentUser().getUserIdentities()
+                                .userIdentities,
+                            mpInstance._APIClient.prepareForwardingStats
+                        );
+                    }
                     if (userAttributes) {
                         for (const prop in userAttributes) {
                             if (hasOwnProp(userAttributes, prop)) {
