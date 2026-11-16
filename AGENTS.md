@@ -206,20 +206,26 @@ modules directly.
    Karma tests.
 5. **Custom async helper**: await Karma async work with `waitForCondition()` from
    `test/src/config/utils.js` (imported as `Utils`) rather than raw timeouts.
-6. **The CDN minifies everything a second time.** The mParticle CDN re-minifies the core bundle
-   and every kit with NUglify before serving them, so code that works in our build and passes
-   every test can still break in production. 3.19.0 shipped a Rokt kit that threw `ReferenceError`
-   on every `selectPlacements`: NUglify 1.20.7 renamed a constant everywhere except a computed key
-   in a destructuring pattern (fixed in NUglify 1.21.18). Core compiles to ES5; the Rokt kit builds
-   at `es2020` (`kits/rokt/vite.config.ts`), so modern syntax ships as written and meets the
+6. **SDK builds minify every CDN bundle, and the CDN still re-minifies with NUglify for now.**
+   The core IIFE (`dist/mparticle.js`) and every kit's CDN bundle (`kits/**/dist/*.iife.js`) are
+   minified in the SDK build (Terser for Rollup builds, Vite/esbuild for Vite kits). Until the
+   mParticle CDN stops re-minifying V3 bundles, the CDN still re-minifies the core bundle and every
+   kit with NUglify before serving them (a follow-up pull request will drop this caveat and retire
+   the NUglify check once that CDN change is live). In 3.19.0, NUglify 1.20.7 on the CDN renamed a
+   constant everywhere except a computed key in a destructuring pattern (fixed in NUglify 1.21.18),
+   so every Rokt kit `selectPlacements` threw `ReferenceError`. Core compiles to ES5; the Rokt kit
+   builds at `es2020` (`kits/rokt/vite.config.ts`), so modern syntax ships as written and meets the
    minifier directly.
-   - `scripts/cdn-minifier` pins the NUglify version the CDN runs. When the CDN moves to a new
-     version, move the pin with it, so the check tests what is actually served.
-   - Treat a red `CDN Minifier Check` as a real break, not a flake. It runs that NUglify on the
-     built bundles, fails on any name minification leaves newly undeclared, and smoke-tests each
-     minified bundle.
-   - Keep computed keys out of destructuring patterns (`const { [KEY]: x, ...rest } = obj`) in
-     the Rokt kit. Read `obj[KEY]` and copy then `delete` instead. A Rokt kit spec enforces this.
+   - `scripts/smoke-cdn-minified.js` checks every Rollup output before and after the Terser pass
+     for undeclared identifiers (`introducedUndeclaredNames`) and smoke-tests the minified core
+     bundle and every kit's minified `*.iife.js` bundle against its `.unminified` sibling in jsdom.
+   - `scripts/cdn-minifier` pins the NUglify version the CDN runs, and `scripts/check-cdn-minifier.js`
+     verifies that the built bundles survive that NUglify pass until the CDN stops re-minifying V3
+     bundles.
+   - Treat a red `CDN Minifier Check` as a real break, not a flake.
+   - Keep computed keys, defaults and non-declaration `for-of` heads out of destructuring patterns
+     in the Rokt kit (`kits/rokt/test/src/minifierSafeSyntax.spec.ts` checks both `src/` and the
+     minified `dist/Rokt-Kit.iife.js` bundle).
    - A fix ships in the next Release Please release from `main`. Never edit `dist/` or
      `kits/**/dist` in a feature pull request: the release pull request builds them.
 

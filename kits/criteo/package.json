@@ -35,7 +35,8 @@
         "rollup": "^1.13.1",
         "rollup-plugin-commonjs": "^10.0.0",
         "rollup-plugin-node-resolve": "^5.0.1",
-        "should": "^7.1.0"
+        "should": "^7.1.0",
+        "terser": "5.22.0"
     },
     "license": "Apache-2.0"
 }

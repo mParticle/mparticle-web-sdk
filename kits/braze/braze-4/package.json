@@ -34,6 +34,7 @@
         "rollup": "^2.75.7",
         "shelljs": "^0.8.4",
         "should": "^7.1.0",
+        "terser": "5.22.0",
         "watchify": "^3.11.1"
     },
     "dependencies": {

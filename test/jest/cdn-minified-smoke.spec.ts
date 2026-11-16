@@ -1,9 +1,50 @@
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
 import { TextDecoder, TextEncoder } from 'util';
 
 // jsdom needs these, and the jsdom test environment does not provide them.
 Object.assign(globalThis, { TextEncoder, TextDecoder });
 
-const { smokeTest } = require('../../scripts/smoke-cdn-minified');
+const {
+    smokeTest,
+    main,
+    introducedUndeclaredNames,
+} = require('../../scripts/smoke-cdn-minified');
+
+describe('introducedUndeclaredNames', () => {
+    const original =
+        '(function(){const K="k";function f(o){const{[K]:t,...r}=o||{};return[t,r]}window.f=f})();';
+
+    it('reports a name the minifier left undeclared', () => {
+        const broken =
+            '(function(){function n(n){const{[K]:t,...r}=n||{};return[t,r]}window.f=n})()';
+
+        expect(introducedUndeclaredNames(original, broken)).toEqual(['K']);
+    });
+
+    it('passes when every reference was renamed with its declaration', () => {
+        const renamed =
+            '(function(){const n="k";function t(t){const{[n]:i,...r}=t||{};return[i,r]}window.f=t})()';
+
+        expect(introducedUndeclaredNames(original, renamed)).toEqual([]);
+    });
+
+    it('ignores global comments, which the minifier strips', () => {
+        const withGlobalComment =
+            '/* global Suppressed */\n(function(){return typeof Suppressed=="function"?Suppressed:null})();';
+        const stripped =
+            '(function(){return typeof Suppressed=="function"?Suppressed:null})()';
+
+        expect(introducedUndeclaredNames(withGlobalComment, stripped)).toEqual([]);
+    });
+
+    it('throws when the minified bundle does not parse', () => {
+        expect(() => introducedUndeclaredNames(original, '(function(){')).toThrow(
+            'does not parse'
+        );
+    });
+});
 
 describe('smokeTest', () => {
     const core =
@@ -89,4 +130,30 @@ describe('smokeTest', () => {
             'confirm click: no single intent_commit call with the typed email',
         ]);
     }, 15000);
+});
+
+describe('main baseline requirements', () => {
+    it('fails when a Rollup bundle has no .unminified baseline', async () => {
+        const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mp-smoke-'));
+        try {
+            const rollupBundle = path.join(dir, 'CustomKit.iife.js');
+            fs.writeFileSync(rollupBundle, '(function(){window.x=1;})();');
+            const code = await main([rollupBundle]);
+            expect(code).toBe(1);
+        } finally {
+            fs.rmSync(dir, { recursive: true, force: true });
+        }
+    });
+
+    it('accepts a Vite bundle without an .unminified baseline', async () => {
+        const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mp-smoke-'));
+        try {
+            const viteBundle = path.join(dir, 'RoktPayPlus-Kit.iife.js');
+            fs.writeFileSync(viteBundle, '(function(){window.x=1;})();');
+            const code = await main([viteBundle]);
+            expect(code).toBe(0);
+        } finally {
+            fs.rmSync(dir, { recursive: true, force: true });
+        }
+    });
 });

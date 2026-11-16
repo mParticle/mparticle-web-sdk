@@ -1,5 +1,6 @@
 import resolve from 'rollup-plugin-node-resolve';
 import commonjs from 'rollup-plugin-commonjs';
+import terserPlugin from '../../../scripts/rollup/terserPlugin';
 
 const plugins = [resolve({ browser: true }), commonjs()];
 
@@ -13,7 +14,7 @@ export default [
             name: 'mpLeanplumKit',
             strict: false,
         },
-        plugins,
+        plugins: [...plugins, terserPlugin],
     },
     {
         input: 'src/LeanplumAnalyticsEventForwarder.js',

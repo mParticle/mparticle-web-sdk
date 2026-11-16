@@ -1,4 +1,5 @@
 import { production } from './node_modules/@mparticle/web-kit-wrapper/rollup.base';
+import terserPlugin from '../../scripts/rollup/terserPlugin';
 
 export default [
     {
@@ -9,7 +10,7 @@ export default [
             file: 'dist/DoubleClick-Kit.iife.js',
             name: 'mpDoubleClickKit',
         },
-        plugins: [...production.plugins],
+        plugins: [...production.plugins, terserPlugin],
     },
     {
         input: production.input,

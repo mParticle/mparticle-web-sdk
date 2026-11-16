@@ -2257,7 +2257,7 @@ class RoktKit implements KitInterface {
       rollback?.();
       return undefined;
     }
-    // No computed key in a destructuring pattern: the CDN's NUglify pass drops the constant it names.
+    // No computed key in a destructuring pattern: keep destructuring shapes minifier-safe.
     const transientOption = options?.[PRESELECT_FORM_EMAIL_OPTION];
     const boundUserOption = options?.[PRESELECT_BOUND_USER_OPTION];
     const dispatchOptions = { ...options };

@@ -9,6 +9,81 @@ const ATTACH_MS = 50;
 
 const settle = ms => new Promise(resolve => setTimeout(resolve, ms));
 
+const linterConfig = {
+    env: { browser: true, es2022: true },
+    parserOptions: { ecmaVersion: 'latest', sourceType: 'script' },
+    rules: { 'no-undef': 'error' },
+};
+
+function undeclaredNames(code) {
+    const { Linter } = require('eslint');
+    const linter = new Linter();
+    // Ignore /* global */ and eslint comments: the minifier strips them, so only code may count.
+    const messages = linter.verify(code, linterConfig, {
+        allowInlineConfig: false,
+    });
+    const fatal = messages.find(message => message.fatal);
+    if (fatal) {
+        throw new Error(`does not parse: ${fatal.message}`);
+    }
+    return new Set(
+        messages
+            .filter(message => message.ruleId === 'no-undef')
+            .map(message => /'(.+)' is not defined/.exec(message.message)[1])
+    );
+}
+
+function introducedUndeclaredNames(original, minified) {
+    const before = undeclaredNames(original);
+    return Array.from(undeclaredNames(minified)).filter(
+        name => !before.has(name)
+    );
+}
+
+const VITE_BUNDLES = new Set(['Rokt-Kit.iife.js', 'RoktPayPlus-Kit.iife.js']);
+
+function isViteBundle(bundle) {
+    const path = require('path');
+    return Boolean(bundle) && VITE_BUNDLES.has(path.basename(bundle));
+}
+
+function readUnminified(bundle) {
+    const fs = require('fs');
+    const path = require('path');
+    const candidates = [
+        `${bundle}.unminified`,
+        path.join('cdn-minifier-input', `${bundle}.unminified`),
+    ];
+    for (const candidate of candidates) {
+        if (fs.existsSync(candidate)) {
+            return fs.readFileSync(candidate, 'utf8');
+        }
+    }
+    return undefined;
+}
+
+function readMinified(bundle) {
+    if (!bundle) {
+        return undefined;
+    }
+    const fs = require('fs');
+    return fs.readFileSync(bundle, 'utf8');
+}
+
+function readOriginal(bundle) {
+    if (!bundle) {
+        return undefined;
+    }
+    const unminified = readUnminified(bundle);
+    if (unminified !== undefined) {
+        return unminified;
+    }
+    if (isViteBundle(bundle)) {
+        return readMinified(bundle);
+    }
+    throw new Error(`no baseline for ${bundle}`);
+}
+
 const SETTINGS = { accountId: '1' };
 const SMOKE_USER = {
     getMPID: () => '1',
@@ -398,4 +473,126 @@ async function smokeTest(original, minified) {
     return result;
 }
 
-module.exports = { smokeTest };
+async function main(bundles) {
+    if (bundles.length === 0) {
+        console.error('usage: smoke-cdn-minified.js <bundle.js>...');
+        return 2;
+    }
+
+    const fs = require('fs');
+    const path = require('path');
+    let failed = false;
+    for (const bundle of bundles) {
+        const minified = fs.readFileSync(bundle, 'utf8');
+        const unminified = readUnminified(bundle);
+        if (unminified === undefined && !isViteBundle(bundle)) {
+            failed = true;
+            console.error(
+                `CDN minifier check failed: ${bundle} has no baseline`
+            );
+            continue;
+        }
+        const original = unminified !== undefined ? unminified : '';
+        let introduced;
+        try {
+            introduced = introducedUndeclaredNames(original, minified);
+        } catch (error) {
+            failed = true;
+            console.error(
+                `CDN minifier check failed: ${bundle} ${error.message}`
+            );
+            continue;
+        }
+        if (introduced.length > 0) {
+            failed = true;
+            console.error(
+                `CDN minifier check failed: ${bundle} references undeclared ${introduced.join(
+                    ', '
+                )} after minification.`
+            );
+        } else {
+            console.log(`CDN minifier check passed: ${bundle}`);
+        }
+    }
+    const core = bundles.find(
+        bundle => path.basename(bundle) === 'mparticle.js'
+    );
+    if (core) {
+        for (const kit of [
+            undefined,
+            ...bundles.filter(bundle => bundle !== core),
+        ]) {
+            const label = kit || core;
+            let originalCore;
+            let originalKit;
+            try {
+                originalCore = readOriginal(core);
+                originalKit = readOriginal(kit);
+            } catch (error) {
+                failed = true;
+                console.error(
+                    `CDN minifier smoke test failed: ${label} ${error.message}`
+                );
+                continue;
+            }
+            const {
+                errors,
+                loadOnly,
+                checkoutMissesBeforeMinification,
+            } = await smokeTest(
+                { core: originalCore, kit: originalKit },
+                { core: readMinified(core), kit: readMinified(kit) }
+            );
+            const checkoutMisses = checkoutMissesBeforeMinification || [];
+            if (errors.length > 0) {
+                failed = true;
+                console.error(
+                    `CDN minifier smoke test failed: ${label} only after minification: ${errors.join(
+                        ', '
+                    )}`
+                );
+            }
+            if (checkoutMisses.length > 0) {
+                failed = true;
+                console.error(
+                    `CDN minifier smoke test failed: ${label} checkout scenario before minification: ${checkoutMisses.join(
+                        ', '
+                    )}`
+                );
+            }
+            if (errors.length === 0 && checkoutMisses.length === 0) {
+                console.log(
+                    `CDN minifier smoke test passed: ${label}${
+                        loadOnly
+                            ? ' (load only: it does not register as a kit)'
+                            : ''
+                    }${
+                        checkoutMissesBeforeMinification
+                            ? ' (with its checkout scenario)'
+                            : ''
+                    }`
+                );
+            }
+        }
+    }
+    return failed ? 1 : 0;
+}
+
+if (require.main === module) {
+    main(process.argv.slice(2)).then(
+        code => process.exit(code),
+        error => {
+            console.error(
+                `CDN minified smoke test could not run: ${error.message}`
+            );
+            process.exit(1);
+        }
+    );
+}
+
+module.exports = {
+    smokeTest,
+    main,
+    undeclaredNames,
+    introducedUndeclaredNames,
+};

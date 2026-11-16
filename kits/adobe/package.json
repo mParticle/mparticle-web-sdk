@@ -55,7 +55,8 @@
         "mocha": "^5.2.0",
         "prettier": "^1.18.2",
         "shelljs": "0.8.3",
-        "should": "13.2.3"
+        "should": "13.2.3",
+        "terser": "5.22.0"
     },
     "dependencies": {
         "browserify": "^16.5.0"

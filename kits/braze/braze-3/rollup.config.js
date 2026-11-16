@@ -1,6 +1,7 @@
 import resolve from 'rollup-plugin-node-resolve';
 import commonjs from 'rollup-plugin-commonjs';
 import replace from 'rollup-plugin-replace';
+import terserPlugin from '../../../scripts/rollup/terserPlugin';
 
 const packageVersion = process.env.npm_package_version;
 if (!packageVersion) {
@@ -25,7 +26,7 @@ export default [
             name: 'mpBrazeKitV3',
             strict: false,
         },
-        plugins: [replacePackageVersion(), ...sharedPlugins],
+        plugins: [replacePackageVersion(), ...sharedPlugins, terserPlugin],
     },
     {
         input: 'src/BrazeKit-dev.js',
