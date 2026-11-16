@@ -11329,6 +11329,31 @@ describe('Rokt Forwarder', () => {
         expect(selectPlacementsCalls[0].attributes.loyaltyTier).toBe('from-event');
       });
 
+      it('fires on an additional path listed in pathnames for one target page', async () => {
+        await reinitWithSetting(
+          JSON.stringify({
+            schemaVersion: 1,
+            entries: [
+              {
+                pathname: '/checkout',
+                pathnames: [PRESELECT_PATHNAME],
+                targetPageIdentifier: SETTING_TARGET_PAGE_IDENTIFIER,
+                attributeKeys: ['loyaltyTier'],
+              },
+            ],
+          }).replace(/"/g, '&quot;'),
+        );
+        (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };
+
+        firePreselectPageview();
+
+        await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+        expect(selectPlacementsCalls[0].preselect).toBe(true);
+        expect(selectPlacementsCalls[0].identifier).toBe(SETTING_TARGET_PAGE_IDENTIFIER);
+        expect(selectPlacementsCalls[0].attributes['rokt.preselecttrigger']).toBe(`pageview|${PRESELECT_PATHNAME}`);
+      });
+
       describe('an entry declaring identityKeys', () => {
         const buildIdentitySetting = (identityKeys?: string[]) =>
           JSON.stringify({
