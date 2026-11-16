@@ -212,9 +212,7 @@ Commit titles and cuts each V3 release from `main`:
 `main` moves to the new version when the release pull request merges, and
 `ga` serves it only after `promote-ga`. In that window `main` is ahead of
 `ga` on every release. This is expected, and the gap closes at `promote-ga`.
-Roll a release back with **v3-shadow-promote**: `rollback` for one channel, or
-`rollback-all` for every channel in the selected pods. Rokt's internal V3 web
-SDK delivery runbook holds the serving checks for each release.
+To roll a release back, follow **Roll back a V3 release** below.
 
 Set the repository variable `V3_DIST_GUARD_ENABLED` to `true` once the first
 Release Please release pull request's bundle commit shows as **Verified** on
@@ -224,6 +222,145 @@ checks on `main`. When `V3_DIST_GUARD_ENABLED` is first set, or set again,
 re-run **V3 bundles change only in release PRs** on every open pull request to
 `main`. Each of them passed with a note while the variable was unset, and that
 result stands until the check runs again.
+
+#### Roll back a V3 release
+
+A rollback changes S3 channel pointers, not npm packages or Git history. Each
+channel selects core and every V3 Web SDK kit from one candidate; there is no
+per-kit S3 rollback. For a single-kit defect, roll back the whole release or
+publish a fix release.
+
+**Pods default to `qa`. Production and QA require two separate dispatches:**
+choose `all-production` for `us1`, `us2`, `st1`, `eu1` and `au1`, then `qa`.
+There is no combined production-plus-QA choice. An individual production pod
+can also be selected.
+
+Choose the action by the problem:
+
+| Problem | Action |
+| --- | --- |
+| One channel serves a bad release | `rollback` with that channel and the known-good version/build. |
+| A release must stop everywhere | Stop its running workflows first, then `rollback-all` in production and QA. |
+| Restore one deliberately rolled-back channel | `rollback` with `allow_upgrade=true`, not `promote-ga`. |
+| Replace one build of the same version | Explicit `build_id` plus `allow_rebuild=true`; distinguish pointer-only replacement from a canonical rebuild below. |
+| Core published but some kits did not | Complete **Recover an incomplete v3 kit publication** before any newer release. |
+| The published package itself is bad | Prefer a fix-forward release with a new version; a pointer rollback cannot retract npm packages. |
+
+##### Preview, then roll back one channel
+
+In GitHub Actions, select **V3 shadow release: move release pointers**
+(`v3-shadow-promote.yml`) and **Use workflow from: `main`**. Maintainers need
+permission to dispatch the workflow and must satisfy any configured deployment
+protection before a live move.
+
+1. Set `operation=rollback`, `channel` to `ga`, `v3-staging` or one of
+   `v3-release-order-a`, `v3-release-order-b`, `v3-release-order-c`, `version`
+   to the stable version without a `v` prefix (for example `3.12.0`), and
+   `pods` to the intended selection. Set `dry_run=true`,
+   `allow_downgrade=true`, `allow_rebuild=false`, `allow_upgrade=false`.
+2. Supply the known-good `build_id`. If it is unknown, leave it blank for
+   this first preview only: the release index resolves the version's build.
+   A version absent from that index needs an explicit build. Inspect the
+   resolved candidate and every selected pod's planned before/after move.
+3. Copy that exact resolved `build_id` into the live dispatch, keeping the
+   same version, channel, pods and flags. Change only `dry_run=false`.
+   Use that explicit build for both the production and QA dispatches, so a
+   later release-index change cannot silently change the recovery target.
+4. Confirm the selected pods' summaries report successful moves or an
+   already-correct pointer. An unselected pod being skipped is not a failure.
+   If a selected pod fails, inspect its error and preview again before
+   retrying that pod. A failed run can have moved other pods already.
+
+For a read-only inspection, use the same workflow on `main` with
+`operation=show`, an explicit `channel` and the intended `pods`. The output
+identifies the current version and build and verifies its candidate. Candidate
+artifact names (`v3-candidate-<run id>-<run attempt>`) and the candidate
+workflow output also identify a build. Step 1's summary alone does not print
+`BUILD_ID`.
+
+##### Stop an in-flight release and roll back every channel
+
+Merging a Release Please release pull request automatically dispatches Step 1
+from its release tag with `dryRun=false`; there is no separate manual Step 1
+start to withhold. To stop that release, cancel its running Step 1 and any
+running candidate-upload or pointer-promotion workflows. Check for a child
+candidate run even if its dispatch reply was lost. Do not start or re-run
+Steps 1, 2 or 3 for that release while recovering.
+
+After those runs have stopped, preview `v3-shadow-promote.yml` on `main` with
+`operation=rollback-all`, the target `version`, `pods=all-production`,
+`dry_run=true`, `allow_downgrade=true`, `allow_rebuild=false` and
+`allow_upgrade=false`. `channel` is ignored. As above, resolve the build in
+the first preview and pin `build_id` explicitly in every live dispatch.
+Repeat with `dry_run=false`, then preview and apply separately for `pods=qa`.
+
+`rollback-all` moves `v3-staging` first, then `ga` and the release-order
+channels. A channel already on an older version is left alone, not upgraded.
+Conditional writes and a final read detect a racing promotion but cannot
+prevent every race: if a newer version or a conflicting build remains, stop
+that promoter and preview/run the rollback again. Selected pods proceed
+independently even when another pod fails.
+
+##### Undo a rollback or replace a build
+
+- **Undo one channel's rollback:** preview and apply `operation=rollback`
+  on `main` for that channel with the intended newer `version` and explicit
+  `build_id`, `allow_upgrade=true`, `allow_downgrade=false`, and
+  `allow_rebuild=false` unless a same-version build replacement is intended.
+  `promote-ga` moves all release-order channels and `ga`, so it can undo other
+  intentional rollbacks as well.
+- **Direct pointer rebuild (release index unchanged):** preview and apply
+  `rollback` (or `rollback-all`) with the same `version`, a different verified
+  `build_id`, and `allow_rebuild=true`. These operations do not write
+  `releases/<version>.json`. A later blank-build rollback can therefore resolve
+  to the old indexed build. Keep using explicit builds until reconciled.
+- **Canonical rebuild:** after verifying the replacement candidate, preview
+  and apply `stage` with its `version`, explicit `build_id` and
+  `allow_rebuild=true`. Then preview and apply `promote-release-order` for
+  each intended release-order channel, or `promote-ga` for all release-order
+  channels plus `ga`, with the same version and `allow_rebuild=true`.
+  Promotions read the staged candidate. Repeat for each required pod selection
+  and inspect the release-index result and channel summaries. Only stage and
+  promotion operations update the version's release index; a rebuild can
+  replace it. Use this broader path only when those channel moves are intended.
+
+##### Avoid having a release undo the rollback
+
+A single-channel rollback does not move `v3-staging` unless that is the channel
+selected. Step 2 promotes its staged candidate to one release-order channel;
+Step 3 promotes it to all release-order channels and `ga`. A re-run can undo
+a deliberate single-channel rollback. Their promoter re-checks staging and
+branch tips before each write, but it is not a permanent rollback lock.
+
+Do not use Step 1 as a rollback tool. Re-running it for an old tag normally
+fails the `v3-staging` Git fast-forward guard before the S3 downgrade guard.
+An eligible newer Step 1 can stage a newer candidate again. Stop the release
+work before `rollback-all`, and resume only with the intended recovery plan.
+
+##### Verify the result and understand its limits
+
+Run `v3-shadow-promote.yml` from `main` with `operation=status`, first for
+`pods=all-production` and separately for `pods=qa`. It writes nothing and
+verifies every selected channel's candidate. For a single-channel rollback,
+inspect that channel's version/build in the output. After `rollback-all`,
+leave `version` and `build_id` blank and confirm no channel is newer than the
+target and every channel at the target has the intended build. Requiring the
+target version on every channel would wrongly fail channels deliberately
+left on an older release. When every channel should match one release, a
+status run with `version` and `build_id` set enforces that stronger check.
+
+The pointer move does not immediately clear downstream caches. Allow for
+cache refresh and CDN/browser caching, verify the delivered SDK as well as
+the workflow result, and contact mParticle support for CDN invalidation.
+
+Rollback does not move npm `next`, change a Git tag or GitHub Release, rewind
+the Release Please manifest, or lower the next release version. Leave the
+tag/release in place and never reuse a published npm version. Retagging
+`next` is not part of this rollback procedure: core plus **every** published
+V3 kit must remain in lockstep, followed by a full strict npm audit. Moving
+only core or the affected kits blocks the next release's completeness check.
+If publication stopped part-way, finish the incomplete-release recovery below
+before rolling forward to a new fix version.
 
 #### Switch to Release Please
 
