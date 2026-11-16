@@ -3139,6 +3139,7 @@ describe('build-v3-release.sh', () => {
         '#!/bin/sh',
         'set -eu',
         'echo npm >> "$STUB_DIR/calls"',
+        'printf "%s|%s\\n" "${npm_config_ignore_scripts:-}" "$*" >> "$STUB_DIR/npm-invocations"',
         'KIT=',
         'case "$1" in',
         '    ci) STEP=ci KIT=${3:-} ;;',
@@ -3319,7 +3320,13 @@ describe('build-v3-release.sh', () => {
             fs.rmSync(dirPath, {force: true, recursive: true});
             fs.mkdirSync(dirPath, {recursive: true});
         }
-        for (const file of ['barrier-met', 'calls', 'events', 'overlap']) {
+        for (const file of [
+            'barrier-met',
+            'calls',
+            'events',
+            'npm-invocations',
+            'overlap',
+        ]) {
             fs.rmSync(path.join(fixtureRoot, file), {force: true});
         }
         fs.rmSync(path.join(fixtureRoot, 'bin', 'setsid'), {force: true});
@@ -3634,6 +3641,15 @@ describe('build-v3-release.sh', () => {
             }
         }
         expect(lines('events')).toEqual(serial);
+        expect(lines('npm-invocations')).toEqual([
+            'true|run build',
+            'true|ci --prefix kits/a --ignore-scripts',
+            'true|run build --prefix kits/a',
+            'true|ci --prefix kits/b --ignore-scripts',
+            'true|run build --prefix kits/b',
+            'true|ci --prefix kits/c --ignore-scripts',
+            'true|run build --prefix kits/c',
+        ]);
         expect(result.stdout).toContain('(3 kits, concurrency 1)');
     }, 30000);
 
