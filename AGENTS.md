@@ -192,8 +192,11 @@ state.
 
 Internal modules hang off the instance (`mpInstance._Store`, `._Identity`, `._Persistence`,
 `._Forwarders`, ...) and receive `mpInstance` as a parameter. That dependency-injection seam
-is what keeps modules testable and the dependency graph acyclic - use it instead of importing
-modules directly.
+is what keeps stateful modules testable and the dependency graph acyclic - use it instead of
+importing stateful modules directly. Pure, stateless utility modules (`src/utils.ts` and
+`src/validators.ts`) hold no instance state and depend only on constants and types, so
+modules may import them directly (while `mpInstance._Helpers.Validators` stays on the
+instance for backwards compatibility).
 
 ## Gotchas
 
