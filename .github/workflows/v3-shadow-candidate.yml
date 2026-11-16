@@ -17,19 +17,17 @@ name: 'V3 shadow release: upload candidate'
 # pointer independently, so if one pod fails, the others have already moved and
 # a re-run repairs the failed pod.
 #
-# During the V2/V3 workflow split transition, workflow_run still mirrors the
-# shared "Staging Release - Step 1: Prepare CDN Pre-Release, Publish NPM" on
-# v3-staging without delaying or failing it, and a manual workflow_dispatch
-# with release_gate=false re-mirrors any completed Step 1 run whose candidate
-# artifact is still kept (7 days). After a re-run of failed jobs, the candidate
-# is the one made by the package job the re-run kept.
+# V3 Step 1 dispatches this workflow directly; no workflow_run subscription
+# mirrors the V2 staging workflows or duplicates V3's release-gate upload.
+# A manual workflow_dispatch with release_gate=false re-mirrors any completed
+# V3 Step 1 run whose candidate artifact is still kept (7 days). After a re-run
+# of failed jobs, the candidate is the one made by the package job the re-run kept.
 #
-# workflow_run always runs this file and its scripts from the default branch,
-# never code from the release run. The release run and its artifact are
-# untrusted input: the run must be a workflow_dispatch of v3-release-step-1.yml
-# or staging-step-1.yml in this repository from v3-staging (or a strict v3.X.Y
-# tag while V3_RELEASE_PLEASE_ENABLED is true), with that file's
-# V3 run title, and the candidate is validated and compared with the release
+# This file and its scripts run from the default branch, never code from the
+# release run. The release run and its artifact are untrusted input: the run
+# must be a workflow_dispatch of v3-release-step-1.yml in this repository from
+# v3-staging (or a strict v3.X.Y tag while V3_RELEASE_PLEASE_ENABLED is true),
+# with that file's V3 run title, and the candidate is validated and compared with the release
 # tag before any credential is issued.
 #
 # Credentials are used only in the two called workflows, each the sole job in
@@ -52,13 +50,6 @@ name: 'V3 shadow release: upload candidate'
 #   caller job lists them all by name; none uses secrets: inherit.
 
 on:
-    workflow_run: # zizmor: ignore[dangerous-triggers] -- see the header; no code or ref from the triggering run is executed or checked out
-        workflows:
-            - 'Staging Release - Step 1: Prepare CDN Pre-Release, Publish NPM'
-        types:
-            - completed
-        branches:
-            - v3-staging
     workflow_dispatch:
         inputs:
             step1_run_id:
@@ -81,9 +72,8 @@ permissions: {}
 # Release-gate runs for one Step 1 run share a group keyed on step1_run_id
 # alone, so a re-run's child queues behind a leftover child (one whose cancel
 # never got through, or whose dispatch reply was lost) instead of staging the
-# same build in parallel with it. A transition workflow_run or a dispatch with
-# release_gate=false never shares that group, so it cannot displace a pending
-# gate run.
+# same build in parallel with it. A dispatch with release_gate=false never
+# shares that group, so it cannot displace a pending gate run.
 concurrency:
     group: ${{ github.event_name == 'workflow_dispatch' && inputs.release_gate && format('v3-shadow-candidate-gate-{0}', inputs.step1_run_id) || 'v3-shadow-candidate' }}
     cancel-in-progress: false
@@ -148,16 +138,11 @@ jobs:
                       RELEASE_PLEASE_MODE=true
                   fi
                   RUN_FILE="$RUNNER_TEMP/step1-run.json"
-                  if [ "$GITHUB_EVENT_NAME" = 'workflow_run' ]; then
-                      jq '.workflow_run' "$GITHUB_EVENT_PATH" > "$RUN_FILE"
-                  else
-                      if [[ ! "$STEP1_RUN_ID" =~ ^[1-9][0-9]{0,19}$ ]]; then
-                          echo 'step1_run_id must be a workflow run ID.'
-                          exit 1
-                      fi
-                      gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${STEP1_RUN_ID}" > "$RUN_FILE"
+                  if [[ ! "$STEP1_RUN_ID" =~ ^[1-9][0-9]{0,19}$ ]]; then
+                      echo 'step1_run_id must be a workflow run ID.'
+                      exit 1
                   fi
-                  WORKFLOW_ID="$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/staging-step-1.yml" --jq .id)"
+                  gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${STEP1_RUN_ID}" > "$RUN_FILE"
                   V3_WORKFLOW_ID="$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/v3-release-step-1.yml" --jq .id)"
                   RUN_ID="$(jq -r .id "$RUN_FILE")"
                   RUN_ATTEMPT="$(jq -r .run_attempt "$RUN_FILE")"
@@ -177,7 +162,6 @@ jobs:
                   set -- \
                       --run "$RUN_FILE" \
                       --repository "$GITHUB_REPOSITORY" \
-                      --workflow-id "$WORKFLOW_ID" \
                       --v3-workflow-id "$V3_WORKFLOW_ID" \
                       --trigger "$GITHUB_EVENT_NAME" \
                       --release-gate "${RELEASE_GATE:-false}" \
@@ -218,7 +202,7 @@ jobs:
                       exit 1
                   else
                       echo 'found=false' >> "$GITHUB_OUTPUT"
-                      echo "::notice::No shadow candidate on this Step 1 run (dry run, V2, recovery, or packaging disabled or failed); nothing to mirror."
+                      echo "::notice::No shadow candidate on this Step 1 run (dry run, recovery, or packaging disabled or failed); nothing to mirror."
                   fi
 
             - name: Select pods
@@ -331,8 +315,8 @@ jobs:
             # with a doubling backoff for up to 10 minutes, and a fail reading
             # stops at once. Each npm view gets at most 30 seconds and each
             # read of every package at most 2 minutes, so the reads always end
-            # with a parity result inside the job timeout. A transition
-            # workflow_run (or a dispatch with release_gate=false) reads npm
+            # with a parity result inside the job timeout. A dispatch
+            # with release_gate=false reads npm
             # once, as before.
             - name: Check parity with git and npm
               id: parity

@@ -5,12 +5,9 @@
 // payload, or the same object from the REST API for a manual re-run) is
 // untrusted: only a workflow_dispatch run of one of the exact release
 // workflows in this repository, on its expected branch, is accepted, and a
-// Step 1 run must also carry its file's V3 run title. A V3 release step can
-// run from either of two files while V3 moves to its own workflows: the
-// staging-step-N.yml file both versions shared, which the
-// first V3 release after the move still runs, and v3-release-step-N.yml,
-// which every later V3 release runs. The shared names can go once a V3
-// release has run on the V3 files. Pointer moves then
+// Step 1 run must also carry its file's V3 run title. Only the split
+// v3-release-step-N.yml workflows are accepted; V2 and the former shared
+// staging workflows cannot move V3 pointers. Pointer moves then
 // mirror what the release actually did: a channel moves only when every
 // branch it shadows points at the release tag's commit, so dry runs, failed
 // runs and superseded releases change nothing. In Release Please mode
@@ -44,21 +41,18 @@
 // job (--jobs) ran.
 //
 // node --experimental-strip-types scripts/v3-release/shadow-release-trigger.ts \
-//     step1 --run <run.json> --repository <owner/name> --workflow-id <id> \
+//     step1 --run <run.json> --repository <owner/name> \
 //     --v3-workflow-id <id> --trigger workflow_run|workflow_dispatch \
 //     [--release-gate true|false] [--release-please-mode true|false] \
 //     [--release-tag <vX.Y.Z>] \
 //     [--jobs <jobs.json>] [--artifacts <artifacts.json>]
 // ... release-step --run <run.json> --repository <owner/name> \
-//     --step2-workflow-id <id> --step3-workflow-id <id> \
 //     --v3-step2-workflow-id <id> --v3-step3-workflow-id <id> \
 //     [--release-please-mode true|false] [--jobs <jobs.json>]
 // ... branches --tag <vX.Y.Z> --branch <name> [--branch <name> ...]
 // ... pods --list <comma-separated pods> [--release-gate true|false]
 //
-// --workflow-id, --step2-workflow-id and --step3-workflow-id are the IDs of
-// staging-step-1.yml, staging-step-2.yml and staging-step-3.yml; the --v3-
-// flags are the IDs of v3-release-step-1.yml, v3-release-step-2.yml and
+// The --v3- flags are the IDs of v3-release-step-1.yml, v3-release-step-2.yml and
 // v3-release-step-3.yml. release-step needs --jobs, the jobs of the run's
 // attempt, to plan a Step 3 move.
 //
@@ -114,16 +108,13 @@ export interface WorkflowArtifact {
 
 export type Trigger = 'workflow_run' | 'workflow_dispatch';
 
-// The ID GitHub gave each Step 1 file in this repository.
+// The ID GitHub gave the V3 Step 1 file in this repository.
 export interface Step1WorkflowIds {
-    staging: string;
     v3: string;
 }
 
 // The ID GitHub gave each Step 2 and Step 3 file in this repository.
 export interface ReleaseStepWorkflowIds {
-    step2: string;
-    step3: string;
     v3Step2: string;
     v3Step3: string;
 }
@@ -181,15 +172,11 @@ export interface BranchCheck {
 
 export type GitRunner = (args: string[]) => string;
 
-const STEP1_PATH = '.github/workflows/staging-step-1.yml';
-const STEP2_PATH = '.github/workflows/staging-step-2.yml';
-const STEP3_PATH = '.github/workflows/staging-step-3.yml';
 const V3_STEP1_PATH = '.github/workflows/v3-release-step-1.yml';
 const V3_STEP2_PATH = '.github/workflows/v3-release-step-2.yml';
 const V3_STEP3_PATH = '.github/workflows/v3-release-step-3.yml';
 const STEP1_BRANCH = 'v3-staging';
-// Job names in v3-release-step-1.yml, the same as in the shared
-// staging-step-1.yml it was split from.
+// Job names in v3-release-step-1.yml.
 const STEP1_RELEASE_JOB = 'Perform Release';
 const STEP1_PACKAGE_JOB = 'Package V3 candidate (shadow)';
 const STEP1_KIT_JOBS: readonly string[] = ['Publish V3 kits'];
@@ -202,8 +189,8 @@ const STEP1_LEGACY_KIT_JOBS: readonly string[] = [
     'Audit V3 kits on npm',
 ];
 const RELEASE_STEP_BRANCHES: readonly string[] = ['main'];
-// The step of both Step 3 files (staging-step-3.yml and v3-release-step-3.yml)
-// that pushes the release branches. Each runs it only when dryRun is 'false'.
+// The step of v3-release-step-3.yml that pushes the release branches.
+// It runs only when dryRun is 'false'.
 const STEP3_PUSH_STEP = 'Atomically synchronize all destinations';
 const V3_TRUNK_BRANCH = 'main';
 const RELEASE_ORDER_BRANCHES: readonly string[] = [
@@ -223,24 +210,17 @@ const STABLE_TAG_PATTERN = /^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$
 // that tag as its head branch.
 const STABLE_V3_TAG_PATTERN = /^v3\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/;
 const BRANCH_PATTERN = /^[a-z0-9][a-z0-9/-]{0,62}$/;
-// run-name of each Step 1 file for a V3 release. The shared file's title names
-// the release track, and only its v3 track is mirrored.
-const STEP1_TITLE_PATTERN = /^Staging Release - Step 1 \[v3\]$/;
+// run-name of the V3 Step 1 file.
 const V3_STEP1_TITLE_PATTERN = /^V3 Release - Step 1$/;
 const STEP1_FILES: readonly Step1File[] = [
-    { path: STEP1_PATH, idKey: 'staging', title: STEP1_TITLE_PATTERN },
     { path: V3_STEP1_PATH, idKey: 'v3', title: V3_STEP1_TITLE_PATTERN },
 ];
 // run-name of each Step 2 and Step 3 file. The tag and release order are the
 // dispatcher's inputs; they are re-validated here and the branch check below
 // decides whether anything actually moved.
-const STEP2_TITLE_PATTERN = /^Staging Release - Step 2 \[(v[0-9]+\.[0-9]+\.[0-9]+) \u2192 (release-order-[abc])\]$/;
-const STEP3_TITLE_PATTERN = /^Staging Release - Step 3 \[(v[0-9]+\.[0-9]+\.[0-9]+)\]$/;
 const V3_STEP2_TITLE_PATTERN = /^V3 Release - Step 2 \[(v[0-9]+\.[0-9]+\.[0-9]+) \u2192 (release-order-[abc])\]$/;
 const V3_STEP3_TITLE_PATTERN = /^V3 Release - Step 3 \[(v[0-9]+\.[0-9]+\.[0-9]+)\]$/;
 const RELEASE_STEP_FILES: readonly ReleaseStepFile[] = [
-    { path: STEP2_PATH, step: 2, idKey: 'step2', title: STEP2_TITLE_PATTERN },
-    { path: STEP3_PATH, step: 3, idKey: 'step3', title: STEP3_TITLE_PATTERN },
     { path: V3_STEP2_PATH, step: 2, idKey: 'v3Step2', title: V3_STEP2_TITLE_PATTERN },
     { path: V3_STEP3_PATH, step: 3, idKey: 'v3Step3', title: V3_STEP3_TITLE_PATTERN },
 ];
@@ -548,7 +528,6 @@ function planStep1(
     releaseTag?: string
 ): Step1Plan {
     validateRepository(repository);
-    validateRunId(workflowIds.staging, 'The Step 1 workflow ID');
     validateRunId(workflowIds.v3, 'The V3 Step 1 workflow ID');
     if (trigger !== 'workflow_run' && trigger !== 'workflow_dispatch') {
         fail('The trigger must be workflow_run or workflow_dispatch');
@@ -668,8 +647,6 @@ function planReleaseStep(
     jobs?: WorkflowJob[]
 ): ReleaseStepPlan {
     validateRepository(repository);
-    validateRunId(workflowIds.step2, 'The Step 2 workflow ID');
-    validateRunId(workflowIds.step3, 'The Step 3 workflow ID');
     validateRunId(workflowIds.v3Step2, 'The V3 Step 2 workflow ID');
     validateRunId(workflowIds.v3Step3, 'The V3 Step 3 workflow ID');
     const file = RELEASE_STEP_FILES.find(
@@ -909,7 +886,6 @@ function main(args: string[], git: GitRunner = defaultGit): string[] {
         requireOnly(flags, [
             '--run',
             '--repository',
-            '--workflow-id',
             '--v3-workflow-id',
             '--trigger',
             '--release-gate',
@@ -934,7 +910,6 @@ function main(args: string[], git: GitRunner = defaultGit): string[] {
             readRun(single(flags, '--run')),
             single(flags, '--repository'),
             {
-                staging: single(flags, '--workflow-id'),
                 v3: single(flags, '--v3-workflow-id'),
             },
             single(flags, '--trigger') as Trigger,
@@ -971,8 +946,6 @@ function main(args: string[], git: GitRunner = defaultGit): string[] {
         requireOnly(flags, [
             '--run',
             '--repository',
-            '--step2-workflow-id',
-            '--step3-workflow-id',
             '--v3-step2-workflow-id',
             '--v3-step3-workflow-id',
             '--release-please-mode',
@@ -988,8 +961,6 @@ function main(args: string[], git: GitRunner = defaultGit): string[] {
             readRun(single(flags, '--run')),
             single(flags, '--repository'),
             {
-                step2: single(flags, '--step2-workflow-id'),
-                step3: single(flags, '--step3-workflow-id'),
                 v3Step2: single(flags, '--v3-step2-workflow-id'),
                 v3Step3: single(flags, '--v3-step3-workflow-id'),
             },

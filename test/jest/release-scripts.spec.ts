@@ -38,18 +38,80 @@ const {
 } = require('../../scripts/preview-kit-release');
 
 describe('kit release scripts', () => {
-    it('keeps v3 kit recovery in the shared Step 1 until a V3 release runs on the split files', () => {
+    it('keeps kit recovery in V3 Step 1', () => {
+        const yaml = require('js-yaml');
         const workflow = fs.readFileSync(
-            path.join(__dirname, '../../.github/workflows/staging-step-1.yml'),
+            path.join(__dirname, '../../.github/workflows/v3-release-step-1.yml'),
             'utf8'
         );
+        const definition = yaml.load(workflow);
 
-        expect(workflow).toContain('resumeKitReleaseTag:');
+        expect(definition.on.workflow_dispatch.inputs.resumeKitReleaseTag).toEqual({
+            description: 'Recovery only: resume kit publishing from an existing Step 1 tag',
+            required: false,
+            type: 'string',
+            default: '',
+        });
         expect(workflow).toContain(
             'git rev-parse "${RESUME_KIT_RELEASE_TAG}^{commit}"'
         );
-        expect(workflow).toMatch(/^    publish-kits:$/m);
-        expect(workflow).toMatch(/^    audit-kits:$/m);
+        expect(definition.jobs['publish-kits']).toBeDefined();
+        // The integrated strict audit in publish-kits.js replaces audit-kits.
+        expect(definition.jobs['audit-kits']).toBeUndefined();
+    });
+
+    it.each([1, 2, 3])('keeps staging-step-%s V2-only', step => {
+        const yaml = require('js-yaml');
+        const workflow = fs.readFileSync(
+            path.join(__dirname, `../../.github/workflows/staging-step-${step}.yml`),
+            'utf8'
+        );
+        const definition = yaml.load(workflow);
+        const inputs = definition.on.workflow_dispatch.inputs;
+
+        expect(definition.name).toMatch(
+            new RegExp(`^V2 Release - Step ${step}(?:$|:)`)
+        );
+        expect(definition['run-name']).toMatch(
+            new RegExp(`^V2 Release - Step ${step}(?:$| )`)
+        );
+        expect(inputs.track).toBeUndefined();
+        expect(inputs.resumeKitReleaseTag).toBeUndefined();
+        expect(inputs.dryRun).toEqual({
+            description: expect.any(String),
+            required: true,
+            type: 'boolean',
+            default: true,
+        });
+        expect(workflow).not.toContain('inputs.track');
+        expect(workflow).not.toContain('resumeKitReleaseTag');
+        expect(workflow).not.toContain('refs/heads/v3-staging');
+        expect(workflow).not.toContain('v3-shadow-candidate.yml');
+        expect(workflow).not.toContain('scripts/publish-kits.js');
+        expect(definition.jobs['publish-kits']).toBeUndefined();
+        expect(definition.jobs['audit-kits']).toBeUndefined();
+        expect(definition.jobs['package-v3-candidate']).toBeUndefined();
+        expect(definition.jobs['upload-v3-candidate']).toBeUndefined();
+        expect(definition.jobs['verify-release-artifacts']).toBeUndefined();
+        if (step === 1) {
+            expect(definition.jobs.release.env.GITHUB_TOKEN).toBe(
+                '${{ secrets.MP_SEMANTIC_RELEASE_BOT }}'
+            );
+        } else if (step === 3) {
+            const synchronize = definition.jobs['synchronize-branches'];
+            expect(synchronize.env.GITHUB_TOKEN).toBe(
+                '${{ secrets.MP_SEMANTIC_RELEASE_BOT }}'
+            );
+            const checkout = synchronize.steps.find(
+                entry => entry.uses === 'actions/checkout@v6'
+            );
+            expect(checkout.with.token).toBe(
+                '${{ secrets.MP_SEMANTIC_RELEASE_BOT }}'
+            );
+        }
+        expect(workflow).toContain(
+            step === 1 ? 'refs/heads/staging' : 'refs/heads/master'
+        );
     });
 
     it('uses the immutable release tag as the recovery authority', () => {
@@ -2913,9 +2975,8 @@ describe('kit release scripts', () => {
             expect(summary).toContain('resumeKitReleaseTag=v3.0.1');
             expect(summary).toContain('core and all 33 kits');
             expect(summary).toContain('**V3 Release - Step 1**');
-            expect(summary).toContain(
-                'dispatch **Staging Release - Step 1** from `v3-staging` instead, with `track=v3`'
-            );
+            expect(summary).not.toContain('Staging Release - Step 1');
+            expect(summary).not.toContain('track=v3');
             expect(summary).toContain('@mparticle/web-example-kit');
 
             const readme = fs.readFileSync(
@@ -2941,6 +3002,22 @@ describe('kit release scripts', () => {
             );
             expect(readme).toContain(
                 'Any rollback of this change on `main` must keep the\n`release_tag` input declaration on `v3-shadow-candidate.yml`'
+            );
+            expect(readme).not.toContain('Staging Release - Step');
+            expect(readme).not.toContain('track=v3');
+            expect(readme).not.toContain('track=v2');
+            expect(readme).not.toContain('V3_PACKAGE_CANDIDATE');
+            expect(readme).toContain(
+                '**V2 Release - Step 1** (`staging-step-1.yml`) from `staging`'
+            );
+            expect(readme).toContain(
+                '**V2 Release - Step 2** (`staging-step-2.yml`) from `master`'
+            );
+            expect(readme).toContain(
+                '**V2 Release - Step 3** (`staging-step-3.yml`) from `master`'
+            );
+            expect(readme).toContain(
+                'The V2 workflow keeps the `staging-step-1.yml`\nfilename so its trusted-publisher configuration does not need to change.'
             );
         } finally {
             if (previousSummaryPath === undefined) {

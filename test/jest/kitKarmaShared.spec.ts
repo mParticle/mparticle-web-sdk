@@ -179,9 +179,16 @@ describe('kits/karma.local.shared', () => {
 
         const workflowPaths = [
             '.github/workflows/pull-request.yml',
-            '.github/workflows/staging-step-1.yml',
             '.github/workflows/v3-release-step-1.yml',
         ];
+
+        const v2Workflow = yaml.load(
+            fs.readFileSync(
+                path.join(REPO_ROOT, '.github/workflows/staging-step-1.yml'),
+                'utf8'
+            )
+        );
+        expect(v2Workflow.jobs['run-kit-tests']).toBeUndefined();
 
         for (const workflowPath of workflowPaths) {
             const workflow = yaml.load(

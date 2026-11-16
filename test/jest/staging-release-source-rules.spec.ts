@@ -95,6 +95,14 @@ const dispatchCases = (major: 2 | 3) => {
             1,
             refRule('refs/heads/v3-staging'),
         ],
+        ...[
+            'refs/heads/staging',
+            'refs/heads/development',
+            `refs/tags/v${major}.12.0`,
+            '',
+        ].map((ref): [string, string, string, number, string] => [
+            `v${major}.12.0`, ref, `source ref ${ref || '(empty)'}`, 1, refRule(ref),
+        ]),
         ['v4.0.0', trunk, 'an unsupported major', 1, tagRule('v4.0.0')],
         [
             `v${major}.1.0-rc.1`,
@@ -166,14 +174,17 @@ describe('release Steps 2 and 3 per-version dispatch rule', () => {
             for (const [tag, ref, label, status, output] of dispatchCases(
                 major
             )) {
-                it(`${status === 0 ? 'accepts' : 'rejects'} ${label}`, () => {
-                    expect(
-                        runBash(validate, os.tmpdir(), {
-                            RELEASE_TAG: tag,
-                            SOURCE_REF: ref,
-                        })
-                    ).toEqual({ status, output });
-                });
+                for (const dryRun of ['true', 'false']) {
+                    it(`${status === 0 ? 'accepts' : 'rejects'} ${label} (dryRun=${dryRun})`, () => {
+                        expect(
+                            runBash(validate, os.tmpdir(), {
+                                RELEASE_TAG: tag,
+                                SOURCE_REF: ref,
+                                DRY_RUN: dryRun,
+                            })
+                        ).toEqual({ status, output });
+                    });
+                }
             }
         });
     }
@@ -240,222 +251,198 @@ const withRepository = (
 const differsOutput = (stepOne: string, ref: string, trunk: string) =>
     `${stepOne} on ${ref} differs from refs/remotes/origin/${trunk}\nSynchronize the staging branch from its approved trunk before releasing\n`;
 
-// The shared Step 1 keeps both tracks until one V3 release has run on
-// v3-release-step-1.yml: until then, it is the only workflow that can resume a
-// failed V3 kit publish from v3-staging. These are its pre-split tests.
-describe('shared Step 1 (staging-step-1.yml) workflow source validation, until the first V3 release on the split files', () => {
+describe('V2 Step 1 (staging-step-1.yml) workflow source validation', () => {
     const workflow = readWorkflow('staging-step-1.yml');
+    const parsed = yaml.load(workflow);
     const validate = stepScript(workflow, 'Validate workflow source');
     const stepOne = '.github/workflows/staging-step-1.yml';
-    const stepTwo = '.github/workflows/staging-step-2.yml';
-
-    const withRepository = (
-        branches: Record<string, string>,
-        dispatchBranch: string,
-        test: (checkout: string, summary: string) => void
-    ) => {
-        const root = fs.realpathSync(
-            fs.mkdtempSync(path.join(os.tmpdir(), 'mparticle-step-one-'))
-        );
-        const git = (cwd: string, ...args: string[]) => {
-            const result = spawnSync(
-                'git',
-                [
-                    '-c',
-                    'user.name=test',
-                    '-c',
-                    'user.email=test@example.com',
-                    '-c',
-                    'commit.gpgsign=false',
-                    '-c',
-                    'init.defaultBranch=seed',
-                    ...args,
-                ],
-                { cwd, encoding: 'utf8' }
-            );
-            expect(result.status).toBe(0);
-        };
-        const origin = path.join(root, 'origin.git');
-        const work = path.join(root, 'work');
-        const checkout = path.join(root, 'checkout');
-        try {
-            git(root, 'init', '-q', '--bare', origin);
-            git(root, 'init', '-q', work);
-            fs.writeFileSync(path.join(work, 'seed'), 'seed');
-            git(work, 'add', 'seed');
-            git(work, 'commit', '-q', '-m', 'seed');
-            for (const [branch, content] of Object.entries(branches)) {
-                git(work, 'checkout', '-q', '-B', branch, 'seed');
-                fs.mkdirSync(path.join(work, '.github/workflows'), {
-                    recursive: true,
-                });
-                fs.writeFileSync(path.join(work, stepOne), content);
-                fs.writeFileSync(path.join(work, stepTwo), `${branch}\n`);
-                git(work, 'add', '.github');
-                git(work, 'commit', '-q', '-m', branch);
-                git(work, 'push', '-q', origin, `${branch}:${branch}`);
-            }
-            git(root, 'clone', '-q', '-b', dispatchBranch, origin, checkout);
-            test(checkout, path.join(root, 'summary.md'));
-        } finally {
-            fs.rmSync(root, { force: true, recursive: true });
-        }
-    };
-
     const run = (
         checkout: string,
         summary: string,
         env: Record<string, string>
     ) =>
         runBash(validate, checkout, {
-            RESUME_KIT_RELEASE_TAG: '',
             GITHUB_STEP_SUMMARY: summary,
             ...env,
         });
 
-    it('no longer compares the master and main copies', () => {
-        expect(validate).not.toContain('refs/remotes/origin/master:');
-        expect(validate).not.toContain('refs/remotes/origin/main:');
-        expect(validate).not.toContain('differs between origin/master');
-        expect(validate).not.toContain(stepTwo);
+    it('keeps the trusted-publisher filename but takes only dryRun as input', () => {
+        expect(parsed.name).toBe(
+            'V2 Release - Step 1: Prepare CDN Pre-Release, Publish NPM'
+        );
+        expect(parsed['run-name']).toBe('V2 Release - Step 1 [v2]');
+        expect(Object.keys(parsed.on.workflow_dispatch.inputs)).toEqual(['dryRun']);
+        expect(workflow).not.toContain('inputs.track');
+        expect(workflow).not.toContain('resumeKitReleaseTag');
+        expect(workflow).not.toMatch(/v3|V3/);
+        expect(validate).toContain(`STEP_ONE_WORKFLOW="${stepOne}"`);
+        expect(validate).toContain('APPROVED_BRANCH="master"');
+        expect(validate).toContain('"HEAD:${STEP_ONE_WORKFLOW}"');
+        expect(validate).not.toContain(STEP_TWO);
         expect(validate).not.toContain('staging-step-3.yml');
     });
 
-    it('keeps the dispatch-ref and staging-vs-trunk checks', () => {
-        expect(validate).toContain(
-            '"v2|refs/heads/staging"|"v3|refs/heads/v3-staging") ;;'
-        );
-        expect(validate).toContain('v2) APPROVED_BRANCH="master" ;;');
-        expect(validate).toContain('v3) APPROVED_BRANCH="main" ;;');
-        expect(validate).toContain('"HEAD:${STEP_ONE_WORKFLOW}"');
-    });
+    for (const dryRun of ['true', 'false']) {
+        it(`accepts staging when it matches master (dryRun=${dryRun}), independently of main`, () => {
+            withRepository(
+                stepOne,
+                { master: 'v2\n', main: 'v3\n', staging: 'v2\n' },
+                'staging',
+                (checkout, summary) => {
+                    expect(
+                        run(checkout, summary, {
+                            SOURCE_REF: 'refs/heads/staging',
+                            DRY_RUN: dryRun,
+                        }).status
+                    ).toBe(0);
+                    expect(fs.readFileSync(summary, 'utf8')).toContain(
+                        '- Source ref: `refs/heads/staging`'
+                    );
+                }
+            );
+        });
 
-    it('releases V2 when staging matches master, whatever main carries', () => {
+        for (const ref of [
+            'refs/heads/main',
+            'refs/heads/master',
+            'refs/heads/v3-staging',
+            'refs/heads/development',
+            'refs/tags/v2.12.0',
+            'refs/tags/v3.12.0',
+            '',
+        ]) {
+            it(`rejects ${ref || 'an empty ref'} before git or summary writes (dryRun=${dryRun})`, () => {
+                // There is no repository or summary here: a wrong ref must fail
+                // before fetching approved source, even for a real release.
+                expect(
+                    runBash(validate, os.tmpdir(), {
+                        SOURCE_REF: ref,
+                        DRY_RUN: dryRun,
+                        GITHUB_STEP_SUMMARY: '',
+                    })
+                ).toEqual({
+                    status: 1,
+                    output: `V2 Step 1 requires source ref refs/heads/staging; received ${ref}\n`,
+                });
+            });
+        }
+    }
+
+    it('rejects a real release when staging differs from master, even when main matches', () => {
         withRepository(
-            { master: 'v2\n', main: 'v3\n', staging: 'v2\n' },
+            stepOne,
+            { master: 'approved\n', main: 'edited\n', staging: 'edited\n' },
             'staging',
             (checkout, summary) => {
-                expect(
-                    run(checkout, summary, {
-                        TRACK: 'v2',
-                        SOURCE_REF: 'refs/heads/staging',
-                        DRY_RUN: 'false',
-                    }).status
-                ).toBe(0);
-            }
-        );
-    });
-
-    it('releases V3 when v3-staging matches main, whatever master carries', () => {
-        withRepository(
-            { master: 'v2\n', main: 'v3\n', 'v3-staging': 'v3\n' },
-            'v3-staging',
-            (checkout, summary) => {
-                expect(
-                    run(checkout, summary, {
-                        TRACK: 'v3',
-                        SOURCE_REF: 'refs/heads/v3-staging',
-                        DRY_RUN: 'false',
-                    }).status
-                ).toBe(0);
-            }
-        );
-    });
-
-    it('rejects a staging copy that differs from its own trunk', () => {
-        withRepository(
-            { master: 'v2\n', main: 'v2\n', staging: 'edited\n' },
-            'staging',
-            (checkout, summary) => {
-                const env = { TRACK: 'v2', SOURCE_REF: 'refs/heads/staging' };
+                const env = { SOURCE_REF: 'refs/heads/staging' };
                 expect(
                     run(checkout, summary, { ...env, DRY_RUN: 'false' })
                 ).toEqual({
                     status: 1,
-                    output: `${stepOne} on refs/heads/staging differs from refs/remotes/origin/master\nSynchronize the staging branch from its approved trunk before releasing\n`,
+                    output: differsOutput(stepOne, 'refs/heads/staging', 'master'),
                 });
+                expect(fs.existsSync(summary)).toBe(false);
                 expect(
                     run(checkout, summary, { ...env, DRY_RUN: 'true' }).status
                 ).toBe(0);
             }
         );
-        withRepository(
-            { master: 'v3\n', main: 'v3-main\n', 'v3-staging': 'v3\n' },
-            'v3-staging',
-            (checkout, summary) => {
-                expect(
-                    run(checkout, summary, {
-                        TRACK: 'v3',
-                        SOURCE_REF: 'refs/heads/v3-staging',
-                        DRY_RUN: 'false',
-                    })
-                ).toEqual({
-                    status: 1,
-                    output: `${stepOne} on refs/heads/v3-staging differs from refs/remotes/origin/main\nSynchronize the staging branch from its approved trunk before releasing\n`,
-                });
-            }
-        );
     });
 
-    it('holds V3 kit recovery to the same staging-vs-trunk check', () => {
-        const recovery = {
-            TRACK: 'v3',
-            SOURCE_REF: 'refs/heads/v3-staging',
-            DRY_RUN: 'false',
-            RESUME_KIT_RELEASE_TAG: 'v3.12.0',
-        };
+    it('fails closed for a real release without an approved master copy', () => {
         withRepository(
-            { master: 'v2\n', main: 'old\n', 'v3-staging': 'new\n' },
-            'v3-staging',
-            (checkout, summary) => {
-                expect(run(checkout, summary, recovery)).toEqual({
-                    status: 1,
-                    output: `${stepOne} on refs/heads/v3-staging differs from refs/remotes/origin/main\nSynchronize the staging branch from its approved trunk before releasing\n`,
-                });
-            }
-        );
-        withRepository(
-            { master: 'v2\n', main: 'new\n', 'v3-staging': 'new\n' },
-            'v3-staging',
-            (checkout, summary) => {
-                expect(run(checkout, summary, recovery).status).toBe(0);
-                expect(
-                    run(checkout, summary, { ...recovery, DRY_RUN: 'true' })
-                ).toEqual({
-                    status: 1,
-                    output: 'Kit recovery requires track=v3 and dryRun=false\n',
-                });
-            }
-        );
-    });
-
-    it('rejects a track dispatched from the other staging branch', () => {
-        withRepository(
-            { master: 'same\n', main: 'same\n', staging: 'same\n' },
+            stepOne,
+            { main: 'same\n', staging: 'same\n' },
             'staging',
             (checkout, summary) => {
                 expect(
                     run(checkout, summary, {
-                        TRACK: 'v3',
                         SOURCE_REF: 'refs/heads/staging',
-                        DRY_RUN: 'true',
-                    })
-                ).toEqual({
-                    status: 1,
-                    output:
-                        'Track v3 must dispatch from its staging branch; received refs/heads/staging\n',
-                });
+                        DRY_RUN: 'false',
+                    }).status
+                ).not.toBe(0);
+                expect(fs.existsSync(summary)).toBe(false);
             }
         );
     });
 
-    it('prints Step 2 and 3 preview commands for the track trunk', () => {
-        const report = stepBlock(
-            workflow,
-            'Verify and report release candidate'
+    it('fixes the V2 branch and npm mapping and freezes development before tests', () => {
+        const resolve = stepScript(workflow, 'Resolve exact branch mapping');
+        for (const setting of [
+            'DEVELOPMENT_BRANCH="development"',
+            'STAGING_BRANCH="staging"',
+            'RELEASE_BRANCH="release/${GITHUB_RUN_NUMBER}"',
+            'NPM_DIST_TAG="latest"',
+            'git rev-parse "refs/remotes/origin/${DEVELOPMENT_BRANCH}^{commit}"',
+            'echo "candidate_sha=${CANDIDATE_SHA}"',
+        ]) {
+            expect(resolve).toContain(setting);
+        }
+        const mapping = stepScript(workflow, 'Validate V2 mapping and checkout');
+        expect(mapping).toContain('"development|staging|release/${GITHUB_RUN_NUMBER}|latest") ;;');
+        expect(mapping).toContain('"$CHECKED_OUT_SHA" "$CANDIDATE_SHA"');
+        expect(mapping).toContain('git merge-base --is-ancestor');
+        expect(mapping).toContain('"$CHECKED_OUT_SHA" != "$EXPECTED_SHA"');
+        const baseline = stepScript(workflow, 'Validate reachable release tag major');
+        expect(baseline).toContain('EXPECTED_MAJOR=2');
+        expect(baseline).toContain("git tag --merged HEAD --list 'v*' --sort=-v:refname");
+        expect(baseline).toContain('"$FOUND_MAJOR" != "$EXPECTED_MAJOR"');
+    });
+
+    it('retains every core and integration gate and removes every kit or shadow job', () => {
+        const gates = [
+            'confirm-staging-branch',
+            'build-bundle',
+            'test-jest',
+            'test-core',
+            'test-stub',
+            'test-integrations-require-js',
+            'test-integrations-common-js-browserfy',
+            'test-integrations-common-js-webpack',
+            'test-integrations-common-js-rollup',
+            'test-integrations-module-js-webpack',
+            'test-integrations-module-js-rollup',
+        ];
+        expect(Object.keys(parsed.jobs)).toEqual([
+            ...gates,
+            'create-release-branch',
+            'release',
+        ]);
+        const create = parsed.jobs['create-release-branch'];
+        expect(create.needs.slice().sort()).toEqual(gates.slice().sort());
+        expect(create.if).toContain('!cancelled()');
+        for (const gate of gates) {
+            expect(create.if).toContain(`needs.${gate}.result == 'success'`);
+        }
+        const frozenRef = '${{ needs.confirm-staging-branch.outputs.candidate_sha }}';
+        for (const name of gates.slice(1)) {
+            const job = parsed.jobs[name];
+            expect(job.if).toBeUndefined();
+            if (job.uses) {
+                expect(job.with.branch_name).toBe(frozenRef);
+            } else {
+                const checkout = job.steps.find((step: { uses?: string }) =>
+                    step.uses && step.uses.startsWith('actions/checkout@')
+                );
+                expect(checkout.with.ref).toBe(frozenRef);
+            }
+        }
+        expect(parsed.jobs.release.env.GITHUB_TOKEN).toBe(
+            '${{ secrets.MP_SEMANTIC_RELEASE_BOT }}'
         );
-        expect(report).toContain('v2) PROMOTION_REF="master" ;;');
-        expect(report).toContain('v3) PROMOTION_REF="main" ;;');
+        expect(parsed.jobs.release.if).toContain(
+            "needs.create-release-branch.result == 'success'"
+        );
+        expect(parsed.concurrency).toEqual({
+            group: 'mparticle-web-sdk-release-publish',
+            'cancel-in-progress': false,
+        });
+    });
+
+    it('prints only the V2 Step 2 and 3 preview commands from master', () => {
+        const report = stepBlock(workflow, 'Verify and report release candidate');
+        expect(report).toContain('PROMOTION_REF="master"');
+        expect(report).not.toContain('PROMOTION_REF="main"');
         expect(report).toContain(
             'printf \'gh workflow run staging-step-2.yml --ref %s -f releaseTag=%s -f releaseOrderBranch=release-order-a -f dryRun=true\\n\' "$PROMOTION_REF" "$RELEASE_TAG"'
         );
@@ -638,6 +625,8 @@ describe('V3 Step 1 (v3-release-step-1.yml) workflow source validation', () => {
         );
         expect(report).toContain('PROMOTION_REF="main"');
         expect(report).not.toContain('PROMOTION_REF="master"');
+        expect(report).toContain('Use only v3-release-step-2.yml on main for V3 Step 2.');
+        expect(report).not.toContain('gh workflow run staging-step-2.yml');
         expect(report).toContain(
             'printf \'gh workflow run v3-release-step-2.yml --ref %s -f releaseTag=%s -f releaseOrderBranch=release-order-a -f dryRun=true\\n\' "$PROMOTION_REF" "$RELEASE_TAG"'
         );
@@ -663,7 +652,6 @@ describe('shared Step 1 (staging-step-1.yml): no dependency install or lifecycle
 
     it('finds the credentialed jobs in staging-step-1.yml', () => {
         expect(credentialedJobs.map(([name]) => name).sort()).toEqual([
-            'publish-kits',
             'release',
         ]);
     });
@@ -719,11 +707,6 @@ describe('shared Step 1 (staging-step-1.yml): no dependency install or lifecycle
             {
                 job: 'release',
                 step: 'Release',
-                ignoreScripts: 'true',
-            },
-            {
-                job: 'publish-kits',
-                step: 'Publish kits concurrently',
                 ignoreScripts: 'true',
             },
         ]);

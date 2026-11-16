@@ -1147,7 +1147,8 @@ jobs:
                       if [ "$RELEASE_MODE" = "tag" ]; then
                           printf 'v3-staging moves to this commit once the kits publish; Steps 2 and 3 need that move.\n\n'
                       fi
-                      printf 'Step 2 is optional and release-order A/B/C are unordered.\n\n'
+                      printf 'Step 2 is optional and release-order A/B/C are unordered.\n'
+                      printf 'Use only v3-release-step-2.yml on main for V3 Step 2.\n\n'
                       PROMOTION_REF="main"
                       printf '### Preview commands\n\n```sh\n'
                       printf 'gh workflow run v3-release-step-2.yml --ref %s -f releaseTag=%s -f releaseOrderBranch=release-order-a -f dryRun=true\n' "$PROMOTION_REF" "$RELEASE_TAG"
