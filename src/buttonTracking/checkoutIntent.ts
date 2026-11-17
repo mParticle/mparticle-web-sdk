@@ -27,6 +27,10 @@ const checkoutPath = new RegExp(
     '(?:^|\\/)(?:' + CHECKOUT_SEGMENT + '|payment|order|kasse|paiement|commander?|pago)(?:\\/|$)',
     'i'
 );
+// An order flow with a step after the order id, such as /orders/<id>/purchase, or a /purchase route. A bare /orders or
+// /orders/<id> is an order list or status page, and an account's order history never counts.
+const orderFlowPath = /(?:^|\/)(?:orders\/[^/]+\/[^/]+|purchase)(?:\/|$)/i;
+const accountAreaPath = /(?:^|\/)(?:accounts?|my-?account|profile|order-?history|history)(?:\/|$)/i;
 // A route with a checkout segment itself, not just a payment or order one, which account pages also use.
 const checkoutSegmentPath = new RegExp('(?:^|\\/)' + CHECKOUT_SEGMENT + '(?:\\/|$)', 'i');
 // A confirmation page under a checkout route, such as /checkout/thankyou/<order> or /checkouts/<token>/thank_you, comes
@@ -183,7 +187,9 @@ const EDGE =
 const EDGE_SYMBOLS = new RegExp('^' + EDGE + '|' + EDGE + '$', 'g');
 
 function getIntentRouteClass(pathname: string): 'checkout_path' | 'other' {
-    return checkoutPath.test(pathname) && !confirmationPath.test(pathname)
+    return (checkoutPath.test(pathname) ||
+        (orderFlowPath.test(pathname) && !accountAreaPath.test(pathname))) &&
+        !confirmationPath.test(pathname)
         ? 'checkout_path'
         : 'other';
 }
