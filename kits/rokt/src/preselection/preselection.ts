@@ -231,10 +231,11 @@ function isLoggedIn(host: PreselectHost): boolean {
   return userId !== null && getUserId(currentUser) === userId && currentUser?.isLoggedIn?.() === true;
 }
 
-// A tap off its entry's route fires that entry under the same identity, email and once-per-checkout gates: a cart
-// click fires the account's one cartIntent entry, and a logged-in shopper's commit or wallet tap its one entry
-// without cartIntent. A guest's wallet tap made with no identity waits for one (awaitIdentity). Any other guest
-// tap, and a tap no entry or more than one entry could claim, is only observed; `cause` says why.
+// A tap off its entry's route fires that entry under the same identity, email and once-per-checkout gates, and only
+// on a host the entry lists when it lists any: a cart click fires the account's one cartIntent entry, and a logged-in
+// shopper's commit or wallet tap its one entry without cartIntent. A guest's wallet tap made with no identity waits
+// for one (awaitIdentity). Any other guest tap, and a tap no entry or more than one entry could claim, is only
+// observed; `cause` says why.
 function fireOrObserveOffEntry(
   state: PreselectState,
   host: PreselectHost,
@@ -247,8 +248,8 @@ function fireOrObserveOffEntry(
   const accountId = host.accountId!;
   const route = intentRouteOutsideEntry(accountId);
   const loggedIn = isLoggedIn(host);
-  const observe = (cause?: string): void =>
-    logObservedIntent(host, signal, route, visitKey, { logged_in: loggedIn, ...(cause ? { cause } : {}) }, afterWait);
+  const observe = (cause?: string, endsWait = afterWait): void =>
+    logObservedIntent(host, signal, route, visitKey, { logged_in: loggedIn, ...(cause ? { cause } : {}) }, endsWait);
   const isCart = signal.kind === 'cart';
   // A page can identify a guest while the wallet sheet is open, so a guest's wallet tap may fire once that happens.
   const waitsForIdentity = signal.kind === 'wallet' && !loggedIn && (afterWait || !hasValidIdentity(host.filteredUser));
@@ -268,6 +269,15 @@ function fireOrObserveOffEntry(
   if (clickPathname !== stripTrailingSlash(window.location.pathname) && !(isCart && isLiveIntent(signal)))
     return observe('path_changed');
   const entry = entries[0];
+  // Ahead of the identity check, so a guest's wallet tap on another storefront never waits for an identity. Its line
+  // stands in for the wait's end, so the tap's own line logged above does not hide it. A live cart click on the entry's
+  // own route that an SPA router has already moved still counts as on that route, which ignores hosts.
+  if (
+    entry.hosts &&
+    !entry.hosts.includes(window.location.hostname) &&
+    findPreselectionConfig(accountId, clickPathname)?.targetPageIdentifier !== entry.targetPageIdentifier
+  )
+    return observe('unlisted_host', waitsForIdentity);
   if (!hasValidIdentity(host.filteredUser)) {
     if (waitsForIdentity && !afterWait) return awaitIdentity(state, host, signal, clickPathname, visitKey);
     return observe('no_valid_identity');

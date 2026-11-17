@@ -148,7 +148,7 @@ function parseEntry(accountId: string, raw: unknown): PreselectionConfigEntry | 
 
   const { pathname, pathnames, targetPageIdentifier, attributeKeys, optionalAttributeKeys, identityKeys, dispatchDelayMs } = raw;
   const { triggerEventNames, releaseHoldOnRouteChange, readEmailInput, cartIntent, cartUserAttribute } = raw;
-  const { checkoutStepIntent, intentSelectors } = raw;
+  const { checkoutStepIntent, intentSelectors, hosts } = raw;
   // The older name for the same field, read until every setting has moved to the new one.
   const legacyDefaults = raw.preselectAttributeOverrides;
   const defaults = raw.preselectAttributeDefaults !== undefined ? raw.preselectAttributeDefaults : legacyDefaults;
@@ -223,6 +223,13 @@ function parseEntry(accountId: string, raw: unknown): PreselectionConfigEntry | 
   }
   if (intentSelectors !== undefined && !isIntentSelectors(intentSelectors)) {
     return 'intentSelectors';
+  }
+  // A page's host always reads in lower case, so any other value could never match.
+  if (
+    hosts !== undefined &&
+    (!isStringArray(hosts) || hosts.length === 0 || !hosts.every((h) => h !== '' && h === h.toLowerCase()))
+  ) {
+    return 'hosts';
   }
   if (
     readEmailInput !== undefined &&
@@ -299,6 +306,9 @@ function parseEntry(accountId: string, raw: unknown): PreselectionConfigEntry | 
   }
   if (intentSelectors !== undefined) {
     entry.intentSelectors = intentSelectors as PreselectionConfigEntry['intentSelectors'];
+  }
+  if (hosts !== undefined) {
+    entry.hosts = hosts;
   }
   if (readEmailInput !== undefined) {
     entry.readEmailInput = readEmailInput;

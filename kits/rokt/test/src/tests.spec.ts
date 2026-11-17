@@ -7040,6 +7040,21 @@ describe('Rokt Forwarder', () => {
           'Rokt Kit: preselect fired [reason=intent] [identity_types=customerid,email] [intent_kind=wallet] [intent_route=before_entry] [intent_source=vendor] [logged_in=true]',
         ]);
       });
+      it("fires a logged-in shopper's tap only on a host the entry lists", async () => {
+        await reinit(buildSettings({ hosts: ['shop.example.test'] }));
+        const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+        tap('wallet');
+        await vi.advanceTimersByTimeAsync(1);
+        expect(placements).not.toHaveBeenCalled();
+        expect(diagnosticLines(logSpy, 'intent_observed')).toEqual([
+          'Rokt Kit: preselect skipped [reason=intent_observed] [intent_kind=wallet] [intent_route=before_entry] [intent_source=vendor] [has_email=true] [has_identity=true] [logged_in=true] [cause=unlisted_host]',
+        ]);
+
+        await reinit(buildSettings({ hosts: [window.location.hostname] }));
+        tap('wallet');
+        await vi.advanceTimersByTimeAsync(1);
+        expect(placements).toHaveBeenCalledTimes(1);
+      });
       it("only observes a guest's tap", async () => {
         loggedIn = false;
         const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
