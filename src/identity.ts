@@ -1424,8 +1424,11 @@ export default function Identity(
 
             identityApiResult = identityResponse.responseText ?? null;
 
-            mpInstance._Store.isLoggedIn =
-                identityApiResult?.is_logged_in || false;
+            // A modify response carries no login flag, and a modify cannot log the user in or out.
+            if (method !== Modify) {
+                mpInstance._Store.isLoggedIn =
+                    identityApiResult?.is_logged_in || false;
+            }
 
             // https://go.mparticle.com/work/SQDSDKS-6504
             // set currentUser
