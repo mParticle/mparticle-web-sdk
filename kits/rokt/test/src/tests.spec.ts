@@ -1739,8 +1739,9 @@ describe('Rokt Forwarder', () => {
         mpid: string,
         userIdentities: Record<string, string> = {},
         attributes: Record<string, unknown> = {},
+        keepsLogin = false,
       ) => {
-        coreUser = { mpid, loggedIn: false, identities: userIdentities };
+        coreUser = { mpid, loggedIn: keepsLogin && coreUser.loggedIn, identities: userIdentities };
         const user = makeUser(mpid, userIdentities, attributes);
         (window as any).mParticle.forwarder.onModifyComplete(user, { userIdentities });
         (window as any).mParticle.forwarder.onUserIdentified(user);
@@ -2005,6 +2006,37 @@ describe('Rokt Forwarder', () => {
         logSpy.mockRestore();
       });
 
+      // A modify after which core still reports the user logged in. A failed identity call clears the flag with no kit
+      // callback, so after such a modify the cleared flag means a call that failed, not the modify.
+      it('sends the call when a modify keeps the login flag during the search', async () => {
+        const kit = (window as any).mParticle.forwarder;
+        const logSpy = vi.spyOn(kit.loggingService, 'log');
+        const selection = callForA();
+        modify('A', { email: 'a@example.com', customerid: 'cust-A' }, { tier: 'gold-A' }, true);
+        finishSearch();
+        await selection;
+
+        expect((window as any).Rokt.selectPlacementsOptions.attributes).toEqual(
+          expect.objectContaining({ mpid: 'A', customerid: 'cust-A', firstname: 'call-for-A' }),
+        );
+        expect(logSpy).not.toHaveBeenCalledWith(expect.objectContaining({ code: 'SELECT_PLACEMENTS_USER_CHANGED' }));
+        logSpy.mockRestore();
+      });
+
+      it('drops the call when a failed call clears the login flag after a modify that kept it', async () => {
+        const kit = (window as any).mParticle.forwarder;
+        const logSpy = vi.spyOn(kit.loggingService, 'log');
+        const selection = callForA();
+        modify('A', { email: 'a@example.com', customerid: 'cust-A' }, { tier: 'gold-A' }, true);
+        coreUser = { ...coreUser, loggedIn: false };
+        finishSearch();
+
+        expect(await selection).toBeUndefined();
+        expect((window as any).Rokt.selectPlacementsCalled).toBeFalsy();
+        expect(logSpy).toHaveBeenCalledWith(expect.objectContaining({ code: 'SELECT_PLACEMENTS_USER_CHANGED' }));
+        logSpy.mockRestore();
+      });
+
       it('drops the call when another logged-in user is identified while the launcher is recreated', async () => {
         const kit = (window as any).mParticle.forwarder;
         kit._workspaceSearchInFlightPromise = null;
@@ -2112,8 +2144,8 @@ describe('Rokt Forwarder', () => {
         });
       };
 
-      const modifyCoreUser = (mpid: string, identities: Record<string, string> = {}) => {
-        coreUser = { mpid, loggedIn: false, identities };
+      const modifyCoreUser = (mpid: string, identities: Record<string, string> = {}, keepsLogin = false) => {
+        coreUser = { mpid, loggedIn: keepsLogin && coreUser.loggedIn, identities };
         const user = {
           getMPID: () => mpid,
           getUserIdentities: () => ({ userIdentities: identities }),
@@ -2279,6 +2311,31 @@ describe('Rokt Forwarder', () => {
         const selection = kit.selectPlacements({ identifier: 'test-placement', attributes: { email: 'a@example.com' } });
         modifyCoreUser('A', { email: 'a@example.com', customerid: 'cust-A' });
         logoutCoreUser('A', { email: 'a@example.com' });
+        await settle(selection);
+
+        expect((window as any).mParticle.loggedEvents).toEqual([]);
+        expect(logSpy).toHaveBeenCalledWith(expect.objectContaining({ code: 'SELECT_PLACEMENTS_EVENT_USER_CHANGED' }));
+        logSpy.mockRestore();
+      });
+
+      it('logs the event when a modify keeps the login flag', async () => {
+        const kit = (window as any).mParticle.forwarder;
+        const selection = kit.selectPlacements({ identifier: 'test-placement', attributes: { email: 'a@example.com' } });
+        modifyCoreUser('A', { email: 'a@example.com', customerid: 'cust-A' }, true);
+        await settle(selection);
+
+        expect((window as any).mParticle.loggedEvents).toHaveLength(1);
+        expect((window as any).mParticle.loggedEvents[0].eventAttributes).toEqual(
+          expect.objectContaining({ mpid: 'A', email: 'a@example.com' }),
+        );
+      });
+
+      it('does not log the event when a failed call clears the login flag after a modify that kept it', async () => {
+        const kit = (window as any).mParticle.forwarder;
+        const logSpy = vi.spyOn(kit.loggingService, 'log');
+        const selection = kit.selectPlacements({ identifier: 'test-placement', attributes: { email: 'a@example.com' } });
+        modifyCoreUser('A', { email: 'a@example.com', customerid: 'cust-A' }, true);
+        coreUser = { ...coreUser, loggedIn: false };
         await settle(selection);
 
         expect((window as any).mParticle.loggedEvents).toEqual([]);
