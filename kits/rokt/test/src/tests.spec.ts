@@ -11641,6 +11641,508 @@ describe('Rokt Forwarder', () => {
       expect(selectPlacementsCalls[1].cacheMatchKeys).toEqual(selectPlacementsCalls[0].cacheMatchKeys);
     });
 
+    it("files the early call under the trigger's own value of targetPageIdentifierAttribute, and matches a target call on its own value", async () => {
+      pushPreselectConfig(['loyaltyTier']);
+      PRESELECTION_CONFIG[0].targetPageIdentifierAttribute = 'pageGroup';
+      (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'gold' };
+
+      firePreselectPageview({ pageGroup: 'group-a' });
+      await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+      expect(selectPlacementsCalls[0].preselect).toBe(true);
+      expect(selectPlacementsCalls[0].identifier).toBe('group-a');
+      expect(selectPlacementsCalls[0].attributes.pageGroup).toBe('group-a');
+      expect(selectPlacementsCalls[0].cacheMatchKeys).toEqual(['loyaltyTier']);
+
+      await (window as any).mParticle.forwarder.selectPlacements({
+        attributes: { pageGroup: 'group-a' },
+        identifier: 'group-a',
+      });
+
+      expect(selectPlacementsCalls).toHaveLength(2);
+      expect(selectPlacementsCalls[1].cacheMatchKeys).toEqual(['loyaltyTier']);
+
+      await (window as any).mParticle.forwarder.selectPlacements({
+        attributes: { pageGroup: 'group-b' },
+        identifier: 'group-a',
+      });
+
+      expect(selectPlacementsCalls).toHaveLength(3);
+      expect(selectPlacementsCalls[2]).not.toHaveProperty('cacheMatchKeys');
+    });
+
+    it("matches a target call on the saved value of targetPageIdentifierAttribute when the call carries none, the call's own value winning", async () => {
+      pushPreselectConfig(['loyaltyTier']);
+      PRESELECTION_CONFIG[0].targetPageIdentifierAttribute = 'pageGroup';
+      (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'gold', pageGroup: 'group-a' };
+
+      firePreselectPageview();
+      await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+      expect(selectPlacementsCalls[0].preselect).toBe(true);
+      expect(selectPlacementsCalls[0].identifier).toBe('group-a');
+      expect(selectPlacementsCalls[0].cacheMatchKeys).toEqual(['loyaltyTier']);
+
+      await (window as any).mParticle.forwarder.selectPlacements({
+        attributes: {},
+        identifier: 'group-a',
+      });
+
+      expect(selectPlacementsCalls).toHaveLength(2);
+      expect(selectPlacementsCalls[1].attributes.pageGroup).toBe('group-a');
+      expect(selectPlacementsCalls[1].cacheMatchKeys).toEqual(['loyaltyTier']);
+
+      await (window as any).mParticle.forwarder.selectPlacements({
+        attributes: { PageGroup: 'group-b' },
+        identifier: 'group-a',
+      });
+
+      expect(selectPlacementsCalls).toHaveLength(3);
+      expect(selectPlacementsCalls[2]).not.toHaveProperty('cacheMatchKeys');
+    });
+
+    it("matches a call's alternate-case value over a saved one for both its cache keys and its arrival", async () => {
+      pushPreselectConfig(['loyaltyTier']);
+      PRESELECTION_CONFIG[0].targetPageIdentifierAttribute = 'pageGroup';
+      (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'gold', pageGroup: 'group-a' };
+      const arrivedAt = () =>
+        JSON.parse(window.sessionStorage.getItem('mp-rokt-kit') ?? '{}')[
+          `preselectArrival:${PRESELECT_ACCOUNT_ID}:${PRESELECT_TARGET_PAGE_IDENTIFIER}`
+        ]?.arrivedAt;
+
+      firePreselectPageview();
+      await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+      expect(selectPlacementsCalls[0].identifier).toBe('group-a');
+      expect(arrivedAt()).toBeUndefined();
+
+      // The call's PageGroup replaces the saved pageGroup in the one view both decisions read, so the entry it matches
+      // for its cache keys is the entry whose arrival it reports.
+      await (window as any).mParticle.forwarder.selectPlacements({
+        attributes: { PageGroup: 'group-b' },
+        identifier: 'group-b',
+      });
+
+      expect(selectPlacementsCalls).toHaveLength(2);
+      expect(selectPlacementsCalls[1].cacheMatchKeys).toEqual(['loyaltyTier']);
+      expect(arrivedAt()).toEqual(expect.any(Number));
+    });
+
+    it("matches a target call whose own value is empty on the saved value, for both its cache keys and its arrival", async () => {
+      pushPreselectConfig(['loyaltyTier']);
+      PRESELECTION_CONFIG[0].targetPageIdentifierAttribute = 'pageGroup';
+      (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'gold', pageGroup: 'group-a' };
+      const arrivedAt = () =>
+        JSON.parse(window.sessionStorage.getItem('mp-rokt-kit') ?? '{}')[
+          `preselectArrival:${PRESELECT_ACCOUNT_ID}:${PRESELECT_TARGET_PAGE_IDENTIFIER}`
+        ]?.arrivedAt;
+
+      firePreselectPageview();
+      await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+      expect(selectPlacementsCalls[0].identifier).toBe('group-a');
+      expect(arrivedAt()).toBeUndefined();
+
+      // An empty value is no value: the saved pageGroup stands in the view both decisions read.
+      await (window as any).mParticle.forwarder.selectPlacements({
+        attributes: { pageGroup: '' },
+        identifier: 'group-a',
+      });
+
+      expect(selectPlacementsCalls).toHaveLength(2);
+      expect(selectPlacementsCalls[1].cacheMatchKeys).toEqual(['loyaltyTier']);
+      expect(arrivedAt()).toEqual(expect.any(Number));
+    });
+
+    it("reports no arrival and sends no cache keys when the call's own value differs, whatever is saved", async () => {
+      pushPreselectConfig(['loyaltyTier']);
+      PRESELECTION_CONFIG[0].targetPageIdentifierAttribute = 'pageGroup';
+      (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'gold', pageGroup: 'group-a' };
+
+      await (window as any).mParticle.forwarder.selectPlacements({
+        attributes: { PageGroup: 'group-b' },
+        identifier: 'group-a',
+      });
+
+      expect(selectPlacementsCalls).toHaveLength(1);
+      expect(selectPlacementsCalls[0]).not.toHaveProperty('cacheMatchKeys');
+      const stored = JSON.parse(window.sessionStorage.getItem('mp-rokt-kit') ?? '{}');
+      expect(stored[`preselectArrival:${PRESELECT_ACCOUNT_ID}:${PRESELECT_TARGET_PAGE_IDENTIFIER}`]).toBeUndefined();
+    });
+
+    describe("a target call's attribute filter passes", () => {
+      // The call's own filter pass is one; the target lookup view adds a second only for an account with an entry
+      // naming targetPageIdentifierAttribute while pre-selection is on.
+      const spyOnFilter = () => {
+        const kit = (window as any).mParticle.forwarder;
+        const filterSpy = vi.fn((attributes: Record<string, unknown>) => attributes);
+        kit.filters.filterUserAttributes = filterSpy;
+        return filterSpy;
+      };
+
+      it('filters once on an account with no entry naming targetPageIdentifierAttribute', async () => {
+        pushPreselectConfig(['loyaltyTier']);
+        (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'gold' };
+        const filterSpy = spyOnFilter();
+
+        await (window as any).mParticle.forwarder.selectPlacements({
+          attributes: { pageGroup: 'group-a' },
+          identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+        });
+
+        expect(selectPlacementsCalls).toHaveLength(1);
+        expect(filterSpy).toHaveBeenCalledTimes(1);
+      });
+
+      it('filters once with pre-selection off, even with an entry naming targetPageIdentifierAttribute', async () => {
+        pushPreselectConfig(['loyaltyTier']);
+        PRESELECTION_CONFIG[0].targetPageIdentifierAttribute = 'pageGroup';
+        (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'gold' };
+        (window as any).mParticle.forwarder.launcher.enablePreselection = false;
+        const filterSpy = spyOnFilter();
+
+        await (window as any).mParticle.forwarder.selectPlacements({
+          attributes: { pageGroup: 'group-a' },
+          identifier: 'group-a',
+        });
+
+        expect(selectPlacementsCalls).toHaveLength(1);
+        expect(filterSpy).toHaveBeenCalledTimes(1);
+      });
+
+      it('filters a second time for the lookup view when an entry names targetPageIdentifierAttribute', async () => {
+        pushPreselectConfig(['loyaltyTier']);
+        PRESELECTION_CONFIG[0].targetPageIdentifierAttribute = 'pageGroup';
+        (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'gold' };
+        const filterSpy = spyOnFilter();
+
+        await (window as any).mParticle.forwarder.selectPlacements({
+          attributes: { pageGroup: 'group-a' },
+          identifier: 'group-a',
+        });
+
+        expect(selectPlacementsCalls).toHaveLength(1);
+        expect(filterSpy).toHaveBeenCalledTimes(2);
+      });
+    });
+
+    describe('when the workspace filters out the attribute that names the target page', () => {
+      beforeEach(() => {
+        (window as any).mParticle.forwarder.filters.filterUserAttributes = (attributes: Record<string, unknown>) =>
+          Object.fromEntries(Object.entries(attributes).filter(([key]) => key.toLowerCase() !== 'pagegroup'));
+      });
+
+      it('sends no early call and records nothing, and logs the miss', async () => {
+        pushPreselectConfig(['loyaltyTier']);
+        PRESELECTION_CONFIG[0].targetPageIdentifierAttribute = 'pageGroup';
+        (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'gold' };
+        const logPlacementDiagnosticSpy = vi.spyOn(forwarder().loggingService, 'logPlacementDiagnostic');
+
+        firePreselectPageview({ pageGroup: 'group-a' });
+        await new Promise((resolve) => setTimeout(resolve, 50));
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+        const stored = JSON.parse(window.sessionStorage.getItem('mp-rokt-kit') ?? '{}');
+        const marker = stored[`preselectArrival:${PRESELECT_ACCOUNT_ID}:${PRESELECT_TARGET_PAGE_IDENTIFIER}`];
+        expect(marker?.firedAt).toBeUndefined();
+        const messages = logPlacementDiagnosticSpy.mock.calls.map(([entry]) => (entry as { message: string }).message);
+        expect(messages).toContainEqual(
+          expect.stringMatching(/\[reason=no_target_page_identifier\].*\[cause=filtered\]/),
+        );
+        expect(messages.some((message) => message.includes('preselect fired'))).toBe(false);
+        logPlacementDiagnosticSpy.mockRestore();
+      });
+
+      it('matches no target call on the filtered value, for its cache keys or its arrival', async () => {
+        pushPreselectConfig(['loyaltyTier']);
+        PRESELECTION_CONFIG[0].targetPageIdentifierAttribute = 'pageGroup';
+        (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'gold' };
+
+        await (window as any).mParticle.forwarder.selectPlacements({
+          attributes: { pageGroup: 'group-a' },
+          identifier: 'group-a',
+        });
+
+        expect(selectPlacementsCalls).toHaveLength(1);
+        expect(selectPlacementsCalls[0].attributes).not.toHaveProperty('pageGroup');
+        expect(selectPlacementsCalls[0]).not.toHaveProperty('cacheMatchKeys');
+        const stored = JSON.parse(window.sessionStorage.getItem('mp-rokt-kit') ?? '{}');
+        expect(stored[`preselectArrival:${PRESELECT_ACCOUNT_ID}:${PRESELECT_TARGET_PAGE_IDENTIFIER}`]).toBeUndefined();
+      });
+    });
+
+    describe('when the workspace filter drops the target attribute while the early call waits', () => {
+      const dropPageGroup = (attributes: Record<string, unknown>) =>
+        Object.fromEntries(Object.entries(attributes).filter(([key]) => key.toLowerCase() !== 'pagegroup'));
+
+      beforeEach(() => {
+        pushPreselectConfig(['loyaltyTier']);
+        PRESELECTION_CONFIG[0].targetPageIdentifierAttribute = 'pageGroup';
+        (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'gold' };
+      });
+
+      afterEach(() => {
+        (window as any).mParticle.forwarder._workspaceSearchInFlightPromise = null;
+      });
+
+      it('drops the call and undoes its records when a workspace search lands with the new filter', async () => {
+        const kit = (window as any).mParticle.forwarder;
+        const allowAll = kit.filters.filterUserAttributes;
+        let finishSearch!: () => void;
+        kit._workspaceSearchInFlightPromise = new Promise<void>((resolve) => {
+          finishSearch = resolve;
+        });
+        const logPlacementDiagnosticSpy = vi.spyOn(forwarder().loggingService, 'logPlacementDiagnostic');
+        const messages = () =>
+          logPlacementDiagnosticSpy.mock.calls.map(([entry]) => (entry as { message: string }).message);
+
+        firePreselectPageview({ pageGroup: 'group-a' });
+        // The trigger's filter lets the value through, so the fire goes out and waits on the search.
+        await waitForCondition(() => messages().some((message) => message.includes('preselect fired')));
+        expect(selectPlacementsCalls).toHaveLength(0);
+
+        kit.filters.filterUserAttributes = dropPageGroup;
+        finishSearch();
+        await new Promise((resolve) => setTimeout(resolve, 50));
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+        expect(messages()).toContainEqual(
+          expect.stringMatching(/missed \[reason=no_target_page_identifier\].*\[cause=filtered\]/),
+        );
+
+        // The dropped call holds nothing off: once the filter lets the value through again, the same fire goes out.
+        kit.filters.filterUserAttributes = allowAll;
+        kit._workspaceSearchInFlightPromise = null;
+        firePreselectPageview({ pageGroup: 'group-a' });
+        await waitForCondition(() => selectPlacementsCalls.length > 0);
+        expect(selectPlacementsCalls[0].preselect).toBe(true);
+        expect(selectPlacementsCalls[0].identifier).toBe('group-a');
+        logPlacementDiagnosticSpy.mockRestore();
+      });
+
+      it('drops the call and undoes its records when the recreated launcher brings the new filter', async () => {
+        const kit = (window as any).mParticle.forwarder;
+        const rokt = (window as any).mParticle.Rokt;
+        const allowingFilters = rokt.filters;
+        const createLauncher = vi.fn(() =>
+          Promise.resolve({
+            enablePreselection: true,
+            selectPlacements: (options: any) => {
+              selectPlacementsCalls.push(options);
+            },
+            hashAttributes: () => Promise.resolve({}),
+            use: () => Promise.resolve(),
+            terminate: () => Promise.resolve(),
+          }),
+        );
+        (window as any).Rokt.createLauncher = createLauncher;
+        kit._workspaceSearchInFlightPromise = null;
+        kit.launcher.terminate = () => Promise.resolve();
+        await kit.terminate();
+        // The recreated launcher takes the manager's filters, which now drop the attribute; the kit still holds the
+        // ones the trigger reads.
+        rokt.filters = { ...allowingFilters, filterUserAttributes: dropPageGroup };
+        const logPlacementDiagnosticSpy = vi.spyOn(forwarder().loggingService, 'logPlacementDiagnostic');
+        const messages = () =>
+          logPlacementDiagnosticSpy.mock.calls.map(([entry]) => (entry as { message: string }).message);
+
+        firePreselectPageview({ pageGroup: 'group-a' });
+        await waitForCondition(() => createLauncher.mock.calls.length > 0);
+        await new Promise((resolve) => setTimeout(resolve, 50));
+
+        expect(messages().some((message) => message.includes('preselect fired'))).toBe(true);
+        expect(selectPlacementsCalls).toHaveLength(0);
+        expect(messages()).toContainEqual(
+          expect.stringMatching(/missed \[reason=no_target_page_identifier\].*\[cause=filtered\]/),
+        );
+
+        // The dropped call holds nothing off: once the filter lets the value through again, the same fire goes out.
+        kit.filters = allowingFilters;
+        kit._workspaceSearchInFlightPromise = null;
+        firePreselectPageview({ pageGroup: 'group-a' });
+        await waitForCondition(() => selectPlacementsCalls.length > 0);
+        expect(selectPlacementsCalls[0].preselect).toBe(true);
+        expect(selectPlacementsCalls[0].identifier).toBe('group-a');
+        logPlacementDiagnosticSpy.mockRestore();
+      });
+    });
+
+    describe('when the workspace filter still allows the target attribute after the early call waits', () => {
+      // A filter that lands in the wait but keeps pageGroup: it drops another key alone.
+      const dropOtherKey = (attributes: Record<string, unknown>) =>
+        Object.fromEntries(Object.entries(attributes).filter(([key]) => key !== 'otherKey'));
+
+      beforeEach(() => {
+        pushPreselectConfig(['loyaltyTier']);
+        PRESELECTION_CONFIG[0].targetPageIdentifierAttribute = 'pageGroup';
+        (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'gold' };
+      });
+
+      afterEach(() => {
+        (window as any).mParticle.forwarder._workspaceSearchInFlightPromise = null;
+      });
+
+      it('sends the call with the same identifier once a workspace search lands with a filter that keeps the key', async () => {
+        const kit = (window as any).mParticle.forwarder;
+        let finishSearch!: () => void;
+        kit._workspaceSearchInFlightPromise = new Promise<void>((resolve) => {
+          finishSearch = resolve;
+        });
+        const logPlacementDiagnosticSpy = vi.spyOn(forwarder().loggingService, 'logPlacementDiagnostic');
+        const messages = () =>
+          logPlacementDiagnosticSpy.mock.calls.map(([entry]) => (entry as { message: string }).message);
+
+        firePreselectPageview({ pageGroup: 'group-a' });
+        await waitForCondition(() => messages().some((message) => message.includes('preselect fired')));
+        expect(selectPlacementsCalls).toHaveLength(0);
+
+        const keepPageGroup = vi.fn(dropOtherKey);
+        kit.filters.filterUserAttributes = keepPageGroup;
+        finishSearch();
+        await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+        // The value is read again under the filter in force when the call goes out, and that filter keeps it.
+        expect(keepPageGroup).toHaveBeenCalled();
+        expect(selectPlacementsCalls).toHaveLength(1);
+        expect(selectPlacementsCalls[0].preselect).toBe(true);
+        expect(selectPlacementsCalls[0].identifier).toBe('group-a');
+        expect(messages()).not.toContainEqual(expect.stringMatching(/\[cause=filtered\]/));
+        logPlacementDiagnosticSpy.mockRestore();
+      });
+
+      it('sends the call with the same identifier when the recreated launcher brings a filter that keeps the key', async () => {
+        const kit = (window as any).mParticle.forwarder;
+        const rokt = (window as any).mParticle.Rokt;
+        const allowingFilters = rokt.filters;
+        const createLauncher = vi.fn(() =>
+          Promise.resolve({
+            enablePreselection: true,
+            selectPlacements: (options: any) => {
+              selectPlacementsCalls.push(options);
+            },
+            hashAttributes: () => Promise.resolve({}),
+            use: () => Promise.resolve(),
+            terminate: () => Promise.resolve(),
+          }),
+        );
+        (window as any).Rokt.createLauncher = createLauncher;
+        kit._workspaceSearchInFlightPromise = null;
+        kit.launcher.terminate = () => Promise.resolve();
+        await kit.terminate();
+        const keepPageGroup = vi.fn(dropOtherKey);
+        rokt.filters = { ...allowingFilters, filterUserAttributes: keepPageGroup };
+        const logPlacementDiagnosticSpy = vi.spyOn(forwarder().loggingService, 'logPlacementDiagnostic');
+        const messages = () =>
+          logPlacementDiagnosticSpy.mock.calls.map(([entry]) => (entry as { message: string }).message);
+
+        try {
+          firePreselectPageview({ pageGroup: 'group-a' });
+          await waitForCondition(() => createLauncher.mock.calls.length > 0);
+          await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+          expect(keepPageGroup).toHaveBeenCalled();
+          expect(selectPlacementsCalls).toHaveLength(1);
+          expect(selectPlacementsCalls[0].preselect).toBe(true);
+          expect(selectPlacementsCalls[0].identifier).toBe('group-a');
+          expect(messages()).not.toContainEqual(expect.stringMatching(/\[cause=filtered\]/));
+        } finally {
+          rokt.filters = allowingFilters;
+          logPlacementDiagnosticSpy.mockRestore();
+        }
+      });
+    });
+
+    describe('when another entry matches the same target value', () => {
+      const FIRING_TARGET_PAGE_IDENTIFIER = 'preselect-target-page-firing';
+      const pushFiringEntry = () => {
+        PRESELECTION_CONFIG.push({
+          accountId: PRESELECT_ACCOUNT_ID,
+          pathname: PRESELECT_PATHNAME,
+          targetPageIdentifier: FIRING_TARGET_PAGE_IDENTIFIER,
+          targetPageIdentifierAttribute: 'locationId',
+          attributeKeys: ['memberTier', 'storeId'],
+          preselectAttributeDefaults: { placementType: 'banner' },
+        });
+      };
+
+      it("sends the firing entry's defaults and cache keys when another entry's attribute holds the same value", async () => {
+        PRESELECTION_CONFIG.push({
+          accountId: PRESELECT_ACCOUNT_ID,
+          pathname: '/another-preselect-path',
+          targetPageIdentifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+          targetPageIdentifierAttribute: 'storeId',
+          attributeKeys: ['loyaltyTier'],
+          preselectAttributeDefaults: { placementType: 'overlay' },
+        });
+        pushFiringEntry();
+        (window as any).mParticle.forwarder.userAttributes = {
+          loyaltyTier: 'gold',
+          memberTier: 'silver',
+          storeId: 'store-1',
+          locationId: 'store-1',
+        };
+
+        firePreselectPageview();
+        await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+        expect(selectPlacementsCalls[0].preselect).toBe(true);
+        expect(selectPlacementsCalls[0].identifier).toBe('store-1');
+        expect(selectPlacementsCalls[0].attributes.placementType).toBe('banner');
+        expect(selectPlacementsCalls[0].cacheMatchKeys).toEqual(['memberTier', 'storeId', 'placementType']);
+        expect(selectPlacementsCalls[0]).not.toHaveProperty('preselectEntry');
+
+        // The target page's own call matches both entries, so it goes to neither.
+        await (window as any).mParticle.forwarder.selectPlacements({
+          attributes: { storeId: 'store-1', locationId: 'store-1' },
+          identifier: 'store-1',
+        });
+
+        expect(selectPlacementsCalls).toHaveLength(2);
+        expect(selectPlacementsCalls[1]).not.toHaveProperty('cacheMatchKeys');
+      });
+
+      it("sends the firing entry's defaults and cache keys when its value equals another entry's fixed identifier", async () => {
+        PRESELECTION_CONFIG.push({
+          accountId: PRESELECT_ACCOUNT_ID,
+          pathname: '/another-preselect-path',
+          targetPageIdentifier: 'store-1',
+          attributeKeys: ['loyaltyTier'],
+          preselectAttributeDefaults: { placementType: 'overlay' },
+        });
+        pushFiringEntry();
+        (window as any).mParticle.forwarder.userAttributes = {
+          loyaltyTier: 'gold',
+          memberTier: 'silver',
+          storeId: 'store-9',
+        };
+
+        firePreselectPageview({ locationId: 'store-1' });
+        await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+        expect(selectPlacementsCalls[0].identifier).toBe('store-1');
+        expect(selectPlacementsCalls[0].attributes.placementType).toBe('banner');
+        expect(selectPlacementsCalls[0].cacheMatchKeys).toEqual(['memberTier', 'storeId', 'placementType']);
+
+        // A target page call carrying the same value matches both entries, so it goes to neither.
+        await (window as any).mParticle.forwarder.selectPlacements({
+          attributes: { locationId: 'store-1' },
+          identifier: 'store-1',
+        });
+
+        expect(selectPlacementsCalls).toHaveLength(2);
+        expect(selectPlacementsCalls[1]).not.toHaveProperty('cacheMatchKeys');
+
+        // One carrying another value matches the fixed entry alone.
+        await (window as any).mParticle.forwarder.selectPlacements({
+          attributes: { locationId: 'store-2' },
+          identifier: 'store-1',
+        });
+
+        expect(selectPlacementsCalls).toHaveLength(3);
+        expect(selectPlacementsCalls[2].cacheMatchKeys).toEqual(['loyaltyTier', 'placementType']);
+      });
+    });
+
     it('tags only the speculative call with its trigger, never a later call', async () => {
       pushPreselectConfig(['loyaltyTier']);
       (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'from-user-attrs' };

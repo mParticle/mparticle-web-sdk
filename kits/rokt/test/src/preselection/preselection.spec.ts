@@ -15,6 +15,7 @@ import {
   flushPendingPreselectDispatches,
   findPreselectionConfig,
   findPreselectionConfigByIdentifier,
+  getPreselectLookupAttributes,
   getPreselectCacheMatchKeys,
   hasPreselectionConfigForAccount,
   maybeFirePreselectForPathname,
@@ -34,6 +35,7 @@ import {
   getPreselectAttributeDefaults,
   applyPreselectAttributeDefaults,
   PRESELECT_TRIGGER_ATTRIBUTE,
+  PRESELECT_ENTRY_OPTION,
   type PreselectHost,
   type PreselectState,
 } from '../../../src/preselection/preselection';
@@ -1432,6 +1434,234 @@ describe('preselection', () => {
       expect(selectPlacementsCalls).toHaveLength(1);
       expect(state.pending).toHaveLength(1);
       expect(state.pending[0].waitingFor).toBe('attribute');
+    });
+
+    describe('with targetPageIdentifierAttribute', () => {
+      const TARGET_ATTRIBUTE = 'pageGroup';
+      beforeEach(() => {
+        mockConfig.current[0].targetPageIdentifierAttribute = TARGET_ATTRIBUTE;
+      });
+
+      it("files the confirm-click call under the trigger's own value, never targetPageIdentifier", () => {
+        host.userAttributes = { [ATTRIBUTE_KEY]: 'gold', [TARGET_ATTRIBUTE]: 'group-a' };
+
+        send();
+
+        expect(selectPlacementsCalls).toHaveLength(1);
+        expect(selectPlacementsCalls[0].identifier).toBe('group-a');
+        expect(selectPlacementsCalls[0].attributes).toEqual(
+          tagged({ [ATTRIBUTE_KEY]: 'gold', [TARGET_ATTRIBUTE]: 'group-a' }, 'intent_commit'),
+        );
+        // The entry that fired travels with the call, named by its key.
+        expect(selectPlacementsCalls[0][PRESELECT_ENTRY_OPTION]).toBe(TARGET_PAGE_IDENTIFIER);
+        // The records stay keyed by the entry's targetPageIdentifier.
+        expect(recordPreselectFired).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, expect.any(Number), false);
+        // The call it sends is matched back to the entry on its own value.
+        expect(
+          findPreselectionConfigByIdentifier(
+            ACCOUNT_ID,
+            selectPlacementsCalls[0].identifier,
+            selectPlacementsCalls[0].attributes as Record<string, unknown>,
+          ),
+        ).toBe(mockConfig.current[0]);
+      });
+
+      it('reads the value from the event first, in any casing, and trims it', () => {
+        mockConfig.current[0].dispatchDelayMs = undefined;
+        host.userAttributes = { [ATTRIBUTE_KEY]: 'gold', [TARGET_ATTRIBUTE]: 'group-a' };
+
+        maybeFirePreselect(state, host, buildEvent({ PageGroup: ' group-b ' }), PATHNAME);
+
+        expect(selectPlacementsCalls).toHaveLength(1);
+        expect(selectPlacementsCalls[0].identifier).toBe('group-b');
+        expect(selectPlacementsCalls[0].attributes).toEqual(
+          tagged({ [ATTRIBUTE_KEY]: 'gold', [TARGET_ATTRIBUTE]: ' group-b ' }),
+        );
+      });
+
+      it("reads the event's value in another casing over a saved one when attributeKeys also list the attribute", () => {
+        mockConfig.current[0].dispatchDelayMs = undefined;
+        mockConfig.current[0].attributeKeys = [ATTRIBUTE_KEY, TARGET_ATTRIBUTE];
+        host.userAttributes = { [ATTRIBUTE_KEY]: 'gold', [TARGET_ATTRIBUTE]: 'group-a' };
+
+        maybeFirePreselect(state, host, buildEvent({ PageGroup: 'group-b' }), PATHNAME);
+
+        expect(selectPlacementsCalls).toHaveLength(1);
+        expect(selectPlacementsCalls[0].identifier).toBe('group-b');
+        expect(selectPlacementsCalls[0].attributes).toEqual(
+          tagged({ [ATTRIBUTE_KEY]: 'gold', [TARGET_ATTRIBUTE]: 'group-b' }),
+        );
+      });
+
+      it('keeps the saved value when attributeKeys list the attribute and the event carries none', () => {
+        mockConfig.current[0].dispatchDelayMs = undefined;
+        mockConfig.current[0].attributeKeys = [ATTRIBUTE_KEY, TARGET_ATTRIBUTE];
+        host.userAttributes = { [ATTRIBUTE_KEY]: 'gold', [TARGET_ATTRIBUTE]: 'group-a' };
+
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+        expect(selectPlacementsCalls).toHaveLength(1);
+        expect(selectPlacementsCalls[0].identifier).toBe('group-a');
+        expect(selectPlacementsCalls[0].attributes).toEqual(
+          tagged({ [ATTRIBUTE_KEY]: 'gold', [TARGET_ATTRIBUTE]: 'group-a' }),
+        );
+      });
+
+      it.each([
+        ['leave it out', [ATTRIBUTE_KEY]],
+        ['list it', [ATTRIBUTE_KEY, TARGET_ATTRIBUTE]],
+      ])('falls back to the saved value when the event gives it an empty value and attributeKeys %s', (_, keys) => {
+        mockConfig.current[0].dispatchDelayMs = undefined;
+        mockConfig.current[0].attributeKeys = keys;
+        host.userAttributes = { [ATTRIBUTE_KEY]: 'gold', [TARGET_ATTRIBUTE]: 'group-a' };
+
+        maybeFirePreselect(state, host, buildEvent({ [TARGET_ATTRIBUTE]: '' }), PATHNAME);
+
+        expect(selectPlacementsCalls).toHaveLength(1);
+        expect(selectPlacementsCalls[0].identifier).toBe('group-a');
+        expect(selectPlacementsCalls[0].attributes).toEqual(
+          tagged({ [ATTRIBUTE_KEY]: 'gold', [TARGET_ATTRIBUTE]: 'group-a' }),
+        );
+        expect(selectPlacementsCalls[0][PRESELECT_ENTRY_OPTION]).toBe(TARGET_PAGE_IDENTIFIER);
+      });
+
+      it.each([
+        ['missing', undefined],
+        ['empty', ''],
+        ['blank', '   '],
+        ['holding a space', 'group a'],
+        ['holding a control character', 'group\u0007a'],
+        ['a number', 42],
+        ['a list', ['group-a']],
+      ])('sends no early call and records nothing when the value is %s', (_, value) => {
+        host.userAttributes = {
+          [ATTRIBUTE_KEY]: 'gold',
+          ...(value !== undefined ? { [TARGET_ATTRIBUTE]: value } : {}),
+        };
+
+        send();
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+        expect(recordPreselectFired).not.toHaveBeenCalled();
+        expect(setActivePreselect).not.toHaveBeenCalled();
+        expect(loggedDiagnostics).toContainEqual(
+          expect.objectContaining({
+            code: 'PRESELECT_MISSED',
+            message: expect.stringContaining('[reason=no_target_page_identifier]'),
+          }),
+        );
+      });
+
+      it('fires a second early call for the same entry when its target value changes', () => {
+        // The tab's fire record, so a repeat of what fired is held off and only a changed value goes out.
+        let firedDigest: number | undefined;
+        vi.mocked(recordPreselectFired).mockImplementation((_, __, digest) => {
+          firedDigest = digest;
+          return undefined;
+        });
+        vi.mocked(wasPreselectFiredRecently).mockImplementation(
+          (_, __, digest) => firedDigest !== undefined && digest === firedDigest,
+        );
+        host.userAttributes = { [ATTRIBUTE_KEY]: 'gold', [TARGET_ATTRIBUTE]: 'group-a' };
+
+        send();
+        send();
+
+        expect(selectPlacementsCalls).toHaveLength(1);
+
+        host.userAttributes = { [ATTRIBUTE_KEY]: 'gold', [TARGET_ATTRIBUTE]: 'group-b' };
+        send();
+
+        expect(selectPlacementsCalls).toHaveLength(2);
+        expect(selectPlacementsCalls.map((call) => call.identifier)).toEqual(['group-a', 'group-b']);
+        expect(selectPlacementsCalls[1].attributes).toEqual(
+          tagged({ [ATTRIBUTE_KEY]: 'gold', [TARGET_ATTRIBUTE]: 'group-b' }, 'intent_commit'),
+        );
+        // Both calls name the one entry, and its records stay keyed by its targetPageIdentifier.
+        expect(selectPlacementsCalls.map((call) => call[PRESELECT_ENTRY_OPTION])).toEqual([
+          TARGET_PAGE_IDENTIFIER,
+          TARGET_PAGE_IDENTIFIER,
+        ]);
+        expect(vi.mocked(recordPreselectFired).mock.calls.map(([accountId, key]) => [accountId, key])).toEqual([
+          [ACCOUNT_ID, TARGET_PAGE_IDENTIFIER],
+          [ACCOUNT_ID, TARGET_PAGE_IDENTIFIER],
+        ]);
+      });
+
+      it('leaves an entry without the field exactly as it was', () => {
+        delete mockConfig.current[0].targetPageIdentifierAttribute;
+        host.userAttributes = { [ATTRIBUTE_KEY]: 'gold', [TARGET_ATTRIBUTE]: 'group-a' };
+
+        send();
+
+        expect(selectPlacementsCalls).toHaveLength(1);
+        expect(selectPlacementsCalls[0].identifier).toBe(TARGET_PAGE_IDENTIFIER);
+        expect(selectPlacementsCalls[0].attributes).toEqual(tagged({ [ATTRIBUTE_KEY]: 'gold' }, 'intent_commit'));
+        expect(selectPlacementsCalls[0]).not.toHaveProperty(PRESELECT_ENTRY_OPTION);
+      });
+
+      it('sends no early call and records nothing when the workspace filters the attribute out, in any casing', () => {
+        host.userAttributes = { [ATTRIBUTE_KEY]: 'gold', PageGroup: 'group-a' };
+        host.filterAttributes = vi.fn((attributes: Record<string, unknown>) =>
+          Object.fromEntries(Object.entries(attributes).filter(([key]) => key.toLowerCase() !== 'pagegroup')),
+        );
+
+        send();
+
+        expect(host.filterAttributes).toHaveBeenCalled();
+        expect(selectPlacementsCalls).toHaveLength(0);
+        expect(recordPreselectFired).not.toHaveBeenCalled();
+        expect(setActivePreselect).not.toHaveBeenCalled();
+        expect(loggedDiagnostics).toContainEqual(
+          expect.objectContaining({
+            code: 'PRESELECT_MISSED',
+            message: expect.stringMatching(/\[reason=no_target_page_identifier\].*\[cause=filtered\]/),
+          }),
+        );
+      });
+
+      it('files the call under the value the workspace filter lets through', () => {
+        host.userAttributes = { [ATTRIBUTE_KEY]: 'gold', [TARGET_ATTRIBUTE]: 'group-a' };
+        host.filterAttributes = vi.fn((attributes: Record<string, unknown>) => {
+          const kept = { ...attributes };
+          delete kept.unrelated;
+          return kept;
+        });
+
+        send();
+
+        expect(host.filterAttributes).toHaveBeenCalledWith(
+          expect.objectContaining({ [ATTRIBUTE_KEY]: 'gold', [TARGET_ATTRIBUTE]: 'group-a' }),
+        );
+        expect(selectPlacementsCalls).toHaveLength(1);
+        expect(selectPlacementsCalls[0].identifier).toBe('group-a');
+      });
+
+      it('never asks the filter about an entry without the field', () => {
+        delete mockConfig.current[0].targetPageIdentifierAttribute;
+        host.filterAttributes = vi.fn(() => ({}));
+
+        send();
+
+        expect(host.filterAttributes).not.toHaveBeenCalled();
+        expect(selectPlacementsCalls).toHaveLength(1);
+        expect(selectPlacementsCalls[0].identifier).toBe(TARGET_PAGE_IDENTIFIER);
+      });
+
+      it("asks the host for what the firing entry's call sends by the entry's key, never the call's identifier", () => {
+        host.userAttributes = { [ATTRIBUTE_KEY]: 'gold', [TARGET_ATTRIBUTE]: 'group-a' };
+        const outgoing = vi.fn((attributes: Record<string, unknown>, _entryKey?: string) => ({
+          ...attributes,
+          Email: 'shopper@example.test',
+        }));
+        host.getOutgoingAttributes = outgoing;
+
+        send();
+
+        expect(selectPlacementsCalls).toHaveLength(1);
+        expect(outgoing).toHaveBeenCalledWith(expect.anything(), TARGET_PAGE_IDENTIFIER);
+        expect(outgoing).not.toHaveBeenCalledWith(expect.anything(), 'group-a');
+      });
     });
   });
 
@@ -6495,6 +6725,71 @@ describe('preselection', () => {
       expect(clearPendingPreselect).toHaveBeenCalledWith(ACCOUNT_ID);
     });
 
+    describe('for an entry with targetPageIdentifierAttribute, saved while the kit was not ready', () => {
+      const TARGET_ATTRIBUTE = 'storeId';
+      // The trigger page queues the fire while the kit is not ready and saves it; a navigation then loses the page, and
+      // the next page recovers the saved attempt.
+      const saveThenNavigate = () => {
+        host.userAttributes = { [ATTRIBUTE_KEY]: 'gold', [TARGET_ATTRIBUTE]: 'store-1' };
+        host.isKitReady = () => false;
+
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+        const [, pathname, identifier, attributes, mpid] = vi.mocked(setPendingPreselect).mock.calls[0];
+        expect(identifier).toBe(TARGET_PAGE_IDENTIFIER);
+        expect(attributes).toEqual({ [ATTRIBUTE_KEY]: 'gold', [TARGET_ATTRIBUTE]: 'store-1' });
+        vi.mocked(getPendingPreselect).mockReturnValue({
+          expiresAt: Date.now() + 60_000,
+          pathname,
+          identifier,
+          attributes,
+          mpid,
+        });
+        state = createPreselectState();
+        host.isKitReady = () => true;
+      };
+
+      beforeEach(() => {
+        mockConfig.current = [{ ...CONFIG_ENTRY, targetPageIdentifierAttribute: TARGET_ATTRIBUTE }];
+      });
+
+      it("recovers the fire under the trigger page's own value, the entry named by its key", () => {
+        saveThenNavigate();
+
+        maybeFirePersistedPreselect(state, host);
+
+        expect(selectPlacementsCalls).toEqual([
+          {
+            attributes: tagged({ [ATTRIBUTE_KEY]: 'gold', [TARGET_ATTRIBUTE]: 'store-1' }, 'recovered'),
+            preselect: true,
+            identifier: 'store-1',
+            [PRESELECT_ENTRY_OPTION]: TARGET_PAGE_IDENTIFIER,
+            omitUrl: true,
+          },
+        ]);
+        expect(vi.mocked(recordPreselectFired).mock.calls[0].slice(0, 2)).toEqual([ACCOUNT_ID, TARGET_PAGE_IDENTIFIER]);
+      });
+
+      it('sends nothing and records nothing when the recovering page filters the attribute out', () => {
+        saveThenNavigate();
+        host.filterAttributes = (attributes) =>
+          Object.fromEntries(Object.entries(attributes).filter(([key]) => key.toLowerCase() !== 'storeid'));
+
+        maybeFirePersistedPreselect(state, host);
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+        expect(recordPreselectFired).not.toHaveBeenCalled();
+        expect(setActivePreselect).not.toHaveBeenCalled();
+        expect(loggedDiagnostics).toContainEqual(
+          expect.objectContaining({
+            code: 'PRESELECT_MISSED',
+            message: expect.stringMatching(/\[reason=no_target_page_identifier\].*\[cause=filtered\]/),
+          }),
+        );
+      });
+    });
+
     it.each([
       { variant: 'widened', fires: true },
       { variant: 'standard', fires: false },
@@ -6930,6 +7225,33 @@ describe('preselection', () => {
         expect(findPreselectionConfig(ACCOUNT_ID, '/')).toMatchObject({ targetPageIdentifier: TARGET_PAGE_IDENTIFIER });
         expect(findPreselectionConfig(ACCOUNT_ID, '')).toBeUndefined();
         expect(findPreselectionConfig(ACCOUNT_ID, PATHNAME)).toBeUndefined();
+      });
+    });
+  });
+
+  describe('getPreselectLookupAttributes', () => {
+    it("lays the call's non-empty values over the saved ones, replacing every saved spelling of a key the call sets", () => {
+      expect(
+        getPreselectLookupAttributes(
+          { pageGroup: 'saved', PAGEGROUP: 'saved-upper', storeId: 'store-1' },
+          { PageGroup: 'call' },
+        ),
+      ).toEqual({ storeId: 'store-1', PageGroup: 'call' });
+    });
+
+    it('keeps the saved value where the call carries the key empty, null or not at all', () => {
+      expect(getPreselectLookupAttributes({ pageGroup: 'saved' }, { pageGroup: '' })).toEqual({ pageGroup: 'saved' });
+      expect(getPreselectLookupAttributes({ pageGroup: 'saved' }, { PageGroup: null })).toEqual({
+        pageGroup: 'saved',
+      });
+      expect(getPreselectLookupAttributes({ pageGroup: 'saved' }, {})).toEqual({ pageGroup: 'saved' });
+    });
+
+    it('keeps saved spellings that disagree when the call sets none of them', () => {
+      expect(getPreselectLookupAttributes({ pageGroup: 'a', PageGroup: 'b' }, { storeId: 'store-1' })).toEqual({
+        pageGroup: 'a',
+        PageGroup: 'b',
+        storeId: 'store-1',
       });
     });
   });
@@ -7498,6 +7820,103 @@ describe('preselection', () => {
 
     it('returns undefined when no entry matches the identifier', () => {
       expect(findPreselectionConfigByIdentifier(ACCOUNT_ID, 'some-other-page')).toBeUndefined();
+    });
+
+    it("ignores a call's attributes for an entry without targetPageIdentifierAttribute", () => {
+      expect(findPreselectionConfigByIdentifier(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, { pageGroup: 'group-a' })).toEqual(
+        CONFIG_ENTRY,
+      );
+    });
+
+    describe('for an entry with targetPageIdentifierAttribute', () => {
+      const ENTRY_WITH_ATTRIBUTE = { ...CONFIG_ENTRY, targetPageIdentifierAttribute: 'pageGroup' };
+      beforeEach(() => {
+        mockConfig.current = [ENTRY_WITH_ATTRIBUTE];
+      });
+
+      it("matches when the identifier equals the call's own value", () => {
+        expect(findPreselectionConfigByIdentifier(ACCOUNT_ID, 'group-a', { pageGroup: 'group-a' })).toEqual(
+          ENTRY_WITH_ATTRIBUTE,
+        );
+      });
+
+      it('reads the attribute in any casing and trims its value', () => {
+        expect(findPreselectionConfigByIdentifier(ACCOUNT_ID, 'group-a', { PageGroup: ' group-a ' })).toEqual(
+          ENTRY_WITH_ATTRIBUTE,
+        );
+      });
+
+      it.each([
+        ['the values differ', 'group-a', { pageGroup: 'group-b' }],
+        ['the values differ in casing', 'Group-A', { pageGroup: 'group-a' }],
+        ['the identifier is targetPageIdentifier', TARGET_PAGE_IDENTIFIER, { pageGroup: 'group-a' }],
+        ['the call carries no value', TARGET_PAGE_IDENTIFIER, {}],
+        ['the value holds a space', 'group a', { pageGroup: 'group a' }],
+        ['the spellings disagree', 'group-a', { PageGroup: 'group-a', PAGEGROUP: 'group-b' }],
+      ])('does not match when %s', (_, identifier, attributes) => {
+        expect(findPreselectionConfigByIdentifier(ACCOUNT_ID, identifier, attributes)).toBeUndefined();
+      });
+
+      it('does not match a call whose attributes are not given', () => {
+        expect(findPreselectionConfigByIdentifier(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER)).toBeUndefined();
+      });
+
+      it("reports a target page's arrival under the entry's own key when its value matches", () => {
+        reportPreselectArrival(host, 'group-a', { pageGroup: 'group-a' });
+
+        expect(markPreselectArrival).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER);
+      });
+
+      it("reports no arrival when the target page's identifier differs from its own value", () => {
+        reportPreselectArrival(host, 'group-a', { pageGroup: 'group-b' });
+
+        expect(markPreselectArrival).not.toHaveBeenCalled();
+      });
+
+      describe('when the call matches more than one entry', () => {
+        const OTHER_ENTRY_WITH_ATTRIBUTE = {
+          ...CONFIG_ENTRY,
+          targetPageIdentifier: 'other-target-page',
+          targetPageIdentifierAttribute: 'storeGroup',
+        };
+        const FIXED_ENTRY = { ...CONFIG_ENTRY, targetPageIdentifier: 'group-a' };
+
+        it('matches none when different attributes hold the same value', () => {
+          mockConfig.current = [ENTRY_WITH_ATTRIBUTE, OTHER_ENTRY_WITH_ATTRIBUTE];
+          const attributes = { pageGroup: 'group-a', storeGroup: 'group-a' };
+
+          expect(findPreselectionConfigByIdentifier(ACCOUNT_ID, 'group-a', attributes)).toBeUndefined();
+          reportPreselectArrival(host, 'group-a', attributes);
+          expect(markPreselectArrival).not.toHaveBeenCalled();
+        });
+
+        it('matches the one entry whose value the identifier equals when the values differ', () => {
+          mockConfig.current = [ENTRY_WITH_ATTRIBUTE, OTHER_ENTRY_WITH_ATTRIBUTE];
+
+          expect(
+            findPreselectionConfigByIdentifier(ACCOUNT_ID, 'group-b', { pageGroup: 'group-a', storeGroup: 'group-b' }),
+          ).toEqual(OTHER_ENTRY_WITH_ATTRIBUTE);
+        });
+
+        it.each([
+          ['before', () => [FIXED_ENTRY, ENTRY_WITH_ATTRIBUTE]],
+          ['after', () => [ENTRY_WITH_ATTRIBUTE, FIXED_ENTRY]],
+        ])('matches none when the value equals the fixed identifier of an entry listed %s it', (_, entries) => {
+          mockConfig.current = entries();
+
+          expect(findPreselectionConfigByIdentifier(ACCOUNT_ID, 'group-a', { pageGroup: 'group-a' })).toBeUndefined();
+          reportPreselectArrival(host, 'group-a', { pageGroup: 'group-a' });
+          expect(markPreselectArrival).not.toHaveBeenCalled();
+        });
+
+        it('matches the fixed entry alone when the value differs from its identifier', () => {
+          mockConfig.current = [ENTRY_WITH_ATTRIBUTE, FIXED_ENTRY];
+
+          expect(findPreselectionConfigByIdentifier(ACCOUNT_ID, 'group-a', { pageGroup: 'group-b' })).toEqual(
+            FIXED_ENTRY,
+          );
+        });
+      });
     });
   });
 

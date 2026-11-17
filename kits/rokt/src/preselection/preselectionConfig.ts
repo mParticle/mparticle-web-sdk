@@ -36,6 +36,16 @@ export interface PreselectionConfigEntry {
   // Additional pathnames (each starting with '/', '*' matching one segment) that also match this entry.
   pathnames?: string[];
   targetPageIdentifier: string;
+  // Opt-in: the attribute key, in any casing, whose value names the target page in place of targetPageIdentifier. The
+  // speculative call goes out under the trigger page's own value, read from the sources attributeKeys read, in the
+  // same order, and a target page's call matches this entry when its identifier equals that call's own value. A value
+  // that is missing, or that is not a non-empty string free of whitespace and control characters once trimmed, sends
+  // no speculative call, and so does a value the workspace's attribute filter removes. A key on the kit's persistence
+  // deny list (country, language, currency and the like) is rejected when the setting is read. targetPageIdentifier
+  // still keys the entry's records, and a kit without this field uses it.
+  // A target page's call whose identifier matches more than one entry, as when two entries' attributes hold the same
+  // value or this value equals another entry's targetPageIdentifier, goes to none of them.
+  targetPageIdentifierAttribute?: string;
   // Attributes that gate the dispatch and form the cache key. Include one only if it is
   // stable between checkout and the target page and is used to select offers; an attribute
   // that moves in between turns every arrival into a miss. Attributes on the
