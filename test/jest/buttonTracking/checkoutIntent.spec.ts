@@ -1046,6 +1046,8 @@ describe('checkoutIntent', () => {
         '/orders/12345',
         '/orders/12345/',
         '/account/orders',
+        '/account/purchase',
+        '/my-account/orders/12345/details',
         '/my-account/orders/12345',
         '/myaccount/orders',
         '/profile/orders',
