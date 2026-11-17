@@ -12515,6 +12515,51 @@ describe('Rokt Forwarder', () => {
         });
       });
 
+      describe('match by payment family', () => {
+        const familyDefault = (value: string) => ({ value, matchPaymentFamily: true });
+
+        it('sends the payment family of the value the speculative call fills as cacheMatchTokens', async () => {
+          pushDefaultsConfig({ preselectAttributeDefaults: { placementType: familyDefault('Credit Card') } });
+
+          firePreselectPageview();
+          await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+          expect(selectPlacementsCalls[0].attributes.placementType).toBe('Credit Card');
+          expect(selectPlacementsCalls[0].cacheMatchTokens).toEqual({ placementType: 'card' });
+        });
+
+        it('sends the payment family of the value the target page sends, split tenders included', async () => {
+          pushDefaultsConfig({ preselectAttributeDefaults: { placementType: familyDefault('Credit Card') } });
+
+          await (window as any).mParticle.forwarder.selectPlacements({
+            attributes: { placementType: 'NonCash,apple pay' },
+            identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+          });
+
+          expect(selectPlacementsCalls[0].cacheMatchTokens).toEqual({ placementType: 'apple_pay' });
+        });
+
+        it('sends no cacheMatchTokens for a value with no payment family', async () => {
+          pushDefaultsConfig({ preselectAttributeDefaults: { placementType: familyDefault('Credit Card') } });
+
+          await (window as any).mParticle.forwarder.selectPlacements({
+            attributes: { placementType: 'Gift Card' },
+            identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+          });
+
+          expect(selectPlacementsCalls[0]).not.toHaveProperty('cacheMatchTokens');
+        });
+
+        it('sends no cacheMatchTokens for a default that does not opt in', async () => {
+          pushDefaultsConfig({ preselectAttributeDefaults: { placementType: 'Credit Card' } });
+
+          firePreselectPageview();
+          await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+          expect(selectPlacementsCalls[0]).not.toHaveProperty('cacheMatchTokens');
+        });
+      });
+
       it('sends no cacheIdentityKeys for a defaulted key on an entry that declares none', async () => {
         pushDefaultsConfig();
 

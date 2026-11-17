@@ -20,6 +20,8 @@ export interface PreselectAttributeDefault {
   // Values the target page may send that count as the one this default filled: the cached offers stay when the page
   // sends any value in the filled value's group, compared exactly. A fill in no group must arrive as it went out.
   matchGroups?: string[][];
+  // Match the cached offers on the payment family of the value sent, so any value of the same family keeps them.
+  matchPaymentFamily?: boolean;
 }
 
 export interface PreselectIntentSelectors {

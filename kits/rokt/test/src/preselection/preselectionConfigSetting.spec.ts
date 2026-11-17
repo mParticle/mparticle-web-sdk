@@ -480,6 +480,16 @@ describe('parsePreselectionConfigSetting', () => {
       ).toEqual({ entries: [{ accountId: ACCOUNT_ID, ...DEFAULTS_ENTRY, preselectAttributeDefaults }] });
     });
 
+    it('parses matchPaymentFamily beside a fill from the payment pick', () => {
+      const preselectAttributeDefaults = {
+        placementType: { value: 'Credit Card', byPaymentPick: { apple_pay: 'apple pay' }, matchPaymentFamily: true },
+      };
+
+      expect(
+        parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([{ ...DEFAULTS_ENTRY, preselectAttributeDefaults }])),
+      ).toEqual({ entries: [{ accountId: ACCOUNT_ID, ...DEFAULTS_ENTRY, preselectAttributeDefaults }] });
+    });
+
     it('accepts matchGroups that leave the filled value out of every group', () => {
       const preselectAttributeDefaults = { segment: { value: 'standard', matchGroups: [['goldcard', 'bluecard']] } };
 
@@ -516,6 +526,7 @@ describe('parsePreselectionConfigSetting', () => {
       ['a payment family the kit does not know', { placementType: { byPaymentPick: { bitcoin: 'crypto' } } }],
       ['an empty payment pick value', { placementType: { byPaymentPick: { paypal: '' } } }],
       ['a non-string payment pick value', { placementType: { byPaymentPick: { paypal: 1 } } }],
+      ['a matchPaymentFamily that is not a boolean', { placementType: { value: 'overlay', matchPaymentFamily: 'yes' } }],
       [
         'a skip value the default fills on a payment pick',
         { placementType: { value: 'visa', byPaymentPick: { paypal: 'PayPal' }, skipValues: ['paypal'] } },
