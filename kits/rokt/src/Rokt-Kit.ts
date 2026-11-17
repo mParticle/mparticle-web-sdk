@@ -2135,6 +2135,10 @@ class RoktKit implements KitInterface {
   public onModifyComplete(user: IMParticleUser, _filteredIdentityRequest: unknown): string {
     this._identityCallCount += 1;
     this._isModifyIdentityCallInProgress = true;
+    // A modify that left the login flag set needs no exemption, so a failed call that clears it later still counts.
+    if (mp()?.Identity?.getCurrentUser?.()?.isLoggedIn?.() === true) {
+      this._lastNonModifyCallCount = this._identityCallCount;
+    }
     return this.handleIdentityComplete(user, 'onModifyComplete');
   }
 
@@ -2236,10 +2240,9 @@ class RoktKit implements KitInterface {
     };
   }
 
-  // A modify response carries no login flag, so core clears isLoggedIn while keeping the MPID; exempt the cleared
-  // login flag only when every identity callback since the snapshot was a modify (core clears isLoggedIn on HTTP 400
-  // modify responses without calling onModifyComplete, so failed modifies still read as logged out until core
-  // preserves isLoggedIn on modify).
+  // A modify response carries no login flag, so core can report the user as logged out after a modify while keeping
+  // the MPID; exempt the cleared flag only when every identity callback since the snapshot was such a modify. A failed
+  // identity call clears the flag without any kit callback, so a modify that left the flag set never takes it.
   private hasUserChangedSince(callTime: CallTimeUser): boolean {
     const currentUser = mp().Identity?.getCurrentUser?.() as FilteredUser | null | undefined;
     const loginClearedByModify =
