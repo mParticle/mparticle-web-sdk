@@ -138,6 +138,14 @@ describe('parsePreselectionConfigSetting', () => {
     });
   });
 
+  it('parses the hosts an entry runs on', () => {
+    const entry = { ...ENTRY, hosts: ['shop.example.test', 'www.shop.example.test'] };
+
+    expect(parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([entry]))).toEqual({
+      entries: [{ accountId: ACCOUNT_ID, ...entry }],
+    });
+  });
+
   it('parses triggerEventNames', () => {
     const entry = { ...ENTRY, triggerEventNames: ['Ready to Checkout'] };
 
@@ -372,6 +380,11 @@ describe('parsePreselectionConfigSetting', () => {
       'intentSelectors',
     ],
     ['a selector over 256 characters', { ...ENTRY, intentSelectors: { commit: ['#' + 'a'.repeat(256)] } }, 'intentSelectors'],
+    ['a string as hosts', { ...ENTRY, hosts: 'shop.example.test' }, 'hosts'],
+    ['an empty hosts list', { ...ENTRY, hosts: [] }, 'hosts'],
+    ['an empty host', { ...ENTRY, hosts: [''] }, 'hosts'],
+    ['a host in upper case', { ...ENTRY, hosts: ['Shop.example.test'] }, 'hosts'],
+    ['a non-string host', { ...ENTRY, hosts: [1] }, 'hosts'],
     ['a string checkoutStepIntent', { ...ENTRY, checkoutStepIntent: 'true' }, 'checkoutStepIntent'],
     ['a null checkoutStepIntent', { ...ENTRY, checkoutStepIntent: null }, 'checkoutStepIntent'],
     [

@@ -85,6 +85,9 @@ export interface PreselectionConfigEntry {
   // Opt-in for the account's one cartIntent entry: the user attribute, in any casing, that holds the shopper's cart.
   // A page view off every entry's route fires it at once while that attribute holds items. A gate only, never a key.
   cartUserAttribute?: string;
+  // The hosts this entry's storefront runs on, in lower case. When set, a tap off every entry's route fires the entry
+  // only on one of them, so a sibling storefront sharing the account never fires it. The entry's own route ignores it.
+  hosts?: string[];
 }
 
 export const PRESELECTION_CONFIG: PreselectionConfigEntry[] = [

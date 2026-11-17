@@ -749,6 +749,37 @@ describe('preselection', () => {
         expect(selectPlacementsCalls).toHaveLength(0);
         expect(observedLines()).toEqual([expect.stringContaining('[logged_in=true] [cause=path_changed]')]);
       });
+      it('observes a commit or wallet tap on a host the entry does not list', () => {
+        mockConfig.current = [{ ...CONFIG_ENTRY, hosts: ['shop.example.test'] }];
+        tap('commit');
+        tap('wallet', { source: 'vendor' });
+        expect(selectPlacementsCalls).toHaveLength(0);
+        expect(recordPreselectFired).not.toHaveBeenCalled();
+        expect(observedLines()).toEqual([
+          'Rokt Kit: preselect skipped [reason=intent_observed] [intent_kind=commit] [intent_route=before_entry] [has_email=true] [has_identity=true] [logged_in=true] [cause=unlisted_host]',
+          'Rokt Kit: preselect skipped [reason=intent_observed] [intent_kind=wallet] [intent_route=before_entry] [intent_source=vendor] [has_email=true] [has_identity=true] [logged_in=true] [cause=unlisted_host]',
+        ]);
+      });
+      it('fires a tap on a host the entry lists, though its own route was never seen', () => {
+        mockConfig.current = [{ ...CONFIG_ENTRY, hosts: ['shop.example.test', window.location.hostname] }];
+        tap('wallet');
+        expect(selectPlacementsCalls).toEqual([
+          expect.objectContaining({
+            identifier: TARGET_PAGE_IDENTIFIER,
+            attributes: tagged({ [ATTRIBUTE_KEY]: 'gold' }, 'intent_wallet_off_entry'),
+          }),
+        ]);
+      });
+      it("fires a tap on the entry's own route whatever hosts it lists", () => {
+        mockConfig.current = [{ ...CONFIG_ENTRY, hosts: ['shop.example.test'] }];
+        window.history.replaceState({}, '', PATHNAME);
+        recordPreselectIntentPath(PATHNAME, Date.now());
+        tap('commit');
+        expect(selectPlacementsCalls).toHaveLength(1);
+        expect(loggedDiagnostics.map((line) => line.message)).toEqual([
+          expect.stringContaining('[intent_route=entry]'),
+        ]);
+      });
       it('never reads the page form off the entry route', () => {
         listenLikeTheKit();
         mockConfig.current = [{ ...CONFIG_ENTRY, attributeKeys: ['email'], readEmailInput: true }];
@@ -916,6 +947,36 @@ describe('preselection', () => {
           arrivedLine(5_000),
           endedLine('[has_email=true] [has_identity=true] [logged_in=false]', 'identity_wait_expired'),
         ]);
+      });
+      it('waits for the identity and fires on a host the entry lists', () => {
+        mockConfig.current = [{ ...CONFIG_ENTRY, hosts: [window.location.hostname] }];
+        tap();
+        expect(state.identityWait).toBeDefined();
+        expect(selectPlacementsCalls).toHaveLength(0);
+
+        identify();
+        expect(selectPlacementsCalls).toEqual([
+          expect.objectContaining({
+            identifier: TARGET_PAGE_IDENTIFIER,
+            attributes: tagged({ [ATTRIBUTE_KEY]: 'gold' }, 'intent_wallet_off_entry'),
+          }),
+        ]);
+      });
+      it('starts no identity wait on a host the entry does not list', () => {
+        mockConfig.current = [{ ...CONFIG_ENTRY, hosts: ['shop.example.test'] }];
+        tap();
+        expect(state.identityWait).toBeUndefined();
+        const unlistedLines = [
+          TAP_LINE,
+          endedLine('[has_email=false] [has_identity=false] [logged_in=false]', 'unlisted_host'),
+        ];
+        expect(lines()).toEqual(unlistedLines);
+
+        identify();
+        vi.advanceTimersByTime(20_000);
+        expect(selectPlacementsCalls).toHaveLength(0);
+        expect(recordPreselectFired).not.toHaveBeenCalled();
+        expect(lines()).toEqual(unlistedLines);
       });
       it('ends the wait without a fire when the shopper leaves and comes back before being identified', () => {
         tap();
@@ -2368,6 +2429,14 @@ describe('preselection', () => {
       ]);
       expect(messages()).toEqual([expect.stringContaining('[intent_kind=cart] [intent_route=left] [intent_source=label] [logged_in=true]')]);
     });
+    it('observes a cart click on a host the cart entry does not list', () => {
+      mockConfig.current = [{ ...CART_ENTRY, hosts: ['shop.example.test'] }];
+      click();
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(recordPreselectFired).not.toHaveBeenCalled();
+      expect(messages()).toEqual([expect.stringContaining('[intent_kind=cart] [intent_route=before_entry]')]);
+      expect(messages()).toEqual([expect.stringContaining('[cause=unlisted_host]')]);
+    });
     it("releases the page view waiting on the entry's own route as intent_cart", () => {
       visit(PRODUCT_PAGE);
       maybeFirePreselect(state, host, buildEvent(), PRODUCT_PAGE);
@@ -2512,6 +2581,18 @@ describe('preselection', () => {
         expect.objectContaining({ identifier: BAG_TARGET, attributes: bagTagged('intent_cart_off_entry') }),
       ]);
       expect(messages().some((message) => message.includes('path_changed'))).toBe(false);
+    });
+    it("fires a moved live cart click from the entry's own route on a host it does not list", () => {
+      mockConfig.current = [{ ...CART_ENTRY, hosts: ['shop.example.test'] }];
+      visit('/bag');
+      click('cart', { pathname: '/product/7' });
+      expect(selectPlacementsCalls).toEqual([
+        expect.objectContaining({ identifier: BAG_TARGET, attributes: bagTagged('intent_cart_off_entry') }),
+      ]);
+
+      click('cart', { pathname: '/search' });
+      expect(selectPlacementsCalls).toHaveLength(1);
+      expect(messages()).toContainEqual(expect.stringContaining('[cause=unlisted_host]'));
     });
     it.each([
       ['off the entry', '/search'],
