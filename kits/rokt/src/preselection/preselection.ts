@@ -1014,7 +1014,7 @@ export function getPreselectCacheMatchTokens(
     if (isString(attributeDefault) || attributeDefault?.matchPaymentFamily !== true) {
       return;
     }
-    const family = classifyPaymentFamily(readOwnValue(outgoing, key));
+    const family = hasOtherSpelling(outgoing, key) ? undefined : classifyPaymentFamily(readOwnValue(outgoing, key));
     if (family) {
       matchTokens[key] = family;
     }
@@ -1025,11 +1025,15 @@ export function getPreselectCacheMatchTokens(
 // The keys the call still sends with their default once filters and later sources have had their say. A later source
 // that sends a value for the key under another spelling replaces the default, so that key no longer counts.
 function getSentPreselectDefaults(fills: Record<string, string>, outgoing: Record<string, unknown>): string[] {
-  const names = Object.keys(outgoing);
   return Object.keys(fills).filter(
-    (key) =>
-      readOwnValue(outgoing, key) === fills[key] &&
-      !names.some((name) => name !== key && name.toLowerCase() === key.toLowerCase() && !isEmpty(outgoing[name])),
+    (key) => readOwnValue(outgoing, key) === fills[key] && !hasOtherSpelling(outgoing, key),
+  );
+}
+
+// Whether the call also sends a non-empty value for the key under another spelling.
+function hasOtherSpelling(outgoing: Record<string, unknown>, key: string): boolean {
+  return Object.keys(outgoing).some(
+    (name) => name !== key && name.toLowerCase() === key.toLowerCase() && !isEmpty(outgoing[name]),
   );
 }
 
