@@ -48,6 +48,7 @@ import {
   type PreselectDiagnosticDetails,
 } from './diagnosticTiming';
 import {
+  classifyPaymentFamily,
   describeArrivalPayment,
   paymentFamilyFromClick,
   paymentFamilyFromPick,
@@ -895,6 +896,30 @@ export function getPreselectCacheMatchValues(
     }
   });
   return Object.keys(matchValues).length > 0 ? matchValues : undefined;
+}
+
+// For each key whose default matches by payment family, the family of the value this call sends, on the speculative
+// call and the target page call alike, so the launcher keeps the cached offers for any value of that family.
+export function getPreselectCacheMatchTokens(
+  configEntry: PreselectionConfigEntry | undefined,
+  outgoing: Record<string, unknown>,
+): Record<string, string> | undefined {
+  const defaults = configEntry?.preselectAttributeDefaults;
+  if (!defaults) {
+    return undefined;
+  }
+  const matchTokens: Record<string, string> = {};
+  Object.keys(defaults).forEach((key) => {
+    const attributeDefault = defaults[key];
+    if (isString(attributeDefault) || attributeDefault?.matchPaymentFamily !== true) {
+      return;
+    }
+    const family = classifyPaymentFamily(readOwnValue(outgoing, key));
+    if (family) {
+      matchTokens[key] = family;
+    }
+  });
+  return Object.keys(matchTokens).length > 0 ? matchTokens : undefined;
 }
 
 // The keys the call still sends with their default once filters and later sources have had their say. A later source

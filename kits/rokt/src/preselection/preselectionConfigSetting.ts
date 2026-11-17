@@ -74,7 +74,7 @@ function isAttributeDefault(value: unknown): boolean {
     return false;
   }
 
-  const { byClientType, byHostname, byPaymentPick, skipRemembered, skipValues, matchGroups } = value;
+  const { byClientType, byHostname, byPaymentPick, skipRemembered, skipValues, matchGroups, matchPaymentFamily } = value;
   if (value.value !== undefined && !isNonEmptyString(value.value)) {
     return false;
   }
@@ -109,6 +109,9 @@ function isAttributeDefault(value: unknown): boolean {
     return false;
   }
   if (skipRemembered !== undefined && typeof skipRemembered !== 'boolean') {
+    return false;
+  }
+  if (matchPaymentFamily !== undefined && typeof matchPaymentFamily !== 'boolean') {
     return false;
   }
   if (
