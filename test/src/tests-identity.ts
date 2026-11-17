@@ -1591,6 +1591,93 @@ describe('identity', function() {
     });
     });
 
+    describe('the login flag through a modify', function () {
+        const logIn = async () => {
+            await waitForCondition(hasIdentityCallInflightReturned);
+            fetchMockSuccess(urls.login, {
+                mpid: testMPID,
+                is_logged_in: true,
+            });
+            mParticle.Identity.login({ userIdentities: { customerid: 'logged-in' } });
+            await waitForCondition(
+                () => mParticle.Identity.getCurrentUser()?.isLoggedIn() === true
+            );
+        };
+
+        const callAndWait = async (call: (callback: (result) => void) => void) => {
+            let result;
+            call(r => {
+                result = r;
+            });
+            await waitForCondition(() => result !== undefined);
+            return result;
+        };
+
+        it('keeps a logged-in user logged in after a modify, whose response carries no login flag', async () => {
+            await logIn();
+            fetchMockSuccess(urls.modify, {
+                change_results: [
+                    { identity_type: 'email', modified_mpid: testMPID },
+                ],
+            });
+
+            const result = await callAndWait(callback =>
+                mParticle.Identity.modify(
+                    { userIdentities: { customerid: 'logged-in', email: 'new@example.com' } },
+                    callback
+                )
+            );
+
+            expect(result.httpCode).to.equal(200);
+            expect(result.getUser().isLoggedIn()).to.equal(true);
+            expect(mParticle.Identity.getCurrentUser().getMPID()).to.equal(testMPID);
+            expect(mParticle.Identity.getCurrentUser().isLoggedIn()).to.equal(true);
+        });
+
+        it('keeps a logged-in user logged in after a modify that fails', async () => {
+            await logIn();
+            fetchMock.post(
+                urls.modify,
+                {
+                    status: 400,
+                    body: JSON.stringify({ Errors: [{ code: 'LOOKUP_ERROR', message: 'rejected' }] }),
+                },
+                { overwriteRoutes: true }
+            );
+
+            const result = await callAndWait(callback =>
+                mParticle.Identity.modify(
+                    { userIdentities: { customerid: 'logged-in', email: 'new@example.com' } },
+                    callback
+                )
+            );
+
+            expect(result.httpCode).to.equal(400);
+            expect(mParticle.Identity.getCurrentUser().isLoggedIn()).to.equal(true);
+        });
+
+        // Kits get no callback for a failed identity call, so a cleared flag is how they see that one was attempted.
+        it('still clears the login flag when a logout fails, keeping the MPID', async () => {
+            await logIn();
+            fetchMock.post(
+                urls.logout,
+                {
+                    status: 400,
+                    body: JSON.stringify({ Errors: [{ code: 'LOOKUP_ERROR', message: 'rejected' }] }),
+                },
+                { overwriteRoutes: true }
+            );
+
+            const result = await callAndWait(callback =>
+                mParticle.Identity.logout({ userIdentities: {} }, callback)
+            );
+
+            expect(result.httpCode).to.equal(400);
+            expect(mParticle.Identity.getCurrentUser().getMPID()).to.equal(testMPID);
+            expect(mParticle.Identity.getCurrentUser().isLoggedIn()).to.equal(false);
+        });
+    });
+
     describe('#identify', function () {
         beforeEach(function () {
             // Resets fetchMock so we can isolate calls for this tests
