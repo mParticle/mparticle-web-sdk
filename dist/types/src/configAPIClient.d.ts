@@ -61,10 +61,12 @@ export interface IConfigResponse {
     flags: SDKEventCustomFlags;
     autoLogPageViewQueryParams?: string;
 }
+type ConfigAPIClientInstance = Pick<IMParticleWebSDKInstance, '_Store' | 'Logger'>;
 export interface IConfigAPIClient {
     apiKey: string;
     config: SDKInitConfig;
-    mpInstance: IMParticleWebSDKInstance;
+    mpInstance: ConfigAPIClientInstance;
     getSDKConfiguration: () => Promise<IConfigResponse>;
 }
-export default function ConfigAPIClient(this: IConfigAPIClient, apiKey: string, config: SDKInitConfig, mpInstance: IMParticleWebSDKInstance): void;
+export default function ConfigAPIClient(this: IConfigAPIClient, apiKey: string, config: SDKInitConfig, mpInstance: ConfigAPIClientInstance): void;
+export {};

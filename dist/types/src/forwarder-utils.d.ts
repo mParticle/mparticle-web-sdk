@@ -1,4 +1,3 @@
-import * as EventsApi from '@mparticle/event-models';
 import { IKitFilterSettings } from './configAPIClient';
 import type { SDKEvent } from './sdkRuntimeModels';
 import type KitBlocker from './kitBlocking';
@@ -12,7 +11,4 @@ export declare function filterUserIdentities(userIdentities: Array<{
 }> | undefined, filterList: number[]): Array<{
     Type: number;
 }>;
-export declare function isBatchEventAllowed(batchEvent: EventsApi.BaseEvent, forwarder: ForwarderFilterConfig): boolean;
-export declare function filterBatchEventAttributes(batchEvent: EventsApi.BaseEvent, forwarder: ForwarderFilterConfig): void;
-export declare function filterBatchIdentities(userIdentities: Record<string, unknown> | undefined, filterList: number[] | undefined): Record<string, unknown> | undefined;
 export {};

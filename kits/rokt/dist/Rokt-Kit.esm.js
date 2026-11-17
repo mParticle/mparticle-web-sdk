@@ -1,4 +1,4 @@
-const Hn = [
+const Yn = [
   "active_time_on_site_ms",
   "billingaddress1",
   "billingaddress2",
@@ -28,49 +28,49 @@ const Hn = [
   "shippingstate",
   "shippingzipcode",
   "totalprice"
-], Wn = new Set(Hn);
-function Hi(t) {
-  return Wn.has(t.toLowerCase());
+], Bn = new Set(Yn);
+function Wi(t) {
+  return Bn.has(t.toLowerCase());
 }
-function ne(t) {
+function re(t) {
   const e = {}, i = t || {}, n = Object.keys(i);
   for (let r = 0; r < n.length; r++) {
     const s = n[r];
-    Hi(s) || (e[s] = i[s]);
+    Wi(s) || (e[s] = i[s]);
   }
   return e;
 }
-function y(t) {
+function E(t) {
   return typeof t == "object" && t !== null && !Array.isArray(t);
 }
 function p(t) {
   return typeof t == "string";
 }
-function j(t) {
+function W(t) {
   return typeof t == "function";
 }
-function Wi(t) {
+function $i(t) {
   try {
     return JSON.parse(t.replace(/&quot;/g, '"'));
   } catch {
     return;
   }
 }
-function k(t) {
+function R(t) {
   return t == null ? !0 : typeof t == "string" ? t.length === 0 : typeof t == "object" ? Object.keys(t).length === 0 : !1;
 }
-function T(t, e) {
+function k(t, e) {
   return Object.prototype.hasOwnProperty.call(t, e) ? t[e] : void 0;
 }
 function We(t) {
-  const e = $i(), i = e ? e(t, "full") : t, n = i.indexOf("#"), r = n === -1 ? "" : i.slice(n);
+  const e = Gi(), i = e ? e(t, "full") : t, n = i.indexOf("#"), r = n === -1 ? "" : i.slice(n);
   return (n === -1 ? i : i.slice(0, n)).split("?")[0] + r.split("?")[0];
 }
-function Rt(t) {
-  const e = $i();
+function Dt(t) {
+  const e = Gi();
   return e ? e(t, "report") : t.split(/[?#]/)[0];
 }
-function $i() {
+function Gi() {
   const t = window.mParticle;
   return t && typeof t._cleanUrl == "function" ? t._cleanUrl : void 0;
 }
@@ -80,8 +80,8 @@ function J(t) {
     e = (e << 5) + e + t.charCodeAt(i), e = e & e;
   return e;
 }
-const I = "mp-rokt-kit", ai = "__rokt_ls_probe__";
-function ci() {
+const I = "mp-rokt-kit", ci = "__rokt_ls_probe__";
+function li() {
   const t = /* @__PURE__ */ new Map();
   return {
     getItem: (e) => t.get(e) ?? null,
@@ -93,18 +93,18 @@ function ci() {
     }
   };
 }
-let le = null;
-function $n(t) {
-  t ? le || (le = { local: ci(), session: ci() }) : le = null;
+let ue = null;
+function zn(t) {
+  t ? ue || (ue = { local: li(), session: li() }) : ue = null;
 }
-function Gn() {
-  return le !== null;
+function Xn() {
+  return ue !== null;
 }
-const Z = () => le?.local ?? window.localStorage, U = () => le?.session ?? window.sessionStorage;
+const Z = () => ue?.local ?? window.localStorage, N = () => ue?.session ?? window.sessionStorage;
 function mt() {
   try {
     const t = Z();
-    return t.setItem(ai, "1"), t.removeItem(ai), !0;
+    return t.setItem(ci, "1"), t.removeItem(ci), !0;
   } catch {
     return !1;
   }
@@ -117,79 +117,79 @@ function qe(t, e = Z) {
     return null;
   }
 }
-function Gi(t, e, i = Z) {
+function Yi(t, e, i = Z) {
   try {
     return i().setItem(t, JSON.stringify(e)), !0;
   } catch {
     return !1;
   }
 }
-function ht(t, e = Z) {
+function _t(t, e = Z) {
   try {
     e().removeItem(t);
   } catch {
   }
 }
-function Yn() {
-  ht(I, () => window.localStorage), ht(I, () => window.sessionStorage);
+function qn() {
+  _t(I, () => window.localStorage), _t(I, () => window.sessionStorage);
 }
-function V(t, e, i = Z) {
+function H(t, e, i = Z) {
   const n = qe(t, i);
-  return y(n) ? n[e] : void 0;
+  return E(n) ? n[e] : void 0;
 }
-function H(t, e, i, n = Z) {
-  const r = qe(t, n), s = y(r) ? { ...r } : {};
-  return s[e] = i, Gi(t, s, n);
+function $(t, e, i, n = Z) {
+  const r = qe(t, n), s = E(r) ? { ...r } : {};
+  return s[e] = i, Yi(t, s, n);
 }
-function Yi(t, e, i) {
-  Object.keys(e).length === 0 ? ht(t, i) : Gi(t, e, i);
+function Bi(t, e, i) {
+  Object.keys(e).length === 0 ? _t(t, i) : Yi(t, e, i);
 }
 function ee(t, e, i = Z) {
   const n = qe(t, i);
-  if (!y(n) || !(e in n))
+  if (!E(n) || !(e in n))
     return;
   const r = { ...n };
-  delete r[e], Yi(t, r, i);
+  delete r[e], Bi(t, r, i);
 }
-function ue(t, e, i = Z) {
+function de(t, e, i = Z) {
   const n = qe(t, i);
-  if (!y(n))
+  if (!E(n))
     return;
   const r = Object.keys(n).filter((o) => o.startsWith(e));
   if (r.length === 0)
     return;
   const s = { ...n };
-  r.forEach((o) => delete s[o]), Yi(t, s, i);
+  r.forEach((o) => delete s[o]), Bi(t, s, i);
 }
-const Dt = "pageViews", $e = "utmParams", Bi = 25, Bn = ["utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content"];
-function zi(t) {
-  return t.slice(-Bi);
+const Ot = "pageViews", $e = "utmParams", zi = 25, Jn = ["utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content"];
+function Xi(t) {
+  return t.slice(-zi);
 }
-function li() {
-  const t = V(I, Dt);
-  return Array.isArray(t) ? t.filter(y).map(zn) : [];
+function ui() {
+  const t = H(I, Ot);
+  return Array.isArray(t) ? t.filter(E).map(Qn) : [];
 }
-function zn(t) {
+function Qn(t) {
   return {
     ...t,
     ...p(t.pageUrl) ? { pageUrl: We(t.pageUrl) } : {},
     ...p(t.canonicalUrl) ? { canonicalUrl: We(t.canonicalUrl) } : {}
   };
 }
-function Xn(t) {
-  const e = zi(t);
+function Zn(t) {
+  const e = Xi(t);
   for (let i = 0; i < e.length; i++) {
     const n = e.slice(i);
-    if (H(I, Dt, n))
+    if ($(I, Ot, n))
       return n.length;
   }
   return 0;
 }
-function ut() {
-  ee(I, Dt);
+function dt() {
+  ee(I, Ot);
 }
-function qn(t) {
-  const e = zi(t);
+function er(t) {
+  const e = Xi(t);
   return e.map((i, n) => {
     const r = i.activeTimeOnSite, s = r !== void 0 && Number.isFinite(r), a = e[n + 1]?.activeTimeOnSite, c = a !== void 0 && Number.isFinite(a), l = s && c ? a - r : void 0;
     return {
@@ -203,21 +203,21 @@ function qn(t) {
     };
   });
 }
-function Xi(t, e = !1) {
+function qi(t, e = !1) {
   return e || !!t && t.is_auto_page_view === !0;
 }
-function Jn(t, e, i = !1) {
-  if (V(I, $e) !== void 0)
+function tr(t, e, i = !1) {
+  if (H(I, $e) !== void 0)
     return;
-  const n = Xi(e, i), r = new URLSearchParams(window.location.search), s = {};
-  for (const a of Bn) {
+  const n = qi(e, i), r = new URLSearchParams(window.location.search), s = {};
+  for (const a of Jn) {
     const c = n ? (e || {})[a] : r.get(a);
     p(c) && c && (s[a] = c);
   }
   if (Object.keys(s).length === 0)
     return;
   const o = Object.keys(s).join(", ");
-  if (!H(I, $e, s)) {
+  if (!$(I, $e, s)) {
     const a = mt() ? "quota" : "ls_unavailable";
     t?.log({
       message: `Rokt Kit: Failed to persist UTM params [reason: ${a}]`,
@@ -230,19 +230,19 @@ function Jn(t, e, i = !1) {
     code: "UTM_CAPTURE_SUCCESS"
   });
 }
-function Qn() {
-  const t = V(I, $e);
-  return y(t) ? t : null;
+function ir() {
+  const t = H(I, $e);
+  return E(t) ? t : null;
 }
-function dt() {
+function ft() {
   ee(I, $e);
 }
-function Zn() {
+function nr() {
   const e = document.querySelector('link[rel="canonical"]')?.href;
   if (e)
     return We(e);
 }
-const qi = "skip", er = [
+const Ji = "skip", rr = [
   {
     accountId: "2919171670744024290",
     pathname: "/checkout",
@@ -329,7 +329,7 @@ const qi = "skip", er = [
     ],
     dispatchDelayMs: 1e3
   }
-], _t = {
+], yt = {
   apple_pay: /\bapple ?pay\b/,
   google_pay: /\b(?:google ?pay|g ?pay|android ?pay)\b/,
   venmo: /\bvenmo\b/,
@@ -343,168 +343,172 @@ const qi = "skip", er = [
   sezzle: /\bsezzle\b/,
   samsung_pay: /\bsamsung ?pay\b/,
   card: /\b(?:credit ?card|debit ?card|credit|debit|cards?|visa|master ?card|mc|am ?ex|american ?express|discover)\b/
-}, tr = /\b(?:gift cards?|store credit|rewards?|points?|balance|vouchers?|promo codes?|coupons?)\b/g, ir = 12;
-function nr(t) {
+}, sr = /\b(?:gift cards?|store credit|rewards?|points?|balance|vouchers?|promo codes?|coupons?)\b/g, or = 12;
+function ar(t) {
   return t.replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase().replace(/[^a-z]+/g, " ").trim();
 }
-function Ot(t) {
+function Nt(t) {
   if (typeof t != "string" || t.length > 128)
     return;
-  const e = nr(t).replace(tr, " ").replace(/\s+/g, " ").trim();
-  if (!e || e.split(" ").length > ir)
+  const e = ar(t).replace(sr, " ").replace(/\s+/g, " ").trim();
+  if (!e || e.split(" ").length > or)
     return;
-  const i = Object.keys(_t).filter((r) => _t[r].test(e)), n = i.filter((r) => r !== "card");
+  const i = Object.keys(yt).filter((r) => yt[r].test(e)), n = i.filter((r) => r !== "card");
   return n.length === 1 ? n[0] : n.length === 0 && i.length === 1 ? i[0] : void 0;
 }
 function Ut(t) {
-  return typeof t == "string" && Object.prototype.hasOwnProperty.call(_t, t);
+  return typeof t == "string" && Object.prototype.hasOwnProperty.call(yt, t);
 }
-const rr = "radio", sr = ["button", "role", "wallet"], or = ["label", "aria_label", "test_id", "element_id", "element_name"];
-function ar(t) {
+const cr = "radio", lr = ["button", "role", "wallet"], ur = ["label", "aria_label", "test_id", "element_id", "element_name"];
+function dr(t) {
   if (!t)
     return;
-  const e = String(t.checked), i = t.type === rr;
-  if (!(e === "false" || i && e !== "true" || t.type === "checkbox" || t.element === "link") && !(!i && t.type === void 0 && !sr.includes(String(t.element))))
-    for (const n of or) {
-      const r = Ot(t[n]);
+  const e = String(t.checked), i = t.type === cr;
+  if (!(e === "false" || i && e !== "true" || t.type === "checkbox" || t.element === "link") && !(!i && t.type === void 0 && !lr.includes(String(t.element))))
+    for (const n of ur) {
+      const r = Nt(t[n]);
       if (r && (i || r !== "card"))
         return r;
     }
 }
-function cr(t) {
+function fr(t) {
   if (Ut(t.family))
     return t.family;
   for (const e of Array.isArray(t.names) ? t.names : []) {
-    const i = Ot(e);
+    const i = Nt(e);
     if (i)
       return i;
   }
 }
-const lr = ["paymenttype", "payment_type", "paymentmethod", "payment_method"];
-function ur(t) {
-  const e = t ? Object.keys(t).find((n) => lr.includes(n.toLowerCase())) : void 0, i = e ? t[e] : void 0;
-  return typeof i != "string" || !i.trim() ? "absent" : Ot(i) ?? "other";
+const gr = ["paymenttype", "payment_type", "paymentmethod", "payment_method"];
+function pr(t) {
+  const e = t ? Object.keys(t).find((n) => gr.includes(n.toLowerCase())) : void 0, i = e ? t[e] : void 0;
+  return typeof i != "string" || !i.trim() ? "absent" : Nt(i) ?? "other";
 }
-const dr = 1, fr = 6e4;
-function D(t) {
+const hr = 1, mr = 6e4;
+function L(t) {
   return Array.isArray(t) && t.every(p);
 }
-function ie(t) {
+function ne(t) {
   return p(t) && t !== "";
 }
-const gr = ["DesktopWeb", "MobileWeb"], pr = 50;
-function mr(t, e) {
-  if (!Array.isArray(t) || t.length === 0 || !t.every((r) => D(r) && r.length >= 2 && r.every(ie)))
+const _r = ["DesktopWeb", "MobileWeb"], yr = 50;
+function Er(t, e) {
+  if (!Array.isArray(t) || t.length === 0 || !t.every((r) => L(r) && r.length >= 2 && r.every(ne)))
     return !1;
   const i = t.flat();
-  if (i.length > pr || new Set(i).size !== i.length)
+  if (i.length > yr || new Set(i).size !== i.length)
     return !1;
-  const n = D(e) ? e.map((r) => r.toLowerCase()) : [];
+  const n = L(e) ? e.map((r) => r.toLowerCase()) : [];
   return !i.some((r) => n.includes(r.toLowerCase()));
 }
-const hr = 10, _r = 256, Er = ["commit", "checkoutStep"];
-function yr(t) {
-  if (!y(t))
+const Ir = 10, Ar = 256, vr = ["commit", "checkoutStep"];
+function Pr(t) {
+  if (!E(t))
     return !1;
-  const e = Er.filter((i) => t[i] !== void 0);
+  const e = vr.filter((i) => t[i] !== void 0);
   return e.length > 0 && e.every((i) => {
     const n = t[i];
-    return D(n) && n.length > 0 && n.length <= hr && n.every((r) => r.trim() !== "" && r.length <= _r);
+    return L(n) && n.length > 0 && n.length <= Ir && n.every((r) => r.trim() !== "" && r.length <= Ar);
   });
 }
-function Ir(t) {
-  if (ie(t))
+function br(t) {
+  if (ne(t))
     return !0;
-  if (!y(t))
+  if (!E(t))
     return !1;
   const { byClientType: e, byHostname: i, byPaymentPick: n, skipRemembered: r, skipValues: s, matchGroups: o } = t;
-  if (t.value !== void 0 && !ie(t.value) || e !== void 0 && (!y(e) || !Object.entries(e).every(
-    ([a, c]) => gr.includes(a) && ie(c)
-  )) || i !== void 0 && (!y(i) || !Object.entries(i).every(
-    ([a, c]) => a !== "" && a === a.toLowerCase() && ie(c)
-  )) || n !== void 0 && (!y(n) || Object.keys(n).length === 0 || !Object.entries(n).every(
-    ([a, c]) => Ut(a) && ie(c)
-  )) || r !== void 0 && typeof r != "boolean" || s !== void 0 && (!D(s) || s.length === 0 || !s.every(ie)))
+  if (t.value !== void 0 && !ne(t.value) || e !== void 0 && (!E(e) || !Object.entries(e).every(
+    ([a, c]) => _r.includes(a) && ne(c)
+  )) || i !== void 0 && (!E(i) || !Object.entries(i).every(
+    ([a, c]) => a !== "" && a === a.toLowerCase() && ne(c)
+  )) || n !== void 0 && (!E(n) || Object.keys(n).length === 0 || !Object.entries(n).every(
+    ([a, c]) => Ut(a) && ne(c)
+  )) || r !== void 0 && typeof r != "boolean" || s !== void 0 && (!L(s) || s.length === 0 || !s.every(ne)))
     return !1;
-  if (D(s)) {
+  if (L(s)) {
     const a = s.map((l) => l.toLowerCase());
     if ([
       t.value,
-      ...Object.values(e ?? {}).filter((l) => l !== qi),
+      ...Object.values(e ?? {}).filter((l) => l !== Ji),
       ...Object.values(i ?? {}),
       ...Object.values(n ?? {})
     ].some((l) => p(l) && a.includes(l.toLowerCase())))
       return !1;
   }
-  return o !== void 0 && !mr(o, s) ? !1 : t.value !== void 0 || e !== void 0 || i !== void 0 || n !== void 0;
+  return o !== void 0 && !Er(o, s) ? !1 : t.value !== void 0 || e !== void 0 || i !== void 0 || n !== void 0;
 }
-function Ar(t, e) {
-  if (!y(e))
+function wr(t, e) {
+  if (!E(e))
     return "not an object";
-  const { pathname: i, targetPageIdentifier: n, attributeKeys: r, optionalAttributeKeys: s, identityKeys: o, dispatchDelayMs: a } = e, { triggerEventNames: c, releaseHoldOnRouteChange: l, readEmailInput: u, cartIntent: d, cartUserAttribute: m } = e, { checkoutStepIntent: h, intentSelectors: E } = e, v = e.preselectAttributeOverrides, P = e.preselectAttributeDefaults !== void 0 ? e.preselectAttributeDefaults : v, f = e.widenedOptionalAttributeKeys;
+  const { pathname: i, pathnames: n, targetPageIdentifier: r, attributeKeys: s, optionalAttributeKeys: o, identityKeys: a, dispatchDelayMs: c } = e, { triggerEventNames: l, releaseHoldOnRouteChange: u, readEmailInput: d, cartIntent: g, cartUserAttribute: h } = e, { checkoutStepIntent: y, intentSelectors: v, hosts: P } = e, m = e.preselectAttributeOverrides, _ = e.preselectAttributeDefaults !== void 0 ? e.preselectAttributeDefaults : m, b = e.widenedOptionalAttributeKeys;
   if (e.accountId !== void 0 && e.accountId !== t)
     return "accountId";
   if (!p(i) || !i.startsWith("/"))
     return "pathname";
-  if (!p(n) || n === "")
+  if (n !== void 0 && (!L(n) || n.length === 0 || !n.every((A) => A.startsWith("/"))))
+    return "pathnames";
+  if (!p(r) || r === "")
     return "targetPageIdentifier";
-  if (!D(r) || r.length === 0)
+  if (!L(s) || s.length === 0)
     return "attributeKeys";
-  if (s !== void 0 && (!D(s) || !s.every((A) => r.includes(A))))
+  if (o !== void 0 && (!L(o) || !o.every((A) => s.includes(A))))
     return "optionalAttributeKeys";
-  if (f !== void 0 && (!D(f) || !f.every((A) => r.includes(A))))
+  if (b !== void 0 && (!L(b) || !b.every((A) => s.includes(A))))
     return "widenedOptionalAttributeKeys";
-  if (o !== void 0 && (!D(o) || o.length === 0 || !o.every((A) => r.includes(A))))
+  if (a !== void 0 && (!L(a) || a.length === 0 || !a.every((A) => s.includes(A))))
     return "identityKeys";
-  if (D(f) && f.length > 0) {
-    const A = (D(s) ? s : []).concat(f).map((O) => O.toLowerCase());
-    if (!D(o) || o.some((O) => A.includes(O.toLowerCase())))
+  if (L(b) && b.length > 0) {
+    const A = (L(o) ? o : []).concat(b).map((x) => x.toLowerCase());
+    if (!L(a) || a.some((x) => A.includes(x.toLowerCase())))
       return "identityKeys";
   }
-  if (a !== void 0 && (!Number.isInteger(a) || a < 0 || a > fr))
+  if (c !== void 0 && (!Number.isInteger(c) || c < 0 || c > mr))
     return "dispatchDelayMs";
-  if (l !== void 0 && typeof l != "boolean")
+  if (u !== void 0 && typeof u != "boolean")
     return "releaseHoldOnRouteChange";
-  if (h !== void 0 && typeof h != "boolean")
+  if (y !== void 0 && typeof y != "boolean")
     return "checkoutStepIntent";
-  if (d !== void 0 && typeof d != "boolean")
+  if (g !== void 0 && typeof g != "boolean")
     return "cartIntent";
-  if (E !== void 0 && !yr(E))
+  if (v !== void 0 && !Pr(v))
     return "intentSelectors";
-  if (u !== void 0 && (typeof u != "boolean" || !r.includes("email") || D(s) && s.includes("email") || // The runtime matches optional keys in any casing, so an 'Email' key would make email optional too.
-  D(f) && f.some((A) => A.toLowerCase() === "email") || // A default makes its key optional too, and would send a guessed email as the shopper's.
-  y(P) && Object.keys(P).some((A) => A.toLowerCase() === "email")))
+  if (P !== void 0 && (!L(P) || P.length === 0 || !P.every((A) => A !== "" && A === A.toLowerCase())))
+    return "hosts";
+  if (d !== void 0 && (typeof d != "boolean" || !s.includes("email") || L(o) && o.includes("email") || // The runtime matches optional keys in any casing, so an 'Email' key would make email optional too.
+  L(b) && b.some((A) => A.toLowerCase() === "email") || // A default makes its key optional too, and would send a guessed email as the shopper's.
+  E(_) && Object.keys(_).some((A) => A.toLowerCase() === "email")))
     return "readEmailInput";
-  if (e.preselectAttributeDefaults !== void 0 && v !== void 0)
+  if (e.preselectAttributeDefaults !== void 0 && m !== void 0)
     return "preselectAttributeDefaults";
-  let _;
-  if (P !== void 0) {
+  let w;
+  if (_ !== void 0) {
     const A = e.preselectAttributeDefaults !== void 0 ? "preselectAttributeDefaults" : "preselectAttributeOverrides";
-    if (!y(P))
+    if (!E(_))
       return A;
-    const O = (D(o) ? o : []).map((R) => R.toLowerCase()), L = ([R, B]) => Ir(B) && r.includes(R) && !["email", "emailsha256"].includes(R.toLowerCase()) && !O.includes(R.toLowerCase()), Y = ([R, B]) => v !== void 0 && p(B) && r.includes(R) && !(D(o) && o.includes(R)), te = Object.entries(P);
-    if (!te.every((R) => L(R) || Y(R)))
+    const x = (L(a) ? a : []).map((O) => O.toLowerCase()), te = ([O, F]) => br(F) && s.includes(O) && !["email", "emailsha256"].includes(O.toLowerCase()) && !x.includes(O.toLowerCase()), ie = ([O, F]) => m !== void 0 && p(F) && s.includes(O) && !(L(a) && a.includes(O)), z = Object.entries(_);
+    if (!z.every((O) => te(O) || ie(O)))
       return A;
-    _ = Object.fromEntries(te.filter(L));
+    w = Object.fromEntries(z.filter(te));
   }
-  if (c !== void 0 && (!D(c) || c.length === 0 || c.some((A) => A === "")))
+  if (l !== void 0 && (!L(l) || l.length === 0 || l.some((A) => A === "")))
     return "triggerEventNames";
-  const b = { accountId: t, pathname: i, targetPageIdentifier: n, attributeKeys: r };
-  return s !== void 0 && (b.optionalAttributeKeys = s), f !== void 0 && (b.widenedOptionalAttributeKeys = f), o !== void 0 && (b.identityKeys = o), a !== void 0 && (b.dispatchDelayMs = a), l !== void 0 && (b.releaseHoldOnRouteChange = l), h !== void 0 && (b.checkoutStepIntent = h), E !== void 0 && (b.intentSelectors = E), u !== void 0 && (b.readEmailInput = u), _ !== void 0 && (b.preselectAttributeDefaults = _), c !== void 0 && (b.triggerEventNames = c), d !== void 0 && (b.cartIntent = d), d === !0 && p(m) && m !== "" && (b.cartUserAttribute = m), b;
+  const C = { accountId: t, pathname: i, targetPageIdentifier: r, attributeKeys: s };
+  return n !== void 0 && (C.pathnames = n), o !== void 0 && (C.optionalAttributeKeys = o), b !== void 0 && (C.widenedOptionalAttributeKeys = b), a !== void 0 && (C.identityKeys = a), c !== void 0 && (C.dispatchDelayMs = c), u !== void 0 && (C.releaseHoldOnRouteChange = u), y !== void 0 && (C.checkoutStepIntent = y), v !== void 0 && (C.intentSelectors = v), P !== void 0 && (C.hosts = P), d !== void 0 && (C.readEmailInput = d), w !== void 0 && (C.preselectAttributeDefaults = w), l !== void 0 && (C.triggerEventNames = l), g !== void 0 && (C.cartIntent = g), g === !0 && p(h) && h !== "" && (C.cartUserAttribute = h), C;
 }
-function vr(t, e) {
-  const i = Wi(e);
+function Sr(t, e) {
+  const i = $i(e);
   if (i === void 0)
     return { error: "invalid JSON" };
-  if (!y(i))
+  if (!E(i))
     return { error: "not an object" };
-  if (i.schemaVersion !== dr)
+  if (i.schemaVersion !== hr)
     return { error: "schemaVersion" };
   if (!Array.isArray(i.entries))
     return { error: "entries" };
   const n = [];
   for (let r = 0; r < i.entries.length; r++) {
-    const s = Ar(t, i.entries[r]);
+    const s = wr(t, i.entries[r]);
     if (p(s))
       return { error: `entry ${r + 1} ${s}` };
     if (n.some((o) => o.targetPageIdentifier === s.targetPageIdentifier))
@@ -513,72 +517,72 @@ function vr(t, e) {
   }
   return { entries: n };
 }
-const Pr = 6e4, Kt = "activePreselect:";
-function br(t) {
-  return y(t) && typeof t.expiresAt == "number" && typeof t.attributesDigest == "number";
+const Cr = 6e4, Kt = "activePreselect:";
+function Tr(t) {
+  return E(t) && typeof t.expiresAt == "number" && typeof t.attributesDigest == "number";
 }
-function Nt(t, e) {
+function Ft(t, e) {
   return `${Kt}${t}:${e}`;
 }
-function de(t) {
-  const e = V(I, t, U);
-  return br(e) && e.expiresAt > Date.now() ? e : null;
+function fe(t) {
+  const e = H(I, t, N);
+  return Tr(e) && e.expiresAt > Date.now() ? e : null;
 }
-function wr(t, e, i = !1) {
-  H(
+function kr(t, e, i = !1) {
+  $(
     I,
     t,
-    { expiresAt: Date.now() + Pr, attributesDigest: e, ...i ? { byEvent: !0 } : {} },
-    U
+    { expiresAt: Date.now() + Cr, attributesDigest: e, ...i ? { byEvent: !0 } : {} },
+    N
   );
 }
-function Sr(t, e, i) {
-  const n = de(t);
-  n && n.attributesDigest !== i || (e && e.expiresAt > Date.now() ? H(I, t, e, U) : ee(I, t, U));
+function Lr(t, e, i) {
+  const n = fe(t);
+  n && n.attributesDigest !== i || (e && e.expiresAt > Date.now() ? $(I, t, e, N) : ee(I, t, N));
 }
-function ui(t) {
-  ue(
+function di(t) {
+  de(
     I,
     `${Kt}${t}:`,
-    U
+    N
   );
 }
-function Tr() {
-  ue(I, Kt);
+function Rr() {
+  de(I, Kt);
 }
-const kr = 5 * 6e4, Ji = "pendingPreselect:";
-function Lr(t) {
-  return y(t) && typeof t.expiresAt == "number" && p(t.pathname) && p(t.identifier) && y(t.attributes) && p(t.mpid);
-}
-function Ft(t) {
-  return `${Ji}${t}`;
+const Dr = 5 * 6e4, Qi = "pendingPreselect:";
+function Or(t) {
+  return E(t) && typeof t.expiresAt == "number" && p(t.pathname) && p(t.identifier) && E(t.attributes) && p(t.mpid);
 }
 function Mt(t) {
-  const e = Ft(t), i = V(I, e, U);
-  return Lr(i) ? i.expiresAt <= Date.now() ? (ee(I, e, U), null) : i : null;
+  return `${Qi}${t}`;
 }
-function di(t, e, i, n, r, s = !1) {
-  return H(
+function xt(t) {
+  const e = Mt(t), i = H(I, e, N);
+  return Or(i) ? i.expiresAt <= Date.now() ? (ee(I, e, N), null) : i : null;
+}
+function fi(t, e, i, n, r, s = !1) {
+  return $(
     I,
-    Ft(t),
+    Mt(t),
     {
-      expiresAt: Date.now() + kr,
+      expiresAt: Date.now() + Dr,
       pathname: e,
       identifier: i,
       attributes: n,
       mpid: r,
       ...s ? { byEvent: !0 } : {}
     },
-    U
+    N
   );
 }
-function re(t) {
-  ee(I, Ft(t), U);
+function se(t) {
+  ee(I, Mt(t), N);
 }
-function Cr() {
-  ue(I, Ji);
+function Nr() {
+  de(I, Qi);
 }
-const Qi = "preselectArrival:", Zi = "preselectTriggerAnyTab:", Je = "preselectCartAdd:", en = "preselectTargetPath:", tn = "preselectCartArrival:", Rr = 30 * 6e4, ge = 30 * 6e4, Dr = 10080 * 6e4, Or = 10080 * 6e4, Et = ["commit", "wallet", "frame", "checkout_step", "cart"], Ur = [
+const Zi = "preselectArrival:", en = "preselectTriggerAnyTab:", Je = "preselectCartAdd:", tn = "preselectTargetPath:", nn = "preselectCartArrival:", Ur = 30 * 6e4, pe = 30 * 6e4, Kr = 10080 * 6e4, Fr = 10080 * 6e4, Et = ["commit", "wallet", "frame", "checkout_step", "cart"], Mr = [
   "triggeredAt",
   "identitySeenAt",
   "firedAt",
@@ -586,80 +590,80 @@ const Qi = "preselectArrival:", Zi = "preselectTriggerAnyTab:", Je = "preselectC
   "arrivedAt",
   "nearMissAt",
   "paymentPickAt"
-], Kr = ["paymentPick", "paymentAtFire"];
-function W(t, e) {
-  return `${Qi}${t}:${e}`;
-}
-function nn(t, e) {
+], xr = ["paymentPick", "paymentAtFire"];
+function G(t, e) {
   return `${Zi}${t}:${e}`;
 }
-function Ce(t) {
-  const e = V(I, t, U), i = {};
-  if (!y(e))
+function rn(t, e) {
+  return `${en}${t}:${e}`;
+}
+function Le(t) {
+  const e = H(I, t, N), i = {};
+  if (!E(e))
     return i;
-  for (const n of Ur)
+  for (const n of Mr)
     typeof e[n] == "number" && (i[n] = e[n]);
   typeof e.intentAt == "number" && Et.includes(e.intentKind) && (i.intentAt = e.intentAt, i.intentKind = e.intentKind);
-  for (const n of Kr)
+  for (const n of xr)
     Ut(e[n]) && (i[n] = e[n]);
   return i.firedAt !== void 0 && e.firedByCart === !0 && (i.firedByCart = !0), i;
 }
-function se(t, e) {
-  return H(I, t, e, U);
+function oe(t, e) {
+  return $(I, t, e, N);
 }
-function oe(t) {
-  const e = Ce(t);
+function ae(t) {
+  const e = Le(t);
   return e.arrivedAt === void 0 ? e : e.paymentPick !== void 0 && e.paymentPickAt !== void 0 && e.paymentPickAt > e.arrivedAt ? { paymentPick: e.paymentPick, paymentPickAt: e.paymentPickAt } : {};
 }
-function Nr(t, e, i) {
-  const n = W(t, e), r = oe(n), s = Date.now();
-  se(n, {
+function Vr(t, e, i) {
+  const n = G(t, e), r = ae(n), s = Date.now();
+  oe(n, {
     ...r,
     triggeredAt: r.triggeredAt ?? s,
     ...i ? { identitySeenAt: r.identitySeenAt ?? s } : {}
-  }), H(I, nn(t, e), {
+  }), $(I, rn(t, e), {
     triggeredAt: s
   });
 }
-function Fr(t, e) {
-  const i = V(I, nn(t, e));
-  if (!y(i) || typeof i.triggeredAt != "number")
+function jr(t, e) {
+  const i = H(I, rn(t, e));
+  if (!E(i) || typeof i.triggeredAt != "number")
     return !1;
   const n = Date.now() - i.triggeredAt;
-  return n >= 0 && n < Rr;
+  return n >= 0 && n < Ur;
 }
-function Mr(t, e, i) {
-  const n = `${Je}${t}`, r = V(I, n), s = y(r) ? r.addedAt ?? r.forgottenAt : void 0;
-  typeof s == "number" && e <= s || H(I, n, { addedAt: e, mpid: i });
+function Hr(t, e, i) {
+  const n = `${Je}${t}`, r = H(I, n), s = E(r) ? r.addedAt ?? r.forgottenAt : void 0;
+  typeof s == "number" && e <= s || $(I, n, { addedAt: e, mpid: i });
 }
-function xr(t, e) {
-  const i = `${Je}${t}`, n = V(I, i);
-  if (!y(n))
+function Wr(t, e) {
+  const i = `${Je}${t}`, n = H(I, i);
+  if (!E(n))
     return !1;
   const r = typeof n.addedAt == "number" ? n.addedAt : void 0, s = r ?? n.forgottenAt;
   if (typeof s != "number")
     return !1;
   const o = Date.now() - s;
-  return o >= 0 && o < Dr ? r !== void 0 && e !== null && n.mpid === e : (ee(I, i), !1);
+  return o >= 0 && o < Kr ? r !== void 0 && e !== null && n.mpid === e : (ee(I, i), !1);
 }
-function Vr(t, e) {
+function $r(t, e) {
   const i = `${Je}${t}`;
-  e ? H(I, i, { forgottenAt: Date.now() }) : ee(I, i);
+  e ? $(I, i, { forgottenAt: Date.now() }) : ee(I, i);
 }
-function jr(t, e) {
-  const i = W(t, e), n = Ce(i);
-  n.arrivedAt !== void 0 || n.nearMissAt !== void 0 || se(i, { ...n, nearMissAt: Date.now() });
+function Gr(t, e) {
+  const i = G(t, e), n = Le(i);
+  n.arrivedAt !== void 0 || n.nearMissAt !== void 0 || oe(i, { ...n, nearMissAt: Date.now() });
 }
-function Hr(t, e, i, n = !1) {
-  const r = W(t, e), s = oe(r), o = s.firedAt !== void 0 && Se(s.firedAt) ? {
+function Yr(t, e, i, n = !1) {
+  const r = G(t, e), s = ae(r), o = s.firedAt !== void 0 && Se(s.firedAt) ? {
     firedAt: s.firedAt,
     ...s.firedDigest !== void 0 ? { firedDigest: s.firedDigest } : {},
     ...s.firedByCart ? { firedByCart: !0 } : {},
     ...s.paymentAtFire !== void 0 ? { paymentAtFire: s.paymentAtFire } : {}
   } : void 0, a = s.paymentPick !== void 0 && s.paymentPickAt !== void 0 && Se(s.paymentPickAt) ? s.paymentPick : void 0;
-  return se(
+  return oe(
     r,
-    rn(s, {
+    sn(s, {
       firedAt: o && !(o.firedByCart && !n) ? o.firedAt : Date.now(),
       firedDigest: i,
       ...n ? { firedByCart: !0 } : {},
@@ -667,11 +671,11 @@ function Hr(t, e, i, n = !1) {
     })
   ), o;
 }
-function Wr(t, e, i, n) {
-  const r = W(t, e), s = oe(r);
-  s.firedAt === void 0 || s.firedDigest !== n || se(r, rn(s, i));
+function Br(t, e, i, n) {
+  const r = G(t, e), s = ae(r);
+  s.firedAt === void 0 || s.firedDigest !== n || oe(r, sn(s, i));
 }
-function rn(t, e) {
+function sn(t, e) {
   const i = { ...t };
   return delete i.firedAt, delete i.firedDigest, delete i.firedByCart, delete i.paymentAtFire, e ? {
     ...i,
@@ -681,107 +685,107 @@ function rn(t, e) {
     ...e.paymentAtFire !== void 0 ? { paymentAtFire: e.paymentAtFire } : {}
   } : i;
 }
-function $r(t, e) {
-  const i = oe(W(t, e));
+function zr(t, e) {
+  const i = ae(G(t, e));
   if (i.triggeredAt === void 0)
     return !1;
   const n = Date.now() - i.triggeredAt;
-  return n >= 0 && n < ge;
+  return n >= 0 && n < pe;
 }
-function fi(t, e, i, n = !1) {
-  const r = oe(W(t, e));
+function gi(t, e, i, n = !1) {
+  const r = ae(G(t, e));
   if (r.firedAt === void 0 || n && r.firedByCart || i !== void 0 && r.firedDigest !== void 0 && r.firedDigest !== i)
     return !1;
   const s = Date.now() - r.firedAt;
-  return s >= 0 && s < ge;
+  return s >= 0 && s < pe;
 }
-function Gr(t, e, i, n) {
-  const r = W(t, e), s = oe(r);
-  if (s.intentAt !== void 0 && s.intentKind !== void 0 && Yr(s.intentAt)) {
+function Xr(t, e, i, n) {
+  const r = G(t, e), s = ae(r);
+  if (s.intentAt !== void 0 && s.intentKind !== void 0 && qr(s.intentAt)) {
     const o = Et.indexOf(s.intentKind), a = Et.indexOf(i);
     if (o < a || o === a && s.intentAt >= n)
       return;
   }
-  se(r, { ...s, intentAt: n, intentKind: i });
+  oe(r, { ...s, intentAt: n, intentKind: i });
 }
 function Se(t) {
   const e = Date.now() - t;
-  return e >= 0 && e < ge;
+  return e >= 0 && e < pe;
 }
-function Yr(t) {
+function qr(t) {
   return Se(t);
 }
-function Br(t, e, i, n) {
-  const r = W(t, e), s = Ce(r);
-  s.arrivedAt !== void 0 && n <= s.arrivedAt || s.paymentPickAt !== void 0 && s.paymentPickAt > n || se(r, { ...s, paymentPick: i, paymentPickAt: n });
+function Jr(t, e, i, n) {
+  const r = G(t, e), s = Le(r);
+  s.arrivedAt !== void 0 && n <= s.arrivedAt || s.paymentPickAt !== void 0 && s.paymentPickAt > n || oe(r, { ...s, paymentPick: i, paymentPickAt: n });
 }
-function zr(t, e) {
-  const i = oe(W(t, e));
+function Qr(t, e) {
+  const i = ae(G(t, e));
   return i.paymentPick !== void 0 && i.paymentPickAt !== void 0 && Se(i.paymentPickAt) ? i.paymentPick : void 0;
 }
-function Xr(t, e) {
-  const i = W(t, e), n = Ce(i);
+function Zr(t, e) {
+  const i = G(t, e), n = Le(i);
   if (n.arrivedAt !== void 0)
     return;
   const r = { ...n, arrivedAt: Date.now() };
-  if (delete r.paymentPick, delete r.paymentPickAt, !!se(i, r))
+  if (delete r.paymentPick, delete r.paymentPickAt, !!oe(i, r))
     return n;
 }
-function sn(t, e) {
-  return `${tn}${t}:${e}`;
+function on(t, e) {
+  return `${nn}${t}:${e}`;
 }
-function qr(t, e, i, n) {
-  const r = sn(t, e);
+function es(t, e, i, n) {
+  const r = on(t, e);
   if (i === void 0 || n === null) {
-    ee(I, r, U);
+    ee(I, r, N);
     return;
   }
-  H(
+  $(
     I,
     r,
     { arrivedAt: Date.now(), cartDigest: i, mpid: n },
-    U
+    N
   );
 }
-function Jr(t, e, i, n) {
-  const r = V(
+function ts(t, e, i, n) {
+  const r = H(
     I,
-    sn(t, e),
-    U
+    on(t, e),
+    N
   );
-  if (!y(r) || typeof r.arrivedAt != "number" || r.cartDigest !== i || n === null || r.mpid !== n)
+  if (!E(r) || typeof r.arrivedAt != "number" || r.cartDigest !== i || n === null || r.mpid !== n)
     return !1;
-  const { firedAt: s } = Ce(W(t, e)), o = V(I, `${Je}${t}`), a = y(o) && typeof o.addedAt == "number" && o.mpid === n ? o.addedAt : void 0;
+  const { firedAt: s } = Le(G(t, e)), o = H(I, `${Je}${t}`), a = E(o) && typeof o.addedAt == "number" && o.mpid === n ? o.addedAt : void 0;
   return Se(r.arrivedAt) && !(s !== void 0 && s >= r.arrivedAt) && !(a !== void 0 && a >= r.arrivedAt);
 }
-function Qr(t, e, i) {
-  H(I, `${en}${t}:${e}`, {
+function is(t, e, i) {
+  $(I, `${tn}${t}:${e}`, {
     pathDigest: i,
     learnedAt: Date.now()
   });
 }
-function Zr(t, e, i) {
-  const n = V(
+function ns(t, e, i) {
+  const n = H(
     I,
-    `${en}${t}:${e}`
+    `${tn}${t}:${e}`
   );
-  if (!y(n) || n.pathDigest !== i || typeof n.learnedAt != "number")
+  if (!E(n) || n.pathDigest !== i || typeof n.learnedAt != "number")
     return !1;
   const r = Date.now() - n.learnedAt;
-  return r >= 0 && r < Or;
+  return r >= 0 && r < Fr;
 }
-function gi(t) {
-  ue(
+function pi(t) {
+  de(
     I,
-    `${Qi}${t}:`,
-    U
-  ), ue(
+    `${Zi}${t}:`,
+    N
+  ), de(
     I,
-    `${tn}${t}:`,
-    U
-  ), ue(I, `${Zi}${t}:`);
+    `${nn}${t}:`,
+    N
+  ), de(I, `${en}${t}:`);
 }
-function w(t, e, i = {}) {
+function S(t, e, i = {}) {
   const n = {
     fired: "PRESELECT_FIRED",
     missed: "PRESELECT_MISSED",
@@ -796,20 +800,29 @@ function w(t, e, i = {}) {
     code: n[t]
   };
 }
-const yt = /* @__PURE__ */ new Map();
-function es(t, e) {
-  if (yt.delete(t), !e)
+const It = /* @__PURE__ */ new Map();
+function rs(t, e) {
+  if (It.delete(t), !e)
     return;
-  const i = vr(t, e);
+  const i = Sr(t, e);
   if ("error" in i)
     return i.error;
-  yt.set(t, i.entries);
+  It.set(t, i.entries);
 }
-function x(t) {
-  return yt.get(t) ?? er.filter((e) => e.accountId === t);
+function j(t) {
+  return It.get(t) ?? rr.filter((e) => e.accountId === t);
 }
-function ve(t, e) {
-  const i = S(t), n = S(e);
+function an(t) {
+  return t.pathnames ? [t.pathname, ...t.pathnames] : [t.pathname];
+}
+function cn(t, e) {
+  return an(t).find((i) => xe(i, e));
+}
+function ln(t, e) {
+  return cn(t, e) !== void 0;
+}
+function xe(t, e) {
+  const i = T(t), n = T(e);
   if (!i.includes("*"))
     return i === n;
   const r = i.split("/"), s = n.split("/");
@@ -817,72 +830,74 @@ function ve(t, e) {
     (o, a) => o === "*" ? s[a] !== "" : o === s[a]
   );
 }
-function S(t) {
+function T(t) {
   return t.length > 1 && t.endsWith("/") ? t.slice(0, -1) : t;
 }
-function ts(t, e) {
-  const i = S(t).toLowerCase(), n = S(e).toLowerCase().split("/"), r = i.split("/").length;
-  return ve(i, n.join("/")) || ve(i, ["", ...n.slice(2)].join("/")) || n.length > r && ve(i, n.slice(0, r).join("/"));
+function ss(t, e) {
+  const i = T(t).toLowerCase(), n = T(e).toLowerCase().split("/"), r = i.split("/").length;
+  return xe(i, n.join("/")) || xe(i, ["", ...n.slice(2)].join("/")) || n.length > r && xe(i, n.slice(0, r).join("/"));
 }
-const on = {}, an = {}, cn = {}, xt = {}, ln = {}, is = {}, ns = ["commit", "wallet", "checkout_step", "frame", "cart"], rs = ["vendor", "label", "brand", "frame", "submit", "name", "api", "selector"], ss = 512;
-function un(t) {
+const un = {}, dn = {}, fn = {}, Vt = {}, gn = {}, os = {}, as = ["commit", "wallet", "checkout_step", "frame", "cart"], cs = ["vendor", "label", "brand", "frame", "submit", "name", "api", "selector"], ls = 512;
+function pn(t) {
   return t === "commit" ? "intent_commit" : t === "checkout_step" ? "intent_checkout_step" : t === "cart" ? "intent_cart" : "intent_wallet";
 }
-function dn(t) {
-  return t === "intent_commit" ? an : t === "intent_checkout_step" ? xt : t === "intent_cart" ? ln : cn;
+function hn(t) {
+  return t === "intent_commit" ? dn : t === "intent_checkout_step" ? Vt : t === "intent_cart" ? gn : fn;
 }
-const os = 1e3;
-function It(t) {
+const us = 1e3;
+function At(t) {
   const e = Date.now() - t.t;
-  return e >= 0 && e < os;
+  return e >= 0 && e < us;
 }
 function Qe(t) {
-  return x(t).filter((e) => e.cartIntent === !0);
+  return j(t).filter((e) => e.cartIntent === !0);
 }
 function Ze(t) {
-  return typeof t.source == "string" && rs.includes(t.source) ? t.source : void 0;
+  return typeof t.source == "string" && cs.includes(t.source) ? t.source : void 0;
 }
-function fn(t) {
-  return [...new Set(x(t).map((i) => i.targetPageIdentifier))].some((i) => $r(t, i)) ? "left" : "before_entry";
+function mn(t) {
+  return [...new Set(j(t).map((i) => i.targetPageIdentifier))].some((i) => zr(t, i)) ? "left" : "before_entry";
 }
 function et(t, e, i, n, r = {}, s = !1) {
   const o = `${n}:${i}:${e.kind}${s ? ":wait" : ""}`;
-  if (vt.has(o)) return;
-  vt.add(o);
+  if (Pt.has(o)) return;
+  Pt.add(o);
   const a = Ze(e);
   t.logPlacementDiagnostic(
-    w("skipped", "intent_observed", {
+    S("skipped", "intent_observed", {
       intent_kind: e.kind,
       intent_route: i,
       ...a ? { intent_source: a } : {},
-      has_email: Ke(t, {}),
+      has_email: Ue(t, {}),
       has_identity: K(t.filteredUser),
       ...r
     })
   );
 }
-function Vt(t) {
-  const e = C(t.filteredUser), i = t.getCurrentUser?.();
-  return e !== null && C(i) === e && i?.isLoggedIn?.() === !0;
+function jt(t) {
+  const e = D(t.filteredUser), i = t.getCurrentUser?.();
+  return e !== null && D(i) === e && i?.isLoggedIn?.() === !0;
 }
-function At(t, e, i, n, r, s = !1) {
-  const o = e.accountId, a = fn(o), c = Vt(e), l = (b) => et(e, i, a, r, { logged_in: c, ...b ? { cause: b } : {} }, s), u = i.kind === "cart", d = i.kind === "wallet" && !c && (s || !K(e.filteredUser));
+function vt(t, e, i, n, r, s = !1) {
+  const o = e.accountId, a = mn(o), c = jt(e), l = (b, w = s) => et(e, i, a, r, { logged_in: c, ...b ? { cause: b } : {} }, w), u = i.kind === "cart", d = i.kind === "wallet" && !c && (s || !K(e.filteredUser));
   if (!u && !c && (s || l(), !d))
     return;
-  const m = u ? Qe(o) : x(o).filter((b) => b.cartIntent !== !0);
-  if (m.length === 0) return l("cart_entry_only");
-  if (m.length !== 1) return l("multiple_entries");
-  if (n !== S(window.location.pathname) && !(u && It(i)))
+  const g = u ? Qe(o) : j(o).filter((b) => b.cartIntent !== !0);
+  if (g.length === 0) return l("cart_entry_only");
+  if (g.length !== 1) return l("multiple_entries");
+  if (n !== T(window.location.pathname) && !(u && At(i)))
     return l("path_changed");
-  const h = m[0];
+  const h = g[0];
+  if (h.hosts && !h.hosts.includes(window.location.hostname) && U(o, n)?.targetPageIdentifier !== h.targetPageIdentifier)
+    return l("unlisted_host", d);
   if (!K(e.filteredUser))
-    return d && !s ? cs(t, e, i, n, r) : l("no_valid_identity");
-  const E = un(i.kind), v = `${E}_off_entry`, { collected: P, missingKeys: f } = ae(e, dn(E), h, !1), _ = nt(e, o, h.targetPageIdentifier, P);
-  if (Jt(o, h.targetPageIdentifier, _, !u))
+    return d && !s ? fs(t, e, i, n, r) : l("no_valid_identity");
+  const y = pn(i.kind), v = `${y}_off_entry`, { collected: P, missingKeys: m } = ce(e, hn(y), h, !1), _ = nt(e, o, h.targetPageIdentifier, P);
+  if (Qt(o, h.targetPageIdentifier, _, !u))
     return l("active_preselection");
-  if (f.length > 0) return l("missing_attribute");
-  if (!Ke(e, P, h.targetPageIdentifier)) return l("no_strict_email");
-  Ne(
+  if (m.length > 0) return l("missing_attribute");
+  if (!Ue(e, P, h.targetPageIdentifier)) return l("no_strict_email");
+  Ke(
     e,
     o,
     h.targetPageIdentifier,
@@ -891,190 +906,191 @@ function At(t, e, i, n, r, s = !1) {
     "intent",
     De(v, h),
     !1,
-    E,
+    y,
     !1,
     void 0,
     Ze(i),
     { route: a, loggedIn: c, requireLogin: !u && !d }
   );
 }
-function as(t, e, i, n) {
-  const r = (a) => et(t, e, "entry", n, { cause: a });
-  if (!K(t.filteredUser)) return r("no_valid_identity");
-  const { collected: s, missingKeys: o } = ae(t, xt, i, !1);
-  if (o.length > 0) return r("missing_attribute");
-  if (!Ke(t, s, i.targetPageIdentifier)) return r("no_strict_email");
-  Ne(
+function ds(t, e, i, n, r) {
+  const s = (c) => et(t, e, "entry", r, { cause: c });
+  if (!K(t.filteredUser)) return s("no_valid_identity");
+  const { collected: o, missingKeys: a } = ce(t, Vt, i, !1);
+  if (a.length > 0) return s("missing_attribute");
+  if (!Ue(t, o, i.targetPageIdentifier)) return s("no_strict_email");
+  Ke(
     t,
     t.accountId,
     i.targetPageIdentifier,
     i.targetPageIdentifier,
-    s,
+    o,
     "intent",
-    De("intent_checkout_step", i),
+    De("intent_checkout_step", i, n),
     !1,
     "intent_checkout_step",
     !1,
     void 0,
     Ze(e),
-    { route: "entry", loggedIn: Vt(t), requireLogin: !1 }
+    { route: "entry", loggedIn: jt(t), requireLogin: !1 }
   );
 }
-const gn = 2e4;
-function cs(t, e, i, n, r) {
-  pn(t);
+const _n = 2e4;
+function fs(t, e, i, n, r) {
+  yn(t);
   const s = () => {
     t.identityWait = void 0;
     const a = e.getCurrentHost?.() ?? e;
-    jt(a) && mn(a, o);
+    Ht(a) && En(a, o);
   }, o = {
     signal: i,
     clickPathname: n,
     visitKey: r,
-    route: N[N.length - 1],
-    timer: setTimeout(s, Math.max(0, i.t + gn - Date.now()))
+    route: M[M.length - 1],
+    timer: setTimeout(s, Math.max(0, i.t + _n - Date.now()))
   };
   t.identityWait = o;
 }
-function pn(t) {
+function yn(t) {
   t.identityWait && clearTimeout(t.identityWait.timer), t.identityWait = void 0;
 }
-function mn(t, e) {
-  const i = fn(t.accountId), n = { logged_in: Vt(t), cause: "identity_wait_expired" };
+function En(t, e) {
+  const i = mn(t.accountId), n = { logged_in: jt(t), cause: "identity_wait_expired" };
   et(t, e.signal, i, e.visitKey, n, !0);
 }
-function ls(t, e) {
+function gs(t, e) {
   const i = t.identityWait;
-  if (!i || !K(e.filteredUser) || (pn(t), !jt(e))) return;
+  if (!i || !K(e.filteredUser) || (yn(t), !Ht(e))) return;
   if (e.logPlacementDiagnostic(
-    w("identity_arrived", "pending_identity", {
+    S("identity_arrived", "pending_identity", {
       intent_kind: i.signal.kind,
       ...rt(i.signal.t)
     })
-  ), N[N.length - 1] !== i.route || i.clickPathname !== S(window.location.pathname) || Date.now() - i.signal.t >= gn) return mn(e, i);
-  At(t, e, i.signal, i.clickPathname, i.visitKey, !0);
+  ), M[M.length - 1] !== i.route || i.clickPathname !== T(window.location.pathname) || Date.now() - i.signal.t >= _n) return En(e, i);
+  vt(t, e, i.signal, i.clickPathname, i.visitKey, !0);
 }
-function us(t) {
+function ps(t) {
   const e = t.pathname;
-  return typeof e == "string" && e.charAt(0) === "/" && e.length <= ss ? S(e) : void 0;
+  return typeof e == "string" && e.charAt(0) === "/" && e.length <= ls ? T(e) : void 0;
 }
-const ye = /* @__PURE__ */ new Set(), vt = /* @__PURE__ */ new Set(), N = [];
-function Te(t) {
-  if (t === an) return "intent_commit";
-  if (t === cn) return "intent_wallet";
-  if (t === xt) return "intent_checkout_step";
-  if (t === ln) return "intent_cart";
+const Ie = /* @__PURE__ */ new Set(), Pt = /* @__PURE__ */ new Set(), M = [];
+function Ce(t) {
+  if (t === dn) return "intent_commit";
+  if (t === fn) return "intent_wallet";
+  if (t === Vt) return "intent_checkout_step";
+  if (t === gn) return "intent_cart";
 }
 function Re(t) {
-  return Te(t) !== void 0;
+  return Ce(t) !== void 0;
 }
-function ft(t, e = Date.now()) {
-  t = S(t), N[N.length - 1]?.pathname !== t && (N.push({ pathname: t, since: e }), N.length > 8 && N.shift(), vt.clear());
+function gt(t, e = Date.now()) {
+  t = T(t), M[M.length - 1]?.pathname !== t && (M.push({ pathname: t, since: e }), M.length > 8 && M.shift(), Pt.clear());
 }
-function ds(t, e, i) {
-  if (!i || !ns.includes(i.kind) || typeof i.t != "number" || !Number.isFinite(i.t))
+function hs(t, e, i) {
+  if (!i || !as.includes(i.kind) || typeof i.t != "number" || !Number.isFinite(i.t))
     return;
   const n = `${i.kind}:${i.t}${i.adds === !0 ? ":adds" : ""}`;
-  if (ye.has(n) || (ye.add(n), ye.size > 4096 && ye.delete(ye.values().next().value), !jt(e)) || i.kind === "cart" && Qe(e.accountId).length === 0) return;
-  fs(e.accountId, i);
-  const r = C(e.filteredUser);
-  i.kind === "cart" && i.adds === !0 && r !== null && _e(e.accountId) && Mr(e.accountId, i.t, r);
-  const s = [...N].reverse().find((_) => _.since <= i.t), o = us(i) ?? s?.pathname;
+  if (Ie.has(n) || (Ie.add(n), Ie.size > 4096 && Ie.delete(Ie.values().next().value), !Ht(e)) || i.kind === "cart" && Qe(e.accountId).length === 0) return;
+  ms(e.accountId, i);
+  const r = D(e.filteredUser);
+  i.kind === "cart" && i.adds === !0 && r !== null && ye(e.accountId) && Hr(e.accountId, i.t, r);
+  const s = [...M].reverse().find((_) => _.since <= i.t), o = ps(i) ?? s?.pathname;
   if (!o) return;
-  const a = s && s.pathname === o ? s.since : 0, c = `${o}:${a}`, l = i.kind === "cart", u = i.kind === "commit" || i.kind === "wallet" || l, d = F(e.accountId, o);
+  const a = s && s.pathname === o ? s.since : 0, c = `${o}:${a}`, l = i.kind === "cart", u = i.kind === "commit" || i.kind === "wallet" || l, d = U(e.accountId, o);
   if (!d || (l ? d.cartIntent !== !0 : d.cartIntent === !0)) {
-    u && At(t, e, i, o, c);
+    u && vt(t, e, i, o, c);
     return;
   }
-  const m = window.location.pathname, h = o === S(m);
-  if (l && !h && It(i)) {
-    At(t, e, i, o, c);
+  const g = window.location.pathname, h = o === T(g);
+  if (l && !h && At(i)) {
+    vt(t, e, i, o, c);
     return;
   }
-  const E = i.kind === "checkout_step" && d.checkoutStepIntent === !0;
-  if (E && !h && It(i)) {
-    as(e, i, d, c);
+  const y = i.kind === "checkout_step" && d.checkoutStepIntent === !0;
+  if (y && !h && At(i)) {
+    ds(e, i, d, o, c);
     return;
   }
-  if (!(u || E) || !h) {
+  if (!(u || y) || !h) {
     et(e, i, "entry", c);
     return;
   }
   t.intentSource = Ze(i);
-  const v = un(i.kind), P = t.scheduledDispatch;
-  if (P && S(P.pathname) === S(m)) {
-    Gt(t), Cn(t, e, P, "intent_released", v);
+  const v = pn(i.kind), P = t.scheduledDispatch;
+  if (P && T(P.pathname) === T(g)) {
+    Yt(t), Nn(t, e, P, "intent_released", v);
     return;
   }
-  const f = t.pending.find(
-    (_) => S(_.pathname) === S(m)
+  const m = t.pending.find(
+    (_) => T(_.pathname) === T(g)
   );
-  if (f) {
-    f.intentSeen = v, f.waitingFor === "intent" && (t.pending = t.pending.filter((_) => _ !== f), me(
+  if (m) {
+    m.intentSeen = v, m.waitingFor === "intent" && (t.pending = t.pending.filter((_) => _ !== m), me(
       t,
       e,
-      f.event,
-      m,
-      f.triggeringUserId,
-      f.triggeredAt,
+      m.event,
+      g,
+      m.triggeringUserId,
+      m.triggeredAt,
       v
     ));
     return;
   }
-  me(t, e, dn(v), m, void 0, i.t);
+  me(t, e, hn(v), g, void 0, i.t);
 }
-function jt(t) {
+function Ht(t) {
   return !t.isTargetingDisabled?.() && t.isForwardingAllowed?.() !== !1 && st(t) && t.isKitReady() && t.isPreselectionEnabled() && Pe(t.accountId);
 }
-function fs(t, e) {
-  const i = e.kind === "cart" ? Qe(t) : x(t);
-  new Set(i.map((r) => r.targetPageIdentifier)).forEach((r) => Gr(t, r, e.kind, e.t));
+function ms(t, e) {
+  const i = e.kind === "cart" ? Qe(t) : j(t);
+  new Set(i.map((r) => r.targetPageIdentifier)).forEach((r) => Xr(t, r, e.kind, e.t));
 }
-function pe(t) {
-  return t === on;
+function he(t) {
+  return t === un;
 }
-const tt = 4, gs = ["Auto Button Click", "Auto Link Click"], ps = ["is_auto_button_click", "is_auto_link_click"];
+const tt = 4, _s = ["Auto Button Click", "Auto Link Click"], ys = ["is_auto_button_click", "is_auto_link_click"];
 function Ge(t) {
-  return t.EventDataType === tt && gs.includes(t.EventName ?? "") || ps.some((e) => String(t.EventAttributes?.[e]) === "true");
+  return t.EventDataType === tt && _s.includes(t.EventName ?? "") || ys.some((e) => String(t.EventAttributes?.[e]) === "true");
 }
-function hn(t) {
+function In(t) {
   const e = t.accountId;
   if (!(!e || !Pe(e) || t.isTargetingDisabled?.() || t.isForwardingAllowed?.() === !1 || !st(t) || !t.isKitReady() || !t.isPreselectionEnabled()))
     return e;
 }
-function _n(t, e, i) {
+function An(t, e, i) {
   if (!e) return;
-  const n = new Set(x(t).map((o) => o.targetPageIdentifier)), r = Date.now(), s = typeof i == "number" && Number.isFinite(i) && i <= r ? i : r;
-  n.forEach((o) => Br(t, o, e, s));
+  const n = new Set(j(t).map((o) => o.targetPageIdentifier)), r = Date.now(), s = typeof i == "number" && Number.isFinite(i) && i <= r ? i : r;
+  n.forEach((o) => Jr(t, o, e, s));
 }
-function ms(t, e) {
-  const i = Ge(e) ? hn(t) : void 0;
-  i && _n(
+function Es(t, e) {
+  const i = Ge(e) ? In(t) : void 0;
+  i && An(
     i,
-    ar(e.EventAttributes),
+    dr(e.EventAttributes),
     e.Timestamp
   );
 }
-function hs(t, e) {
-  const i = hn(t);
-  i && _n(i, cr(e), e?.t);
+function Is(t, e) {
+  const i = In(t);
+  i && An(i, fr(e), e?.t);
 }
-function fe(t, e) {
+function ge(t, e) {
   return e.EventDataType === tt && p(e.EventName) && !Ge(e) && (t.triggerEventNames ?? []).includes(e.EventName);
 }
-const En = "rokt.preselecttrigger", pi = "rokt.preselectdefaulted", _s = /^[A-Za-z][A-Za-z0-9_.]{0,63}$/, Es = 16, Ye = "preselectFormEmail", Pt = "preselectBoundUser";
-function De(t, e) {
-  return `${t}|${e.pathname}`;
+const vn = "rokt.preselecttrigger", hi = "rokt.preselectdefaulted", As = /^[A-Za-z][A-Za-z0-9_.]{0,63}$/, vs = 16, Ye = "preselectFormEmail", bt = "preselectBoundUser";
+function De(t, e, i) {
+  const n = (i !== void 0 ? cn(e, i) : void 0) ?? e.pathname;
+  return `${t}|${n}`;
 }
-function F(t, e) {
+function U(t, e) {
   if (t)
-    return x(t).find((i) => ve(i.pathname, e));
+    return j(t).find((i) => ln(i, e));
 }
-function ke(t, e) {
+function Te(t, e) {
   if (!(!t || !p(e)))
-    return x(t).find((i) => i.targetPageIdentifier === e);
+    return j(t).find((i) => i.targetPageIdentifier === e);
 }
-function bt(t, e) {
+function wt(t, e) {
   if (!e)
     return t;
   const i = new Set(Object.keys(e).map((r) => r.toLowerCase())), n = {};
@@ -1082,52 +1098,52 @@ function bt(t, e) {
     i.has(r.toLowerCase()) || (n[r] = s);
   return { ...n, ...e };
 }
-function Ht(t) {
+function Wt(t) {
   return t.getPreselectVariant?.() === "widened";
 }
-const ys = /iP(hone|od|ad)|Android|BlackBerry|BB10|IEMobile|Kindle/, Is = /Win(dows|16|95|98|CE)|Pocket Internet Explorer|OpenBSD|SunOS|CrOS|Linux|X11|Mac_PowerPC|Macintosh|QNX|BeOS|OS\/2/;
-function As(t) {
-  return ys.test(t) ? "MobileWeb" : Is.test(t) ? "DesktopWeb" : void 0;
+const Ps = /iP(hone|od|ad)|Android|BlackBerry|BB10|IEMobile|Kindle/, bs = /Win(dows|16|95|98|CE)|Pocket Internet Explorer|OpenBSD|SunOS|CrOS|Linux|X11|Mac_PowerPC|Macintosh|QNX|BeOS|OS\/2/;
+function ws(t) {
+  return Ps.test(t) ? "MobileWeb" : bs.test(t) ? "DesktopWeb" : void 0;
 }
-function yn(t, e) {
+function Pn(t, e) {
   if (p(t))
     return t;
-  const i = As(navigator.userAgent), n = i ? t.byClientType?.[i] : void 0;
-  if (n === qi)
+  const i = ws(navigator.userAgent), n = i ? t.byClientType?.[i] : void 0;
+  if (n === Ji)
     return;
-  const r = e && t.byPaymentPick ? T(t.byPaymentPick, e) : void 0, s = t.byHostname ? T(t.byHostname, window.location.hostname) : void 0;
+  const r = e && t.byPaymentPick ? k(t.byPaymentPick, e) : void 0, s = t.byHostname ? k(t.byHostname, window.location.hostname) : void 0;
   return r ?? s ?? n ?? t.value;
 }
-function In(t) {
-  return Object.values(t.preselectAttributeDefaults ?? {}).some((i) => y(i) && i.byPaymentPick) ? zr(t.accountId, t.targetPageIdentifier) : void 0;
+function bn(t) {
+  return Object.values(t.preselectAttributeDefaults ?? {}).some((i) => E(i) && i.byPaymentPick) ? Qr(t.accountId, t.targetPageIdentifier) : void 0;
 }
-function gt(t) {
+function pt(t) {
   return new Set(
-    Object.keys(t).filter((e) => !k(t[e])).map((e) => e.toLowerCase())
+    Object.keys(t).filter((e) => !R(t[e])).map((e) => e.toLowerCase())
   );
 }
 function it(t, e, i) {
   const n = e.preselectAttributeDefaults;
-  if (!n || Ht(t))
+  if (!n || Wt(t))
     return {};
-  const r = /* @__PURE__ */ new Set([...gt(t.getUserIdentities?.() ?? {}), ...gt(i)]), s = gt(t.userAttributes ?? {}), o = In(e), a = {};
+  const r = /* @__PURE__ */ new Set([...pt(t.getUserIdentities?.() ?? {}), ...pt(i)]), s = pt(t.userAttributes ?? {}), o = bn(e), a = {};
   for (const c of Object.keys(n)) {
     const l = c.toLowerCase();
-    if (Ue(c, t.mappedEmailSha256Key) || r.has(l) || s.has(l) && !An(t, e, c))
+    if (Ne(c, t.mappedEmailSha256Key) || r.has(l) || s.has(l) && !wn(t, e, c))
       continue;
-    const u = yn(n[c], o);
+    const u = Pn(n[c], o);
     u !== void 0 && (a[c] = u);
   }
   return a;
 }
-function An(t, e, i) {
-  const n = T(e.preselectAttributeDefaults ?? {}, i);
-  return y(n) && n.skipRemembered === !0 && !Ht(t) && !Ue(i, t.mappedEmailSha256Key) && yn(
+function wn(t, e, i) {
+  const n = k(e.preselectAttributeDefaults ?? {}, i);
+  return E(n) && n.skipRemembered === !0 && !Wt(t) && !Ne(i, t.mappedEmailSha256Key) && Pn(
     n,
-    In(e)
+    bn(e)
   ) !== void 0;
 }
-function vs(t, e, i, n, r) {
+function Ss(t, e, i, n, r) {
   const s = e.preselectAttributeDefaults ?? {};
   return Object.keys(s).find((o) => {
     const a = s[o];
@@ -1135,7 +1151,7 @@ function vs(t, e, i, n, r) {
       return !1;
     const c = a.skipValues.map((u) => u.toLowerCase()), l = n ?? {
       ...t.getUserIdentities?.() ?? {},
-      ...T(r, o) !== void 0 ? {} : t.userAttributes ?? {},
+      ...k(r, o) !== void 0 ? {} : t.userAttributes ?? {},
       ...i
     };
     return Object.keys(l).some((u) => {
@@ -1144,47 +1160,47 @@ function vs(t, e, i, n, r) {
     });
   });
 }
-function Wt(t) {
+function $t(t) {
   const e = t.getPreselectVariant?.();
   return e === "widened" || e === "standard" ? { variant: e } : {};
 }
-function Ps(t, e, i) {
+function Cs(t, e, i) {
   const n = t?.identityKeys;
   if (!n?.length || !e)
     return n;
-  const r = $t(e, i);
+  const r = Gt(e, i);
   return r.length > 0 ? [...n, ...r] : n;
 }
-function bs(t, e, i) {
+function Ts(t, e, i) {
   const n = t?.preselectAttributeDefaults;
   if (!n || !e)
     return;
   const r = {};
-  return $t(e, i).forEach((s) => {
+  return Gt(e, i).forEach((s) => {
     const o = n[s], a = p(o) ? void 0 : o?.matchGroups?.find((c) => c.includes(e[s]));
     a && (r[s] = a);
   }), Object.keys(r).length > 0 ? r : void 0;
 }
-function $t(t, e) {
+function Gt(t, e) {
   const i = Object.keys(e);
   return Object.keys(t).filter(
-    (n) => T(e, n) === t[n] && !i.some((r) => r !== n && r.toLowerCase() === n.toLowerCase() && !k(e[r]))
+    (n) => k(e, n) === t[n] && !i.some((r) => r !== n && r.toLowerCase() === n.toLowerCase() && !R(e[r]))
   );
 }
-function vn(t, e) {
+function Sn(t, e) {
   if (!t)
     return;
-  const i = $t(t, e).filter((n) => _s.test(n)).slice(0, Es);
+  const i = Gt(t, e).filter((n) => As.test(n)).slice(0, vs);
   return i.length > 0 ? i.join(",") : void 0;
 }
-function Pn(t) {
+function Cn(t) {
   const e = Object.keys(t.preselectAttributeDefaults ?? {});
   return [...t.attributeKeys, ...e.filter((i) => !t.attributeKeys.includes(i))];
 }
-function ws(t) {
+function ks(t) {
   if (!t)
     return;
-  const e = x(t), i = [...new Set(e.flatMap((r) => r.intentSelectors?.commit ?? []))], n = [...new Set(e.flatMap((r) => r.intentSelectors?.checkoutStep ?? []))];
+  const e = j(t), i = [...new Set(e.flatMap((r) => r.intentSelectors?.commit ?? []))], n = [...new Set(e.flatMap((r) => r.intentSelectors?.checkoutStep ?? []))];
   if (!(i.length === 0 && n.length === 0))
     return {
       ...i.length > 0 ? { commit: i } : {},
@@ -1192,94 +1208,94 @@ function ws(t) {
     };
 }
 function Pe(t) {
-  return t ? x(t).length > 0 : !1;
+  return t ? j(t).length > 0 : !1;
 }
-function Ss(t, e, i = window.location.pathname) {
-  if (t.pending.some((r) => r.pathname === i && !pe(r.event)))
+function Ls(t, e, i = window.location.pathname) {
+  if (t.pending.some((r) => r.pathname === i && !he(r.event)))
     return;
   const n = t.scheduledDispatch;
-  n && n.pathname === i && !pe(n.event) || me(t, e, on, i);
+  n && n.pathname === i && !he(n.event) || me(t, e, un, i);
 }
-function Ts(t, e) {
-  return !t || !p(e) ? !1 : x(t).some((i) => (i.triggerEventNames ?? []).includes(e));
+function Rs(t, e) {
+  return !t || !p(e) ? !1 : j(t).some((i) => (i.triggerEventNames ?? []).includes(e));
 }
 function Be(t) {
-  return !pe(t) && !Re(t) && t.EventDataType !== tt;
+  return !he(t) && !Re(t) && t.EventDataType !== tt;
 }
-function ks(t, e) {
+function Ds(t, e) {
   const i = t.scheduledDispatch;
   return i && i.pathname === e && Be(i.event) ? !0 : t.pending.some((n) => n.pathname === e && Be(n.event));
 }
-function Ls(t, e, i, n) {
-  if (!t.isKitReady() || !t.isPreselectionEnabled() || !zt(t, i))
+function Os(t, e, i, n) {
+  if (!t.isKitReady() || !t.isPreselectionEnabled() || !Xt(t, i))
     return "waits";
-  const { collected: r, missingKeys: s } = ae(t, e, i);
+  const { collected: r, missingKeys: s } = ce(t, e, i);
   if (s.length > 0)
     return "waits";
-  const o = t.accountId || "", a = de(Nt(o, S(n)));
+  const o = t.accountId || "", a = fe(Ft(o, T(n)));
   if (!a)
     return "now";
   const c = nt(t, o, i.targetPageIdentifier, r);
-  return a.byEvent || qt(a.attributesDigest, c) ? "skipped" : "now";
+  return a.byEvent || Jt(a.attributesDigest, c) ? "skipped" : "now";
 }
-function Cs(t, e, i) {
+function Ns(t, e, i) {
   t.pending = t.pending.filter((r) => r.pathname !== i);
-  const n = e.accountId ? Mt(e.accountId) : null;
-  e.accountId && n && n.pathname === i && re(e.accountId);
+  const n = e.accountId ? xt(e.accountId) : null;
+  e.accountId && n && n.pathname === i && se(e.accountId);
 }
-function Rs(t, e, i, n = window.location.pathname) {
-  const r = F(e.accountId, n);
-  if (!r || !fe(r, i))
+function Us(t, e, i, n = window.location.pathname) {
+  const r = U(e.accountId, n);
+  if (!r || !ge(r, i))
     return;
-  const s = Ls(e, i, r, n);
+  const s = Os(e, i, r, n);
   if (s === "now")
-    Cs(t, e, n);
-  else if (ks(t, n) || s === "skipped" && t.scheduledDispatch?.pathname === n)
+    Ns(t, e, n);
+  else if (Ds(t, n) || s === "skipped" && t.scheduledDispatch?.pathname === n)
     return;
   me(t, e, i, n);
 }
-function Ds(t, e) {
-  return t ? x(t).some((i) => i.attributeKeys.includes(e)) : !1;
+function Ks(t, e) {
+  return t ? j(t).some((i) => i.attributeKeys.includes(e)) : !1;
 }
-function Os() {
+function Fs() {
   return { pending: [] };
 }
-function Gt(t) {
+function Yt(t) {
   if (t.dispatchTimer === void 0)
     return;
   const e = t.scheduledDispatch;
   return clearTimeout(t.dispatchTimer), t.dispatchTimer = void 0, t.scheduledDispatch = void 0, e;
 }
-function Us(t, e) {
+function Ms(t, e) {
   return t === void 0 ? e : e === void 0 ? t : Math.min(t, e);
 }
 function mi(t) {
-  return pe(t) ? 0 : Re(t) || t.EventDataType === tt ? 2 : 1;
+  return he(t) ? 0 : Re(t) || t.EventDataType === tt ? 2 : 1;
 }
-function Ks(t, e) {
-  const i = F(t.accountId, e.pathname);
-  return !!i && ae(t, e.event, i).missingKeys.length > 0;
+function xs(t, e) {
+  const i = U(t.accountId, e.pathname);
+  return !!i && ce(t, e.event, i).missingKeys.length > 0;
 }
-function bn(t, e, i, n) {
+function Tn(t, e, i, n) {
   const r = t.pending.find((s) => s.pathname === n);
-  return !!r && mi(i) < mi(r.event) && !(Be(i) && Ks(e, r));
+  return !!r && mi(i) < mi(r.event) && !(Be(i) && xs(e, r));
 }
 function Q(t, e, i) {
   const n = t.pending.findIndex((r) => r.pathname === i.pathname);
   if (n >= 0) {
-    if (bn(t, e, i.event, i.pathname))
+    if (Tn(t, e, i.event, i.pathname))
       return;
     const r = t.pending[n];
     t.pending[n] = {
       ...i,
-      triggeredAt: Us(r.triggeredAt, i.triggeredAt),
-      intentSeen: i.intentSeen ?? r.intentSeen ?? Te(r.event)
+      triggeredAt: Ms(r.triggeredAt, i.triggeredAt),
+      intentSeen: i.intentSeen ?? r.intentSeen ?? Ce(r.event)
     };
     return;
   }
   t.pending.push(i);
 }
-function Le(t) {
+function ke(t) {
   if (!t?.getUserIdentities)
     return [];
   const e = t.getUserIdentities().userIdentities;
@@ -1289,9 +1305,9 @@ function Le(t) {
   }).sort() : [];
 }
 function K(t) {
-  return Le(t).length > 0;
+  return ke(t).length > 0;
 }
-const wt = /^[^\s@]+@[^\s@]+\.(?:[a-zA-Z]{2,}|xn--[a-zA-Z0-9-]+|[^\s@.\x00-\x7F]{2,})$/, q = /* @__PURE__ */ new WeakSet(), Ie = /* @__PURE__ */ new WeakSet(), ce = /* @__PURE__ */ new WeakSet(), Ae = /* @__PURE__ */ new WeakSet(), St = /* @__PURE__ */ new WeakSet(), hi = /* @__PURE__ */ new WeakSet();
+const St = /^[^\s@]+@[^\s@]+\.(?:[a-zA-Z]{2,}|xn--[a-zA-Z0-9-]+|[^\s@.\x00-\x7F]{2,})$/, q = /* @__PURE__ */ new WeakSet(), Ae = /* @__PURE__ */ new WeakSet(), le = /* @__PURE__ */ new WeakSet(), ve = /* @__PURE__ */ new WeakSet(), Ct = /* @__PURE__ */ new WeakSet(), _i = /* @__PURE__ */ new WeakSet();
 function ze(t) {
   if (!(t instanceof HTMLInputElement)) return !1;
   const e = t.type;
@@ -1302,58 +1318,58 @@ function Tt(t) {
   if (!(e instanceof HTMLInputElement)) return;
   if (t.type === "blur" || t.type === "focusout") {
     if (t.isTrusted !== !0) return;
-    !ze(e) || !Ie.has(e) ? (q.delete(e), ce.delete(e)) : q.has(e) || Ae.add(e);
+    !ze(e) || !Ae.has(e) ? (q.delete(e), le.delete(e)) : q.has(e) || ve.add(e);
     return;
   }
-  const i = !hi.has(t);
-  if (hi.add(t), t.isTrusted !== !0) {
-    St.add(e), q.delete(e), Ie.delete(e), ce.delete(e), Ae.delete(e);
+  const i = !_i.has(t);
+  if (_i.add(t), t.isTrusted !== !0) {
+    Ct.add(e), q.delete(e), Ae.delete(e), le.delete(e), ve.delete(e);
     return;
   }
-  if (i && St.delete(e), !ze(e)) {
-    q.delete(e), Ie.delete(e), ce.delete(e), Ae.delete(e);
+  if (i && Ct.delete(e), !ze(e)) {
+    q.delete(e), Ae.delete(e), le.delete(e), ve.delete(e);
     return;
   }
-  i && (ce.add(e), Ae.delete(e), e.addEventListener("input", Tt, !0), e.addEventListener("change", Tt, !0), t.type === "change" ? (q.add(e), Ie.add(e)) : q.delete(e));
+  i && (le.add(e), ve.delete(e), e.addEventListener("input", Tt, !0), e.addEventListener("change", Tt, !0), t.type === "change" ? (q.add(e), Ae.add(e)) : q.delete(e));
 }
-function Ns(t) {
-  return ze(t) && (t.type === "email" || t.getAttribute("autocomplete") === "email" || wt.test(t.value.trim()));
+function Vs(t) {
+  return ze(t) && (t.type === "email" || t.getAttribute("autocomplete") === "email" || St.test(t.value.trim()));
 }
 function Oe(t) {
   return t.attributeKeys.find((e) => e.toLowerCase() === "email");
 }
-const Fs = 254;
-function Ms(t) {
+const js = 254;
+function Hs(t) {
   return t.type === "email" || t.getAttribute("autocomplete") === "email" || t.value.includes("@");
 }
-function xs(t) {
-  return Ms(t) || Ie.has(t) && !q.has(t) && !(Ae.has(t) && t !== document.activeElement);
+function Ws(t) {
+  return Hs(t) || Ae.has(t) && !q.has(t) && !(ve.has(t) && t !== document.activeElement);
 }
-function wn(t) {
+function kn(t) {
   const e = /* @__PURE__ */ new Map(), i = [];
   let n = 0;
   document.querySelectorAll("input").forEach((o) => {
     if (!ze(o)) return;
-    const a = q.has(o), c = ce.has(o);
+    const a = q.has(o), c = le.has(o);
     if (!a) {
-      c && xs(o) && (n += 1), t && i.push(o);
+      c && Ws(o) && (n += 1), t && i.push(o);
       return;
     }
     const l = o.value.trim();
-    wt.test(l) && !e.has(l.toLowerCase()) && e.set(l.toLowerCase(), l);
+    St.test(l) && !e.has(l.toLowerCase()) && e.set(l.toLowerCase(), l);
   });
   const r = e.size > 0 && n > 0;
   let s;
   return t && !r && e.size === 0 && i.forEach((o) => {
     const a = o.value.trim();
-    a.length > Fs || !wt.test(a) || (St.has(o) ? s = "untrusted_fill" : s !== "untrusted_fill" && (ce.has(o) || o === document.activeElement ? s = "uncommitted_fill" : s !== "uncommitted_fill" && (s = "unseen_fill")));
+    a.length > js || !St.test(a) || (Ct.has(o) ? s = "untrusted_fill" : s !== "untrusted_fill" && (le.has(o) || o === document.activeElement ? s = "uncommitted_fill" : s !== "uncommitted_fill" && (s = "unseen_fill")));
   }), { emails: e, ambiguous: r, unfilled: s };
 }
-function Vs() {
-  const { emails: t, ambiguous: e } = wn(!1);
+function $s() {
+  const { emails: t, ambiguous: e } = kn(!1);
   return t.size === 1 && !e ? t.values().next().value : void 0;
 }
-function Yt(t, e, i = {}) {
+function Bt(t, e, i = {}) {
   const n = new Set(
     [e, "emailsha256", t.mappedEmailSha256Key].filter(p).map((o) => o.toLowerCase())
   ), r = t.getCurrentUser?.();
@@ -1365,65 +1381,65 @@ function Yt(t, e, i = {}) {
     r?.getAllUserAttributes?.() ?? {},
     r?.getUserIdentities?.().userIdentities ?? {}
   ].some(
-    (o) => Object.keys(o).some((a) => n.has(a.toLowerCase()) && !k(T(o, a)))
+    (o) => Object.keys(o).some((a) => n.has(a.toLowerCase()) && !R(k(o, a)))
   );
 }
-const js = ["email", "emailsha256"];
-function Ue(t, e) {
+const Gs = ["email", "emailsha256"];
+function Ne(t, e) {
   const i = t.toLowerCase();
-  return js.includes(i) || p(e) && i === e.toLowerCase();
+  return Gs.includes(i) || p(e) && i === e.toLowerCase();
 }
-function Ke(t, e, i) {
+function Ue(t, e, i) {
   return t.getOutgoingAttributes ? Ve(t.getOutgoingAttributes(e, i), t.mappedEmailSha256Key) : Ve(e, t.mappedEmailSha256Key) || Ve(t.getUserIdentities?.() ?? {}, t.mappedEmailSha256Key);
 }
 function Ve(t, e) {
   return Object.keys(t).some(
-    (i) => Ue(i, e) && !k(T(t, i))
+    (i) => Ne(i, e) && !R(k(t, i))
   );
 }
-function Bt(t, e, i, n = {}) {
-  return e.readEmailInput !== !0 ? "read_disabled" : ve(e.pathname, window.location.pathname) ? t.isForwardingAllowed?.() !== !0 || t.isPreselectionPrivacyAllowed?.() === !1 || t.isTargetingDisabled?.() === !0 ? "privacy_blocked" : t.isEmailIdentityFiltered?.() === !0 ? "email_filtered" : Yt(t, i, n) ? "partner_email" : void 0 : "off_route";
+function zt(t, e, i, n = {}) {
+  return e.readEmailInput !== !0 ? "read_disabled" : ln(e, window.location.pathname) ? t.isForwardingAllowed?.() !== !0 || t.isPreselectionPrivacyAllowed?.() === !1 || t.isTargetingDisabled?.() === !0 ? "privacy_blocked" : t.isEmailIdentityFiltered?.() === !0 ? "email_filtered" : Bt(t, i, n) ? "partner_email" : void 0 : "off_route";
 }
-function Hs(t, e, i, n) {
-  const r = Bt(t, e, i, n.EventAttributes ?? {});
+function Ys(t, e, i, n) {
+  const r = zt(t, e, i, n.EventAttributes ?? {});
   if (r) return r;
-  const { emails: s, ambiguous: o, unfilled: a } = wn(!0);
+  const { emails: s, ambiguous: o, unfilled: a } = kn(!0);
   return s.size > 1 || o ? "multiple_emails" : a ?? "no_field";
 }
-function Ws(t, e, i) {
-  const n = window.location.pathname, r = F(e.accountId, n), s = r && Oe(r);
+function Bs(t, e, i) {
+  const n = window.location.pathname, r = U(e.accountId, n), s = r && Oe(r);
   return !!s && t.pending.some(
-    (o) => o.pathname === n && !Bt(e, r, s, o.event.EventAttributes ?? {})
-  ) && i.isTrusted === !0 && Ns(i.target);
+    (o) => o.pathname === n && !zt(e, r, s, o.event.EventAttributes ?? {})
+  ) && i.isTrusted === !0 && Vs(i.target);
 }
-function Sn(t, e, i, n) {
+function Ln(t, e, i, n) {
   const r = Oe(e);
-  if (!r || !k(T(i, r)) || Bt(t, e, r, n.EventAttributes ?? {}))
+  if (!r || !R(k(i, r)) || zt(t, e, r, n.EventAttributes ?? {}))
     return;
-  const s = Vs();
+  const s = $s();
   if (s)
     return i[r] = s, r;
 }
-function zt(t, e) {
+function Xt(t, e) {
   const i = Oe(e);
-  return K(t.filteredUser) || e.readEmailInput === !0 && !!i && Xt(t, e, {}).includes(i);
+  return K(t.filteredUser) || e.readEmailInput === !0 && !!i && qt(t, e, {}).includes(i);
 }
-function $s(t) {
-  return !!t && x(t).some((e) => e.readEmailInput === !0);
+function zs(t) {
+  return !!t && j(t).some((e) => e.readEmailInput === !0);
 }
 function Xe(t) {
   return t.length > 0 ? t.join(",") : "none";
 }
-function C(t) {
+function D(t) {
   const e = t?.getMPID?.();
   return e == null ? null : String(e);
 }
-function Tn(t, e) {
-  const i = Le(t.filteredUser), n = t.getCurrentUser?.(), r = Le(n), s = C(t.filteredUser), o = C(n), a = [...e.identityKeys ?? [], "email", "emailsha256"];
+function Rn(t, e) {
+  const i = ke(t.filteredUser), n = t.getCurrentUser?.(), r = ke(n), s = D(t.filteredUser), o = D(n), a = [...e.identityKeys ?? [], "email", "emailsha256"];
   t.mappedEmailSha256Key && a.push(t.mappedEmailSha256Key);
-  const c = new Set(a.map((m) => m.toLowerCase())), l = n?.getAllUserAttributes?.() ?? {}, u = [t.userAttributes, l].some(
-    (m) => Object.entries(m).some(
-      ([h, E]) => c.has(h.toLowerCase()) && p(E) && E.length > 0
+  const c = new Set(a.map((g) => g.toLowerCase())), l = n?.getAllUserAttributes?.() ?? {}, u = [t.userAttributes, l].some(
+    (g) => Object.entries(g).some(
+      ([h, y]) => c.has(h.toLowerCase()) && p(y) && y.length > 0
     )
   );
   let d = "no_identities";
@@ -1435,50 +1451,50 @@ function Tn(t, e) {
     identity_attribute_present: u
   };
 }
-function Xt(t, e, i) {
-  const n = Ht(t) ? e.widenedOptionalAttributeKeys ?? [] : [], r = new Set(
+function qt(t, e, i) {
+  const n = Wt(t) ? e.widenedOptionalAttributeKeys ?? [] : [], r = new Set(
     [...e.optionalAttributeKeys ?? [], ...n].map((o) => o.toLowerCase())
   ), s = it(t, e, i);
   return e.attributeKeys.filter(
-    (o) => !r.has(o.toLowerCase()) && k(T(i, o)) && T(s, o) === void 0
+    (o) => !r.has(o.toLowerCase()) && R(k(i, o)) && k(s, o) === void 0
   );
 }
-function ae(t, e, i, n = !0) {
+function ce(t, e, i, n = !0) {
   const r = t.filteredUser?.getAllUserAttributes?.() || {}, s = new Set(i.identityKeys ?? []);
   let o;
   const a = {};
   for (const u of i.attributeKeys) {
-    const d = t.getEventAttributeValue(e, u), m = T(t.userAttributes, u);
-    let h = !k(d) || An(t, i, u) ? d : k(m) ? T(r, u) : m;
-    if (k(h) && s.has(u)) {
+    const d = t.getEventAttributeValue(e, u), g = k(t.userAttributes, u);
+    let h = !R(d) || wn(t, i, u) ? d : R(g) ? k(r, u) : g;
+    if (R(h) && s.has(u)) {
       o || (o = t.getUserIdentities?.() ?? {});
-      const E = T(o, u);
-      h = p(E) && E !== "" ? E : void 0;
+      const y = k(o, u);
+      h = p(y) && y !== "" ? y : void 0;
     }
-    k(h) || (a[u] = h);
+    R(h) || (a[u] = h);
   }
   const c = e.EventAttributes ?? {};
   for (const u of Object.keys(i.preselectAttributeDefaults ?? {})) {
-    if (!k(t.getEventAttributeValue(e, u)))
+    if (!R(t.getEventAttributeValue(e, u)))
       continue;
     const d = Object.keys(c).find(
-      (m) => m.toLowerCase() === u.toLowerCase() && !k(c[m])
+      (g) => g.toLowerCase() === u.toLowerCase() && !R(c[g])
     );
     d !== void 0 && (a[d] = c[d]);
   }
-  const l = n ? Sn(t, i, a, e) : void 0;
+  const l = n ? Ln(t, i, a, e) : void 0;
   return {
     collected: a,
-    missingKeys: Xt(t, i, a),
+    missingKeys: qt(t, i, a),
     formEmailKey: l
   };
 }
-const kn = /* @__PURE__ */ new WeakMap();
-function Gs(t) {
-  return kn.get(t);
+const Dn = /* @__PURE__ */ new WeakMap();
+function Xs(t) {
+  return Dn.get(t);
 }
-function Ys(t, e, i) {
-  i && kn.set(e, i);
+function qs(t, e, i) {
+  i && Dn.set(e, i);
   const n = (s) => {
     i?.();
     const o = e[Ye] ? "redacted" : s instanceof Error ? s.message : String(s);
@@ -1496,12 +1512,12 @@ function Ys(t, e, i) {
   }
   Promise.resolve(r).catch(n);
 }
-const _i = /* @__PURE__ */ new Map(), Ei = /* @__PURE__ */ new Map();
-function yi(t, e, i) {
+const yi = /* @__PURE__ */ new Map(), Ei = /* @__PURE__ */ new Map();
+function Ii(t, e, i) {
   const n = t.get(e), r = { previous: i, earlier: n };
   return n && (n.later = r), t.set(e, r), r;
 }
-function Ii(t, e, i, n) {
+function Ai(t, e, i, n) {
   const { earlier: r, later: s } = i;
   if (s) {
     s.previous = i.previous, s.earlier = r, r && (r.later = s);
@@ -1511,153 +1527,153 @@ function Ii(t, e, i, n) {
 }
 function nt(t, e, i, n) {
   try {
-    const r = ke(e, i), s = r ? it(t, r, n) : void 0, o = bt(n, s), a = t.getOutgoingAttributes ? t.getOutgoingAttributes(n, i) : { ...t.getUserIdentities?.() ?? {}, ...o }, c = Object.keys(a).sort().filter((f) => Ue(f, t.mappedEmailSha256Key) && !k(T(a, f))).map((f) => [f, T(a, f)]), l = Object.keys(r?.preselectAttributeDefaults ?? {}), u = (f) => l.some((_) => _.toLowerCase() === f.toLowerCase()), d = {};
-    for (const [f, _] of Object.entries(o))
-      u(f) || (d[f] = _);
-    for (const f of l) {
-      const _ = Object.keys(a).filter((b) => b.toLowerCase() === f.toLowerCase() && !k(a[b])).sort().map((b) => [b, a[b]]);
-      _.length > 0 && (d[f] = _);
+    const r = Te(e, i), s = r ? it(t, r, n) : void 0, o = wt(n, s), a = t.getOutgoingAttributes ? t.getOutgoingAttributes(n, i) : { ...t.getUserIdentities?.() ?? {}, ...o }, c = Object.keys(a).sort().filter((m) => Ne(m, t.mappedEmailSha256Key) && !R(k(a, m))).map((m) => [m, k(a, m)]), l = Object.keys(r?.preselectAttributeDefaults ?? {}), u = (m) => l.some((_) => _.toLowerCase() === m.toLowerCase()), d = {};
+    for (const [m, _] of Object.entries(o))
+      u(m) || (d[m] = _);
+    for (const m of l) {
+      const _ = Object.keys(a).filter((b) => b.toLowerCase() === m.toLowerCase() && !R(a[b])).sort().map((b) => [b, a[b]]);
+      _.length > 0 && (d[m] = _);
     }
-    const m = JSON.stringify(d), h = [.../* @__PURE__ */ new Set([...r?.attributeKeys ?? [], ...Object.keys(o)])].filter((f) => !u(f)).sort().filter((f) => {
-      const _ = T(a, f);
-      return _ !== void 0 && _ !== T(o, f);
-    }).map((f) => [f, T(a, f)]), E = c.length > 0 ? `${m}|${JSON.stringify(c)}` : m, v = h.length > 0 ? `${E}>${JSON.stringify(h)}` : E, P = vn(t.getPreselectFills?.(n, i) ?? s, a);
+    const g = JSON.stringify(d), h = [.../* @__PURE__ */ new Set([...r?.attributeKeys ?? [], ...Object.keys(o)])].filter((m) => !u(m)).sort().filter((m) => {
+      const _ = k(a, m);
+      return _ !== void 0 && _ !== k(o, m);
+    }).map((m) => [m, k(a, m)]), y = c.length > 0 ? `${g}|${JSON.stringify(c)}` : g, v = h.length > 0 ? `${y}>${JSON.stringify(h)}` : y, P = Sn(t.getPreselectFills?.(n, i) ?? s, a);
     return P ? { digest: J(`${v}#${P}`), unmarkedDigest: J(v) } : { digest: J(v) };
   } catch {
     return {};
   }
 }
-function qt(t, e) {
+function Jt(t, e) {
   return t !== void 0 && e.digest !== void 0 && (t === e.digest || t === e.unmarkedDigest);
 }
-function Jt(t, e, i, n) {
-  return fi(t, e, i.digest, n) || i.unmarkedDigest !== void 0 && fi(t, e, i.unmarkedDigest, n);
+function Qt(t, e, i, n) {
+  return gi(t, e, i.digest, n) || i.unmarkedDigest !== void 0 && gi(t, e, i.unmarkedDigest, n);
 }
-function Qt(t) {
+function Zt(t) {
   return !t.isTargetingDisabled?.() && t.isPreselectionPrivacyAllowed?.() !== !1 && t.isForwardingAllowed?.() !== !1;
 }
-function Ne(t, e, i, n, r, s, o, a = !1, c, l = a, u, d, m) {
-  if (!Qt(t))
+function Ke(t, e, i, n, r, s, o, a = !1, c, l = a, u, d, g) {
+  if (!Zt(t))
     return !1;
-  const h = c ? { intent_kind: c.replace("intent_", "") } : {}, E = ke(e, n), v = E ? it(t, E, r) : {}, P = t.getOutgoingAttributes?.(r, n), f = E ? vs(t, E, r, P, v) : void 0;
-  if (f)
+  const h = c ? { intent_kind: c.replace("intent_", "") } : {}, y = Te(e, n), v = y ? it(t, y, r) : {}, P = t.getOutgoingAttributes?.(r, n), m = y ? Ss(t, y, r, P, v) : void 0;
+  if (m)
     return t.logPlacementDiagnostic(
-      w("skipped", `skip_value:${f}`, h)
+      S("skipped", `skip_value:${m}`, h)
     ), !1;
-  const _ = Nt(e, i), b = nt(t, e, n, r), A = b.digest;
-  if (c && Jt(e, n, b, c !== "intent_cart"))
-    return t.logPlacementDiagnostic(w("skipped", "active_preselection", h)), !0;
-  if (a && de(_)?.byEvent)
-    return t.logPlacementDiagnostic(w("skipped", "active_preselection")), !1;
-  const O = A !== void 0 ? de(_) : null;
-  if (A !== void 0) {
-    if (qt(O?.attributesDigest, b))
-      return t.logPlacementDiagnostic(w("skipped", "active_preselection", h)), !0;
-    wr(
+  const _ = Ft(e, i), b = nt(t, e, n, r), w = b.digest;
+  if (c && Qt(e, n, b, c !== "intent_cart"))
+    return t.logPlacementDiagnostic(S("skipped", "active_preselection", h)), !0;
+  if (a && fe(_)?.byEvent)
+    return t.logPlacementDiagnostic(S("skipped", "active_preselection")), !1;
+  const C = w !== void 0 ? fe(_) : null;
+  if (w !== void 0) {
+    if (Jt(C?.attributesDigest, b))
+      return t.logPlacementDiagnostic(S("skipped", "active_preselection", h)), !0;
+    kr(
       _,
-      A,
-      l || !!c && de(_)?.byEvent === !0
+      w,
+      l || !!c && fe(_)?.byEvent === !0
     );
   }
-  const L = Object.keys(v).filter(($) => !P || T(P, $) === v[$]);
+  const A = Object.keys(v).filter((F) => !P || k(P, F) === v[F]);
   t.logPlacementDiagnostic(
-    w("fired", s, {
-      identity_types: Xe(Le(t.filteredUser)),
+    S("fired", s, {
+      identity_types: Xe(ke(t.filteredUser)),
       ...u ? { email_source: "input" } : {},
       ...c ? {
         ...h,
-        intent_route: m ? m.route : "entry",
+        intent_route: g ? g.route : "entry",
         ...d ? { intent_source: d } : {},
-        ...m ? { logged_in: m.loggedIn } : {}
+        ...g ? { logged_in: g.loggedIn } : {}
       } : {},
-      ...Wt(t),
-      ...L.length > 0 ? { defaulted_keys: L.join(",") } : {}
+      ...$t(t),
+      ...A.length > 0 ? { defaulted_keys: A.join(",") } : {}
     })
   );
-  const Y = `${e}:${n}`, te = yi(
-    _i,
-    Y,
-    Hr(e, n, A, c === "intent_cart")
-  ), R = A !== void 0 ? yi(Ei, _, O) : void 0;
-  let B = !1;
-  const Fe = () => {
-    B || (B = !0, R && Ii(
+  const x = `${e}:${n}`, te = Ii(
+    yi,
+    x,
+    Yr(e, n, w, c === "intent_cart")
+  ), ie = w !== void 0 ? Ii(Ei, _, C) : void 0;
+  let z = !1;
+  const O = () => {
+    z || (z = !0, ie && Ai(
       Ei,
       _,
-      R,
-      ($) => Sr(_, $, A)
-    ), Ii(
-      _i,
-      Y,
+      ie,
+      (F) => Lr(_, F, w)
+    ), Ai(
+      yi,
+      x,
       te,
-      ($) => Wr(e, n, $, A)
+      (F) => Br(e, n, F, w)
     ));
   };
-  return Ys(t, {
-    attributes: { ...r, [En]: o },
+  return qs(t, {
+    attributes: { ...r, [vn]: o },
     preselect: !0,
     identifier: n,
     omitUrl: !0,
-    ...u ? { [Ye]: { key: u, mpid: C(t.filteredUser) } } : {},
-    ...m ? { [Pt]: { mpid: C(t.filteredUser), requireLogin: m.requireLogin } } : {}
-  }, Fe), !0;
+    ...u ? { [Ye]: { key: u, mpid: D(t.filteredUser) } } : {},
+    ...g ? { [bt]: { mpid: D(t.filteredUser), requireLogin: g.requireLogin } } : {}
+  }, O), !0;
 }
-function Bs(t, e) {
+function Js(t, e) {
   if (!e.accountId || !e.isKitReady())
     return;
-  const i = Mt(e.accountId);
+  const i = xt(e.accountId);
   if (!i)
     return;
   if (t.pending.some((o) => o.pathname === i.pathname)) {
-    re(e.accountId);
+    se(e.accountId);
     return;
   }
   if (!e.isPreselectionEnabled()) {
-    re(e.accountId);
+    se(e.accountId);
     return;
   }
-  if (!K(e.filteredUser) || (re(e.accountId), C(e.filteredUser) !== i.mpid))
+  if (!K(e.filteredUser) || (se(e.accountId), D(e.filteredUser) !== i.mpid))
     return;
-  const n = F(e.accountId, i.pathname);
+  const n = U(e.accountId, i.pathname);
   if (!n || n.targetPageIdentifier !== i.identifier)
     return;
   if (!i.byEvent && ot(e)) {
-    e.logPlacementDiagnostic(w("missed", "recovery_awaits_intent"));
+    e.logPlacementDiagnostic(S("missed", "recovery_awaits_intent"));
     return;
   }
-  const r = ne(i.attributes), s = Xt(e, n, r);
+  const r = re(i.attributes), s = qt(e, n, r);
   if (s.length > 0) {
     for (const o of s)
       e.logPlacementDiagnostic(
-        w("missed", `missing_persisted_attribute:${o}`, Wt(e))
+        S("missed", `missing_persisted_attribute:${o}`, $t(e))
       );
     return;
   }
-  Ne(
+  Ke(
     e,
     e.accountId,
     i.identifier,
     i.identifier,
     r,
     "recovered",
-    De("recovered", n)
+    De("recovered", n, i.pathname)
   );
 }
-function Zt(t) {
+function ei(t) {
   return !t.isTargetingDisabled?.() && t.isPreselectionPrivacyAllowed?.() !== !1 && t.isKitReady() && t.isPreselectionEnabled();
 }
 function rt(t) {
   return t === void 0 ? {} : { since_trigger_ms: Date.now() - t };
 }
-function Ln(t, e, i) {
+function On(t, e, i) {
   if (e.waitingFor !== "intent" || e.intentSeen)
     return !1;
-  const n = F(t.accountId, e.pathname);
-  return !!n && n === F(t.accountId, i);
+  const n = U(t.accountId, e.pathname);
+  return !!n && n === U(t.accountId, i);
 }
 function kt(t, e) {
-  Zt(t) && t.logPlacementDiagnostic(
-    w("missed", "left_trigger_path", {
+  ei(t) && t.logPlacementDiagnostic(
+    S("missed", "left_trigger_path", {
       waiting_for: e.waitingFor,
       has_identity: K(t.filteredUser),
       ...rt(e.triggeredAt)
@@ -1667,68 +1683,68 @@ function kt(t, e) {
 function me(t, e, i, n = window.location.pathname, r, s = Date.now(), o) {
   const a = t.pending.filter((u) => u.pathname !== n);
   if (a.length > 0) {
-    const u = e.accountId ? Mt(e.accountId) : null;
-    e.accountId && u && a.some((d) => d.pathname === u.pathname) && re(e.accountId), a.forEach((d) => {
-      Ln(e, d, n) ? t.intentWaitMovedWithin = F(e.accountId, n) : kt(e, d);
+    const u = e.accountId ? xt(e.accountId) : null;
+    e.accountId && u && a.some((d) => d.pathname === u.pathname) && se(e.accountId), a.forEach((d) => {
+      On(e, d, n) ? t.intentWaitMovedWithin = U(e.accountId, n) : kt(e, d);
     }), t.pending = t.pending.filter((d) => d.pathname === n);
   }
-  const c = Gt(t), l = c !== void 0 && c.pathname === n && pe(c.event);
+  const c = Yt(t), l = c !== void 0 && c.pathname === n && he(c.event);
   if (c && !l) {
-    const u = F(e.accountId, c.pathname);
-    S(c.pathname) !== S(n) && u?.releaseHoldOnRouteChange ? (Cn(t, e, c, "hold_released_on_route_change"), t.pending = t.pending.filter((d) => d.pathname === c.pathname ? (kt(e, d), !1) : !0)) : Ai(e, c, n);
+    const u = U(e.accountId, c.pathname);
+    T(c.pathname) !== T(n) && u?.releaseHoldOnRouteChange ? (Nn(t, e, c, "hold_released_on_route_change"), t.pending = t.pending.filter((d) => d.pathname === c.pathname ? (kt(e, d), !1) : !0)) : vi(e, c, n);
   }
-  zs(t, e, i, n, r, s, l, o), l && t.scheduledDispatch === void 0 && Ai(e, c, n);
+  Qs(t, e, i, n, r, s, l, o), l && t.scheduledDispatch === void 0 && vi(e, c, n);
 }
-function Ai(t, e, i) {
+function vi(t, e, i) {
   t.logPlacementDiagnostic(
-    w("missed", "hold_cancelled", {
+    S("missed", "hold_cancelled", {
       held_ms: Date.now() - e.heldAt,
       same_path: e.pathname === i
     })
   );
 }
-function zs(t, e, i, n, r, s, o, a) {
-  const c = t.pending.find((u) => S(u.pathname) === S(n));
-  if (a ?? (a = Te(i) ?? c?.intentSeen ?? Te(c?.event)), e.isTargetingDisabled?.() || e.isPreselectionPrivacyAllowed?.() === !1)
+function Qs(t, e, i, n, r, s, o, a) {
+  const c = t.pending.find((u) => T(u.pathname) === T(n));
+  if (a ?? (a = Ce(i) ?? c?.intentSeen ?? Ce(c?.event)), e.isTargetingDisabled?.() || e.isPreselectionPrivacyAllowed?.() === !1)
     return;
-  const l = F(e.accountId, n);
+  const l = U(e.accountId, n);
   if (!l) {
-    Xs(e, n);
+    Zs(e, n);
     return;
   }
-  if (!(r !== void 0 && C(e.filteredUser) !== r)) {
-    if (!a && !fe(l, i) && ot(e)) {
+  if (!(r !== void 0 && D(e.filteredUser) !== r)) {
+    if (!a && !ge(l, i) && ot(e)) {
       const u = t.intentWaitMovedWithin === l;
       t.intentWaitMovedWithin = void 0;
-      const d = u || c?.waitingFor === "intent" && c.awaitingIntentLogged === !0, m = e.isKitReady() && e.isPreselectionEnabled();
+      const d = u || c?.waitingFor === "intent" && c.awaitingIntentLogged === !0, g = e.isKitReady() && e.isPreselectionEnabled();
       Q(t, e, {
         event: i,
         pathname: n,
         // Bound to an identified shopper, as a timer hold is, so another user's click never sends
         // this page view's attributes. A guest stays unbound so signing in at checkout still fires.
-        triggeringUserId: r ?? (K(e.filteredUser) ? C(e.filteredUser) : void 0),
+        triggeringUserId: r ?? (K(e.filteredUser) ? D(e.filteredUser) : void 0),
         triggeredAt: s,
         waitingFor: "intent",
-        awaitingIntentLogged: d || m
-      }), !d && m && e.logPlacementDiagnostic(w("held", "awaiting_intent")), m && Lt(e, l, i);
+        awaitingIntentLogged: d || g
+      }), !d && g && e.logPlacementDiagnostic(S("held", "awaiting_intent")), g && Lt(e, l, i);
       return;
     }
     if (!e.isKitReady()) {
-      if (bn(t, e, i, n))
+      if (Tn(t, e, i, n))
         return;
-      const u = [], d = C(e.filteredUser);
+      const u = [], d = D(e.filteredUser);
       if (e.accountId && d && K(e.filteredUser)) {
-        const { collected: m, missingKeys: h, formEmailKey: E } = ae(e, i, l);
-        if (h.length === 0 && !E) {
-          const v = ne(m);
-          (fe(l, i) || !!a ? di(
+        const { collected: g, missingKeys: h, formEmailKey: y } = ce(e, i, l);
+        if (h.length === 0 && !y) {
+          const v = re(g);
+          (ge(l, i) || !!a ? fi(
             e.accountId,
             n,
             l.targetPageIdentifier,
             v,
             d,
             !0
-          ) : di(e.accountId, n, l.targetPageIdentifier, v, d)) || u.push(w("queued", "persist_failed"));
+          ) : fi(e.accountId, n, l.targetPageIdentifier, v, d)) || u.push(S("queued", "persist_failed"));
         }
       }
       Q(t, e, {
@@ -1743,23 +1759,23 @@ function zs(t, e, i, n, r, s, o, a) {
       return;
     }
     if (e.isPreselectionEnabled()) {
-      if (Lt(e, l, i), !zt(e, l)) {
+      if (Lt(e, l, i), !Xt(e, l)) {
         e.logPlacementDiagnostic(
-          w("missed", "no_valid_identity", Tn(e, l))
+          S("missed", "no_valid_identity", Rn(e, l))
         ), Q(t, e, { event: i, pathname: n, triggeringUserId: r, triggeredAt: s, intentSeen: a, waitingFor: "identity" });
         return;
       }
-      if (l.dispatchDelayMs !== void 0 && !fe(l, i) && !Re(i) && !a) {
-        const u = C(e.filteredUser), d = Math.min(
+      if (l.dispatchDelayMs !== void 0 && !ge(l, i) && !Re(i) && !a) {
+        const u = D(e.filteredUser), d = Math.min(
           l.dispatchDelayMs,
           Math.max(0, s + l.dispatchDelayMs - Date.now())
         );
-        t.scheduledDispatch = { event: i, pathname: n, heldAt: Date.now(), heldForUserId: u, triggeredAt: s }, o || e.logPlacementDiagnostic(w("held", "dispatch_delay", { delay_ms: d })), t.dispatchTimer = setTimeout(() => {
-          t.dispatchTimer = void 0, t.scheduledDispatch = void 0, Rn(t, e.getCurrentHost?.() ?? e, i, n, u, s);
+        t.scheduledDispatch = { event: i, pathname: n, heldAt: Date.now(), heldForUserId: u, triggeredAt: s }, o || e.logPlacementDiagnostic(S("held", "dispatch_delay", { delay_ms: d })), t.dispatchTimer = setTimeout(() => {
+          t.dispatchTimer = void 0, t.scheduledDispatch = void 0, Un(t, e.getCurrentHost?.() ?? e, i, n, u, s);
         }, d);
         return;
       }
-      Dn(
+      Kn(
         t,
         e,
         i,
@@ -1776,24 +1792,24 @@ function zs(t, e, i, n, r, s, o, a) {
 }
 function Lt(t, e, i) {
   if (!t.accountId) return;
-  const n = Oe(e), r = e.readEmailInput === !0 && !!n && (Yt(t, n, i.EventAttributes ?? {}) || Sn(t, e, {}, i) !== void 0);
-  Nr(
+  const n = Oe(e), r = e.readEmailInput === !0 && !!n && (Bt(t, n, i.EventAttributes ?? {}) || Ln(t, e, {}, i) !== void 0);
+  Vr(
     t.accountId,
     e.targetPageIdentifier,
     K(t.filteredUser) || r
   );
 }
-function Xs(t, e) {
+function Zs(t, e) {
   const i = t.accountId;
-  !i || t.isKitReady() && !t.isPreselectionEnabled() || x(i).forEach((n) => {
-    ts(n.pathname, e) && jr(i, n.targetPageIdentifier);
+  !i || t.isKitReady() && !t.isPreselectionEnabled() || j(i).forEach((n) => {
+    an(n).some((r) => ss(r, e)) && Gr(i, n.targetPageIdentifier);
   });
 }
-function qs(t) {
-  const e = N[N.length - 1];
+function eo(t) {
+  const e = M[M.length - 1];
   return t !== void 0 && (e === void 0 || t < e.since);
 }
-function Js() {
+function to() {
   try {
     return new URL(document.referrer).origin === window.location.origin ? "same_origin" : "other_origin";
   } catch {
@@ -1806,8 +1822,8 @@ function st(t) {
 function ot(t) {
   return st(t) && t.isLinkIntentWithheld?.() !== !0;
 }
-function Cn(t, e, i, n, r) {
-  Rn(
+function Nn(t, e, i, n, r) {
+  Un(
     t,
     e.getCurrentHost?.() ?? e,
     i.event,
@@ -1818,10 +1834,10 @@ function Cn(t, e, i, n, r) {
     r
   );
 }
-function Rn(t, e, i, n, r, s, o, a) {
-  const c = F(e.accountId, n);
+function Un(t, e, i, n, r, s, o, a) {
+  const c = U(e.accountId, n);
   if (!(!c || e.isTargetingDisabled?.() || e.isPreselectionPrivacyAllowed?.() === !1)) {
-    if (!a && !fe(c, i) && !Re(i) && ot(e)) {
+    if (!a && !ge(c, i) && !Re(i) && ot(e)) {
       const l = e.isKitReady() && e.isPreselectionEnabled();
       Q(t, e, {
         event: i,
@@ -1830,7 +1846,7 @@ function Rn(t, e, i, n, r, s, o, a) {
         triggeredAt: s,
         waitingFor: "intent",
         awaitingIntentLogged: l
-      }), l && e.logPlacementDiagnostic(w("held", "awaiting_intent"));
+      }), l && e.logPlacementDiagnostic(S("held", "awaiting_intent"));
       return;
     }
     if (!e.isKitReady()) {
@@ -1838,32 +1854,32 @@ function Rn(t, e, i, n, r, s, o, a) {
       return;
     }
     if (e.isPreselectionEnabled()) {
-      if (!zt(e, c)) {
+      if (!Xt(e, c)) {
         e.logPlacementDiagnostic(
-          w("missed", "no_valid_identity", Tn(e, c))
+          S("missed", "no_valid_identity", Rn(e, c))
         ), Q(t, e, { event: i, pathname: n, triggeringUserId: r, triggeredAt: s, intentSeen: a, waitingFor: "identity" });
         return;
       }
-      C(e.filteredUser) === r && Dn(t, e, i, n, c, r, s, o, a);
+      D(e.filteredUser) === r && Kn(t, e, i, n, c, r, s, o, a);
     }
   }
 }
-function Dn(t, e, i, n, r, s, o, a, c, l) {
+function Kn(t, e, i, n, r, s, o, a, c, l) {
   if (e.isPreselectionPrivacyAllowed?.() === !1) return;
-  const { collected: u, missingKeys: d, formEmailKey: m } = ae(e, i, r), h = t.lastResolvedPageView, E = N[N.length - 1], v = S(n);
-  if (Re(i) && h && h.accountId === e.accountId && h.pathname === v && h.route === E && h.userId === C(e.filteredUser) && h.identifier === r.targetPageIdentifier && h.attributeKeys.some(
-    (A) => r.attributeKeys.includes(A) && k(T(u, A))
+  const { collected: u, missingKeys: d, formEmailKey: g } = ce(e, i, r), h = t.lastResolvedPageView, y = M[M.length - 1], v = T(n);
+  if (Re(i) && h && h.accountId === e.accountId && h.pathname === v && h.route === y && h.userId === D(e.filteredUser) && h.identifier === r.targetPageIdentifier && h.attributeKeys.some(
+    (w) => r.attributeKeys.includes(w) && R(k(u, w))
   ))
     return;
   if (d.length > 0) {
-    const A = Le(e.filteredUser), O = Oe(r);
-    for (const L of d)
+    const w = ke(e.filteredUser), C = Oe(r);
+    for (const A of d)
       e.logPlacementDiagnostic(
-        w("missed", `missing_attribute:${L}`, {
-          identity_types: Xe(A),
-          key_is_identity: A.some((Y) => Y.toLowerCase() === L.toLowerCase()),
-          ...L === O ? { email_reason: Hs(e, r, L, i) } : {},
-          ...Wt(e)
+        S("missed", `missing_attribute:${A}`, {
+          identity_types: Xe(w),
+          key_is_identity: w.some((x) => x.toLowerCase() === A.toLowerCase()),
+          ...A === C ? { email_reason: Ys(e, r, A, i) } : {},
+          ...$t(e)
         })
       );
     Q(t, e, {
@@ -1876,10 +1892,10 @@ function Dn(t, e, i, n, r, s, o, a, c, l) {
     });
     return;
   }
-  const P = c ?? Te(i);
-  if (P && !Ke(e, u, r.targetPageIdentifier)) {
+  const P = c ?? Ce(i);
+  if (P && !Ue(e, u, r.targetPageIdentifier)) {
     t.noEmailLoggedPathname !== v && (t.noEmailLoggedPathname = v, e.logPlacementDiagnostic(
-      w("missed", "no_strict_email", {
+      S("missed", "no_strict_email", {
         intent_kind: P.replace("intent_", ""),
         has_identity: K(e.filteredUser)
       })
@@ -1893,36 +1909,36 @@ function Dn(t, e, i, n, r, s, o, a, c, l) {
     });
     return;
   }
-  t.noEmailLoggedPathname = void 0, l && (t.pending = t.pending.filter((A) => A !== l));
-  const f = fe(r, i), _ = P ?? (f ? "event" : pe(i) ? "pathname" : "pageview");
-  Ne(
+  t.noEmailLoggedPathname = void 0, l && (t.pending = t.pending.filter((w) => w !== l));
+  const m = ge(r, i), _ = P ?? (m ? "event" : he(i) ? "pathname" : "pageview");
+  Ke(
     e,
     e.accountId || "",
-    S(n),
+    T(n),
     r.targetPageIdentifier,
     u,
-    a ?? (P ? "intent" : f ? "event_trigger" : "fired"),
-    De(_, r),
-    f && !P,
+    a ?? (P ? "intent" : m ? "event_trigger" : "fired"),
+    De(_, r, n),
+    m && !P,
     P,
-    f,
     m,
+    g,
     P ? t.intentSource : void 0
-  ) && (Be(i) || f) && (t.lastResolvedPageView = {
+  ) && (Be(i) || m) && (t.lastResolvedPageView = {
     accountId: e.accountId,
     pathname: v,
-    route: E,
-    userId: C(e.filteredUser),
+    route: y,
+    userId: D(e.filteredUser),
     identifier: r.targetPageIdentifier,
     attributeKeys: Object.keys(u)
   });
 }
-const Qs = ["", "0", "[]", "{}", "false", "null"];
-function On(t) {
-  if (k(t)) return !1;
+const io = ["", "0", "[]", "{}", "false", "null"];
+function Fn(t) {
+  if (R(t)) return !1;
   if (Array.isArray(t)) return !0;
   const e = String(t).trim();
-  if (Qs.includes(e.toLowerCase())) return !1;
+  if (io.includes(e.toLowerCase())) return !1;
   try {
     const i = JSON.parse(e);
     return !Array.isArray(i) || i.length > 0;
@@ -1930,49 +1946,49 @@ function On(t) {
     return !0;
   }
 }
-function _e(t) {
+function ye(t) {
   const e = t ? Qe(t) : [];
   return e.length === 1 && e[0].cartUserAttribute ? e[0] : void 0;
 }
-function Zs(t) {
-  return _e(t) !== void 0;
+function no(t) {
+  return ye(t) !== void 0;
 }
-function vi(t, e) {
-  const i = _e(t)?.cartUserAttribute;
+function Pi(t, e) {
+  const i = ye(t)?.cartUserAttribute;
   return p(i) && i.toLowerCase() === e.toLowerCase();
 }
-function Pi(t, e, i) {
-  const n = _e(t)?.cartUserAttribute?.toLowerCase();
-  if (!n || i && Pn(i).some((s) => s.toLowerCase() === n))
+function bi(t, e, i) {
+  const n = ye(t)?.cartUserAttribute?.toLowerCase();
+  if (!n || i && Cn(i).some((s) => s.toLowerCase() === n))
     return e;
   const r = {};
   for (const [s, o] of Object.entries(e))
     s.toLowerCase() !== n && (r[s] = o);
   return r;
 }
-function Un(t, e) {
+function Mn(t, e) {
   const i = t.filteredUser?.getAllUserAttributes?.() ?? {}, n = Object.keys(i).find((r) => r.toLowerCase() === e.toLowerCase());
   return n === void 0 ? void 0 : i[n];
 }
-function Kn(t) {
+function xn(t) {
   const { search: e, hash: i } = window.location, n = /^#!|^#[^?&]*\//.test(i);
-  return S(t) + e + (n ? i : "");
+  return T(t) + e + (n ? i : "");
 }
-function Nn(t) {
+function Vn(t) {
   try {
     return J(p(t) ? t : JSON.stringify(t) ?? "");
   } catch {
     return;
   }
 }
-function bi(t, e, i = window.location.pathname) {
-  t.cartPageViewPathname = S(i), Fn(t, e, i);
+function wi(t, e, i = window.location.pathname) {
+  t.cartPageViewPathname = T(i), jn(t, e, i);
 }
-function Fn(t, e, i) {
-  const n = _e(e.accountId);
-  if (!n || t.cartPageViewPathname !== S(i) || // The cart entry's own route waits for its add-to-cart click, and another entry's route is a checkout step the
+function jn(t, e, i) {
+  const n = ye(e.accountId);
+  if (!n || t.cartPageViewPathname !== T(i) || // The cart entry's own route waits for its add-to-cart click, and another entry's route is a checkout step the
   // shopper reaches after the cart, where a call made for the cart page is rarely used.
-  F(e.accountId, i) !== void 0 || !Qt(e)) {
+  U(e.accountId, i) !== void 0 || !Zt(e)) {
     t.cartPageViewPathname = void 0;
     return;
   }
@@ -1982,20 +1998,20 @@ function Fn(t, e, i) {
     return;
   }
   const r = e.accountId;
-  if (Zr(r, n.targetPageIdentifier, J(Kn(i)))) {
+  if (ns(r, n.targetPageIdentifier, J(xn(i)))) {
     t.cartPageViewPathname = void 0;
     return;
   }
-  const s = Un(e, n.cartUserAttribute);
-  if (!(On(s) || xr(r, C(e.filteredUser))) || !K(e.filteredUser)) return;
-  const a = Nn(s);
-  if (a !== void 0 && Jr(r, n.targetPageIdentifier, a, C(e.filteredUser)))
+  const s = Mn(e, n.cartUserAttribute);
+  if (!(Fn(s) || Wr(r, D(e.filteredUser))) || !K(e.filteredUser)) return;
+  const a = Vn(s);
+  if (a !== void 0 && ts(r, n.targetPageIdentifier, a, D(e.filteredUser)))
     return;
-  const { collected: c, missingKeys: l } = ae(e, is, n, !1);
-  if (l.length > 0 || !Ke(e, c, n.targetPageIdentifier)) return;
+  const { collected: c, missingKeys: l } = ce(e, os, n, !1);
+  if (l.length > 0 || !Ue(e, c, n.targetPageIdentifier)) return;
   t.cartPageViewPathname = void 0;
-  const u = nt(e, r, n.targetPageIdentifier, c), d = de(Nt(r, n.targetPageIdentifier));
-  Jt(r, n.targetPageIdentifier, u) || qt(d?.attributesDigest, u) || Ne(
+  const u = nt(e, r, n.targetPageIdentifier, c), d = fe(Ft(r, n.targetPageIdentifier));
+  Qt(r, n.targetPageIdentifier, u) || Jt(d?.attributesDigest, u) || Ke(
     e,
     r,
     n.targetPageIdentifier,
@@ -2011,87 +2027,87 @@ function Fn(t, e, i) {
     { requireLogin: !1 }
   );
 }
-function eo(t, e, i = window.location.pathname) {
-  if (Bs(t, e), ls(t, e), t.cartPageViewPathname !== void 0 && Fn(t, e, i), t.pending.length === 0)
+function ro(t, e, i = window.location.pathname) {
+  if (Js(t, e), gs(t, e), t.cartPageViewPathname !== void 0 && jn(t, e, i), t.pending.length === 0)
     return;
   const n = t.pending;
   t.pending = [], n.forEach((r) => {
-    const { event: s, pathname: o, storedDiagnostics: a, triggeringUserId: c, triggeredAt: l, waitingFor: u, intentSeen: d } = r, m = Zt(e), h = K(e.filteredUser), E = rt(l);
-    if (m && u === "identity" && h && e.logPlacementDiagnostic(
-      w("identity_arrived", "pending_identity", {
-        ...E,
+    const { event: s, pathname: o, storedDiagnostics: a, triggeringUserId: c, triggeredAt: l, waitingFor: u, intentSeen: d } = r, g = ei(e), h = K(e.filteredUser), y = rt(l);
+    if (g && u === "identity" && h && e.logPlacementDiagnostic(
+      S("identity_arrived", "pending_identity", {
+        ...y,
         on_trigger_path: o === i
       })
     ), o !== i) {
-      Ln(e, r, i) ? t.intentWaitMovedWithin = F(e.accountId, i) : kt(e, { waitingFor: u, triggeredAt: l });
+      On(e, r, i) ? t.intentWaitMovedWithin = U(e.accountId, i) : kt(e, { waitingFor: u, triggeredAt: l });
       return;
     }
     if (u === "intent" && !d) {
-      const v = F(e.accountId, o);
+      const v = U(e.accountId, o);
       if (v && ot(e)) {
-        !r.awaitingIntentLogged && e.isKitReady() && e.isPreselectionEnabled() && (e.logPlacementDiagnostic(w("held", "awaiting_intent")), Lt(e, v, s), r.awaitingIntentLogged = !0), t.pending.push(r);
+        !r.awaitingIntentLogged && e.isKitReady() && e.isPreselectionEnabled() && (e.logPlacementDiagnostic(S("held", "awaiting_intent")), Lt(e, v, s), r.awaitingIntentLogged = !0), t.pending.push(r);
         return;
       }
     }
-    m && a?.forEach((v) => e.logPlacementDiagnostic(v)), t.scheduledDispatch?.pathname !== o && me(t, e, s, o, c, l, d);
+    g && a?.forEach((v) => e.logPlacementDiagnostic(v)), t.scheduledDispatch?.pathname !== o && me(t, e, s, o, c, l, d);
   });
 }
-function to(t, e, i) {
-  if (!t.accountId || !Zt(t))
+function so(t, e, i) {
+  if (!t.accountId || !ei(t))
     return;
-  const n = ke(t.accountId, e);
+  const n = Te(t.accountId, e);
   if (!n)
     return;
-  const r = _e(t.accountId);
+  const r = ye(t.accountId);
   if (r?.targetPageIdentifier === n.targetPageIdentifier) {
-    const a = Kn(window.location.pathname);
-    a !== "/" && Qr(t.accountId, n.targetPageIdentifier, J(a));
-    const c = Un(t, r.cartUserAttribute);
-    qr(
+    const a = xn(window.location.pathname);
+    a !== "/" && is(t.accountId, n.targetPageIdentifier, J(a));
+    const c = Mn(t, r.cartUserAttribute);
+    es(
       t.accountId,
       n.targetPageIdentifier,
-      On(c) ? Nn(c) : void 0,
-      C(t.filteredUser)
+      Fn(c) ? Vn(c) : void 0,
+      D(t.filteredUser)
     );
   }
-  const s = Xr(t.accountId, n.targetPageIdentifier);
+  const s = Zr(t.accountId, n.targetPageIdentifier);
   if (!s || (st(t) && t.isForwardingAllowed?.() !== !1 && t.logPlacementDiagnostic(
-    w("arrived", "intent_arrival", {
-      ...io(s),
-      ...no(s, i)
+    S("arrived", "intent_arrival", {
+      ...oo(s),
+      ...ao(s, i)
     })
   ), s.firedAt !== void 0))
     return;
   const o = s.triggeredAt !== void 0;
   t.logPlacementDiagnostic(
-    w("missed", "arrival_without_fire", {
+    S("missed", "arrival_without_fire", {
       trigger_seen: o,
       identity_seen_on_trigger_path: s.identitySeenAt !== void 0,
       has_identity: K(t.filteredUser),
       // Another tab's checkout caches its offers in that tab, so this arrival still misses. This tab's
       // own trigger counts too: the device marker can expire, be cleared by another tab or fail to save.
-      trigger_seen_any_tab: o || Fr(t.accountId, n.targetPageIdentifier),
+      trigger_seen_any_tab: o || jr(t.accountId, n.targetPageIdentifier),
       ...rt(s.triggeredAt),
-      near_miss_seen: qs(s.nearMissAt),
+      near_miss_seen: eo(s.nearMissAt),
       // Page memory loses the trigger record on a full navigation, so trigger_seen reads false.
-      storage: Gn() ? "page" : "device",
-      referrer: Js()
+      storage: Xn() ? "page" : "device",
+      referrer: to()
     })
   );
 }
-function io(t) {
-  const e = t.intentAt === void 0 || t.intentKind === void 0 ? "none" : so(Date.now() - t.intentAt);
+function oo(t) {
+  const e = t.intentAt === void 0 || t.intentKind === void 0 ? "none" : lo(Date.now() - t.intentAt);
   return {
     intent_seen: e === "none" ? "none" : t.intentKind,
     lead: e,
     fired: t.firedAt !== void 0
   };
 }
-function no(t, e) {
-  const i = ur(e), n = t.paymentPickAt === void 0 ? -1 : Date.now() - t.paymentPickAt, r = t.paymentPick && n >= 0 && n < ge ? t.paymentPick : "none";
+function ao(t, e) {
+  const i = pr(e), n = t.paymentPickAt === void 0 ? -1 : Date.now() - t.paymentPickAt, r = t.paymentPick && n >= 0 && n < pe ? t.paymentPick : "none";
   if (r === "none" && i === "absent")
     return {};
-  const s = t.firedAt === void 0 ? -1 : Date.now() - t.firedAt, o = t.paymentAtFire && s >= 0 && s < ge ? t.paymentAtFire : "none";
+  const s = t.firedAt === void 0 ? -1 : Date.now() - t.firedAt, o = t.paymentAtFire && s >= 0 && s < pe ? t.paymentAtFire : "none";
   return {
     payment_guess: o,
     payment_pick: r,
@@ -2099,7 +2115,7 @@ function no(t, e) {
     payment_match: o !== "none" && i !== "absent" && i !== "other" ? o === i : "n/a"
   };
 }
-const ro = [
+const co = [
   [1e3, "lt1s"],
   [2e3, "1s_2s"],
   [5e3, "2s_5s"],
@@ -2107,41 +2123,41 @@ const ro = [
   [2e4, "10s_20s"],
   [6e4, "20s_60s"],
   [3e5, "60s_300s"],
-  [ge, "300s_1800s"]
+  [pe, "300s_1800s"]
 ];
-function so(t) {
+function lo(t) {
   if (t < 0)
     return "none";
-  const e = ro.find(([i]) => t < i);
+  const e = co.find(([i]) => t < i);
   return e ? e[1] : "none";
 }
-function oo() {
+function uo() {
   return {
     context: null,
     lifecycle: "idle",
     recreateInFlight: null
   };
 }
-function ao(t, e) {
+function fo(t, e) {
   t.context = {
     accountId: e.accountId,
     launcherOptions: { ...e.launcherOptions },
     legacyRoktExtensions: [...e.legacyRoktExtensions]
   };
 }
-function co(t) {
+function go(t) {
   t.lifecycle = "attached";
 }
-function lo(t) {
+function po(t) {
   t.lifecycle !== "idle" && (t.lifecycle = "terminated");
 }
-function uo(t) {
+function ho(t) {
   t.lifecycle = "terminated";
 }
-function fo(t) {
+function mo(t) {
   t.context = null, t.lifecycle = "idle", t.recreateInFlight = null;
 }
-function go(t, e, i) {
+function _o(t, e, i) {
   if (t.recreateInFlight)
     return t.recreateInFlight;
   if (t.lifecycle !== "terminated" || !t.context || !e)
@@ -2152,8 +2168,8 @@ function go(t, e, i) {
     t.recreateInFlight = null;
   }), t.recreateInFlight;
 }
-const wi = "rokt:intent", Si = "LEAD_CAPTURE_SUBMITTED";
-class po {
+const Si = "rokt:intent", Ci = "LEAD_CAPTURE_SUBMITTED";
+class yo {
   constructor(e) {
     this.handlers = e, this.config = null, this.dispatchedForPageView = !1;
   }
@@ -2161,7 +2177,7 @@ class po {
     this.config = e, this.dispatchedForPageView = !1, this.detachListeners(), this.isIdentityCaptureBridgeEnabled(this.config) && (this.leadCaptureSubmittedListener = (i) => {
       const n = this.parseLeadCaptureSubmittedPayload(i);
       n && this.handlers.onLeadCaptureSubmitted(n);
-    }, window.addEventListener(Si, this.leadCaptureSubmittedListener)), this.isExitIntentBridgeEnabled(this.config) && (this.exitIntentListener = (i) => this.handleExitIntentEvent(i), window.addEventListener(wi, this.exitIntentListener));
+    }, window.addEventListener(Ci, this.leadCaptureSubmittedListener)), this.isExitIntentBridgeEnabled(this.config) && (this.exitIntentListener = (i) => this.handleExitIntentEvent(i), window.addEventListener(Si, this.exitIntentListener));
   }
   resetPageViewState() {
     this.dispatchedForPageView = !1;
@@ -2170,7 +2186,7 @@ class po {
     this.detachListeners(), this.config = null, this.dispatchedForPageView = !1;
   }
   detachListeners() {
-    this.exitIntentListener && (window.removeEventListener(wi, this.exitIntentListener), this.exitIntentListener = void 0), this.leadCaptureSubmittedListener && (window.removeEventListener(Si, this.leadCaptureSubmittedListener), this.leadCaptureSubmittedListener = void 0);
+    this.exitIntentListener && (window.removeEventListener(Si, this.exitIntentListener), this.exitIntentListener = void 0), this.leadCaptureSubmittedListener && (window.removeEventListener(Ci, this.leadCaptureSubmittedListener), this.leadCaptureSubmittedListener = void 0);
   }
   isExitIntentBridgeEnabled(e) {
     return !!(e && e.enabled !== !1);
@@ -2179,15 +2195,15 @@ class po {
     if (!this.isExitIntentBridgeEnabled(e))
       return !1;
     const i = e ? e.identityCapture : void 0;
-    return y(i) ? i.enabled === !0 : !1;
+    return E(i) ? i.enabled === !0 : !1;
   }
   allowCustomUserAttributes(e) {
     const i = e ? e.identityCapture : void 0;
-    return y(i) ? i.allowCustomUserAttributes === !0 : !1;
+    return E(i) ? i.allowCustomUserAttributes === !0 : !1;
   }
   getAllowedUserAttributeKeys(e) {
     const i = e ? e.identityCapture : void 0;
-    if (!y(i))
+    if (!E(i))
       return /* @__PURE__ */ new Set();
     const n = i.allowedUserAttributeKeys;
     if (!Array.isArray(n))
@@ -2203,24 +2219,24 @@ class po {
     if (this.dispatchedForPageView || !this.handlers.isKitReady() || !(i === "mouse-exit-top" || i === "scroll-up-fast" || i === "idle" || i === "leave-link"))
       return;
     this.dispatchedForPageView = !0;
-    const r = this.config && y(this.config.attributes) ? this.config.attributes : {};
+    const r = this.config && E(this.config.attributes) ? this.config.attributes : {};
     this.handlers.onExitIntent(
       i,
       r
     ) || (this.dispatchedForPageView = !1);
   }
   parseLeadCaptureSubmittedPayload(e) {
-    if (!(e instanceof CustomEvent) || !y(e.detail))
+    if (!(e instanceof CustomEvent) || !E(e.detail))
       return null;
     const i = e.detail;
-    if (!y(i.body))
+    if (!E(i.body))
       return null;
     const n = i.body, r = p(n.email) ? n.email : void 0, s = p(n.mobile_number) ? n.mobile_number : void 0, o = {};
     p(r) && r.length > 0 && (o.email = r), p(s) && s.length > 0 && (o.mobile_number = s);
     const a = {}, c = this.allowCustomUserAttributes(this.config), l = this.getAllowedUserAttributeKeys(this.config);
     this.mergeLeadCaptureUserAttributes(
       a,
-      y(n.userAttributes) ? n.userAttributes : null,
+      E(n.userAttributes) ? n.userAttributes : null,
       c,
       l
     );
@@ -2228,8 +2244,8 @@ class po {
     u && u.length > 0 && (a.rokt_rclid = u);
     const d = p(n.accountID) ? n.accountID : void 0;
     d && d.length > 0 && (a.rokt_account_id = d);
-    const m = p(n.referralCreativeID) ? n.referralCreativeID : void 0;
-    return m && m.length > 0 && (a.rokt_referral_creative_id = m), { identities: o, userAttributes: a };
+    const g = p(n.referralCreativeID) ? n.referralCreativeID : void 0;
+    return g && g.length > 0 && (a.rokt_referral_creative_id = g), { identities: o, userAttributes: a };
   }
   isSafeLeadCaptureUserAttributeKey(e) {
     return e === "__proto__" || e === "constructor" || e === "prototype" ? !1 : /^[a-zA-Z0-9_.-]+$/.test(e);
@@ -2243,12 +2259,12 @@ class po {
         !n || !r.has(s) || this.isSafeLeadCaptureUserAttributeKey(s) && this.isSupportedLeadCaptureUserAttributeValue(o) && (e[s] = o);
   }
 }
-const M = "Rokt", mo = 7, je = 181, ho = "selectPlacements", _o = "Auto Button Click", Eo = "Auto Link Click", Ti = "rokt_placement", yo = /^[a-z0-9-]+(\.[a-z0-9-]+)*$/, Io = 500, Ao = "apps.roktecommerce.com", vo = 0.1, Po = "ThankYouPageJourney", bo = "rokt-launcher", wo = "rokt-thank-you-element", So = "userIdentifiedInWorkspace", ki = 3, To = 2, ko = "page_events", Lo = "page_view_attributes", Co = "mparticle_session_id", Li = "mparticle_device_id", pt = "exit-intent", Ro = [
+const V = "Rokt", Eo = 7, je = 181, Io = "selectPlacements", Ao = ["paypalpayerid"], vo = "Auto Button Click", Po = "Auto Link Click", Ti = "rokt_placement", bo = /^[a-z0-9-]+(\.[a-z0-9-]+)*$/, wo = 500, So = "apps.roktecommerce.com", Co = 0.1, To = "ThankYouPageJourney", ko = "rokt-launcher", Lo = "rokt-thank-you-element", Ro = "userIdentifiedInWorkspace", ki = 3, Do = 2, Oo = "page_events", No = "page_view_attributes", Uo = "mparticle_session_id", Li = "mparticle_device_id", ht = "exit-intent", Ko = [
   "3479519924056514560",
   "3484183287406608384",
   "3198447216177237634",
   "3292347205549055462"
-], Do = "exit-intent-placement", Ci = 500, ei = {
+], Fo = "exit-intent-placement", Ri = 500, ti = {
   UNKNOWN_ERROR: "UNKNOWN_ERROR",
   UNHANDLED_EXCEPTION: "UNHANDLED_EXCEPTION",
   IDENTITY_REQUEST: "IDENTITY_REQUEST",
@@ -2257,28 +2273,28 @@ const M = "Rokt", mo = 7, je = 181, ho = "selectPlacements", _o = "Auto Button C
   ERROR: "ERROR",
   INFO: "INFO",
   WARNING: "WARNING"
-}, Oo = "apps.rokt-api.com", Uo = "/v1/log", Ko = "/v1/errors", No = 10;
-function g() {
+}, Mo = "apps.rokt-api.com", xo = "/v1/log", Vo = "/v1/errors", jo = 10;
+function f() {
   return window.mParticle;
 }
-function Ri(t, e) {
+function Di(t, e) {
   const n = [at(t), "/wsdk/integrations/launcher.js"].join("");
   return !e || e.length === 0 ? n : n + "?extensions=" + e.join(",");
 }
-function Di(t) {
+function Oi(t) {
   return [at(t), "/rokt-elements/rokt-element-thank-you.js"].join("");
 }
 function at(t) {
-  const e = t !== void 0 ? t : Oo;
+  const e = t !== void 0 ? t : Mo;
   return e.includes("://") ? e.replace(/\/+$/, "") : ["https://", e].join("");
 }
-function Mn(t, e, i) {
+function Hn(t, e, i) {
   if (t)
     return t.startsWith("http://") || t.startsWith("https://") ? t : "https://" + t;
   const r = e?.includes("://") && !/^https?:\/\//i.test(e) ? void 0 : e;
   return at(r) + i;
 }
-function Oi(t, e, i) {
+function Ni(t, e, i) {
   if (document.getElementById(t)) return;
   const n = document.head || document.body, r = document.createElement("script");
   r.id = t, r.type = "text/javascript", r.src = e, r.async = !0, r.crossOrigin = "anonymous", r.fetchPriority = "high", i?.onLoad && (r.onload = i.onLoad), i?.onError && (r.onerror = i.onError), n.appendChild(r);
@@ -2286,7 +2302,7 @@ function Oi(t, e, i) {
 function He(t) {
   if (!t)
     return [];
-  const e = Wi(t);
+  const e = $i(t);
   return e === void 0 ? (console.error("Settings string contains invalid JSON"), []) : e;
 }
 function Ui(t) {
@@ -2294,7 +2310,7 @@ function Ui(t) {
   let r = !1;
   for (let s = 0; s < e.length; s++) {
     const o = e[s].value;
-    o === "thank-you-journey" ? (r = !0, n.push(Po)) : i.push(o);
+    o === "thank-you-journey" ? (r = !0, n.push(To)) : i.push(o);
   }
   return {
     roktExtensionsQueryParams: i,
@@ -2302,7 +2318,7 @@ function Ui(t) {
     loadThankYouElement: r
   };
 }
-async function Fo(t, e) {
+async function Ho(t, e) {
   const i = [];
   if (e)
     for (const n of t)
@@ -2319,7 +2335,7 @@ function Ki(t) {
   }
   return e;
 }
-function Ni(t) {
+function Fi(t) {
   const e = {};
   if (!Array.isArray(t))
     return e;
@@ -2335,17 +2351,17 @@ function Ni(t) {
   }
   return e;
 }
-function Fi(t, e, i) {
-  return g().generateHash([t, e, i].join(""));
+function Mi(t, e, i) {
+  return f().generateHash([t, e, i].join(""));
 }
-function Mo(t) {
-  let n = "mParticle_wsdkv_" + g().getVersion() + "_kitv_" + "3.32.3";
+function Wo(t) {
+  let n = "mParticle_wsdkv_" + f().getVersion() + "_kitv_" + "3.33.0";
   return t && (n += "_" + t), n;
 }
-function Mi(t) {
-  return !!(t && Ro.includes(t));
+function xi(t) {
+  return !!(t && Ko.includes(t));
 }
-function Ct(t) {
+function Rt(t) {
   const e = document.createElement("iframe");
   e.style.display = "none", e.setAttribute("sandbox", "allow-scripts allow-same-origin"), e.src = t, e.onload = function() {
     e.onload = null, e.parentNode && e.parentNode.removeChild(e);
@@ -2353,44 +2369,44 @@ function Ct(t) {
   const i = document.body || document.head;
   i && i.appendChild(e);
 }
-function xi(t, e) {
+function Vi(t, e) {
   const i = J(window.location.origin);
-  if (he._allowedOriginHashes.indexOf(i) === -1 || Math.random() >= vo)
+  if (_e._allowedOriginHashes.indexOf(i) === -1 || Math.random() >= Co)
     return;
   const r = window.__rokt_li_guid__;
   if (!r || t && t.includes("://") && !/^https:\/\//i.test(t))
     return;
-  const s = Rt(window.location.href), o = "version=" + encodeURIComponent(e ?? "") + "&launcherInstanceGuid=" + encodeURIComponent(r) + "&pageUrl=" + encodeURIComponent(s), a = t ? at(t) : "https://apps.rokt.com";
-  Ct(a + "/v1/wsdk-init/index.html?" + o), Ct(
-    "https://" + Ao + "/v1/wsdk-init/index.html?" + o + "&isControl=true"
+  const s = Dt(window.location.href), o = "version=" + encodeURIComponent(e ?? "") + "&launcherInstanceGuid=" + encodeURIComponent(r) + "&pageUrl=" + encodeURIComponent(s), a = t ? at(t) : "https://apps.rokt.com";
+  Rt(a + "/v1/wsdk-init/index.html?" + o), Rt(
+    "https://" + So + "/v1/wsdk-init/index.html?" + o + "&isControl=true"
   );
 }
-function xo() {
+function $o() {
   return typeof window < "u" && !!window.location?.search?.toLowerCase().includes("mp_enable_logging=true");
 }
-function Vo() {
+function Go() {
   if (typeof window > "u")
     return;
   const t = window.location?.href;
-  return t ? Rt(t) : void 0;
+  return t ? Dt(t) : void 0;
 }
-function jo() {
+function Yo() {
   return typeof window < "u" ? window.navigator?.userAgent : void 0;
 }
-class xn {
+class Wn {
   constructor() {
     this._logCount = {};
   }
   incrementAndCheck(e) {
     const n = (this._logCount[e] || 0) + 1;
-    return this._logCount[e] = n, n > No;
+    return this._logCount[e] = n, n > jo;
   }
 }
 class we {
   constructor(e, i, n, r, s) {
     this._reporter = "mp-wsdk";
     const o = e.isLoggingEnabled;
-    this._integrationName = i || "", this._launcherInstanceGuid = n, this._accountId = r || null, this._rateLimiter = s || new xn(), this._isEnabled = xo() || o;
+    this._integrationName = i || "", this._launcherInstanceGuid = n, this._accountId = r || null, this._rateLimiter = s || new Wn(), this._isEnabled = $o() || o;
   }
   send(e, i, n, r, s, o) {
     if (!(!this._isEnabled || this._rateLimiter.incrementAndCheck(i)))
@@ -2401,9 +2417,9 @@ class we {
             version: this._integrationName
           },
           severity: i,
-          code: r || ei.UNKNOWN_ERROR,
-          url: Vo(),
-          deviceInfo: jo(),
+          code: r || ti.UNKNOWN_ERROR,
+          url: Go(),
+          deviceInfo: Yo(),
           stackTrace: s,
           reporter: this._reporter,
           integration: this._integrationName
@@ -2430,9 +2446,9 @@ class we {
       }
   }
 }
-class Vi {
+class ji {
   constructor(e, i, n, r, s) {
-    this._transport = new we(e, i, n, r, s), this._errorUrl = Mn(e?.errorUrl, e?.integrationDomain, Ko);
+    this._transport = new we(e, i, n, r, s), this._errorUrl = Hn(e?.errorUrl, e?.integrationDomain, Vo);
   }
   report(e) {
     if (!e) return;
@@ -2440,14 +2456,14 @@ class Vi {
     this._transport.send(this._errorUrl, i, e.message, e.code, e.stackTrace);
   }
 }
-class ji {
+class Hi {
   constructor(e, i, n, r, s, o) {
     this._intentObserveLines = 0, this._transport = new we(e, n, r, s, o), this._placementDiagnosticTransport = new we(
       e,
       n,
       r,
       s
-    ), this._preselectOutcomeTransport = new we(e, n, r, s), this._loggingUrl = Mn(e?.loggingUrl, e?.integrationDomain, Uo), this._errorReportingService = i;
+    ), this._preselectOutcomeTransport = new we(e, n, r, s), this._loggingUrl = Hn(e?.loggingUrl, e?.integrationDomain, xo), this._errorReportingService = i;
   }
   log(e) {
     e && this._send(this._transport, e);
@@ -2473,7 +2489,7 @@ class ji {
           const r = typeof n.statusCode == "number";
           this._errorReportingService.report({
             message: "LoggingService: Failed to send log: " + n.message,
-            code: ei.LOG_DELIVERY_FAILURE,
+            code: ti.LOG_DELIVERY_FAILURE,
             severity: r ? be.ERROR : be.WARNING
           });
         }
@@ -2481,8 +2497,8 @@ class ji {
     );
   }
 }
-function Ho(t, e) {
-  const i = We(window.location.href), n = t.EventAttributes?.title, r = p(n) ? n : void 0, s = Xi(t.EventAttributes, e) ? r : r || document.title, o = Zn(), a = t.ActiveTimeOnSite;
+function Bo(t, e) {
+  const i = We(window.location.href), n = t.EventAttributes?.title, r = p(n) ? n : void 0, s = qi(t.EventAttributes, e) ? r : r || document.title, o = nr(), a = t.ActiveTimeOnSite;
   return {
     pageUrl: i,
     sourceMessageId: t.SourceMessageId,
@@ -2492,20 +2508,20 @@ function Ho(t, e) {
     ...Number.isFinite(a) ? { activeTimeOnSite: a } : {}
   };
 }
-const z = class z {
+const B = class B {
   constructor() {
-    this.name = M, this.id = je, this.moduleId = je, this.isInitialized = !1, this.launcher = null, this.filters = {}, this.userAttributes = {}, this.userIdentifiedInWorkspace = !1, this.testHelpers = null, this.placementEventMappingLookup = {}, this.placementEventAttributeMappingLookup = {}, this.integrationName = null, this.errorReportingService = null, this.loggingService = null, this._thankYouElementOnLoadCallback = null, this._isThankYouElementLoaded = !1, this._workspaceSearchInFlightPromise = null, this._launcherAttachState = oo(), this._exitIntentConfig = null, this._exitIntentWatcher = new po({
+    this.name = V, this.id = je, this.moduleId = je, this.isInitialized = !1, this.launcher = null, this.filters = {}, this.userAttributes = {}, this.userIdentifiedInWorkspace = !1, this.testHelpers = null, this.placementEventMappingLookup = {}, this.placementEventAttributeMappingLookup = {}, this.integrationName = null, this.errorReportingService = null, this.loggingService = null, this._thankYouElementOnLoadCallback = null, this._isThankYouElementLoaded = !1, this._workspaceSearchInFlightPromise = null, this._launcherAttachState = uo(), this._exitIntentConfig = null, this._exitIntentWatcher = new yo({
       isKitReady: () => this.isKitReady(),
       onExitIntent: (e, i) => this.handleExitIntent(e, i),
       onLeadCaptureSubmitted: (e) => this.applyIdentityCapturePayload(e.identities, e.userAttributes)
-    }), this._exitIntentEnabledForAccount = !1, this._pendingInitWarnings = [], this.accountId = null, this._preselectState = Os();
+    }), this._exitIntentEnabledForAccount = !1, this._pendingInitWarnings = [], this.accountId = null, this._preselectState = Fs(), this._identityCallCount = 0, this._lastNonModifyCallCount = 0, this._isModifyIdentityCallInProgress = !1;
   }
   // ---- Private helpers ----
   getEventAttributeValue(e, i) {
     const n = e && e.EventAttributes;
     if (!n)
       return null;
-    const r = T(n, i);
+    const r = k(n, i);
     return r === void 0 ? null : r;
   }
   doesEventAttributeConditionMatch(e, i) {
@@ -2532,7 +2548,7 @@ const z = class z {
     const i = Object.keys(this.placementEventAttributeMappingLookup);
     for (let n = 0; n < i.length; n++) {
       const r = i[n], s = this.placementEventAttributeMappingLookup[r];
-      if (k(s))
+      if (R(s))
         continue;
       let o = !0;
       for (let a = 0; a < s.length; a++)
@@ -2540,16 +2556,16 @@ const z = class z {
           o = !1;
           break;
         }
-      o && g().Rokt.setLocalSessionAttribute?.(r, !0);
+      o && f().Rokt.setLocalSessionAttribute?.(r, !0);
     }
   }
   capturePageView(e, i) {
     let n;
     try {
-      n = Rt(window.location.href);
-      const r = li(), s = Ho(e, i);
+      n = Dt(window.location.href);
+      const r = ui(), s = Bo(e, i);
       r.push(s);
-      const o = Math.min(r.length, Bi), a = Xn(r);
+      const o = Math.min(r.length, zi), a = Zn(r);
       if (a === 0) {
         const c = mt() ? "quota" : "ls_unavailable";
         this.loggingService?.log({
@@ -2573,14 +2589,14 @@ const z = class z {
   }
   findCacheConfigEntry(e) {
     if (this.isPreselectionEnabled())
-      return ke(this.accountId, e);
+      return Te(this.accountId, e);
   }
   // What the speculative call fills in over these attributes, the ones it was fired with. An identity the call
   // carries already holds its key, so a default never stands in for it.
   buildPreselectAttributeDefaults(e, i) {
     if (!this.isPreselectionEnabled())
       return;
-    const n = ke(this.accountId, e);
+    const n = Te(this.accountId, e);
     if (!n)
       return;
     const r = it(this.buildPreselectHost(), n, i), s = this.filters || {};
@@ -2602,7 +2618,7 @@ const z = class z {
       log: (e) => this.loggingService?.log(e),
       selectPlacements: (e) => this.selectPlacements(e),
       isPreselectionPrivacyAllowed: () => this.isPreselectionPrivacyAllowed(),
-      getCurrentUser: () => g().Identity?.getCurrentUser?.(),
+      getCurrentUser: () => f().Identity?.getCurrentUser?.(),
       getCurrentHost: () => this.buildPreselectHost(),
       isTargetingDisabled: () => this.isTargetingDisabled(),
       getUserIdentities: () => this.returnUserIdentities(this.filters.filteredUser),
@@ -2616,10 +2632,10 @@ const z = class z {
     };
   }
   flushPendingPreselectDispatches() {
-    eo(this._preselectState, this.buildPreselectHost());
+    ro(this._preselectState, this.buildPreselectHost());
   }
   isLauncherReadyToAttach() {
-    return !!window.Rokt && j(window.Rokt.createLauncher);
+    return !!window.Rokt && W(window.Rokt.createLauncher);
   }
   /**
    * Returns the user identities from the filtered user, if any.
@@ -2631,39 +2647,41 @@ const z = class z {
     return this.replaceOtherIdentityWithEmailsha256(i);
   }
   returnLocalSessionAttributes() {
-    return !g().Rokt || typeof g().Rokt.getLocalSessionAttributes != "function" ? {} : g().Rokt.getLocalSessionAttributes();
+    return !f().Rokt || typeof f().Rokt.getLocalSessionAttributes != "function" ? {} : f().Rokt.getLocalSessionAttributes();
   }
   replaceOtherIdentityWithEmailsha256(e) {
     const i = { ...e || {} }, n = this._mappedEmailSha256Key;
-    return n && e[n] && (i[z.EMAIL_SHA256_KEY] = e[n]), n && delete i[n], i;
+    return n && e[n] && (i[B.EMAIL_SHA256_KEY] = e[n]), n && delete i[n], i;
   }
   logSelectPlacementsEvent(e) {
-    if (!window.mParticle || typeof g().logEvent != "function" || !y(e))
+    if (!window.mParticle || typeof f().logEvent != "function" || !E(e))
       return;
-    const i = g().EventType.Other;
-    g().logEvent(ho, i, e);
+    const i = f().EventType.Other, n = {}, r = Object.keys(e);
+    for (let s = 0; s < r.length; s++)
+      Ao.indexOf(r[s].toLowerCase()) === -1 && (n[r[s]] = e[r[s]]);
+    f().logEvent(Io, i, n);
   }
   setRoktSessionId(e) {
     if (!(!e || typeof e != "string"))
       try {
-        const i = g().getInstance();
-        i && j(i.setIntegrationAttribute) && i.setIntegrationAttribute(je, {
+        const i = f().getInstance();
+        i && W(i.setIntegrationAttribute) && i.setIntegrationAttribute(je, {
           roktSessionId: e
         });
       } catch {
       }
   }
   readMpSessionId() {
-    const e = g()?.sessionManager, i = e?.getSessionId ?? e?.getSession;
-    if (j(i))
+    const e = f()?.sessionManager, i = e?.getSessionId ?? e?.getSession;
+    if (W(i))
       return i.call(e) || void 0;
   }
   readMpDeviceId() {
     if (!this.isDeviceIdDisabled())
-      return g()?.getDeviceId?.() || void 0;
+      return f()?.getDeviceId?.() || void 0;
   }
   attachLauncher(e, i, n = []) {
-    ao(this._launcherAttachState, {
+    fo(this._launcherAttachState, {
       accountId: e,
       launcherOptions: i || {},
       legacyRoktExtensions: n
@@ -2674,10 +2692,10 @@ const z = class z {
     };
     let s;
     return this.isPartnerInLocalLauncherTestGroup() ? s = Promise.resolve(window.Rokt.createLocalLauncher(r)) : s = window.Rokt.createLauncher(r), s.then(async (o) => {
-      await Fo([...n], o), this.initRoktLauncher(o);
+      await Ho([...n], o), this.initRoktLauncher(o);
     }).catch((o) => {
       const a = this._launcherAttachState.lifecycle === "attached";
-      if (uo(this._launcherAttachState), !a) {
+      if (ho(this._launcherAttachState), !a) {
         const c = o instanceof Error ? o.message : String(o);
         this.loggingService?.log({
           message: `Rokt Kit: Failed to attach Rokt launcher: ${c}`,
@@ -2688,30 +2706,30 @@ const z = class z {
     });
   }
   recreateLauncherIfTerminated() {
-    return go(
+    return _o(
       this._launcherAttachState,
       this.isLauncherReadyToAttach(),
       (e) => this.attachLauncher(e.accountId, e.launcherOptions, e.legacyRoktExtensions)
     );
   }
   initRoktLauncher(e) {
-    window.Rokt && (window.Rokt.currentLauncher = e), this.launcher = e, co(this._launcherAttachState);
-    const i = g().Rokt?.filters;
-    i ? (!this.isInitialized && this.filters.filteredUser && (i.filteredUser = this.filters.filteredUser), this.filters = i, i.filteredUser ? this._workspaceSearchInFlightPromise = this.search(i.filteredUser) : console.warn("Rokt Kit: No filtered user has been set.")) : console.warn("Rokt Kit: No filters have been set."), this.isInitialized = !0, xi(this.domain, this.integrationName), g().Rokt.attachKit(this), this.pushExitIntentExtensionConfig(), this.flushPendingPreselectDispatches();
+    window.Rokt && (window.Rokt.currentLauncher = e), this.launcher = e, go(this._launcherAttachState);
+    const i = f().Rokt?.filters;
+    i ? (!this.isInitialized && this.filters.filteredUser && (i.filteredUser = this.filters.filteredUser), this.filters = i, i.filteredUser ? this._workspaceSearchInFlightPromise = this.search(i.filteredUser) : console.warn("Rokt Kit: No filtered user has been set.")) : console.warn("Rokt Kit: No filters have been set."), this.isInitialized = !0, Vi(this.domain, this.integrationName), f().Rokt.attachKit(this), this.pushExitIntentExtensionConfig(), this.flushPendingPreselectDispatches();
   }
   // Leaving the hook unset is what keeps History unpatched for workspaces that never
   // preselect. The core SDK reads onCheckoutIntent when it has a signal, so an account without
   // pre-selection entries never hears one.
   armPreselectPathnameTrigger() {
-    ft(window.location.pathname), this.onRouteChange = Pe(this.accountId) ? () => this.evaluatePreselectPathname() : void 0, this.armPreselectEmailInputListener(), this.onCheckoutIntent = Pe(this.accountId) ? (e) => {
+    gt(window.location.pathname), this.onRouteChange = Pe(this.accountId) ? () => this.evaluatePreselectPathname() : void 0, this.armPreselectEmailInputListener(), this.onCheckoutIntent = Pe(this.accountId) ? (e) => {
       try {
-        ds(this._preselectState, this.buildPreselectHost(), e);
+        hs(this._preselectState, this.buildPreselectHost(), e);
       } catch {
         return;
       }
-    } : void 0, this.checkoutIntentSelectors = ws(this.accountId), this.onPaymentPick = Pe(this.accountId) ? (e) => {
+    } : void 0, this.checkoutIntentSelectors = ks(this.accountId), this.onPaymentPick = Pe(this.accountId) ? (e) => {
       try {
-        hs(this.buildPreselectHost(), e);
+        Is(this.buildPreselectHost(), e);
       } catch {
         return;
       }
@@ -2720,15 +2738,15 @@ const z = class z {
   // A guest often types their email after the trigger page view has queued for want of one, so a
   // committed email input retries the queue. Only accounts with an entry that reads the form listen.
   armPreselectEmailInputListener() {
-    this._preselectEmailInputListener && (document.removeEventListener("input", this._preselectEmailInputListener, !0), document.removeEventListener("change", this._preselectEmailInputListener, !0), document.removeEventListener("blur", this._preselectEmailInputListener, !0), this._preselectEmailInputListener = void 0), $s(this.accountId) && (this._preselectEmailInputListener = (e) => {
-      Tt(e), e.type === "change" && this._preselectState.pending.length > 0 && Ws(this._preselectState, this.buildPreselectHost(), e) && this.flushPendingPreselectDispatches();
+    this._preselectEmailInputListener && (document.removeEventListener("input", this._preselectEmailInputListener, !0), document.removeEventListener("change", this._preselectEmailInputListener, !0), document.removeEventListener("blur", this._preselectEmailInputListener, !0), this._preselectEmailInputListener = void 0), zs(this.accountId) && (this._preselectEmailInputListener = (e) => {
+      Tt(e), e.type === "change" && this._preselectState.pending.length > 0 && Bs(this._preselectState, this.buildPreselectHost(), e) && this.flushPendingPreselectDispatches();
     }, document.addEventListener("input", this._preselectEmailInputListener, !0), document.addEventListener("change", this._preselectEmailInputListener, !0), document.addEventListener("blur", this._preselectEmailInputListener, !0));
   }
   // A core released without the check reads false, so its page views are judged by their marker alone.
   isAutoLogPageViewOn() {
-    const e = g().Rokt;
+    const e = f().Rokt;
     try {
-      return j(e?.isAutoLogPageViewEnabled) && e.isAutoLogPageViewEnabled() === !0;
+      return W(e?.isAutoLogPageViewEnabled) && e.isAutoLogPageViewEnabled() === !0;
     } catch {
       return !1;
     }
@@ -2737,9 +2755,9 @@ const z = class z {
   // opt-out or privacy option suppresses it, and the browser supports the detector. A core released
   // without the check reads false, so its entries keep dispatchDelayMs.
   isCheckoutIntentActive() {
-    const e = g().Rokt;
+    const e = f().Rokt;
     try {
-      return j(e?.isCheckoutIntentLive) && e.isCheckoutIntentLive() === !0;
+      return W(e?.isCheckoutIntentLive) && e.isCheckoutIntentLive() === !0;
     } catch {
       return !1;
     }
@@ -2747,9 +2765,9 @@ const z = class z {
   // True when the core SDK gives link clicks no checkout intent because this connection does not receive Auto Link
   // Click events. A core released without the check reads false, and turns intent off entirely in that case.
   isLinkIntentWithheld() {
-    const e = g().Rokt;
+    const e = f().Rokt;
     try {
-      return j(e?.areAutoLinkClicksForwarded) && e.areAutoLinkClicksForwarded() === !1;
+      return W(e?.areAutoLinkClicksForwarded) && e.areAutoLinkClicksForwarded() === !1;
     } catch {
       return !1;
     }
@@ -2757,7 +2775,7 @@ const z = class z {
   // Core gates every kit callback on opt-out and consent, but a DOM listener is called by the browser
   // directly, so it checks both itself.
   isForwardingAllowed() {
-    return g().getInstance?.()?._Store?.isEnabled !== !1 && g()._getActiveForwarders().some((i) => i === this);
+    return f().getInstance?.()?._Store?.isEnabled !== !1 && f()._getActiveForwarders().some((i) => i === this);
   }
   // A call carrying a form email can wait on identity search or launcher setup. A skipped one costs only
   // the cached hit, so it goes out only if nothing changed: same user, still allowed, and no partner
@@ -2766,22 +2784,22 @@ const z = class z {
     if (!this.isForwardingAllowed()) return "forwarding_disallowed";
     if (this.isTargetingDisabled() || !this.isPreselectionPrivacyAllowed()) return "privacy_signal";
     if (String(this.filters?.filteredUser?.getMPID?.() ?? "") !== String(i ?? "")) return "user_changed";
-    if (Yt(this.buildPreselectHost(), e)) return "partner_email";
+    if (Bt(this.buildPreselectHost(), e)) return "partner_email";
   }
   // Whether this connection filters out the Email identity, or the identity mapped to the hashed email.
   isEmailIdentityFiltered() {
     const e = this.userIdentityFilters || [];
-    if (e.includes(mo))
+    if (e.includes(Eo))
       return !0;
-    const i = this._mappedEmailSha256Key, n = g().IdentityType || {}, r = i ? Object.keys(n).find((o) => o.toLowerCase() === i) : void 0, s = r ? n[r] : void 0;
+    const i = this._mappedEmailSha256Key, n = f().IdentityType || {}, r = i ? Object.keys(n).find((o) => o.toLowerCase() === i) : void 0, s = r ? n[r] : void 0;
     return typeof s == "number" && e.includes(s);
   }
   evaluatePreselectPathname() {
     const e = window.location.pathname;
-    ft(e), e !== this._lastPreselectPathname && (this.isTargetingDisabled() || (this._lastPreselectPathname = e, Ss(this._preselectState, this.buildPreselectHost(), e), bi(this._preselectState, this.buildPreselectHost(), e)));
+    gt(e), e !== this._lastPreselectPathname && (this.isTargetingDisabled() || (this._lastPreselectPathname = e, Ls(this._preselectState, this.buildPreselectHost(), e), wi(this._preselectState, this.buildPreselectHost(), e)));
   }
   fetchOptimizely() {
-    const e = g()._getActiveForwarders().filter((i) => i.name === "Optimizely");
+    const e = f()._getActiveForwarders().filter((i) => i.name === "Optimizely");
     try {
       if (e.length > 0 && window.optimizely) {
         const i = window.optimizely.get("state");
@@ -2798,29 +2816,29 @@ const z = class z {
   // When the partner has opted out of targeting (noTargeting launcher option),
   // the kit must not collect behavioral targeting signals such as page views.
   isTargetingDisabled() {
-    return g().Rokt?.launcherOptions?.noTargeting === !0 || this.isDeviceIdDisabled();
+    return f().Rokt?.launcherOptions?.noTargeting === !0 || this.isDeviceIdDisabled();
   }
   // Core's normalizeRoktLauncherOptions turns noDeviceId or noDeviceID into noDeviceId, noFunctional and
   // noTargeting, but an older core passes either spelling through as written, so the kit applies the same rule.
   isDeviceIdDisabled() {
-    const e = g()?.Rokt?.launcherOptions;
+    const e = f()?.Rokt?.launcherOptions;
     return e?.noDeviceId === !0 || e?.noDeviceID === !0;
   }
   isPreselectionPrivacyAllowed() {
-    return g().Rokt?.launcherOptions?.doNotShareOrSell !== !0 && navigator.globalPrivacyControl !== !0;
+    return f().Rokt?.launcherOptions?.doNotShareOrSell !== !0 && navigator.globalPrivacyControl !== !0;
   }
   isPageHistoryAllowed() {
     return !this.isTargetingDisabled() && this.isPreselectionPrivacyAllowed();
   }
   isPartnerInLocalLauncherTestGroup() {
-    return !!(g().config && g().config.isLocalLauncherEnabled && this.isAssignedToSampleGroup());
+    return !!(f().config && f().config.isLocalLauncherEnabled && this.isAssignedToSampleGroup());
   }
   isAssignedToSampleGroup() {
     return Math.random() > 0.5;
   }
   getEffectiveExitIntentConfig(e) {
-    return Mi(e) ? {
-      identifier: Do,
+    return xi(e) ? {
+      identifier: Fo,
       signals: {
         mouseExitTop: !0,
         scrollUpFast: !0,
@@ -2829,7 +2847,7 @@ const z = class z {
     } : null;
   }
   applyExitIntentExtensionOverride(e, i) {
-    return e ? i.includes(pt) ? i : [...i, pt] : i;
+    return e ? i.includes(ht) ? i : [...i, ht] : i;
   }
   extractExitIntentIdentifier(e) {
     return e ? p(e.identifier) && e.identifier.length > 0 ? e.identifier : p(e.placementIdentifier) && e.placementIdentifier.length > 0 ? e.placementIdentifier : null : null;
@@ -2839,8 +2857,8 @@ const z = class z {
     p(r) && r.length > 0 && (n.email = r);
     const s = e.mobile_number;
     p(s) && s.length > 0 && (n.mobile_number = s);
-    const o = g().Identity?.modify;
-    if (j(o) && Object.keys(n).length > 0)
+    const o = f().Identity?.modify;
+    if (W(o) && Object.keys(n).length > 0)
       try {
         o({ userIdentities: n });
       } catch (c) {
@@ -2850,7 +2868,7 @@ const z = class z {
           additional_info: c instanceof Error ? { errorName: c.name, errorMessage: c.message } : void 0
         });
       }
-    const a = g().Identity?.getCurrentUser?.();
+    const a = f().Identity?.getCurrentUser?.();
     for (const [c, l] of Object.entries(i))
       if (a?.setUserAttribute)
         try {
@@ -2873,7 +2891,7 @@ const z = class z {
     if (!n)
       return !1;
     try {
-      const r = g().Rokt?.selectPlacements?.({
+      const r = f().Rokt?.selectPlacements?.({
         identifier: n,
         attributes: {
           ...i,
@@ -2904,117 +2922,117 @@ const z = class z {
     }
   }
   pushExitIntentExtensionConfig() {
-    !this._exitIntentConfig || !j(window.Rokt?.setExtensionData) || window.Rokt.setExtensionData({
-      [pt]: this._exitIntentConfig
+    !this._exitIntentConfig || !W(window.Rokt?.setExtensionData) || window.Rokt.setExtensionData({
+      [ht]: this._exitIntentConfig
     });
   }
   captureTiming(e) {
-    window && g() && g().captureTiming && e && g().captureTiming(e);
+    window && f() && f().captureTiming && e && f().captureTiming(e);
   }
   // ---- Public methods (mParticle Kit Callbacks) ----
   /**
    * Initializes the Rokt forwarder with settings from the mParticle server.
    */
   init(e, i, n, r, s) {
-    const o = g().Rokt?.launcherOptions?.noFunctional === !0 || this.isDeviceIdDisabled();
-    $n(o), o || this.isTargetingDisabled() ? Yn() : (Tr(), Cr()), this.isPageHistoryAllowed() || (ut(), dt());
+    const o = f().Rokt?.launcherOptions?.noFunctional === !0 || this.isDeviceIdDisabled();
+    zn(o), o || this.isTargetingDisabled() ? qn() : (Rr(), Nr()), this.isPageHistoryAllowed() || (dt(), ft());
     const a = e, c = a.accountId;
-    this._exitIntentEnabledForAccount = Mi(c);
+    this._identityCallCount = 0, this._lastNonModifyCallCount = 0, this._isModifyIdentityCallInProgress = !1, this._exitIntentEnabledForAccount = xi(c);
     const l = this._exitIntentEnabledForAccount ? this.getEffectiveExitIntentConfig(c) : null;
     this._exitIntentEnabledForAccount ? this.configureExitIntentBridge(l) : this.configureExitIntentBridge(null), this.accountId = c || null;
-    const u = this.accountId ? es(this.accountId, a.preselectionConfig) : void 0;
-    this.userAttributes = ne(s), this.armPreselectPathnameTrigger(), this._onboardingExpProvider = a.onboardingExpProvider;
+    const u = this.accountId ? rs(this.accountId, a.preselectionConfig) : void 0;
+    this.userAttributes = re(s), this.armPreselectPathnameTrigger(), this._onboardingExpProvider = a.onboardingExpProvider;
     const d = He(a.placementEventMapping);
     this.placementEventMappingLookup = Ki(d);
-    const m = He(
+    const g = He(
       a.placementEventAttributeMapping
     );
-    this.placementEventAttributeMappingLookup = Ni(m), a.hashedEmailUserIdentityType && (this._mappedEmailSha256Key = a.hashedEmailUserIdentityType.toLowerCase()), this._workspaceIdSyncApiKey = p(a.workspaceIdSyncApiKey) ? a.workspaceIdSyncApiKey : void 0;
-    const h = g().Rokt?.domain, { roktExtensionsQueryParams: E, legacyRoktExtensions: v, loadThankYouElement: P } = Ui(
+    this.placementEventAttributeMappingLookup = Fi(g), a.hashedEmailUserIdentityType && (this._mappedEmailSha256Key = a.hashedEmailUserIdentityType.toLowerCase()), this._workspaceIdSyncApiKey = p(a.workspaceIdSyncApiKey) ? a.workspaceIdSyncApiKey : void 0;
+    const h = f().Rokt?.domain, { roktExtensionsQueryParams: y, legacyRoktExtensions: v, loadThankYouElement: P } = Ui(
       a.roktExtensions
-    ), f = this.applyExitIntentExtensionOverride(
+    ), m = this.applyExitIntentExtensionOverride(
       l,
-      E
+      y
     ), _ = {
-      ...g().Rokt?.launcherOptions || {}
+      ...f().Rokt?.launcherOptions || {}
     };
-    this.integrationName = Mo(_.integrationName), _.integrationName = this.integrationName, this.domain = h;
+    this.integrationName = Wo(_.integrationName), _.integrationName = this.integrationName, this.domain = h;
     const b = {
       loggingUrl: a.loggingUrl,
       errorUrl: a.errorUrl,
       integrationDomain: h,
-      isLoggingEnabled: g().config?.isLoggingEnabled === !0
-    }, A = new Vi(
+      isLoggingEnabled: f().config?.isLoggingEnabled === !0
+    }, w = new ji(
       b,
       this.integrationName,
       window.__rokt_li_guid__,
       a.accountId
-    ), O = new ji(
+    ), C = new Hi(
       b,
-      A,
+      w,
       this.integrationName,
       window.__rokt_li_guid__,
       a.accountId
     );
-    return this.errorReportingService = A, this.loggingService = O, this._flushInitWarnings(), u && O.log({
+    return this.errorReportingService = w, this.loggingService = C, this._flushInitWarnings(), u && C.log({
       message: `Rokt Kit: preselectionConfig setting is invalid [reason=${u}], using the built-in preselection config`,
       code: "PRESELECT_CONFIG_INVALID"
-    }), g()._registerErrorReportingService && g()._registerErrorReportingService(A), g()._registerLoggingService && g()._registerLoggingService(O), n ? (this.testHelpers = {
-      generateLauncherScript: Ri,
-      generateThankYouElementScript: Di,
+    }), f()._registerErrorReportingService && f()._registerErrorReportingService(w), f()._registerLoggingService && f()._registerLoggingService(C), n ? (this.testHelpers = {
+      generateLauncherScript: Di,
+      generateThankYouElementScript: Oi,
       extractRoktExtensionConfig: Ui,
-      hashEventMessage: Fi,
+      hashEventMessage: Mi,
       parseSettingsString: He,
       generateMappedEventLookup: Ki,
-      generateMappedEventAttributeLookup: Ni,
-      sendAdBlockMeasurementSignals: xi,
-      createAutoRemovedIframe: Ct,
+      generateMappedEventAttributeLookup: Fi,
+      sendAdBlockMeasurementSignals: Vi,
+      createAutoRemovedIframe: Rt,
       djb2: J,
-      setAllowedOriginHashes: (L) => {
-        z._allowedOriginHashes = L;
+      setAllowedOriginHashes: (A) => {
+        B._allowedOriginHashes = A;
       },
       ReportingTransport: we,
-      ErrorReportingService: Vi,
-      LoggingService: ji,
-      RateLimiter: xn,
-      ErrorCodes: ei,
+      ErrorReportingService: ji,
+      LoggingService: Hi,
+      RateLimiter: Wn,
+      ErrorCodes: ti,
       WSDKErrorSeverity: be,
-      resetLauncherAttachState: () => fo(this._launcherAttachState)
-    }, this.attachLauncher(c, _), "Successfully initialized: " + M) : (P && (g().Rokt.flushOnShoppableAdsReadyMessageQueue?.(this), Oi(wo, Di(h), {
+      resetLauncherAttachState: () => mo(this._launcherAttachState)
+    }, this.attachLauncher(c, _), "Successfully initialized: " + V) : (P && (f().Rokt.flushOnShoppableAdsReadyMessageQueue?.(this), Ni(Lo, Oi(h), {
       onLoad: () => {
         this._isThankYouElementLoaded = !0, this._thankYouElementOnLoadCallback && this._thankYouElementOnLoadCallback();
       },
-      onError: (L) => {
-        console.error("Error loading Rokt Thank You Element script:", L);
+      onError: (A) => {
+        console.error("Error loading Rokt Thank You Element script:", A);
       }
-    })), this.isLauncherReadyToAttach() ? this.attachLauncher(c, _, v) : (Oi(bo, Ri(h, f), {
+    })), this.isLauncherReadyToAttach() ? this.attachLauncher(c, _, v) : (Ni(ko, Di(h, m), {
       onLoad: () => {
         this.isLauncherReadyToAttach() ? this.attachLauncher(c, _, v) : console.error("Rokt object is not available after script load.");
       },
-      onError: (L) => {
-        console.error("Error loading Rokt launcher script:", L);
+      onError: (A) => {
+        console.error("Error loading Rokt launcher script:", A);
       }
-    }), this.captureTiming(z.PERFORMANCE_MARKS.RoktScriptAppended)), "Successfully initialized: " + M);
+    }), this.captureTiming(B.PERFORMANCE_MARKS.RoktScriptAppended)), "Successfully initialized: " + V);
   }
   process(e) {
-    if (e.EventDataType === ki && ft(window.location.pathname), !this.isTargetingDisabled()) {
+    if (e.EventDataType === ki && gt(window.location.pathname), !this.isTargetingDisabled()) {
       if (e.EventDataType === ki) {
         if (this._exitIntentEnabledForAccount && this._exitIntentWatcher.resetPageViewState(), this.isPageHistoryAllowed()) {
           const i = this.isAutoLogPageViewOn();
-          Jn(this.loggingService, e.EventAttributes, i), this.capturePageView(e, i);
+          tr(this.loggingService, e.EventAttributes, i), this.capturePageView(e, i);
         } else
-          ut(), dt();
-        me(this._preselectState, this.buildPreselectHost(), e), bi(this._preselectState, this.buildPreselectHost());
+          dt(), ft();
+        me(this._preselectState, this.buildPreselectHost(), e), wi(this._preselectState, this.buildPreselectHost());
       }
-      Ge(e) && ms(this.buildPreselectHost(), e), Ts(this.accountId, e.EventName) && Rs(this._preselectState, this.buildPreselectHost(), e);
+      Ge(e) && Es(this.buildPreselectHost(), e), Rs(this.accountId, e.EventName) && Us(this._preselectState, this.buildPreselectHost(), e);
     }
-    if (e.EventDataType === To && (ut(), dt(), Gt(this._preselectState), this.accountId && (re(this.accountId), ui(this.accountId), gi(this.accountId))), !this.isKitReady())
-      return "Kit not ready for forwarder: " + M;
-    if (j(g().Rokt?.setLocalSessionAttribute) && !Ge(e) && (k(this.placementEventAttributeMappingLookup) || this.applyPlacementEventAttributeMapping(e), !k(this.placementEventMappingLookup))) {
-      const i = Fi(e.EventDataType, e.EventCategory, e.EventName ?? "");
-      this.placementEventMappingLookup[String(i)] && g().Rokt.setLocalSessionAttribute?.(this.placementEventMappingLookup[String(i)], !0);
+    if (e.EventDataType === Do && (dt(), ft(), Yt(this._preselectState), this.accountId && (se(this.accountId), di(this.accountId), pi(this.accountId))), !this.isKitReady())
+      return "Kit not ready for forwarder: " + V;
+    if (W(f().Rokt?.setLocalSessionAttribute) && !Ge(e) && (R(this.placementEventAttributeMappingLookup) || this.applyPlacementEventAttributeMapping(e), !R(this.placementEventMappingLookup))) {
+      const i = Mi(e.EventDataType, e.EventCategory, e.EventName ?? "");
+      this.placementEventMappingLookup[String(i)] && f().Rokt.setLocalSessionAttribute?.(this.placementEventMappingLookup[String(i)], !0);
     }
-    return "Successfully sent to forwarder: " + M;
+    return "Successfully sent to forwarder: " + V;
   }
   setExtensionData(e) {
     if (!this.isKitReady()) {
@@ -3024,22 +3042,23 @@ const z = class z {
     window.Rokt.setExtensionData(e);
   }
   setUserAttribute(e, i) {
-    Hi(e) || (this.userAttributes[e] = i);
-    const n = vi(this.accountId, e);
-    return n && this.forgetCartAdd(), (Ds(this.accountId, e) || Ue(e, this._mappedEmailSha256Key) || n) && this.flushPendingPreselectDispatches(), "Successfully set user attribute for forwarder: " + M;
+    Wi(e) || (this.userAttributes[e] = i);
+    const n = Pi(this.accountId, e);
+    return n && this.forgetCartAdd(), (Ks(this.accountId, e) || Ne(e, this._mappedEmailSha256Key) || n) && this.flushPendingPreselectDispatches(), "Successfully set user attribute for forwarder: " + V;
   }
   // The page's cart attribute or a logout replaces a remembered add-to-cart click. Under noTargeting, or for an account
   // that never remembers one, nothing is written to the device.
   forgetCartAdd() {
-    this.accountId && Vr(this.accountId, !this.isTargetingDisabled() && Zs(this.accountId));
+    this.accountId && $r(this.accountId, !this.isTargetingDisabled() && no(this.accountId));
   }
   removeUserAttribute(e) {
-    return delete this.userAttributes[e], vi(this.accountId, e) && this.forgetCartAdd(), "Successfully removed user attribute for forwarder: " + M;
+    return delete this.userAttributes[e], Pi(this.accountId, e) && this.forgetCartAdd(), "Successfully removed user attribute for forwarder: " + V;
   }
   handleIdentityComplete(e, i) {
-    return this.userAttributes = ne(e.getAllUserAttributes()), "Successfully called " + i + " for forwarder: " + M;
+    return this.userAttributes = re(e.getAllUserAttributes()), "Successfully called " + i + " for forwarder: " + V;
   }
   onUserIdentified(e) {
+    this._isModifyIdentityCallInProgress ? this._isModifyIdentityCallInProgress = !1 : (this._identityCallCount += 1, this._lastNonModifyCallCount = this._identityCallCount);
     const i = e;
     this.filters.filteredUser = i, this._workspaceSearchInFlightPromise = this.search(i);
     const n = this.handleIdentityComplete(e, "onUserIdentified");
@@ -3049,7 +3068,7 @@ const z = class z {
     const i = this._workspaceIdSyncApiKey;
     if (!i)
       return this.userIdentifiedInWorkspace = !1, this._workspaceLastSearchedIdentitiesKey = void 0, Promise.resolve();
-    const n = g().Identity?.search;
+    const n = f().Identity?.search;
     if (typeof n != "function")
       return this.userIdentifiedInWorkspace = !1, this._workspaceLastSearchedIdentitiesKey = void 0, Promise.resolve();
     const r = e.getUserIdentities ? e.getUserIdentities().userIdentities : null, s = {};
@@ -3073,13 +3092,13 @@ const z = class z {
     }));
   }
   onLoginComplete(e, i) {
-    return this.handleIdentityComplete(e, "onLoginComplete");
+    return this._isModifyIdentityCallInProgress = !1, this._identityCallCount += 1, this._lastNonModifyCallCount = this._identityCallCount, this.handleIdentityComplete(e, "onLoginComplete");
   }
   onLogoutComplete(e, i) {
-    return this.userIdentifiedInWorkspace = !1, this._workspaceSearchInFlightPromise = null, this._workspaceLastSearchedIdentitiesKey = void 0, this.accountId && (re(this.accountId), ui(this.accountId), gi(this.accountId), this.forgetCartAdd()), this.handleIdentityComplete(e, "onLogoutComplete");
+    return this._isModifyIdentityCallInProgress = !1, this._identityCallCount += 1, this._lastNonModifyCallCount = this._identityCallCount, this.userIdentifiedInWorkspace = !1, this._workspaceSearchInFlightPromise = null, this._workspaceLastSearchedIdentitiesKey = void 0, this.accountId && (se(this.accountId), di(this.accountId), pi(this.accountId), this.forgetCartAdd()), this.handleIdentityComplete(e, "onLogoutComplete");
   }
   onModifyComplete(e, i) {
-    return this.handleIdentityComplete(e, "onModifyComplete");
+    return this._identityCallCount += 1, this._isModifyIdentityCallInProgress = !0, f()?.Identity?.getCurrentUser?.()?.isLoggedIn?.() === !0 && (this._lastNonModifyCallCount = this._identityCallCount), this.handleIdentityComplete(e, "onModifyComplete");
   }
   /**
    * Selects placements for Rokt Web SDK with merged attributes, filters, and experimentation options.
@@ -3110,7 +3129,7 @@ const z = class z {
     if (n) {
       const r = this._workspaceSearchInFlightPromise, s = r ? Promise.race([
         r,
-        new Promise((o) => setTimeout(o, Ci))
+        new Promise((o) => setTimeout(o, Ri))
       ]) : Promise.resolve();
       return Promise.all([n, s]).then(
         () => this._dispatchPlacements(e, i)
@@ -3120,7 +3139,7 @@ const z = class z {
       const r = this._workspaceSearchInFlightPromise;
       return Promise.race([
         r,
-        new Promise((s) => setTimeout(s, Ci))
+        new Promise((s) => setTimeout(s, Ri))
       ]).then(() => this._dispatchPlacements(e, i));
     }
     return this._dispatchPlacements(e);
@@ -3129,9 +3148,9 @@ const z = class z {
   // then the cached user attributes merged in, filtered and overridden for the target page, then the
   // session attributes, so a later source wins as it does on the wire.
   getOutgoingPreselectAttributes(e, i) {
-    const n = { ...ne(this.userAttributes), ...e }, r = this.filters || {}, s = r.filterUserAttributes ? r.filterUserAttributes(n, r.userAttributeFilters || []) : n, o = this.returnUserIdentities(r.filteredUser || null), a = Pi(
+    const n = { ...re(this.userAttributes), ...e }, r = this.filters || {}, s = r.filterUserAttributes ? r.filterUserAttributes(n, r.userAttributeFilters || []) : n, o = this.returnUserIdentities(r.filteredUser || null), a = bi(
       this.accountId,
-      i ? bt(s, this.buildPreselectAttributeDefaults(i, e)) : s,
+      i ? wt(s, this.buildPreselectAttributeDefaults(i, e)) : s,
       this.findCacheConfigEntry(i)
     );
     return {
@@ -3141,135 +3160,139 @@ const z = class z {
     };
   }
   isStillCurrentUser(e, i) {
-    const n = g().Identity?.getCurrentUser?.();
+    const n = f().Identity?.getCurrentUser?.();
     return e !== "" && String(this.filters?.filteredUser?.getMPID?.() ?? "") === e && String(n?.getMPID?.() ?? "") === e && (!i || n?.isLoggedIn?.() === !0);
   }
   currentUserSnapshot() {
-    const e = g()?.Identity?.getCurrentUser?.();
+    const e = f()?.Identity?.getCurrentUser?.();
     return {
       mpid: String(e?.getMPID?.() ?? ""),
       loggedIn: e?.isLoggedIn?.() === !0,
       hasIdentities: Object.values(e?.getUserIdentities?.()?.userIdentities || {}).some(
         (i) => p(i) && i !== ""
-      )
+      ),
+      identityCallCount: this._identityCallCount
     };
   }
+  // A modify response carries no login flag, so core can report the user as logged out after a modify while keeping
+  // the MPID; exempt the cleared flag only when every identity callback since the snapshot was such a modify. A failed
+  // identity call clears the flag without any kit callback, so a modify that left the flag set never takes it.
   hasUserChangedSince(e) {
-    const i = g().Identity?.getCurrentUser?.();
-    return String(i?.getMPID?.() ?? "") !== e.mpid || e.loggedIn && i?.isLoggedIn?.() !== !0;
+    const i = f().Identity?.getCurrentUser?.(), n = this._identityCallCount > e.identityCallCount && this._lastNonModifyCallCount <= e.identityCallCount;
+    return String(i?.getMPID?.() ?? "") !== e.mpid || e.loggedIn && !n && i?.isLoggedIn?.() !== !0;
   }
   // A call whose user changed while it waited goes out for the new user only when nothing it carries belongs to
   // someone else: its user had no identities and it carries no email, as when an anonymous shopper logs in, or the
   // new user holds every email form it carries, as when core identifies with a passed email that differs from the
-  // user's. A logout drops it even when the email survives the logout.
+  // user's. A logout during the wait drops the call even when the email or MPID survives the logout.
   mayGoOutForNewUser(e, i) {
-    const n = g().Identity?.getCurrentUser?.();
+    const n = f().Identity?.getCurrentUser?.();
     if (e.loggedIn && n?.isLoggedIn?.() !== !0)
       return !1;
-    const r = n?.getUserIdentities?.()?.userIdentities || {}, s = this._mappedEmailSha256Key, o = i[z.EMAIL_SHA256_KEY] || (s ? i[s] : void 0), a = [];
+    const r = n?.getUserIdentities?.()?.userIdentities || {}, s = this._mappedEmailSha256Key, o = i[B.EMAIL_SHA256_KEY] || (s ? i[s] : void 0), a = [];
     return i.email && a.push([i.email, r.email]), o && a.push([o, s ? r[s] : void 0]), a.length === 0 ? !e.hasIdentities : a.every(([c, l]) => p(c) && c === l);
   }
   _dispatchPlacements(e, i) {
-    const n = e ? Gs(e) : void 0;
-    if (e?.preselect === !0 && !Qt(this.buildPreselectHost())) {
+    const n = e ? Xs(e) : void 0;
+    if (e?.preselect === !0 && !Zt(this.buildPreselectHost())) {
       n?.();
       return;
     }
-    const r = e?.[Ye], s = e?.[Pt], o = { ...e };
-    if (delete o[Ye], delete o[Pt], e = o, s !== void 0) {
-      const X = y(s) ? s : {}, xe = X.requireLogin !== !1;
-      if (!this.isStillCurrentUser(String(X.mpid ?? ""), xe)) {
+    const r = e?.[Ye], s = e?.[bt], o = { ...e };
+    if (delete o[Ye], delete o[bt], e = o, s !== void 0) {
+      const X = E(s) ? s : {}, Me = X.requireLogin !== !1;
+      if (!this.isStillCurrentUser(String(X.mpid ?? ""), Me)) {
         this.loggingService?.logPlacementDiagnostic(
-          w("missed", xe ? "logged_in_dropped" : "user_changed_dropped")
+          S("missed", Me ? "logged_in_dropped" : "user_changed_dropped")
         ), n?.();
         return;
       }
     }
     const a = i !== void 0 && this.hasUserChangedSince(i), c = a && i?.hasIdentities === !0;
-    if (i && a && !this.mayGoOutForNewUser(i, y(e.attributes) ? e.attributes : {})) {
+    if (i && a && !this.mayGoOutForNewUser(i, E(e.attributes) ? e.attributes : {})) {
       e.preselect === !0 ? this.loggingService?.logPlacementDiagnostic(
-        w("missed", i.loggedIn ? "logged_in_dropped" : "user_changed_dropped")
+        S("missed", i.loggedIn ? "logged_in_dropped" : "user_changed_dropped")
       ) : this.loggingService?.log({
         message: "Rokt Kit: Dropped a selectPlacements call whose user changed while it waited",
         code: "SELECT_PLACEMENTS_USER_CHANGED"
       }), n?.();
       return;
     }
-    const l = y(r) ? r : void 0, u = l && p(l.key) ? l.key : void 0;
+    const l = E(r) ? r : void 0, u = l && p(l.key) ? l.key : void 0;
     if (u) {
       const X = this.getFormEmailDropCause(u, l.mpid);
       if (X) {
         this.loggingService?.logPlacementDiagnostic(
-          w("missed", "form_email_dropped", { cause: X })
+          S("missed", "form_email_dropped", { cause: X })
         ), n?.();
         return;
       }
     }
-    const d = e.attributes || {}, m = ne(this.userAttributes), h = { ...m, ...d }, E = this.filters || {}, v = E.userAttributeFilters || [], P = E.filteredUser || null, f = P ? P.getMPID() : null;
+    const d = e.attributes || {}, g = re(this.userAttributes), h = { ...g, ...d }, y = this.filters || {}, v = y.userAttributeFilters || [], P = y.filteredUser || null, m = P ? P.getMPID() : null;
     let _;
-    E ? E.filterUserAttributes ? _ = E.filterUserAttributes(h, v) : _ = h : (console.warn("Rokt Kit: No filters available, using user attributes"), _ = h);
-    const b = ne(_);
-    u && (Object.prototype.hasOwnProperty.call(m, u) ? b[u] = m[u] : delete b[u]), this.userAttributes = b;
-    const A = this._onboardingExpProvider === "Optimizely" ? this.fetchOptimizely() : {}, O = this.returnUserIdentities(P), L = this.returnLocalSessionAttributes(), Y = this.isPageHistoryAllowed(), te = Y ? qn(li()) : [], R = Y ? Qn() : null, B = this.readMpSessionId(), Fe = this.readMpDeviceId(), $ = typeof e.identifier == "string" ? e.identifier : void 0, Ee = this.findCacheConfigEntry($), Me = e.preselect === !0 ? this.buildPreselectAttributeDefaults($, d) : void 0, ti = e.preselect === !0 ? Pi(
+    y ? y.filterUserAttributes ? _ = y.filterUserAttributes(h, v) : _ = h : (console.warn("Rokt Kit: No filters available, using user attributes"), _ = h);
+    const b = re(_);
+    u && (Object.prototype.hasOwnProperty.call(g, u) ? b[u] = g[u] : delete b[u]), this.userAttributes = b;
+    const w = this._onboardingExpProvider === "Optimizely" ? this.fetchOptimizely() : {}, C = this.returnUserIdentities(P), A = this.returnLocalSessionAttributes(), x = this.isPageHistoryAllowed(), te = x ? er(ui()) : [], ie = x ? ir() : null, z = this.readMpSessionId(), O = this.readMpDeviceId(), F = typeof e.identifier == "string" ? e.identifier : void 0, Ee = this.findCacheConfigEntry(F), Fe = e.preselect === !0 ? this.buildPreselectAttributeDefaults(F, d) : void 0, ii = e.preselect === !0 ? bi(
       this.accountId,
-      bt(_, Me),
+      wt(_, Fe),
       Ee
-    ) : _, G = {
-      ...O,
-      ...ti,
+    ) : _, Y = {
+      ...C,
+      ...ii,
+      ...w,
       ...A,
-      ...L,
-      ...te.length ? { [ko]: JSON.stringify(te) } : {},
-      ...R ? { [Lo]: R } : {},
-      ...!c && this.userIdentifiedInWorkspace ? { [So]: !0 } : {},
-      ...B ? { [Co]: B } : {},
-      ...Fe ? { [Li]: Fe } : {},
-      mpid: f
+      ...te.length ? { [Oo]: JSON.stringify(te) } : {},
+      ...ie ? { [No]: ie } : {},
+      ...!c && this.userIdentifiedInWorkspace ? { [Ro]: !0 } : {},
+      ...z ? { [Uo]: z } : {},
+      ...O ? { [Li]: O } : {},
+      mpid: m
     };
-    this.isDeviceIdDisabled() && delete G[Li], e.preselect !== !0 && to(this.buildPreselectHost(), $, G);
-    const ct = ti[En];
-    if (e.preselect === !0 && p(ct) && (ct.indexOf("intent_") === 0 || ct.indexOf("pageview_cart|") === 0) && !Ve(G, this._mappedEmailSha256Key)) {
+    this.isDeviceIdDisabled() && delete Y[Li], e.preselect !== !0 && so(this.buildPreselectHost(), F, Y);
+    const ct = ii[vn];
+    if (e.preselect === !0 && p(ct) && (ct.indexOf("intent_") === 0 || ct.indexOf("pageview_cart|") === 0) && !Ve(Y, this._mappedEmailSha256Key)) {
       this.loggingService?.logPlacementDiagnostic(
-        w("missed", "no_strict_email", { cause: "lost_before_dispatch" })
+        S("missed", "no_strict_email", { cause: "lost_before_dispatch" })
       ), n?.();
       return;
     }
-    const ii = Ps(
+    const ni = Cs(
       Ee,
-      Me,
-      G
-    ), ni = bs(Ee, Me, G);
-    delete G[pi];
-    const ri = vn(Me, G);
-    ri && (G[pi] = ri);
-    const Vn = {
+      Fe,
+      Y
+    ), ri = Ts(Ee, Fe, Y);
+    delete Y[hi];
+    const si = Sn(Fe, Y);
+    si && (Y[hi] = si);
+    const $n = {
       ...e,
-      attributes: G,
-      ...Ee ? { cacheMatchKeys: Pn(Ee) } : {},
-      ...ii ? { cacheIdentityKeys: ii } : {},
-      ...ni ? { cacheMatchValues: ni } : {}
-    }, lt = this.currentUserSnapshot(), si = this.launcher.selectPlacements(Vn), oi = e.preselect === !0, jn = () => {
-      if (!oi) {
-        if (this.hasUserChangedSince(lt) && (lt.loggedIn || lt.hasIdentities)) {
+      attributes: Y,
+      ...Ee ? { cacheMatchKeys: Cn(Ee) } : {},
+      ...ni ? { cacheIdentityKeys: ni } : {},
+      ...ri ? { cacheMatchValues: ri } : {}
+    }, lt = this.currentUserSnapshot(), ut = i?.loggedIn && !a && !lt.loggedIn ? { ...lt, loggedIn: !0, identityCallCount: i.identityCallCount } : lt, oi = this.launcher.selectPlacements($n), ai = e.preselect === !0, Gn = () => {
+      if (!ai) {
+        if (this.hasUserChangedSince(ut) && (ut.loggedIn || ut.hasIdentities)) {
           this.loggingService?.log({
             message: "Rokt Kit: Skipped the selectPlacements event because its user changed before the selection resolved",
             code: "SELECT_PLACEMENTS_EVENT_USER_CHANGED"
           });
           return;
         }
-        this.logSelectPlacementsEvent(G);
+        this.logSelectPlacementsEvent(Y);
       }
     };
-    return Promise.resolve(si).then((X) => {
-      if (!oi)
-        return this.trackPlacementEngagement(X), X?.context?.sessionId?.then((xe) => this.setRoktSessionId(xe));
+    return Promise.resolve(oi).then((X) => {
+      if (!ai)
+        return this.trackPlacementEngagement(X), X?.context?.sessionId?.then((Me) => this.setRoktSessionId(Me));
     }).catch(() => {
-    }).finally(jn), si;
+    }).finally(Gn), oi;
   }
   // Logs each press of a placement's response buttons, and each close, as an auto button click. The
   // placement's frame keeps its buttons and text from the page, so only the response kind goes out.
   trackPlacementEngagement(e) {
-    if (!e || !j(e.on))
+    if (!e || !W(e.on))
       return;
     const i = {}, n = (s, o, a) => {
       const c = i[s] || [];
@@ -3285,7 +3308,7 @@ const z = class z {
         return;
       const o = setTimeout(
         () => n(s, o, "negative"),
-        Io
+        wo
       );
       (i[s] = i[s] || []).push(o);
     }), r("POSITIVE_ENGAGEMENT", (s) => {
@@ -3297,16 +3320,16 @@ const z = class z {
       const a = o?.body?.domain;
       this.logPlacementLink(
         s,
-        typeof a == "string" && a.length <= 253 && yo.test(a.toLowerCase()) ? a.toLowerCase() : void 0
+        typeof a == "string" && a.length <= 253 && bo.test(a.toLowerCase()) ? a.toLowerCase() : void 0
       );
     });
   }
   // Checked when each click is logged, since the launcher calls back outside core's own gates.
   canLogPlacementClick() {
-    return this.isCheckoutIntentActive() && this.isForwardingAllowed() && j(g().logEvent);
+    return this.isCheckoutIntentActive() && this.isForwardingAllowed() && W(f().logEvent);
   }
   logPlacementEngagement(e, i) {
-    this.canLogPlacementClick() && g().logEvent(_o, g().EventType.Other, {
+    this.canLogPlacementClick() && f().logEvent(vo, f().EventType.Other, {
       is_auto_button_click: !0,
       is_rokt_placement_click: !0,
       element: "button",
@@ -3331,7 +3354,7 @@ const z = class z {
       link_type: "external",
       rokt_placement_id: e
     };
-    i && (n.link_domain = i), g().logEvent(Eo, g().EventType.Other, n);
+    i && (n.link_domain = i), f().logEvent(Po, f().EventType.Other, n);
   }
   /**
    * Passes attributes to the Rokt Web SDK for client-side hashing.
@@ -3357,7 +3380,7 @@ const z = class z {
    * here would flip the kit to not-ready with no drain path for queued calls.
    */
   terminate() {
-    return this.isKitReady() ? (lo(this._launcherAttachState), this.launcher.terminate()) : (console.error("Rokt Kit: Not initialized"), Promise.resolve());
+    return this.isKitReady() ? (po(this._launcherAttachState), this.launcher.terminate()) : (console.error("Rokt Kit: Not initialized"), Promise.resolve());
   }
   /**
    * Registers a callback to be invoked once rokt-thank-you-element.js becomes available.
@@ -3366,34 +3389,34 @@ const z = class z {
     this._isThankYouElementLoaded ? e() : this._thankYouElementOnLoadCallback = e;
   }
 };
-z._allowedOriginHashes = [-553112570, 549508659], z.PERFORMANCE_MARKS = {
+B._allowedOriginHashes = [-553112570, 549508659], B.PERFORMANCE_MARKS = {
   RoktScriptAppended: "mp:RoktScriptAppended"
-}, z.EMAIL_SHA256_KEY = "emailsha256";
-let he = z;
-function Wo() {
+}, B.EMAIL_SHA256_KEY = "emailsha256";
+let _e = B;
+function zo() {
   return je;
 }
-function $o(t) {
+function Xo(t) {
   if (!t) {
-    window.console.log("You must pass a config object to register the kit " + M);
+    window.console.log("You must pass a config object to register the kit " + V);
     return;
   }
-  if (!y(t)) {
+  if (!E(t)) {
     window.console.log("'config' must be an object. You passed in a " + typeof t);
     return;
   }
-  y(t.kits) ? t.kits[M] = {
-    constructor: he
-  } : (t.kits = {}, t.kits[M] = {
-    constructor: he
-  }), window.console.log("Successfully registered " + M + " to your mParticle configuration");
+  E(t.kits) ? t.kits[V] = {
+    constructor: _e
+  } : (t.kits = {}, t.kits[V] = {
+    constructor: _e
+  }), window.console.log("Successfully registered " + V + " to your mParticle configuration");
 }
-typeof window < "u" && window.mParticle && g().addForwarder && g().addForwarder({
-  name: M,
-  constructor: he,
-  getId: Wo
+typeof window < "u" && window.mParticle && f().addForwarder && f().addForwarder({
+  name: V,
+  constructor: _e,
+  getId: zo
 });
 export {
-  $o as register
+  Xo as register
 };
 //# sourceMappingURL=Rokt-Kit.esm.js.map
