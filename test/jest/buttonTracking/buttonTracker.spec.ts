@@ -2285,13 +2285,51 @@ describe('ButtonTracker', () => {
             }
         });
 
+        it('hands the kit an Apple Pay pick before the wallet tap when the session begins in the tap', () => {
+            const heard: string[] = [];
+            const pick = jest.fn(() => heard.push('pick'));
+            notify.mockImplementation(() => heard.push('intent'));
+            roktManager.attachKit(({
+                filters: {},
+                launcher: {},
+                onCheckoutIntent: notify,
+                onPaymentPick: pick,
+            } as unknown) as IRoktKit);
+            startTracker();
+            document.body.innerHTML =
+                '<div data-testid="apple-pay-btn"><span>Apple Pay</span></div>';
+            clickInside(document.querySelector('span')!);
+
+            beginApplePay();
+            jest.advanceTimersByTime(0);
+
+            expect(heard).toEqual(['pick', 'intent']);
+            expect(pick).toHaveBeenCalledWith({
+                t: 1000000,
+                pathname: '/checkout',
+                names: undefined,
+                family: 'apple_pay',
+            });
+            expect(notify).toHaveBeenCalledWith(
+                expect.objectContaining({ kind: 'wallet', source: 'name' })
+            );
+        });
+
         it('reports nothing when Apple Pay begins with no tap before it', () => {
+            const pick = jest.fn();
+            roktManager.attachKit(({
+                filters: {},
+                launcher: {},
+                onCheckoutIntent: notify,
+                onPaymentPick: pick,
+            } as unknown) as IRoktKit);
             startTracker();
 
             beginApplePay();
             jest.advanceTimersByTime(0);
 
             expect(notify).not.toHaveBeenCalled();
+            expect(pick).not.toHaveBeenCalled();
         });
 
         it('reports nothing when the last tap was more than a second earlier', () => {
