@@ -1,5 +1,49 @@
 # Changelog
 
+## [3.33.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.32.3...v3.33.0) (2026-11-17)
+
+
+### Features
+
+* **button-tracking:** add Japanese payment-execution commit and add-to-cart labels ([#1834](https://github.com/mParticle/mparticle-web-sdk/issues/1834)) ([49d870c](https://github.com/mParticle/mparticle-web-sdk/commit/49d870c9595129aba2de2f75dbe3f17403d86e0e))
+* **rokt:** support multiple pathnames on one pre-selection entry ([#1854](https://github.com/mParticle/mparticle-web-sdk/issues/1854)) ([150d6ee](https://github.com/mParticle/mparticle-web-sdk/commit/150d6ee2898ddade936f8c21455e5c4f0b1ff509))
+
+
+### Bug Fixes
+
+* **button-tracking:** hand the kit an Apple Pay pick before the wallet tap it starts ([#1859](https://github.com/mParticle/mparticle-web-sdk/issues/1859)) ([527bf9d](https://github.com/mParticle/mparticle-web-sdk/commit/527bf9d94bb75b0dda0614f3add41f0e8e5ee107))
+* encode the MPID where it is placed in request URLs ([#1840](https://github.com/mParticle/mparticle-web-sdk/issues/1840)) ([a37f6d9](https://github.com/mParticle/mparticle-web-sdk/commit/a37f6d940026bde8694331934f8b08e5da194ba0))
+* **identity:** keep the login flag through Identity.modify ([#1861](https://github.com/mParticle/mparticle-web-sdk/issues/1861)) ([8105f16](https://github.com/mParticle/mparticle-web-sdk/commit/8105f168f2102a7f4b547aab1bdc0a714ee9f364))
+* **identity:** send no user attribute changes after opt out ([#1848](https://github.com/mParticle/mparticle-web-sdk/issues/1848)) ([60ccc2d](https://github.com/mParticle/mparticle-web-sdk/commit/60ccc2d0c4098a7979668e5e7e4a599c1d2ed7ee))
+* **rokt:** drop the placement call when a logout fails after a modify ([#1860](https://github.com/mParticle/mparticle-web-sdk/issues/1860)) ([9b937bd](https://github.com/mParticle/mparticle-web-sdk/commit/9b937bde820b6a9136dbc5dfcf8f758b2dad79da))
+* **rokt:** fire off-entry taps only on hosts the entry lists ([#1857](https://github.com/mParticle/mparticle-web-sdk/issues/1857)) ([fe61169](https://github.com/mParticle/mparticle-web-sdk/commit/fe61169eebaf046a18d3a47c7d283a7a9aabcc07))
+* **rokt:** keep paypalpayerid off the user profile and the selectPlacements event ([#1838](https://github.com/mParticle/mparticle-web-sdk/issues/1838)) ([06bef0c](https://github.com/mParticle/mparticle-web-sdk/commit/06bef0c4f1709c581847d333614ca7d8474a0bca))
+* **rokt:** keep waiting and event selectPlacements on same-MPID modify ([#1849](https://github.com/mParticle/mparticle-web-sdk/issues/1849)) ([33b5239](https://github.com/mParticle/mparticle-web-sdk/commit/33b52394e092db2dbd4788d8fc7a4b0aae27f122))
+
+
+### Performance Improvements
+
+* remove Array polyfills that every supported browser has ([#1827](https://github.com/mParticle/mparticle-web-sdk/issues/1827)) ([86e1740](https://github.com/mParticle/mparticle-web-sdk/commit/86e1740fa9ea321e5d47c1aeda1dbe8d6ebbe3e7))
+
+
+### Miscellaneous
+
+* **agents:** document direct-import exception for stateless utilities ([#1852](https://github.com/mParticle/mparticle-web-sdk/issues/1852)) ([9bf538e](https://github.com/mParticle/mparticle-web-sdk/commit/9bf538e0f1a3f4ec68f7d58d31117951bf9c37f4))
+* call Validators directly instead of through _Helpers ([#1828](https://github.com/mParticle/mparticle-web-sdk/issues/1828)) ([df2cd3c](https://github.com/mParticle/mparticle-web-sdk/commit/df2cd3c7394a5f70deedf4fad3e26a09af3fd7ad))
+* **consent:** type consent and config client on the fields they read ([#1833](https://github.com/mParticle/mparticle-web-sdk/issues/1833)) ([82b8f58](https://github.com/mParticle/mparticle-web-sdk/commit/82b8f5868721962098d0fe7f587b619945993e99))
+* **instance-manager:** stub the identify send in the init tests ([#1841](https://github.com/mParticle/mparticle-web-sdk/issues/1841)) ([5806881](https://github.com/mParticle/mparticle-web-sdk/commit/58068817e7278aadc54724f989a4e19e14e712a4))
+* pass workflow values through env and stop fetching unpinned packages ([#1851](https://github.com/mParticle/mparticle-web-sdk/issues/1851)) ([0712df7](https://github.com/mParticle/mparticle-web-sdk/commit/0712df7b0c25686a34f2a9cabb677f4100b52594))
+* **persistence:** pin the stored cookie and local storage formats ([#1831](https://github.com/mParticle/mparticle-web-sdk/issues/1831)) ([19b81a0](https://github.com/mParticle/mparticle-web-sdk/commit/19b81a0227bd7bd8af8fe1dc8c6415a46e85f7d0))
+* remove the unused batch filter functions ([#1830](https://github.com/mParticle/mparticle-web-sdk/issues/1830)) ([d894f4c](https://github.com/mParticle/mparticle-web-sdk/commit/d894f4c49c42bfcb2989088503508547900fd13f))
+* **rokt:** correct the intentSelectors comment on label precedence ([#1829](https://github.com/mParticle/mparticle-web-sdk/issues/1829)) ([17cc738](https://github.com/mParticle/mparticle-web-sdk/commit/17cc738e75659b369c0bc369db96ee581ac30c83))
+* **rokt:** cover a logged-out dispatch user who holds identities ([#1839](https://github.com/mParticle/mparticle-web-sdk/issues/1839)) ([9e0e68c](https://github.com/mParticle/mparticle-web-sdk/commit/9e0e68ce0b0789b430b8f2313a35392a2d0cfb28))
+* **serverModel:** remove the unused V2 event and consent converters ([#1837](https://github.com/mParticle/mparticle-web-sdk/issues/1837)) ([66aaea7](https://github.com/mParticle/mparticle-web-sdk/commit/66aaea7f214f5248d4cea810781e26b10b889746))
+* share one check for no functional cookies without an identifier ([#1832](https://github.com/mParticle/mparticle-web-sdk/issues/1832)) ([e4ab7ab](https://github.com/mParticle/mparticle-web-sdk/commit/e4ab7ab06058d2d4c26f0a7946642cf35273a448))
+* **web SDK:** disable npm lifecycle scripts in shared release steps ([#1855](https://github.com/mParticle/mparticle-web-sdk/issues/1855)) ([79aa758](https://github.com/mParticle/mparticle-web-sdk/commit/79aa7589ade966243ef0daa91176d6542c31b8f3))
+* **web SDK:** reject http(s) kit tarball dependencies and non-registry lockfile URLs ([#1836](https://github.com/mParticle/mparticle-web-sdk/issues/1836)) ([9886a6f](https://github.com/mParticle/mparticle-web-sdk/commit/9886a6fcbfd336dca99ce81e038e0fc1fe46caa3))
+* **web SDK:** split V2-only release workflows ([#1856](https://github.com/mParticle/mparticle-web-sdk/issues/1856)) ([bb37a77](https://github.com/mParticle/mparticle-web-sdk/commit/bb37a77bc94a655a85af718e9421e15f3e0b34e2))
+* **web-sdk:** explain V3 rollback and recovery ([#1853](https://github.com/mParticle/mparticle-web-sdk/issues/1853)) ([af89dc2](https://github.com/mParticle/mparticle-web-sdk/commit/af89dc23520ff16326b9128c91792e8a93fc9e59))
+
 ## [3.32.3](https://github.com/mParticle/mparticle-web-sdk/compare/v3.32.2...v3.32.3) (2026-11-11)
 
 
