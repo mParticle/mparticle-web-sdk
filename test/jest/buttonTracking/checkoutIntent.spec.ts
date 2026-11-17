@@ -1026,6 +1026,35 @@ describe('checkoutIntent', () => {
     ])('still classes %s as a checkout route or not', (pathname, expected) => {
         expect(classify([control('<button>Purchase</button>')], pathname)).toBe(expected);
     });
+    it.each(['/orders/12345/purchase', '/orders/12345/food-and-drink', '/purchase', '/en/purchase/step-2', '/ORDERS/abc/PURCHASE'])(
+        'counts the order flow %s as a checkout path',
+        pathname => {
+            expect(classify([control('<button>Purchase</button>')], pathname)).toBe('commit');
+            expect(classify([control('<button>Buy now</button>')], pathname)).toBe('commit');
+        }
+    );
+    it.each([
+        '/orders/12345/confirmation',
+        '/orders/12345/purchase/thank-you',
+        '/purchase/complete',
+    ])('never reads a route-gated label as a commit on the order confirmation page %s', pathname => {
+        expect(classify([control('<button>Purchase</button>')], pathname)).toBeUndefined();
+        expect(classify([control('<button>Place order</button>')], pathname)).toBe('commit');
+    });
+    it.each([
+        '/account/orders',
+        '/my-account/orders/12345',
+        '/myaccount/orders',
+        '/profile/orders',
+        '/order-history/orders/12345',
+        '/purchase-history',
+        '/purchases',
+        '/blog/how-to-purchase',
+        '/products/purchase-protection',
+    ])('never counts the account or content page %s as an order flow', pathname => {
+        expect(classify([control('<button>Purchase</button>')], pathname)).toBeUndefined();
+        expect(classify([control('<button>Buy now</button>')], pathname)).toBeUndefined();
+    });
     it.each(['/products/self-checkout-kiosk', '/blog/fast-checkout-tips', '/help/checkout-faq', '/blog/10-checkout-best-practices'])(
         'never counts a content slug with checkout in it, %s, as a checkout path',
         pathname => {
