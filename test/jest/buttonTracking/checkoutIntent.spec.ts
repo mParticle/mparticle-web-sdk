@@ -1042,6 +1042,9 @@ describe('checkoutIntent', () => {
         expect(classify([control('<button>Place order</button>')], pathname)).toBe('commit');
     });
     it.each([
+        '/orders',
+        '/orders/12345',
+        '/orders/12345/',
         '/account/orders',
         '/my-account/orders/12345',
         '/myaccount/orders',

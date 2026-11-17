@@ -27,8 +27,9 @@ const checkoutPath = new RegExp(
     '(?:^|\\/)(?:' + CHECKOUT_SEGMENT + '|payment|order|kasse|paiement|commander?|pago)(?:\\/|$)',
     'i'
 );
-// An order flow under /orders or /purchase, such as /orders/<id>/purchase, but not an account's order history.
-const orderFlowPath = /(?:^|\/)(?:orders|purchase)(?:\/|$)/i;
+// An order flow with a step after the order id, such as /orders/<id>/purchase, or a /purchase route. A bare /orders or
+// /orders/<id> is an order list or status page, and an account's order history never counts.
+const orderFlowPath = /(?:^|\/)(?:orders\/[^/]+\/[^/]+|purchase)(?:\/|$)/i;
 const accountAreaPath = /(?:^|\/)(?:accounts?|my-?account|profile|order-?history|history)(?:\/|$)/i;
 // A route with a checkout segment itself, not just a payment or order one, which account pages also use.
 const checkoutSegmentPath = new RegExp('(?:^|\\/)' + CHECKOUT_SEGMENT + '(?:\\/|$)', 'i');
