@@ -264,6 +264,8 @@ export class ButtonTracker {
                 return;
             }
             try {
+                // Ahead of the intent, so a pre-selection it fires carries this pick.
+                this.pickPayment(t, pathname, undefined, 'apple_pay');
                 this.emit(
                     'wallet',
                     click.kind === 'wallet' ? click.source : 'api',
