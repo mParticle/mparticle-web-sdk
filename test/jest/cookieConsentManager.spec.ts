@@ -57,6 +57,100 @@ describe('CookieConsentManager', () => {
         });
     });
 
+    describe('source-separated flags', () => {
+        const allFlags = { noFunctional: true, noTargeting: true, doNotShareOrSell: true };
+        const noFlags = { noFunctional: false, noTargeting: false, doNotShareOrSell: false };
+        const readFlags = (manager: CookieConsentManager) => ({
+            noFunctional: manager.getNoFunctional(),
+            noTargeting: manager.getNoTargeting(),
+            doNotShareOrSell: manager.getDoNotShareOrSell(),
+        });
+
+        it('keeps init opt-outs when both other sources grant consent or disappear', () => {
+            const manager = new CookieConsentManager(allFlags);
+            manager.setPageFlags(noFlags);
+            manager.replaceDerivedFlags(noFlags);
+            expect(readFlags(manager)).toEqual(allFlags);
+
+            manager.setPageFlags({});
+            manager.replaceDerivedFlags({});
+            expect(readFlags(manager)).toEqual(allFlags);
+        });
+
+        it('clears a derived decline when it is replaced with a grant', () => {
+            const manager = new CookieConsentManager(noFlags);
+            manager.replaceDerivedFlags(allFlags);
+            expect(readFlags(manager)).toEqual(allFlags);
+
+            manager.replaceDerivedFlags(noFlags);
+            expect(readFlags(manager)).toEqual(noFlags);
+        });
+
+        it('clears only the derived contribution when mappings disappear', () => {
+            const manager = new CookieConsentManager(noFlags);
+            manager.setPageFlags({ noTargeting: true });
+            manager.replaceDerivedFlags(allFlags);
+            manager.replaceDerivedFlags({});
+
+            expect(readFlags(manager)).toEqual({ ...noFlags, noTargeting: true });
+        });
+
+        it('does not let page grants override a derived decline', () => {
+            const manager = new CookieConsentManager(noFlags);
+            manager.replaceDerivedFlags(allFlags);
+            manager.setPageFlags(noFlags);
+            expect(readFlags(manager)).toEqual(allFlags);
+
+            manager.setPageFlags({});
+            expect(readFlags(manager)).toEqual(allFlags);
+        });
+
+        it('replaces page flags instead of latching an old opt-out', () => {
+            const manager = new CookieConsentManager(noFlags);
+            manager.setPageFlags(allFlags);
+            expect(readFlags(manager)).toEqual(allFlags);
+
+            manager.setPageFlags({ noFunctional: true });
+            expect(readFlags(manager)).toEqual({ ...noFlags, noFunctional: true });
+
+            manager.setPageFlags({});
+            expect(readFlags(manager)).toEqual(noFlags);
+        });
+
+        it('keeps the three flags independent across sources', () => {
+            const manager = new CookieConsentManager({ ...noFlags, noFunctional: true });
+            manager.setPageFlags({ noTargeting: true });
+            manager.replaceDerivedFlags({ doNotShareOrSell: true });
+            expect(readFlags(manager)).toEqual(allFlags);
+
+            manager.replaceDerivedFlags({});
+            expect(readFlags(manager)).toEqual({ ...allFlags, doNotShareOrSell: false });
+        });
+
+        (['setPageFlags', 'replaceDerivedFlags'] as const).forEach((method) => {
+            it(method + ' accepts only boolean true', () => {
+                const manager = new CookieConsentManager(noFlags);
+                manager[method]({
+                    noFunctional: 'true' as unknown as boolean,
+                    noTargeting: 1 as unknown as boolean,
+                    doNotShareOrSell: 'false' as unknown as boolean,
+                });
+                expect(readFlags(manager)).toEqual(noFlags);
+            });
+
+            it(method + ' copies flags and is idempotent', () => {
+                const manager = new CookieConsentManager(noFlags);
+                const flags = { ...allFlags };
+                manager[method](flags);
+                manager[method](flags);
+                flags.noFunctional = false;
+                flags.noTargeting = false;
+                flags.doNotShareOrSell = false;
+                expect(readFlags(manager)).toEqual(allFlags);
+            });
+        });
+    });
+
     describe('#syncNoTargetingAttribute', () => {
         function createMockUser(attributes: Record<string, any> = {}) {
             const attrs = { ...attributes };
@@ -66,6 +160,31 @@ describe('CookieConsentManager', () => {
                 getAllUserAttributes: jest.fn(() => attrs),
             } as unknown as IMParticleUser;
         }
+
+        it('synchronizes effective targeting after a derived update and removal', () => {
+            const manager = new CookieConsentManager({ noTargeting: false, noFunctional: false });
+            const user = createMockUser();
+            manager.replaceDerivedFlags({ noTargeting: true });
+            manager.syncNoTargetingAttribute(user);
+            expect(user.setUserAttribute).toHaveBeenCalledWith('$NoTargeting', true);
+
+            manager.replaceDerivedFlags({});
+            manager.syncNoTargetingAttribute(user);
+            expect(user.removeUserAttribute).toHaveBeenCalledWith('$NoTargeting');
+            expect(user.setUserAttribute).toHaveBeenCalledTimes(1);
+        });
+
+        it('keeps the targeting attribute when an explicit opt-out remains', () => {
+            const manager = new CookieConsentManager({ noTargeting: false, noFunctional: false });
+            const user = createMockUser();
+            manager.setPageFlags({ noTargeting: true });
+            manager.replaceDerivedFlags({ noTargeting: true });
+            manager.replaceDerivedFlags({});
+            manager.syncNoTargetingAttribute(user);
+
+            expect(user.setUserAttribute).toHaveBeenCalledWith('$NoTargeting', true);
+            expect(user.removeUserAttribute).not.toHaveBeenCalled();
+        });
 
         it('should set $NoTargeting when noTargeting is true', () => {
             const manager = new CookieConsentManager({ noTargeting: true, noFunctional: false });

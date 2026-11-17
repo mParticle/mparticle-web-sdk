@@ -60,8 +60,31 @@ export interface ICookieConsentManager {
  * unless explicitly opted out by the user.
  */
 export default class CookieConsentManager implements ICookieConsentManager {
+    /** @internal */
+    private pageFlags: Partial<ICookieConsentFlags> = {};
+    /** @internal */
+    private derivedFlags: Partial<ICookieConsentFlags> = {};
+
     constructor(private flags: ICookieConsentFlags) {
         this.flags = {
+            noFunctional: flags.noFunctional === true,
+            noTargeting: flags.noTargeting === true,
+            doNotShareOrSell: flags.doNotShareOrSell === true,
+        };
+    }
+
+    /** @internal */
+    setPageFlags(flags: Partial<ICookieConsentFlags>): void {
+        this.pageFlags = {
+            noFunctional: flags.noFunctional === true,
+            noTargeting: flags.noTargeting === true,
+            doNotShareOrSell: flags.doNotShareOrSell === true,
+        };
+    }
+
+    /** @internal */
+    replaceDerivedFlags(flags: Partial<ICookieConsentFlags>): void {
+        this.derivedFlags = {
             noFunctional: flags.noFunctional === true,
             noTargeting: flags.noTargeting === true,
             doNotShareOrSell: flags.doNotShareOrSell === true,
@@ -73,7 +96,9 @@ export default class CookieConsentManager implements ICookieConsentManager {
      * Targeting is allowed when noTargeting is false (default).
      */
     getNoTargeting(): boolean {
-        return this.flags.noTargeting;
+        return this.flags.noTargeting ||
+            this.pageFlags.noTargeting === true ||
+            this.derivedFlags.noTargeting === true;
     }
 
     /**
@@ -81,7 +106,9 @@ export default class CookieConsentManager implements ICookieConsentManager {
      * Functional tracking is allowed when noFunctional is false (default).
      */
     getNoFunctional(): boolean {
-        return this.flags.noFunctional;
+        return this.flags.noFunctional ||
+            this.pageFlags.noFunctional === true ||
+            this.derivedFlags.noFunctional === true;
     }
 
     /**
@@ -89,13 +116,15 @@ export default class CookieConsentManager implements ICookieConsentManager {
      * Sharing is allowed when doNotShareOrSell is false (default).
      */
     getDoNotShareOrSell(): boolean {
-        return this.flags.doNotShareOrSell;
+        return this.flags.doNotShareOrSell ||
+            this.pageFlags.doNotShareOrSell === true ||
+            this.derivedFlags.doNotShareOrSell === true;
     }
 
     syncNoTargetingAttribute(user: IMParticleUser | null): void {
         if (!user) return;
 
-        if (this.flags.noTargeting) {
+        if (this.getNoTargeting()) {
             user.setUserAttribute(NO_TARGETING_ATTRIBUTE, true);
         } else if (
             hasOwnProp(user.getAllUserAttributes(), NO_TARGETING_ATTRIBUTE)
