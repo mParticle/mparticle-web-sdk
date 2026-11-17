@@ -1,6 +1,7 @@
 import { PRESELECT_SKIP_DEFAULT, type PreselectionConfigEntry } from './preselectionConfig';
 import { isObject, isString, parseKitSettingJson } from '../utils';
 import { isPaymentFamily } from '../paymentFamily';
+import { isSelectPlacementsAttributePersistenceDenied } from '../selectPlacementsAttributePersistence';
 
 const SUPPORTED_SCHEMA_VERSION = 1;
 
@@ -156,6 +157,7 @@ function parseEntry(accountId: string, raw: unknown): PreselectionConfigEntry | 
   const legacyDefaults = raw.preselectAttributeOverrides;
   const defaults = raw.preselectAttributeDefaults !== undefined ? raw.preselectAttributeDefaults : legacyDefaults;
   const widenedOptionalKeys = raw.widenedOptionalAttributeKeys;
+  const { targetPageIdentifierAttribute } = raw;
 
   if (raw.accountId !== undefined && raw.accountId !== accountId) {
     return 'accountId';
@@ -173,6 +175,18 @@ function parseEntry(accountId: string, raw: unknown): PreselectionConfigEntry | 
   }
   if (!isString(targetPageIdentifier) || targetPageIdentifier === '') {
     return 'targetPageIdentifier';
+  }
+  // Rejected rather than dropped: without it the entry would fire under targetPageIdentifier, a target it never meets.
+  // A key the kit never persists (country, language, currency and the rest of the persistence deny list) is rejected
+  // too: a fire recovered after a navigation reads its saved snapshot, which holds no such key, and a target page's
+  // call reads the saved attributes, which hold none either, so the entry's early call could never be matched.
+  if (
+    targetPageIdentifierAttribute !== undefined &&
+    (!isString(targetPageIdentifierAttribute) ||
+      targetPageIdentifierAttribute.trim() === '' ||
+      isSelectPlacementsAttributePersistenceDenied(targetPageIdentifierAttribute.trim()))
+  ) {
+    return 'targetPageIdentifierAttribute';
   }
   if (!isStringArray(attributeKeys) || attributeKeys.length === 0) {
     return 'attributeKeys';
@@ -288,6 +302,9 @@ function parseEntry(accountId: string, raw: unknown): PreselectionConfigEntry | 
   const entry: PreselectionConfigEntry = { accountId, pathname, targetPageIdentifier, attributeKeys };
   if (pathnames !== undefined) {
     entry.pathnames = pathnames;
+  }
+  if (targetPageIdentifierAttribute !== undefined) {
+    entry.targetPageIdentifierAttribute = targetPageIdentifierAttribute.trim();
   }
   if (optionalAttributeKeys !== undefined) {
     entry.optionalAttributeKeys = optionalAttributeKeys;

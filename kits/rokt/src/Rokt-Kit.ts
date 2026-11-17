@@ -55,6 +55,10 @@ import {
   applyPreselectAttributeDefaults,
   getPreselectAttributeDefaults,
   findPreselectionConfigByIdentifier,
+  findPreselectionEntryByKey,
+  getCallIdentifier,
+  getPreselectLookupAttributes,
+  usesTargetPageIdentifierAttribute,
   getPreselectCacheIdentityKeys,
   getPreselectCacheMatchTokens,
   getPreselectCacheMatchValues,
@@ -81,6 +85,7 @@ import {
   canDispatchPreselection,
   PRESELECT_FORM_EMAIL_OPTION,
   PRESELECT_BOUND_USER_OPTION,
+  PRESELECT_ENTRY_OPTION,
   type PreselectIntentSignal,
   type PreselectPaymentPickSignal,
   isAutoClickEvent,
@@ -1095,25 +1100,34 @@ class RoktKit implements KitInterface {
     return this.launcher?.enablePreselection === true;
   }
 
-  private findCacheConfigEntry(identifier: string | undefined): PreselectionConfigEntry | undefined {
-    if (!this.isPreselectionEnabled()) {
-      return undefined;
-    }
-
-    return findPreselectionConfigByIdentifier(this.accountId, identifier);
-  }
-
-  // What the speculative call fills in over these attributes, the ones it was fired with. An identity the call
-  // carries already holds its key, so a default never stands in for it.
-  private buildPreselectAttributeDefaults(
+  // The entry a target page's own call goes to, matched on the call's own attributes as well as its identifier.
+  private findCacheConfigEntry(
     identifier: string | undefined,
     attributes: Record<string, unknown>,
-  ): Record<string, string> | undefined {
+  ): PreselectionConfigEntry | undefined {
     if (!this.isPreselectionEnabled()) {
       return undefined;
     }
 
-    const configEntry = findPreselectionConfigByIdentifier(this.accountId, identifier);
+    return findPreselectionConfigByIdentifier(this.accountId, identifier, attributes);
+  }
+
+  // The entry a speculative call was fired for, by the targetPageIdentifier its fire keys its records under.
+  private findFiredEntry(entryKey: string | undefined): PreselectionConfigEntry | undefined {
+    if (!this.isPreselectionEnabled()) {
+      return undefined;
+    }
+
+    return findPreselectionEntryByKey(this.accountId, entryKey);
+  }
+
+  // What the speculative call for the entry keyed entryKey fills in over these attributes, the ones it was fired with.
+  // An identity the call carries already holds its key, so a default never stands in for it.
+  private buildPreselectAttributeDefaults(
+    entryKey: string | undefined,
+    attributes: Record<string, unknown>,
+  ): Record<string, string> | undefined {
+    const configEntry = this.findFiredEntry(entryKey);
     if (!configEntry) {
       return undefined;
     }
@@ -1144,8 +1158,9 @@ class RoktKit implements KitInterface {
       getCurrentHost: () => this.buildPreselectHost(),
       isTargetingDisabled: () => this.isTargetingDisabled(),
       getUserIdentities: () => this.returnUserIdentities(this.filters.filteredUser),
-      getOutgoingAttributes: (attributes, identifier) => this.getOutgoingPreselectAttributes(attributes, identifier),
-      getPreselectFills: (attributes, identifier) => this.buildPreselectAttributeDefaults(identifier, attributes),
+      getOutgoingAttributes: (attributes, entryKey) => this.getOutgoingPreselectAttributes(attributes, entryKey),
+      filterAttributes: (attributes) => this.filterPreselectAttributes(attributes),
+      getPreselectFills: (attributes, entryKey) => this.buildPreselectAttributeDefaults(entryKey, attributes),
       mappedEmailSha256Key: this._mappedEmailSha256Key,
       isForwardingAllowed: () => this.isForwardingAllowed(),
       isCheckoutIntentActive: () => this.isCheckoutIntentActive(),
@@ -2192,25 +2207,44 @@ class RoktKit implements KitInterface {
     return this._dispatchPlacements(options);
   }
 
+  // Whether a pre-selection call's identifier is still the value of its entry's targetPageIdentifierAttribute among the
+  // attributes the workspace's attribute filter lets the call send. A call for an entry with a fixed
+  // targetPageIdentifier always is. The entry is the one the fire named, else the one its identifier keys.
+  private isPreselectTargetAllowed(firedEntryOption: unknown, options: Record<string, unknown>): boolean {
+    const identifier = options.identifier;
+    const entryKey = isString(firedEntryOption) ? firedEntryOption : isString(identifier) ? identifier : undefined;
+    const entry = findPreselectionEntryByKey(this.accountId, entryKey);
+    if (entry?.targetPageIdentifierAttribute === undefined) {
+      return true;
+    }
+    const attributes = isObject(options.attributes) ? options.attributes : {};
+    return getCallIdentifier(entry, this.filterPreselectAttributes(attributes)) === identifier;
+  }
+
+  // These attributes less those the workspace's attribute filter keeps off this kit's calls.
+  private filterPreselectAttributes(attributes: Record<string, unknown>): Record<string, unknown> {
+    const filters = this.filters || {};
+    return filters.filterUserAttributes
+      ? filters.filterUserAttributes(attributes, (filters.userAttributeFilters as string[]) || [])
+      : attributes;
+  }
+
   // What a pre-selection call with these attributes would send, mirroring _dispatchPlacements: identities,
   // then the cached user attributes merged in, filtered and overridden for the target page, then the
   // session attributes, so a later source wins as it does on the wire.
   private getOutgoingPreselectAttributes(
     attributes: Record<string, unknown>,
-    identifier?: string,
+    entryKey?: string,
   ): Record<string, unknown> {
     const merged = { ...removeSelectPlacementsAttributePersistenceDeniedAttributes(this.userAttributes), ...attributes };
-    const filters = this.filters || {};
-    const filtered = filters.filterUserAttributes
-      ? filters.filterUserAttributes(merged, (filters.userAttributeFilters as string[]) || [])
-      : merged;
-    const identities = this.returnUserIdentities(filters.filteredUser || null) as Record<string, unknown>;
+    const filtered = this.filterPreselectAttributes(merged);
+    const identities = this.returnUserIdentities(this.filters?.filteredUser || null) as Record<string, unknown>;
     const partner = withoutPreselectCartGateAttribute(
       this.accountId,
-      identifier
-        ? applyPreselectAttributeDefaults(filtered, this.buildPreselectAttributeDefaults(identifier, attributes))
+      entryKey
+        ? applyPreselectAttributeDefaults(filtered, this.buildPreselectAttributeDefaults(entryKey, attributes))
         : filtered,
-      this.findCacheConfigEntry(identifier),
+      this.findFiredEntry(entryKey),
     );
     return {
       ...identities,
@@ -2295,10 +2329,23 @@ class RoktKit implements KitInterface {
     // No computed key in a destructuring pattern: the CDN's NUglify pass drops the constant it names.
     const transientOption = options?.[PRESELECT_FORM_EMAIL_OPTION];
     const boundUserOption = options?.[PRESELECT_BOUND_USER_OPTION];
+    const firedEntryOption = options?.[PRESELECT_ENTRY_OPTION];
     const dispatchOptions = { ...options };
     delete dispatchOptions[PRESELECT_FORM_EMAIL_OPTION];
     delete dispatchOptions[PRESELECT_BOUND_USER_OPTION];
+    delete dispatchOptions[PRESELECT_ENTRY_OPTION];
     options = dispatchOptions;
+    // A call for an entry naming targetPageIdentifierAttribute carries the trigger page's value of it as its identifier,
+    // which the attribute filter below never reaches. The filter can change while the call waits for a workspace search
+    // or a launcher recreation, so the value is read again here under the filter in force now, and a call whose value it
+    // removes goes out as nothing and undoes its records, as the fire does when the filter removes it at the trigger.
+    if (options.preselect === true && !this.isPreselectTargetAllowed(firedEntryOption, options)) {
+      this.loggingService?.logPlacementDiagnostic(
+        buildPreselectDiagnosticLogEntry('missed', 'no_target_page_identifier', { cause: 'filtered' }),
+      );
+      rollback?.();
+      return undefined;
+    }
     // An off-entry tap goes out only while the user it fired for is still the kit's user, and still logged in when
     // the fire needed that, so a logout or user switch during the wait never sends one user's attributes as another's.
     if (boundUserOption !== undefined) {
@@ -2394,9 +2441,24 @@ class RoktKit implements KitInterface {
     const mpDeviceId = this.readMpDeviceId();
 
     const identifier = typeof options.identifier === 'string' ? options.identifier : undefined;
-    const cacheConfigEntry = this.findCacheConfigEntry(identifier);
+    // A speculative call takes its defaults and cache keys from the entry that fired it, named by the fire, never
+    // matched again on its identifier, which another entry's target value can equal.
+    const firedEntryKey = isString(firedEntryOption) ? firedEntryOption : identifier;
+    // A target page's own call is matched on the saved user attributes under the call's own, so a target value the
+    // shopper's saved attributes hold finds the entry its early call went out for, and the call's cache keys meet that
+    // call's cached result. The view is built once, after the workspace's attribute filter, and both the cache keys and
+    // the arrival report read it, so the two never name different entries and a filtered value matches neither. It is
+    // read only for an entry that names targetPageIdentifierAttribute while pre-selection is on, so it is built only then.
+    const targetLookupAttributes =
+      options.preselect !== true && this.isPreselectionEnabled() && usesTargetPageIdentifierAttribute(this.accountId)
+        ? this.filterPreselectAttributes(getPreselectLookupAttributes(cachedUserAttributes, attributes))
+        : {};
+    const cacheConfigEntry =
+      options.preselect === true
+        ? this.findFiredEntry(firedEntryKey)
+        : this.findCacheConfigEntry(identifier, targetLookupAttributes);
     const preselectFills =
-      options.preselect === true ? this.buildPreselectAttributeDefaults(identifier, attributes) : undefined;
+      options.preselect === true ? this.buildPreselectAttributeDefaults(firedEntryKey, attributes) : undefined;
     const partnerAttributes =
       options.preselect === true
         ? withoutPreselectCartGateAttribute(
@@ -2426,7 +2488,7 @@ class RoktKit implements KitInterface {
       delete selectPlacementsAttributes[MPARTICLE_DEVICE_ID_KEY];
     }
     if (options.preselect !== true) {
-      reportPreselectArrival(this.buildPreselectHost(), identifier, selectPlacementsAttributes);
+      reportPreselectArrival(this.buildPreselectHost(), identifier, selectPlacementsAttributes, targetLookupAttributes);
     }
 
     // A confirm-click or cart page-view pre-selection whose email went missing while it waited does not go out without one.

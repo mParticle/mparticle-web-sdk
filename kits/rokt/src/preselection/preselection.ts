@@ -641,6 +641,12 @@ export const PRESELECT_FORM_EMAIL_OPTION = 'preselectFormEmail';
 // fire needed a logged-in shopper.
 export const PRESELECT_BOUND_USER_OPTION = 'preselectBoundUser';
 
+// Dispatch option naming, by its targetPageIdentifier, the entry a speculative call was fired for. Set only when the
+// call goes out under another identifier, the entry's own value of targetPageIdentifierAttribute, which another entry
+// can share; without it the call's identifier names the entry. The kit reads the entry's defaults and cache keys from
+// it and never sends it.
+export const PRESELECT_ENTRY_OPTION = 'preselectEntry';
+
 // An off-entry tap's call carries its own kind, so it can be measured apart from the confirm click.
 // Each keeps the intent_ prefix the dispatch-time email check reads.
 type OffEntryTriggerKind = `${IntentTriggerKind}_off_entry`;
@@ -674,15 +680,109 @@ export function findPreselectionConfig(
   return getPreselectionEntries(accountId).find((entry) => entryMatchesPathname(entry, pathname));
 }
 
+// The entry a target page's own call goes to. A call matches an entry that names targetPageIdentifierAttribute only
+// when its identifier equals the call's own value of that attribute, never by targetPageIdentifier, and any other entry
+// by targetPageIdentifier. A call that matches more than one entry goes to none: two entries' attributes can hold the
+// same value, or one's value can equal another's targetPageIdentifier, and nothing in the call says which entry it is
+// for. It then carries no entry's cache keys and reports no arrival, so it never meets another entry's early call.
 export function findPreselectionConfigByIdentifier(
   accountId: string | null | undefined,
   identifier: unknown,
+  attributes?: Record<string, unknown>,
 ): PreselectionConfigEntry | undefined {
   if (!accountId || !isString(identifier)) {
     return undefined;
   }
 
-  return getPreselectionEntries(accountId).find((entry) => entry.targetPageIdentifier === identifier);
+  const matches = getPreselectionEntries(accountId).filter((entry) =>
+    entry.targetPageIdentifierAttribute === undefined
+      ? entry.targetPageIdentifier === identifier
+      : attributes !== undefined && getCallIdentifier(entry, attributes) === identifier,
+  );
+  return matches.length === 1 ? matches[0] : undefined;
+}
+
+// The attributes a target-page call is matched to its entry on: the saved user attributes with the call's own laid over
+// them, as collectAttributes reads the early call's target value. A call's non-empty value under any spelling of a key
+// replaces every saved spelling of it, so the call's value always wins and a saved value stands only where it has none.
+export function getPreselectLookupAttributes(
+  savedAttributes: Record<string, unknown>,
+  callAttributes: Record<string, unknown>,
+): Record<string, unknown> {
+  const callNames = new Set(
+    Object.keys(callAttributes)
+      .filter((name) => !isEmpty(callAttributes[name]))
+      .map((name) => name.toLowerCase()),
+  );
+  const merged: Record<string, unknown> = {};
+  for (const name of Object.keys(savedAttributes)) {
+    if (!callNames.has(name.toLowerCase())) {
+      merged[name] = savedAttributes[name];
+    }
+  }
+  for (const name of Object.keys(callAttributes)) {
+    if (!isEmpty(callAttributes[name])) {
+      merged[name] = callAttributes[name];
+    }
+  }
+  return merged;
+}
+
+// True when an entry of the account names targetPageIdentifierAttribute, the only kind of entry a target page's call is
+// matched to on its attributes.
+export function usesTargetPageIdentifierAttribute(accountId: string | null | undefined): boolean {
+  return (
+    !!accountId && getPreselectionEntries(accountId).some((entry) => entry.targetPageIdentifierAttribute !== undefined)
+  );
+}
+
+// The entry a fire's records name. A fire keys them by targetPageIdentifier, whatever identifier its call carries, so
+// this is the entry the fire was for.
+export function findPreselectionEntryByKey(
+  accountId: string | null | undefined,
+  key: string | undefined,
+): PreselectionConfigEntry | undefined {
+  if (!accountId || key === undefined) {
+    return undefined;
+  }
+  return getPreselectionEntries(accountId).find((entry) => entry.targetPageIdentifier === key);
+}
+
+// The value under key in any casing: the exact spelling first, else the one value every other spelling agrees on.
+function readValueInAnyCasing(source: Record<string, unknown>, key: string): unknown {
+  const exact = readOwnValue(source, key);
+  if (!isEmpty(exact)) {
+    return exact;
+  }
+  const lowerKey = key.toLowerCase();
+  const values = Object.keys(source)
+    .filter((name) => name.toLowerCase() === lowerKey && !isEmpty(source[name]))
+    .map((name) => source[name]);
+  return values.length > 0 && values.every((value) => value === values[0]) ? values[0] : undefined;
+}
+
+function isControlCharacter(char: string): boolean {
+  const code = char.charCodeAt(0);
+  return code < 0x20 || (code >= 0x7f && code <= 0x9f);
+}
+
+// The identifier a call for this entry goes out under: its own value of targetPageIdentifierAttribute, trimmed, when
+// the entry names one, else targetPageIdentifier. Undefined when that value is not a non-empty string free of
+// whitespace and control characters once trimmed, so no call goes out under it.
+export function getCallIdentifier(
+  configEntry: PreselectionConfigEntry,
+  attributes: Record<string, unknown>,
+): string | undefined {
+  const key = configEntry.targetPageIdentifierAttribute;
+  if (key === undefined) {
+    return configEntry.targetPageIdentifier;
+  }
+  const value = readValueInAnyCasing(attributes, key);
+  if (!isString(value)) {
+    return undefined;
+  }
+  const trimmed = value.trim();
+  return trimmed !== '' && !/\s/.test(trimmed) && !Array.from(trimmed).some(isControlCharacter) ? trimmed : undefined;
 }
 
 // Applies the fills getPreselectAttributeDefaults chose, dropping each filled key's other spellings. Applied to the
@@ -1259,11 +1359,15 @@ export interface PreselectHost {
   isEmailIdentityFiltered?(): boolean;
   // The filtered user's identities keyed by the name selectPlacements sends them under.
   getUserIdentities?(): Record<string, string>;
-  // Everything a pre-selection call for this target page would send with these attributes, in the
-  // order selectPlacements merges them: identities, then filtered attributes, then session attributes.
-  getOutgoingAttributes?(attributes: Record<string, unknown>, identifier?: string): Record<string, unknown>;
+  // Everything a pre-selection call for the entry whose targetPageIdentifier is entryKey would send with these
+  // attributes, in the order selectPlacements merges them: identities, then filtered attributes, then session
+  // attributes. The entry is named by its key, never by the call's identifier, which another entry can share.
+  getOutgoingAttributes?(attributes: Record<string, unknown>, entryKey?: string): Record<string, unknown>;
+  // These attributes less those the workspace's attribute filter keeps off a call, so a value the filter removes never
+  // names the target page a call goes out under.
+  filterAttributes?(attributes: Record<string, unknown>): Record<string, unknown>;
   // The defaults that call fills for these attributes, after the workspace's attribute filter.
-  getPreselectFills?(attributes: Record<string, unknown>, identifier?: string): Record<string, string> | undefined;
+  getPreselectFills?(attributes: Record<string, unknown>, entryKey?: string): Record<string, string> | undefined;
   mappedEmailSha256Key?: string;
 }
 
@@ -1726,6 +1830,23 @@ function collectAttributes(
     collected[key] = value;
   }
 
+  // The attribute naming the target page travels on the call, which goes out under its value. Read in any casing from
+  // the sources attributeKeys read, in the same order, even when attributeKeys already collected it: an event's value
+  // in another casing still wins over a saved one. It replaces what attributeKeys collected under any spelling of it.
+  const targetKey = configEntry.targetPageIdentifierAttribute;
+  if (targetKey !== undefined) {
+    const targetValue = [event.EventAttributes ?? {}, host.userAttributes, livePersistedAttributes]
+      .map((source) => readValueInAnyCasing(source, targetKey))
+      .find((sourceValue) => !isEmpty(sourceValue));
+    if (targetValue !== undefined) {
+      const lowerTargetKey = targetKey.toLowerCase();
+      const collectedNames = Object.keys(collected).filter((name) => name.toLowerCase() === lowerTargetKey);
+      for (const name of collectedNames.length > 0 ? collectedNames : [targetKey]) {
+        collected[name] = targetValue;
+      }
+    }
+  }
+
   // The event is read in the entry's casing only, so its value under another spelling would give way to a default.
   // Collected under its own spelling on every event, whether or not a default would fill now, it holds the default off
   // on the outgoing call and replaces what an earlier event left saved, while the gate still reads the entry's casing.
@@ -1845,7 +1966,7 @@ function getAttributesDigests(
   attributes: Record<string, unknown>,
 ): AttributesDigests {
   try {
-    const configEntry = findPreselectionConfigByIdentifier(accountId, identifier);
+    const configEntry = findPreselectionEntryByKey(accountId, identifier);
     const fills = configEntry ? getPreselectAttributeDefaults(host, configEntry, attributes) : undefined;
     const filled = applyPreselectAttributeDefaults(attributes, fills);
     // What the call will send, read from the same sources as the confirm-click email check, so a corrected email
@@ -1966,7 +2087,30 @@ function fireDispatch(
   }
 
   const intentKindDetail: PreselectDiagnosticDetails = intent ? { intent_kind: intent.replace('intent_', '') } : {};
-  const configEntry = findPreselectionConfigByIdentifier(accountId, identifier);
+  const configEntry = findPreselectionEntryByKey(accountId, identifier);
+  // An entry naming targetPageIdentifierAttribute goes out under the trigger page's own value of it, read only from the
+  // attributes the workspace's attribute filter lets the call send, and without one nothing is sent or recorded, so a
+  // filtered value never reaches Rokt as the call's identifier. The filter can change while the call waits for a
+  // workspace search or a launcher recreation, so the kit reads the value again under the filter in force when the call
+  // goes out, and drops the call and undoes its records when that filter removes it. Its records stay keyed by
+  // targetPageIdentifier.
+  const usesTargetAttribute = configEntry?.targetPageIdentifierAttribute !== undefined;
+  const callIdentifier =
+    configEntry && usesTargetAttribute
+      ? getCallIdentifier(configEntry, host.filterAttributes ? host.filterAttributes(attributes) : attributes)
+      : identifier;
+  if (callIdentifier === undefined) {
+    // Diagnostics only: reading the value again on the unfiltered attributes tells a value the filter removed
+    // (cause=filtered) from one the trigger never carried. The call is dropped either way.
+    const filtered = configEntry !== undefined && getCallIdentifier(configEntry, attributes) !== undefined;
+    host.logPlacementDiagnostic(
+      buildPreselectDiagnosticLogEntry('missed', 'no_target_page_identifier', {
+        ...intentKindDetail,
+        ...(filtered ? { cause: 'filtered' } : {}),
+      }),
+    );
+    return false;
+  }
   const fills = configEntry ? getPreselectAttributeDefaults(host, configEntry, attributes) : {};
   // What the call sends, after the workspace's attribute filter and any later source.
   const outgoing = host.getOutgoingAttributes?.(attributes, identifier);
@@ -2050,7 +2194,10 @@ function fireDispatch(
   dispatchPreselect(host, {
     attributes: { ...attributes, [PRESELECT_TRIGGER_ATTRIBUTE]: trigger },
     preselect: true,
-    identifier,
+    identifier: callIdentifier,
+    // The entry that fired travels with the call, so its defaults and cache keys never come from another entry whose
+    // target value the call's identifier also matches.
+    ...(callIdentifier !== identifier ? { [PRESELECT_ENTRY_OPTION]: identifier } : {}),
     omitUrl: true,
     ...(formEmailKey
       ? { [PRESELECT_FORM_EMAIL_OPTION]: { key: formEmailKey, mpid: getUserId(host.filteredUser) } }
@@ -2897,16 +3044,19 @@ export function flushPendingPreselectDispatches(
 
 // Runs on the partner's own target-page call. Reports a tab that reaches the target page without
 // having fired, which a full navigation away from the trigger page otherwise hides.
+// lookupAttributes, when given, are the attributes the call's entry is matched on, the same ones its cache keys were
+// chosen on, so the two never name different entries; attributes are what the call sends.
 export function reportPreselectArrival(
   host: PreselectHost,
   identifier: unknown,
   attributes?: Record<string, unknown>,
+  lookupAttributes: Record<string, unknown> | undefined = attributes,
 ): void {
   if (!host.accountId || !isReportingDiagnostics(host)) {
     return;
   }
 
-  const configEntry = findPreselectionConfigByIdentifier(host.accountId, identifier);
+  const configEntry = findPreselectionConfigByIdentifier(host.accountId, identifier, lookupAttributes);
   if (!configEntry) {
     return;
   }

@@ -210,6 +210,40 @@ describe('parsePreselectionConfigSetting', () => {
     ).toEqual({ entries: [{ accountId: ACCOUNT_ID, ...entry }] });
   });
 
+  it('parses the attribute that names the target page', () => {
+    const entry = { ...ENTRY, targetPageIdentifierAttribute: 'pageGroup' };
+    expect(parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([entry]))).toEqual({
+      entries: [{ accountId: ACCOUNT_ID, ...entry }],
+    });
+  });
+
+  it('trims the attribute that names the target page, so a padded name still finds its value', () => {
+    const entry = { ...ENTRY, targetPageIdentifierAttribute: ' pageGroup ' };
+    expect(parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([entry]))).toEqual({
+      entries: [{ accountId: ACCOUNT_ID, ...entry, targetPageIdentifierAttribute: 'pageGroup' }],
+    });
+  });
+
+  // The kit never saves these, so a fire recovered after a navigation, and a target call read from saved attributes,
+  // could never find the value.
+  it.each(['country', 'Language', ' currency ', 'SHIPPINGCOUNTRY', 'totalprice'])(
+    'rejects a targetPageIdentifierAttribute %j the kit never persists, in any casing',
+    (targetPageIdentifierAttribute) => {
+      expect(
+        parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([{ ...ENTRY, targetPageIdentifierAttribute }])),
+      ).toEqual({ error: 'entry 1 targetPageIdentifierAttribute' });
+    },
+  );
+
+  it.each(['', '   ', 1, true, null, ['pageGroup'], {}])(
+    'rejects a targetPageIdentifierAttribute %j that is not a non-empty string',
+    (targetPageIdentifierAttribute) => {
+      expect(
+        parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([{ ...ENTRY, targetPageIdentifierAttribute }])),
+      ).toEqual({ error: 'entry 1 targetPageIdentifierAttribute' });
+    },
+  );
+
   it.each(['', 1, true, null, ['cartItems'], {}])(
     'ignores a cart attribute %j that is not a non-empty string on a cartIntent entry',
     (cartUserAttribute) => {
