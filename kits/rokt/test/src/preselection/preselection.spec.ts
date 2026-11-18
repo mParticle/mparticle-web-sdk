@@ -1803,6 +1803,43 @@ describe('preselection', () => {
         const digests = vi.mocked(wasPreselectFiredRecently).mock.calls.map(([, , digest]) => digest);
         expect(new Set(digests).size).toBe(2);
       });
+      describe('a second confirm click after a fire', () => {
+        beforeEach(() => {
+          const fired = new Set<number | undefined>();
+          vi.mocked(recordPreselectFired).mockImplementation((_accountId, _identifier, digest) => {
+            fired.add(digest);
+          });
+          vi.mocked(wasPreselectFiredRecently).mockImplementation((_accountId, _identifier, digest) =>
+            fired.has(digest),
+          );
+        });
+        it('still fires again for a corrected plain email', () => {
+          maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+          send('commit');
+          host.getUserIdentities = () => ({ email: 'corrected@example.test' });
+          send('commit');
+          expect(selectPlacementsCalls).toHaveLength(2);
+        });
+        it('fires once when it carries a fresh ciphertext of the encrypted email, in either casing', () => {
+          host.getUserIdentities = () => ({});
+          host.getOutgoingAttributes = (attributes) => ({ ...attributes, emailEnc: 'ciphertext-1' });
+          maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+          send('commit');
+          host.getOutgoingAttributes = (attributes) => ({ ...attributes, emailenc: 'ciphertext-2' });
+          send('commit');
+          expect(selectPlacementsCalls).toHaveLength(1);
+        });
+        it('fires once when the entry declares the encrypted email and its ciphertext changes', () => {
+          mockConfig.current = [{ ...CONFIG_ENTRY, attributeKeys: [ATTRIBUTE_KEY, 'emailEnc'], dispatchDelayMs: 5000 }];
+          host.getUserIdentities = () => ({});
+          host.userAttributes = { [ATTRIBUTE_KEY]: 'gold', emailEnc: 'ciphertext-1' };
+          maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+          send('commit');
+          host.userAttributes = { [ATTRIBUTE_KEY]: 'gold', emailEnc: 'ciphertext-2' };
+          send('commit');
+          expect(selectPlacementsCalls).toHaveLength(1);
+        });
+      });
       it('still lets changed attributes fire again on the same page outside the confirm click', () => {
         host.isCheckoutIntentActive = () => false;
         vi.mocked(wasPreselectFiredRecently).mockReturnValue(true);
@@ -2254,6 +2291,37 @@ describe('preselection', () => {
 
       expect(selectPlacementsCalls).toHaveLength(1);
       expect((selectPlacementsCalls[0].attributes as Record<string, unknown>).email).toBe('guest@example.com');
+    });
+
+    it('never reads the typed email when the partner sends an encrypted one, even only on the unfiltered user', () => {
+      mockConfig.current = [
+        { ...CONFIG_ENTRY, attributeKeys: ['email'], readEmailInput: true, dispatchDelayMs: 5000 },
+      ];
+      host.userAttributes = {};
+      host.isForwardingAllowed = () => true;
+      host.getUserIdentities = () => ({});
+      host.filteredUser = {
+        getUserIdentities: () => ({ userIdentities: {} }),
+        getMPID: () => MPID,
+      } as unknown as PreselectHost['filteredUser'];
+      host.getCurrentUser = () =>
+        ({
+          getMPID: () => MPID,
+          isLoggedIn: () => false,
+          getAllUserAttributes: () => ({ emailEnc: 'encrypted-email' }),
+          getUserIdentities: () => ({ userIdentities: {} }),
+        }) as unknown as PreselectHost['filteredUser'];
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+      const input = document.createElement('input');
+      input.type = 'email';
+      input.value = 'guest@example.com';
+      document.body.appendChild(input);
+      shopperTouch(input);
+
+      send('commit');
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+      expect(JSON.stringify(selectPlacementsCalls)).not.toContain('guest@example.com');
     });
 
     it('reads an email typed into a type="text" field when the guest clicks to confirm', () => {
