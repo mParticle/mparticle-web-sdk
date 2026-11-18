@@ -26,6 +26,8 @@ import {
   isReadableFormEmailChange,
   recordShopperInput,
   isPreselectAttributeKey,
+  isPreselectEmailKey,
+  hasPreselectEmail,
   isPreselectTriggerEventName,
   applyPreselectionConfigSetting,
   reportPreselectArrival,
@@ -1832,6 +1834,9 @@ describe('preselection', () => {
         ['an email attribute', { email: 'shopper@example.test' }, {}],
         ['a hashed email attribute', { EmailSha256: 'a'.repeat(64) }, {}],
         ['the mapped hashed identity', {}, { other: 'a'.repeat(64) }],
+        ['an encrypted email attribute', { emailEnc: 'encrypted-email' }, {}],
+        ['an encrypted email attribute in lower case', { emailenc: 'encrypted-email' }, {}],
+        ['an encrypted hashed email attribute', { emailSha256Enc: 'encrypted-hash' }, {}],
       ])('fires with %s', (_, attributes, identities) => {
         mockConfig.current = [
           { ...CONFIG_ENTRY, attributeKeys: [ATTRIBUTE_KEY, ...Object.keys(attributes)], dispatchDelayMs: 5000 },
@@ -1869,6 +1874,22 @@ describe('preselection', () => {
         maybeFirePreselect(state, host, buildEvent(), PATHNAME);
         send('commit');
         expect(selectPlacementsCalls).toHaveLength(1);
+      });
+      it('counts an encrypted email the call carries from the cached user attributes', () => {
+        host.getUserIdentities = () => ({});
+        host.getOutgoingAttributes = (attributes) => ({ ...attributes, emailEnc: 'encrypted-email' });
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        send('commit');
+        expect(selectPlacementsCalls).toHaveLength(1);
+        expect(loggedDiagnostics.some((line) => line.message.includes('no_strict_email'))).toBe(false);
+      });
+      it('still waits for an email when the call carries only other encrypted keys', () => {
+        host.getUserIdentities = () => ({});
+        host.getOutgoingAttributes = (attributes) => ({ ...attributes, enc: 'encrypted', phoneEnc: 'encrypted' });
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        send('commit');
+        expect(selectPlacementsCalls).toHaveLength(0);
+        expect(loggedDiagnostics.some((line) => line.message.includes('no_strict_email'))).toBe(true);
       });
       it('does not count an email the user attribute filters strip from the call', () => {
         mockConfig.current = [{ ...CONFIG_ENTRY, attributeKeys: [ATTRIBUTE_KEY, 'email'], dispatchDelayMs: 5000 }];
@@ -4724,6 +4745,94 @@ describe('preselection', () => {
             { [ATTRIBUTE_KEY]: 'gold', [IDENTITY_KEY]: 'hashed-identity' },
             MPID,
           );
+        });
+      });
+
+      describe('a declared encrypted key', () => {
+        const ENCRYPTED_KEY = 'emailenc';
+        const missingLine = (key: string) =>
+          expect.objectContaining({ code: 'PRESELECT_MISSED', message: expect.stringContaining(`missing_attribute:${key}`) });
+
+        beforeEach(() => {
+          mockConfig.current = [{ ...CONFIG_ENTRY, attributeKeys: [ATTRIBUTE_KEY, ENCRYPTED_KEY] }];
+          host.userAttributes = { [ATTRIBUTE_KEY]: 'gold', emailEnc: 'encrypted-email' };
+        });
+
+        it("reads the kit's cached value in another casing, under the declared name", () => {
+          maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+          expect(selectPlacementsCalls).toHaveLength(1);
+          expect(selectPlacementsCalls[0].attributes).toEqual(
+            tagged({ [ATTRIBUTE_KEY]: 'gold', [ENCRYPTED_KEY]: 'encrypted-email' }),
+          );
+        });
+
+        it("reads the event's value in another casing over a cached one in the declared casing", () => {
+          host.userAttributes = { [ATTRIBUTE_KEY]: 'gold', [ENCRYPTED_KEY]: 'cached-email' };
+
+          maybeFirePreselect(state, host, buildEvent({ EmailEnc: 'event-email' }), PATHNAME);
+
+          expect(selectPlacementsCalls[0].attributes).toEqual(
+            tagged({ [ATTRIBUTE_KEY]: 'gold', [ENCRYPTED_KEY]: 'event-email' }),
+          );
+        });
+
+        it("reads the user's live attributes in another casing when nothing cached holds it", () => {
+          host.userAttributes = { [ATTRIBUTE_KEY]: 'gold' };
+          host.filteredUser = {
+            getUserIdentities: () => ({ userIdentities: { email: 'test@example.com' } }),
+            getMPID: () => MPID,
+            getAllUserAttributes: () => ({ EMAILENC: 'live-email' }),
+          } as unknown as PreselectHost['filteredUser'];
+
+          maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+          expect(selectPlacementsCalls[0].attributes).toEqual(
+            tagged({ [ATTRIBUTE_KEY]: 'gold', [ENCRYPTED_KEY]: 'live-email' }),
+          );
+        });
+
+        it('reads a declared identity key in another casing', () => {
+          mockConfig.current = [
+            { ...CONFIG_ENTRY, attributeKeys: [ATTRIBUTE_KEY, ENCRYPTED_KEY], identityKeys: [ENCRYPTED_KEY] },
+          ];
+          host.userAttributes = { [ATTRIBUTE_KEY]: 'gold' };
+          host.getUserIdentities = () => ({ EmailEnc: 'identity-email' });
+
+          maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+          expect(selectPlacementsCalls[0].attributes).toEqual(
+            tagged({ [ATTRIBUTE_KEY]: 'gold', [ENCRYPTED_KEY]: 'identity-email' }),
+          );
+        });
+
+        it('reads nothing when its other spellings disagree', () => {
+          host.userAttributes = { [ATTRIBUTE_KEY]: 'gold', emailEnc: 'first-email', EMAILENC: 'second-email' };
+
+          maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+          expect(selectPlacementsCalls).toHaveLength(0);
+          expect(loggedDiagnostics).toContainEqual(missingLine(ENCRYPTED_KEY));
+        });
+
+        it('still reads a plain key in its declared casing only', () => {
+          mockConfig.current = [{ ...CONFIG_ENTRY, attributeKeys: [ATTRIBUTE_KEY, 'amount'] }];
+          host.userAttributes = { [ATTRIBUTE_KEY]: 'gold', Amount: '10' };
+
+          maybeFirePreselect(state, host, buildEvent({ AMOUNT: '10' }), PATHNAME);
+
+          expect(selectPlacementsCalls).toHaveLength(0);
+          expect(loggedDiagnostics).toContainEqual(missingLine('amount'));
+        });
+
+        it('reads a bare enc key in its declared casing only', () => {
+          mockConfig.current = [{ ...CONFIG_ENTRY, attributeKeys: [ATTRIBUTE_KEY, 'enc'] }];
+          host.userAttributes = { [ATTRIBUTE_KEY]: 'gold', ENC: 'encrypted' };
+
+          maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+          expect(selectPlacementsCalls).toHaveLength(0);
+          expect(loggedDiagnostics).toContainEqual(missingLine('enc'));
         });
       });
 
@@ -8068,6 +8177,46 @@ describe('preselection', () => {
 
     it('returns false when no entry matches the account', () => {
       expect(isPreselectAttributeKey('some-other-account', ATTRIBUTE_KEY)).toBe(false);
+    });
+  });
+
+  describe('isPreselectEmailKey', () => {
+    it.each(['email', 'Email', 'emailsha256', 'EmailSha256', 'emailEnc', 'emailenc', 'EMAILENC', 'emailSha256Enc'])(
+      'counts %s as an email key',
+      (key) => {
+        expect(isPreselectEmailKey(key)).toBe(true);
+      },
+    );
+
+    it.each(['enc', 'ENC', 'phoneenc', 'cityenc', 'emailencenc', 'encemail', 'emailsha256encrypted'])(
+      'does not count %s as an email key',
+      (key) => {
+        expect(isPreselectEmailKey(key)).toBe(false);
+      },
+    );
+
+    it('counts the mapped hashed-email key and its encrypted form, in any casing', () => {
+      expect(isPreselectEmailKey('Other', 'other')).toBe(true);
+      expect(isPreselectEmailKey('otherEnc', 'other')).toBe(true);
+      expect(isPreselectEmailKey('otherEnc')).toBe(false);
+    });
+
+    it('never counts a bare enc as an email key, even with an empty mapped key', () => {
+      expect(isPreselectEmailKey('enc', '')).toBe(false);
+    });
+  });
+
+  describe('hasPreselectEmail', () => {
+    it.each([{ emailEnc: 'encrypted-email' }, { emailenc: 'encrypted-email' }, { EMAILENC: 'encrypted-email' }])(
+      'finds an encrypted email in %o',
+      (attributes) => {
+        expect(hasPreselectEmail(attributes)).toBe(true);
+      },
+    );
+
+    it('finds no email in an empty encrypted email or in other encrypted keys', () => {
+      expect(hasPreselectEmail({ emailEnc: '' })).toBe(false);
+      expect(hasPreselectEmail({ enc: 'encrypted', phoneenc: 'encrypted', cityEnc: 'encrypted' })).toBe(false);
     });
   });
 

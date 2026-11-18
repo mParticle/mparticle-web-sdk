@@ -1623,11 +1623,22 @@ export function hasPartnerEmail(
 }
 
 const EMAIL_CLASS_KEYS = ['email', 'emailsha256'];
+const ENCRYPTED_KEY_SUFFIX = 'enc';
 
-// An attribute or identity key that holds the shopper's email, raw or hashed, in any casing.
+// A key that carries an encrypted value: one ending in enc, in any casing, longer than the suffix alone.
+function isEncryptedKey(key: string): boolean {
+  return key.length > ENCRYPTED_KEY_SUFFIX.length && key.toLowerCase().endsWith(ENCRYPTED_KEY_SUFFIX);
+}
+
+// An attribute or identity key that holds the shopper's email, raw, hashed or encrypted (the key plus enc), in any
+// casing.
 export function isPreselectEmailKey(key: string, mappedEmailSha256Key?: string): boolean {
   const lower = key.toLowerCase();
-  return EMAIL_CLASS_KEYS.includes(lower) || (isString(mappedEmailSha256Key) && lower === mappedEmailSha256Key.toLowerCase());
+  const emailKeys =
+    isString(mappedEmailSha256Key) && mappedEmailSha256Key !== ''
+      ? [...EMAIL_CLASS_KEYS, mappedEmailSha256Key.toLowerCase()]
+      : EMAIL_CLASS_KEYS;
+  return emailKeys.some((emailKey) => lower === emailKey || lower === emailKey + ENCRYPTED_KEY_SUFFIX);
 }
 
 // Whether the call will carry the shopper's email, raw or hashed, judged on what selectPlacements would
@@ -1822,19 +1833,22 @@ function collectAttributes(
 
   const collected: Record<string, unknown> = {};
   for (const key of configEntry.attributeKeys) {
-    const eventValue = host.getEventAttributeValue(event, key);
-    const cachedValue = readOwnValue(host.userAttributes, key);
+    // An encrypted key arrives in more than one casing, so each source is read in any casing, its exact spelling first.
+    const encrypted = isEncryptedKey(key);
+    const read = encrypted ? readValueInAnyCasing : readOwnValue;
+    const eventValue = encrypted ? read(event.EventAttributes ?? {}, key) : host.getEventAttributeValue(event, key);
+    const cachedValue = read(host.userAttributes, key);
     let value =
       !isEmpty(eventValue) || skipsRememberedValues(host, configEntry, key)
         ? eventValue
         : !isEmpty(cachedValue)
           ? cachedValue
-          : readOwnValue(livePersistedAttributes, key);
+          : read(livePersistedAttributes, key);
     if (isEmpty(value) && identityKeys.has(key)) {
       if (!userIdentities) {
         userIdentities = host.getUserIdentities?.() ?? {};
       }
-      const identityValue = readOwnValue(userIdentities, key);
+      const identityValue = read(userIdentities, key);
       value = isString(identityValue) && identityValue !== '' ? identityValue : undefined;
     }
     if (isEmpty(value)) {
