@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.34.1](https://github.com/mParticle/mparticle-web-sdk/compare/v3.34.0...v3.34.1) (2026-11-18)
+
+
+### Bug Fixes
+
+* **button-tracking:** keep checkout label patterns ASCII after CDN minification ([#1870](https://github.com/mParticle/mparticle-web-sdk/issues/1870)) ([6066b2b](https://github.com/mParticle/mparticle-web-sdk/commit/6066b2b6401018fbc83b1229c5a0535dc0f6848e))
+
 ## [3.34.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.33.0...v3.34.0) (2026-11-18)
 
 

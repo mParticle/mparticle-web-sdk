@@ -1,6 +1,6 @@
 var mParticle = (function () {
 
-    var version = "3.34.0";
+    var version = "3.34.1";
 
     var Constants = {
       sdkVersion: version,
@@ -474,7 +474,8 @@ var mParticle = (function () {
     };
     // The MPID can come from persisted storage, so it is encoded before it is
     // placed in a URL. encodeURIComponent throws on a lone UTF-16 surrogate, so
-    // one is replaced with U+FFFD rather than letting the request fail. An MPID
+    // one is replaced with U+FFFD rather than letting the request fail (built
+    // with fromCharCode, since the CDN minifier would turn a string escape into a raw byte). An MPID
     // of '.' or '..' would become a dot segment that changes the request path,
     // and URL parsers also treat '%2E' as a dot there, so each dot is sent as
     // '%252E' instead. Numeric MPIDs are left unchanged.
@@ -485,7 +486,7 @@ var mParticle = (function () {
         encoded = encodeURIComponent(mpid);
       } catch (e) {
         encoded = encodeURIComponent(String(mpid).replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]|[\uD800-\uDFFF]/g, function (match) {
-          return match.length === 2 ? match : "\uFFFD";
+          return match.length === 2 ? match : String.fromCharCode(0xfffd);
         }));
       }
       return encoded === '.' || encoded === '..' ? encoded.replace(/\./g, '%252E') : encoded;
@@ -2804,7 +2805,7 @@ var mParticle = (function () {
     // caller to inspect, and no way to restore the wrong pair.
     var patchHistory = function patchHistory(onNavigate, log) {
       if (window.history.pushState[WRAPPED_MARKER]) {
-        log('[patch] history already wrapped, skipping to avoid double-wrap \u2014 STACKED WRAPPER DETECTED');
+        log('[patch] history already wrapped, skipping to avoid double-wrap - STACKED WRAPPER DETECTED');
         return null;
       }
       var originals = {};
@@ -3330,7 +3331,7 @@ var mParticle = (function () {
         if (!outgoing) {
           return [];
         }
-        this.log(outgoing === this ? '[init] retiring this tracker for a repeat mParticle.init() \u2014 transferring pending navigations and tearing down' : '[init] retiring a tracker from a previous module load \u2014 transferring pending navigations and tearing down');
+        this.log(outgoing === this ? '[init] retiring this tracker for a repeat mParticle.init() - transferring pending navigations and tearing down' : '[init] retiring a tracker from a previous module load - transferring pending navigations and tearing down');
         var pages = outgoing.takePendingNavigations();
         outgoing.teardown();
         return pages;
@@ -12258,7 +12259,7 @@ var mParticle = (function () {
       try {
         return {
           run: new RegExp('\\p{Nd}{6,}', 'u'),
-          number: new RegExp('\\p{Nd}+(?:[.,\u060C\u066B\u066C]\\p{Nd}+)*', 'gu')
+          number: new RegExp("\\p{Nd}+(?:[.,\\u060C\\u066B\\u066C]\\p{Nd}+)*", 'gu')
         };
       } catch (e) {
         return undefined;
@@ -13195,21 +13196,33 @@ var mParticle = (function () {
     // English look-alikes are whole words; the other languages stay substring
     // matches, since several of them do not separate words with spaces.
     var englishExclusions = new RegExp('\\b(?:coupon|promo(?: code)?|newsletter|sign in|sign up|log in|login|add to (?:cart|bag|basket)|' + 'gift card balance|(?:add|apply|redeem|check|enter|use) (?:a |an |your )?gift card|pay later|' + 'interest free|as low as|learn more|prequalify|apply (?:now|for)|payment plan|available|accepted|' + 'we accept|set up|add money|reload|top up|add to (?:apple|google) wallet|connect|link your|unlink|' + 'remove|delete|edit|change|manage|use a different|switch)\\b|^pay in$|\\bpay in (?:installments|instalments)\\b');
-    var otherExclusions = new RegExp(['gutschein|anmelden|warenkorb|bon cadeau|connexion|panier|cup\u00F3n|iniciar sesi\u00F3n|carrito', 'carrello|codice sconto|accedi|buono regalo|winkelwagen|kortingscode|inloggen|cadeaubon|achteraf betalen', '\u30AB\u30FC\u30C8|\u30AF\u30FC\u30DD\u30F3|\u30ED\u30B0\u30A4\u30F3|\u4F1A\u54E1\u767B\u9332|\u30AE\u30D5\u30C8|\u5F8C\u6255\u3044|\u30E1\u30EB\u30DE\u30AC'].join('|'));
+    var otherExclusions = new RegExp(["gutschein|anmelden|warenkorb|bon cadeau|connexion|panier|cup\\u00F3n|iniciar sesi\\u00F3n|carrito", 'carrello|codice sconto|accedi|buono regalo|winkelwagen|kortingscode|inloggen|cadeaubon|achteraf betalen',
+    // '\u30AB\u30FC\u30C8|\u30AF\u30FC\u30DD\u30F3|\u30ED\u30B0\u30A4\u30F3|\u4F1A\u54E1\u767B\u9332|\u30AE\u30D5\u30C8|\u5F8C\u6255\u3044|\u30E1\u30EB\u30DE\u30AC',
+    "\\u30AB\\u30FC\\u30C8|\\u30AF\\u30FC\\u30DD\\u30F3|\\u30ED\\u30B0\\u30A4\\u30F3|\\u4F1A\\u54E1\\u767B\\u9332|\\u30AE\\u30D5\\u30C8|\\u5F8C\\u6255\\u3044|\\u30E1\\u30EB\\u30DE\\u30AC"].join('|'));
     var englishCommits = '(?:(?:agree|accept|review) and )?(?:place|submit|complete|confirm|finali[sz]e)' + '(?!(?: [^ ]+){0,2} (?:another|new|next)(?: |$))(?! (?:[^ ]+ )?gift card)' + '(?: [^ ]+){0,2} (?:order|purchase|booking|reservation|payment|checkout|transaction)' + '(?: now| securely| and pay| (?:with|using) [^ ]+(?: [^ ]+)?)?(?: (?:total|subtotal|items?|tickets?))?' + '|pay(?: securely)?(?: now)?|(?:confirm|agree|accept|submit|order|book) and pay' + '|pay and place (?:my |your )?order|order with obligation to pay';
-    var otherCommits = ['(?:jetzt )?(?:zahlungs|kosten)pflichtig (?:bestellen|buchen)|(?:jetzt )?bezahlen|kauf abschlie\u00DFen|bestellung abschlie\u00DFen', 'commander et payer|payer(?: maintenant)?|(?:confirmer|finaliser) (?:ma |la )?commande', "valider et payer|confirmer et payer|commande avec obligation de paiement|finaliser l'achat", '(?:realizar|confirmar|completar) (?:el |mi |la )?(?:pedido|compra|reserva)|finalizar (?:el |mi )?pedido|pagar(?: ahora)?', 'pedido con obligaci\u00F3n de pago', "(?:effettua|conferma|concludi|completa) (?:l'|il )?(?:ordine|acquisto)|ordine con obbligo di pagamento", 'paga(?: ora| adesso)?|ordina e paga', '(?:nu )?betalen|bestellen en betalen|bestelling plaatsen|plaats bestelling|bestelling afronden', 'bestelling met betalingsverplichting', '(?:\u3053\u306E\u5185\u5BB9\u3067|\u4E0A\u8A18\u306E?\u5185\u5BB9\u3067)?\u3054?(?:\u6CE8\u6587|\u8CFC\u5165|\u4E88\u7D04|\u6C7A\u6E08|\u304A?\u652F\u6255\u3044?)\u3092?(?:\u78BA\u5B9A|\u5B8C\u4E86)(?:\u3059\u308B)?', '(?:\u3053\u306E\u5185\u5BB9\u3067|\u4E0A\u8A18\u306E?\u5185\u5BB9\u3067)\u3054?(?:\u6CE8\u6587|\u8CFC\u5165|\u4E88\u7D04)\u3059\u308B|\u3054?\u6CE8\u6587\u3059\u308B|\u6C7A\u6E08\u3059\u308B|(?:\u4ECA\u3059\u3050|\u3092)?\u652F\u6255\u3046|\u304A?\u652F\u6255\u3044\u3092\u884C\u3046'].join('|');
+    var otherCommits = ["(?:jetzt )?(?:zahlungs|kosten)pflichtig (?:bestellen|buchen)|(?:jetzt )?bezahlen|kauf abschlie\\u00DFen|bestellung abschlie\\u00DFen", 'commander et payer|payer(?: maintenant)?|(?:confirmer|finaliser) (?:ma |la )?commande', "valider et payer|confirmer et payer|commande avec obligation de paiement|finaliser l'achat", '(?:realizar|confirmar|completar) (?:el |mi |la )?(?:pedido|compra|reserva)|finalizar (?:el |mi )?pedido|pagar(?: ahora)?', "pedido con obligaci\\u00F3n de pago", "(?:effettua|conferma|concludi|completa) (?:l'|il )?(?:ordine|acquisto)|ordine con obbligo di pagamento", 'paga(?: ora| adesso)?|ordina e paga', '(?:nu )?betalen|bestellen en betalen|bestelling plaatsen|plaats bestelling|bestelling afronden', 'bestelling met betalingsverplichting',
+    // '(?:\u3053\u306E\u5185\u5BB9\u3067|\u4E0A\u8A18\u306E?\u5185\u5BB9\u3067)?\u3054?(?:\u6CE8\u6587|\u8CFC\u5165|\u4E88\u7D04|\u6C7A\u6E08|\u304A?\u652F\u6255\u3044?)\u3092?(?:\u78BA\u5B9A|\u5B8C\u4E86)(?:\u3059\u308B)?',
+    "(?:\\u3053\\u306E\\u5185\\u5BB9\\u3067|\\u4E0A\\u8A18\\u306E?\\u5185\\u5BB9\\u3067)?\\u3054?(?:\\u6CE8\\u6587|\\u8CFC\\u5165|\\u4E88\\u7D04|\\u6C7A\\u6E08|\\u304A?\\u652F\\u6255\\u3044?)\\u3092?(?:\\u78BA\\u5B9A|\\u5B8C\\u4E86)(?:\\u3059\\u308B)?",
+    // '(?:\u3053\u306E\u5185\u5BB9\u3067|\u4E0A\u8A18\u306E?\u5185\u5BB9\u3067)\u3054?(?:\u6CE8\u6587|\u8CFC\u5165|\u4E88\u7D04)\u3059\u308B|\u3054?\u6CE8\u6587\u3059\u308B|\u6C7A\u6E08\u3059\u308B|(?:\u4ECA\u3059\u3050|\u3092)?\u652F\u6255\u3046|\u304A?\u652F\u6255\u3044\u3092\u884C\u3046',
+    "(?:\\u3053\\u306E\\u5185\\u5BB9\\u3067|\\u4E0A\\u8A18\\u306E?\\u5185\\u5BB9\\u3067)\\u3054?(?:\\u6CE8\\u6587|\\u8CFC\\u5165|\\u4E88\\u7D04)\\u3059\\u308B|\\u3054?\\u6CE8\\u6587\\u3059\\u308B|\\u6C7A\\u6E08\\u3059\\u308B|(?:\\u4ECA\\u3059\\u3050|\\u3092)?\\u652F\\u6255\\u3046|\\u304A?\\u652F\\u6255\\u3044\\u3092\\u884C\\u3046"].join('|');
     var commits = new RegExp('^(?:' + englishCommits + '|' + otherCommits + ')$');
     // A plain link is navigation, so in English only an order or purchase it
     // places, submits or completes counts as the confirm click.
     var linkCommits = new RegExp('^(?:(?:place|submit|complete)(?!(?: [^ ]+){0,2} (?:another|new|next)(?: |$))(?: [^ ]+){0,2} (?:order|purchase)|' + otherCommits + ')$');
-    var routeGatedCommits = new RegExp('^(?:buy now|purchase|register(?: now)?|complete (?:my |your )?registration|jetzt kaufen|kaufen|commander|(?:passer|valider) (?:la |ma )?commande|finalizar (?:la |mi )?compra|' + 'comprar ahora|acquista ora|nu kopen|\u4ECA\u3059\u3050\u8CFC\u5165|\u8CFC\u5165\u3059\u308B|\u3053\u306E\u5185\u5BB9\u3067\u7533\u3057\u8FBC\u3080)$');
-    var steps = new RegExp('^(?:' + ["(?:let's |lets |go to |proceed to |secure )?(?:check ?out|checkout)(?: now| securely| as guest)?", '(?:continue|proceed) to (?:payment|review|billing|shipping|delivery|order review)|review (?:my |your )?order', 'guest checkout|(?:pay|continue|check ?out) (?:with|by) (?:card|credit card|debit card|credit or debit card)', 'zur kasse|zur kasse gehen|auschecken|weiter zur zahlung', 'passer \u00E0 la caisse|continuer vers le paiement|proc\u00E9der au paiement', 'ir a caja|continuar al pago|tramitar pedido', "procedi al checkout|procedi all'acquisto|procedi al pagamento|vai alla cassa", 'afrekenen|verder naar betalen|doorgaan naar betalen', '\u30EC\u30B8\u306B\u9032\u3080|\u3054?(?:\u8CFC\u5165|\u6CE8\u6587)\u624B\u7D9A\u304D(?:(?:\u3078|\u306B)(?:\u9032\u3080)?)?|\u304A?\u652F\u6255\u3044(?:\u3078|\u306B)\u9032\u3080|(?:\u3054\u6CE8\u6587\u5185\u5BB9\u306E)?\u78BA\u8A8D\u753B\u9762\u3078(?:\u9032\u3080)?'].join('|') + ')$');
+    var routeGatedCommits = new RegExp('^(?:buy now|purchase|register(?: now)?|complete (?:my |your )?registration|jetzt kaufen|kaufen|commander|(?:passer|valider) (?:la |ma )?commande|finalizar (?:la |mi )?compra|' +
+    // 'comprar ahora|acquista ora|nu kopen|\u4ECA\u3059\u3050\u8CFC\u5165|\u8CFC\u5165\u3059\u308B|\u3053\u306E\u5185\u5BB9\u3067\u7533\u3057\u8FBC\u3080)$'
+    "comprar ahora|acquista ora|nu kopen|\\u4ECA\\u3059\\u3050\\u8CFC\\u5165|\\u8CFC\\u5165\\u3059\\u308B|\\u3053\\u306E\\u5185\\u5BB9\\u3067\\u7533\\u3057\\u8FBC\\u3080)$");
+    var steps = new RegExp('^(?:' + ["(?:let's |lets |go to |proceed to |secure )?(?:check ?out|checkout)(?: now| securely| as guest)?", '(?:continue|proceed) to (?:payment|review|billing|shipping|delivery|order review)|review (?:my |your )?order', 'guest checkout|(?:pay|continue|check ?out) (?:with|by) (?:card|credit card|debit card|credit or debit card)', 'zur kasse|zur kasse gehen|auschecken|weiter zur zahlung', "passer \\u00E0 la caisse|continuer vers le paiement|proc\\u00E9der au paiement", 'ir a caja|continuar al pago|tramitar pedido', "procedi al checkout|procedi all'acquisto|procedi al pagamento|vai alla cassa", 'afrekenen|verder naar betalen|doorgaan naar betalen',
+    // '\u30EC\u30B8\u306B\u9032\u3080|\u3054?(?:\u8CFC\u5165|\u6CE8\u6587)\u624B\u7D9A\u304D(?:(?:\u3078|\u306B)(?:\u9032\u3080)?)?|\u304A?\u652F\u6255\u3044(?:\u3078|\u306B)\u9032\u3080|(?:\u3054\u6CE8\u6587\u5185\u5BB9\u306E)?\u78BA\u8A8D\u753B\u9762\u3078(?:\u9032\u3080)?',
+    "\\u30EC\\u30B8\\u306B\\u9032\\u3080|\\u3054?(?:\\u8CFC\\u5165|\\u6CE8\\u6587)\\u624B\\u7D9A\\u304D(?:(?:\\u3078|\\u306B)(?:\\u9032\\u3080)?)?|\\u304A?\\u652F\\u6255\\u3044(?:\\u3078|\\u306B)\\u9032\\u3080|(?:\\u3054\\u6CE8\\u6587\\u5185\\u5BB9\\u306E)?\\u78BA\\u8A8D\\u753B\\u9762\\u3078(?:\\u9032\\u3080)?"].join('|') + ')$');
     // "Save and continue" also saves profile, address and card forms, so it is a step only on a checkout segment's route
     // that isn't an account or confirmation page.
     var routeGatedSteps = /^save and continue$/;
     var CART_NOUN = '(?:(?:my|your|the) )?(?:shopping )?(?:cart|bag|basket)';
     // "Add to bag", "Add 2 to cart", and "\u30AB\u30FC\u30C8\u306B\u8FFD\u52A0\u3059\u308B": a click that puts something in the cart.
-    var addToCartLabels = new RegExp('^(?:add(?: [^ ]+){0,5} to ' + CART_NOUN + '|(?:[^\u3092]{0,40}\u3092)?\u30AB\u30FC\u30C8\u306B\u8FFD\u52A0(?:\u3059\u308B)?)$');
+    var addToCartLabels = new RegExp(
+    // '^(?:add(?: [^ ]+){0,5} to ' + CART_NOUN + '|(?:[^\u3092]{0,40}\u3092)?\u30AB\u30FC\u30C8\u306B\u8FFD\u52A0(?:\u3059\u308B)?)$'
+    '^(?:add(?: [^ ]+){0,5} to ' + CART_NOUN + "|(?:[^\\u3092]{0,40}\\u3092)?\\u30AB\\u30FC\\u30C8\\u306B\\u8FFD\\u52A0(?:\\u3059\\u308B)?)$");
     // "View cart", "Shopping bag", "Bag", and a count badge such as "1 item in bag",
     // which reads "item in bag" once digits are stripped: a click that opens the cart.
     var openCartLabels = new RegExp('^(?:(?:(?:view|open|go to) )?' + CART_NOUN + '(?: items?)?' + '|items? in ' + CART_NOUN + ')$');
