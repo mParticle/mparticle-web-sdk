@@ -33,6 +33,8 @@ import {
   handlePreselectPaymentPick,
   getPreselectClientType,
   getPreselectAttributeDefaults,
+  getPreselectCacheIdentityKeys,
+  getPreselectCacheMatchValues,
   applyPreselectAttributeDefaults,
   PRESELECT_TRIGGER_ATTRIBUTE,
   PRESELECT_ENTRY_OPTION,
@@ -3930,6 +3932,108 @@ describe('preselection', () => {
             expect(firedLine()?.message).not.toContain('defaulted_keys');
           });
 
+          describe.each(['standard', 'widened'] as const)('explicit default rules on a %s tab', (variant) => {
+            beforeEach(() => {
+              host.getPreselectVariant = () => variant;
+            });
+
+            it.each([
+              { matchGroups: [['overlay', 'banner']] },
+              { skipValues: ['embed'] },
+            ])('fills an absent required key with %j', (rules) => {
+              useEntry({
+                preselectAttributeDefaults: { [DEFAULTED_KEY]: { value: 'overlay', ...rules } },
+              });
+
+              expect(getPreselectAttributeDefaults(host, mockConfig.current[0], {})).toEqual({
+                [DEFAULTED_KEY]: 'overlay',
+              });
+              maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+              expect(selectPlacementsCalls).toHaveLength(1);
+              expect(firedLine()?.message).toContain('[defaulted_keys=placementType]');
+            });
+
+            it('keeps matching groups and strict identity metadata for the filled key', () => {
+              useEntry({
+                identityKeys: [ATTRIBUTE_KEY],
+                preselectAttributeDefaults: {
+                  [DEFAULTED_KEY]: { value: 'overlay', matchGroups: [['overlay', 'banner']] },
+                },
+              });
+              const entry = mockConfig.current[0];
+              const fills = getPreselectAttributeDefaults(host, entry, {});
+              const outgoing = applyPreselectAttributeDefaults({ [ATTRIBUTE_KEY]: 'gold' }, fills);
+
+              expect(getPreselectCacheMatchValues(entry, fills, outgoing)).toEqual({
+                [DEFAULTED_KEY]: ['overlay', 'banner'],
+              });
+              expect(getPreselectCacheIdentityKeys(entry, fills, outgoing)).toEqual([ATTRIBUTE_KEY, DEFAULTED_KEY]);
+            });
+
+            it('does not replace a page value or an identity with an explicit default', () => {
+              useEntry({
+                preselectAttributeDefaults: {
+                  [DEFAULTED_KEY]: { value: 'overlay', matchGroups: [['overlay', 'banner']] },
+                },
+              });
+              expect(getPreselectAttributeDefaults(host, mockConfig.current[0], { PlacementType: 'embed' })).toEqual({});
+              host.getUserIdentities = () => ({ PlacementType: 'banner' });
+              expect(getPreselectAttributeDefaults(host, mockConfig.current[0], {})).toEqual({});
+            });
+
+            it.each([
+              { matchGroups: [['overlay', 'banner']] },
+              { skipValues: ['embed'] },
+            ])('replaces remembered values only when requested with %j', (rules) => {
+              useEntry({
+                preselectAttributeDefaults: { [DEFAULTED_KEY]: { value: 'overlay', ...rules } },
+              });
+              host.userAttributes = { [ATTRIBUTE_KEY]: 'gold', PlacementType: 'embed' };
+              expect(getPreselectAttributeDefaults(host, mockConfig.current[0], {})).toEqual({});
+              useEntry({
+                preselectAttributeDefaults: {
+                  [DEFAULTED_KEY]: { value: 'overlay', ...rules, skipRemembered: true },
+                },
+              });
+
+              maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+              expect(selectPlacementsCalls).toHaveLength(1);
+              expect(firedLine()?.message).toContain('[defaulted_keys=placementType]');
+            });
+
+            it('still skips a call carrying a skipped value', () => {
+              useEntry({
+                preselectAttributeDefaults: { [DEFAULTED_KEY]: { value: 'overlay', skipValues: ['embed'] } },
+              });
+
+              maybeFirePreselect(state, host, buildEvent({ [DEFAULTED_KEY]: 'EMBED' }), PATHNAME);
+
+              expect(selectPlacementsCalls).toHaveLength(0);
+              expect(loggedDiagnostics).toContainEqual({
+                code: 'PRESELECT_SKIPPED',
+                message: 'Rokt Kit: preselect skipped [reason=skip_value:placementType]',
+              });
+            });
+
+            it('still respects a device skip with explicit matching rules', () => {
+              vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue(IPHONE);
+              useEntry({
+                preselectAttributeDefaults: {
+                  [DEFAULTED_KEY]: {
+                    value: 'overlay',
+                    matchGroups: [['overlay', 'banner']],
+                    byClientType: { MobileWeb: 'skip' },
+                    skipRemembered: true,
+                  },
+                },
+              });
+
+              expect(getPreselectAttributeDefaults(host, mockConfig.current[0], {})).toEqual({});
+            });
+          });
+
           it('does not count a default as resolved on a widened tab', () => {
             useEntry();
             host.getPreselectVariant = () => 'widened';
@@ -3960,6 +4064,31 @@ describe('preselection', () => {
             expect(selectPlacementsCalls).toHaveLength(1);
             expect(firedLine()?.message).toContain('[variant=widened]');
             expect(firedLine()?.message).not.toContain('defaulted_keys');
+          });
+
+          it('fills a widened key with an explicit default and makes it strict on arrival', () => {
+            useEntry({
+              identityKeys: [ATTRIBUTE_KEY],
+              widenedOptionalAttributeKeys: [DEFAULTED_KEY],
+              preselectAttributeDefaults: {
+                [DEFAULTED_KEY]: { value: 'overlay', matchGroups: [['overlay', 'banner']] },
+              },
+            });
+            host.getPreselectVariant = () => 'widened';
+            const entry = mockConfig.current[0];
+            const fills = getPreselectAttributeDefaults(host, entry, {});
+            const outgoing = applyPreselectAttributeDefaults({ [ATTRIBUTE_KEY]: 'gold' }, fills);
+
+            expect(fills).toEqual({ [DEFAULTED_KEY]: 'overlay' });
+            expect(getPreselectCacheIdentityKeys(entry, fills, outgoing)).toEqual([ATTRIBUTE_KEY, DEFAULTED_KEY]);
+            expect(getPreselectCacheMatchValues(entry, fills, outgoing)).toEqual({
+              [DEFAULTED_KEY]: ['overlay', 'banner'],
+            });
+
+            maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+            expect(selectPlacementsCalls).toHaveLength(1);
+            expect(firedLine()?.message).toContain('[defaulted_keys=placementType]');
           });
 
           it('holds on a device the default skips', () => {

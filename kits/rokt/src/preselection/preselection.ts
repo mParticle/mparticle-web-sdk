@@ -864,17 +864,24 @@ function getHeldKeys(source: Record<string, unknown>): Set<string> {
   );
 }
 
+// Defaults with explicit matching or skipping rules apply to both arms; other defaults remain standard-only.
+function defaultAppliesToTab(host: PreselectHost, attributeDefault: string | PreselectAttributeDefault): boolean {
+  return (
+    !isWidenedTab(host) ||
+    (!isString(attributeDefault) && !!(attributeDefault.matchGroups || attributeDefault.skipValues))
+  );
+}
+
 // The defaults this call fills, keyed as the entry spells them: each key these attributes, the call's identities
 // and its saved attributes leave empty in every casing, since applying a fill drops the key's other spellings. A
-// saved value counts only where the default does not skip remembered values. None on a widened tab, so that arm
-// never carries a guess.
+// saved value counts only where the default does not skip remembered values.
 export function getPreselectAttributeDefaults(
   host: PreselectHost,
   configEntry: PreselectionConfigEntry,
   attributes: Record<string, unknown>,
 ): Record<string, string> {
   const defaults = configEntry.preselectAttributeDefaults;
-  if (!defaults || isWidenedTab(host)) {
+  if (!defaults) {
     return {};
   }
 
@@ -887,6 +894,7 @@ export function getPreselectAttributeDefaults(
     // The parser bars email and emailsha256, but only the kit knows the account's mapped hashed-email key, which a
     // guess would go out as just the same.
     if (
+      !defaultAppliesToTab(host, defaults[key]) ||
       isPreselectEmailKey(key, host.mappedEmailSha256Key) ||
       heldKeys.has(lowerKey) ||
       (savedKeys.has(lowerKey) && !skipsRememberedValues(host, configEntry, key))
@@ -907,7 +915,7 @@ function skipsRememberedValues(host: PreselectHost, configEntry: PreselectionCon
   return (
     isObject(attributeDefault) &&
     attributeDefault.skipRemembered === true &&
-    !isWidenedTab(host) &&
+    defaultAppliesToTab(host, attributeDefault as PreselectAttributeDefault) &&
     !isPreselectEmailKey(key, host.mappedEmailSha256Key) &&
     resolvePreselectAttributeDefault(
       attributeDefault as PreselectAttributeDefault,
@@ -1789,7 +1797,8 @@ function getMissingRequiredAttributeKeys(
   const optionalKeys = new Set(
     [...(configEntry.optionalAttributeKeys ?? []), ...widenedKeys].map((key) => key.toLowerCase()),
   );
-  // A defaulted key is resolved only where this tab fills it, so a device's skip or a widened tab still holds.
+  // A defaulted key is resolved only where this tab fills it, so a device's skip or a plain default on a widened tab
+  // still holds.
   const defaults = getPreselectAttributeDefaults(host, configEntry, attributes);
   return configEntry.attributeKeys.filter(
     (key) =>

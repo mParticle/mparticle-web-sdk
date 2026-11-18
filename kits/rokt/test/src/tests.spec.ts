@@ -13360,7 +13360,7 @@ describe('Rokt Forwarder', () => {
           expect(selectPlacementsCalls[0].cacheIdentityKeys).toEqual(['customerid']);
         });
 
-        it('adds nothing on a widened tab, which takes no default', async () => {
+        it('adds nothing on a widened tab for a plain default', async () => {
           pushIdentityDefaultsConfig({ widenedOptionalAttributeKeys: ['placementType'] });
           (window as any).mParticle.forwarder.launcher.preselectVariant = 'widened';
 
@@ -13369,6 +13369,30 @@ describe('Rokt Forwarder', () => {
 
           expect(selectPlacementsCalls[0].attributes).not.toHaveProperty('placementType');
           expect(selectPlacementsCalls[0].cacheIdentityKeys).toEqual(['customerid']);
+        });
+
+        it('fills a matchGroups default on a widened tab and compares it strictly on arrival', async () => {
+          pushIdentityDefaultsConfig({
+            widenedOptionalAttributeKeys: ['placementType'],
+            preselectAttributeDefaults: {
+              placementType: {
+                value: 'overlay',
+                matchGroups: [
+                  ['overlay', 'overlay-wide'],
+                  ['embed', 'embed-wide'],
+                ],
+              },
+            },
+          });
+          (window as any).mParticle.forwarder.launcher.preselectVariant = 'widened';
+
+          firePreselectPageview();
+          await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+          expect(selectPlacementsCalls[0].attributes.placementType).toBe('overlay');
+          expect(selectPlacementsCalls[0].attributes['rokt.preselectdefaulted']).toBe('placementType');
+          expect(selectPlacementsCalls[0].cacheIdentityKeys).toEqual(['customerid', 'placementType']);
+          expect(selectPlacementsCalls[0].cacheMatchValues).toEqual({ placementType: ['overlay', 'overlay-wide'] });
         });
       });
 
@@ -13385,6 +13409,20 @@ describe('Rokt Forwarder', () => {
 
           expect(selectPlacementsCalls[0].attributes).not.toHaveProperty('placementType');
           expect(selectPlacementsCalls[0].cacheMatchKeys).toEqual(['loyaltyTier', 'placementType']);
+        });
+
+        it('fills no default that only matches by payment family', async () => {
+          pushDefaultsConfig({
+            widenedOptionalAttributeKeys: ['placementType'],
+            preselectAttributeDefaults: { placementType: { value: 'Credit Card', matchPaymentFamily: true } },
+          });
+
+          firePreselectPageview();
+          await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+          expect(selectPlacementsCalls[0].attributes).not.toHaveProperty('placementType');
+          expect(selectPlacementsCalls[0].attributes).not.toHaveProperty('rokt.preselectdefaulted');
+          expect(selectPlacementsCalls[0]).not.toHaveProperty('cacheMatchTokens');
         });
 
         it('holds on a required key it would default on a standard tab', async () => {
