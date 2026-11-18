@@ -2934,23 +2934,45 @@ describe('identity', function() {
     });
 
     it('should trigger the identifyCallback when a successful identify call is sent', async () => {
-        let mpid;
+        // Drain the suite's init before replacing its callback or response route.
+        // Otherwise that response can satisfy this test's idle predicate first.
+        await waitForCondition(hasBeforeEachCallbackReturned);
+        await waitForCondition(hasIdentityCallInflightReturned);
+        mParticle._resetForTests(MPConfig);
+        fetchMock.resetHistory();
 
-        fetchMockSuccess(urls.identify, {
-            mpid: 'MPID1',
-            is_logged_in: false,
+        let releaseIdentify: () => void;
+        const identifyResponse = new Promise<{ status: number; body: string }>(resolve => {
+            releaseIdentify = () => resolve({
+                status: 200,
+                body: JSON.stringify({
+                    mpid: 'MPID1',
+                    is_logged_in: false,
+                }),
+            });
+        });
+        fetchMock.post(urls.identify, () => identifyResponse, {
+            overwriteRoutes: true,
         });
 
-        // https://go.mparticle.com/work/SQDSDKS-6460
-        mParticle.config.identityCallback = function({ body }) {
-            mpid = (body as IdentityResultBody).mpid;
+        let result: IdentityResult;
+        mParticle.config.identityCallback = function(response) {
+            result = response;
         };
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        await waitForCondition(hasIdentityCallInflightReturned);
+        // Keep the response pending until the request has been observed.
+        // The new init must not reuse the suite's result or cached identity.
+        await waitForCondition(() => fetchMock.calls(urls.identify).length === 1);
+        expect(result).to.equal(undefined);
+        releaseIdentify();
 
-        expect(mpid).to.equal('MPID1');
+        await waitForCondition(() => Boolean(result));
+
+        expect(result.httpCode).to.equal(200);
+        expect((result.body as IdentityResultBody).mpid).to.equal('MPID1');
+        expect(result.getUser().getMPID()).to.equal('MPID1');
     });
 
     it('should trigger the identityCallback before eventQueue is flushed', async () => {
