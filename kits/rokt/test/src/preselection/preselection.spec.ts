@@ -1829,6 +1829,35 @@ describe('preselection', () => {
           send('commit');
           expect(selectPlacementsCalls).toHaveLength(1);
         });
+        it('fires once when two encrypted emails flip casing between clicks', () => {
+          host.getUserIdentities = () => ({});
+          host.getOutgoingAttributes = (attributes) => ({
+            ...attributes,
+            emailEnc: 'ciphertext-1',
+            emailsha256enc: 'hash-ciphertext-1',
+          });
+          maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+          send('commit');
+          host.getOutgoingAttributes = (attributes) => ({
+            ...attributes,
+            emailEnc: 'ciphertext-2',
+            EMAILSHA256ENC: 'hash-ciphertext-2',
+          });
+          send('commit');
+          expect(selectPlacementsCalls).toHaveLength(1);
+        });
+        it('fires once when the encrypted email is an entry default and its ciphertext changes', () => {
+          mockConfig.current = [
+            { ...CONFIG_ENTRY, preselectAttributeDefaults: { emailEnc: 'unused-default' }, dispatchDelayMs: 5000 },
+          ];
+          host.getUserIdentities = () => ({});
+          host.getOutgoingAttributes = (attributes) => ({ ...attributes, emailEnc: 'ciphertext-1' });
+          maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+          send('commit');
+          host.getOutgoingAttributes = (attributes) => ({ ...attributes, emailEnc: 'ciphertext-2' });
+          send('commit');
+          expect(selectPlacementsCalls).toHaveLength(1);
+        });
         it('fires once when the entry declares the encrypted email and its ciphertext changes', () => {
           mockConfig.current = [{ ...CONFIG_ENTRY, attributeKeys: [ATTRIBUTE_KEY, 'emailEnc'], dispatchDelayMs: 5000 }];
           host.getUserIdentities = () => ({});

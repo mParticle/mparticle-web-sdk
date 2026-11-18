@@ -2013,9 +2013,9 @@ function getAttributesDigests(
     const isEncrypted = (key: string): boolean => isEncryptedEmailKey(key, host.mappedEmailSha256Key);
     // A fresh ciphertext of the same email is not a changed email, so an encrypted one counts once, by presence, under
     // its lowercase name.
-    const encryptedEmails = [...new Set(sentEmailKeys.filter(isEncrypted).map((key) => key.toLowerCase()))].map(
-      (key) => [key, true],
-    );
+    const encryptedEmails = [...new Set(sentEmailKeys.filter(isEncrypted).map((key) => key.toLowerCase()))]
+      .sort()
+      .map((key) => [key, true]);
     const emails = [
       ...sentEmailKeys.filter((key) => !isEncrypted(key)).map((key) => [key, readOwnValue(outgoing, key)]),
       ...encryptedEmails,
@@ -2037,7 +2037,7 @@ function getAttributesDigests(
         .sort()
         .map((name) => [name, outgoing[name]]);
       if (sent.length > 0) {
-        keyedAttributes[key] = sent;
+        keyedAttributes[key] = isEncrypted(key) ? true : sent;
       }
     }
     const keyed = JSON.stringify(keyedAttributes);
