@@ -1597,16 +1597,20 @@ function readFormEmail(): string | undefined {
   return emails.size === 1 && !ambiguous ? emails.values().next().value : undefined;
 }
 
+const ENCRYPTED_KEY_SUFFIX = 'enc';
+
 // Whether the partner supplies the shopper's email anywhere, including on the unfiltered user: an email
 // filtered from this connection is one the partner chose not to share, so the form must not stand in.
-// A hashed email (emailsha256, or the identity mapped to it) counts, and keys match in any casing.
+// A hashed or encrypted email (emailsha256, the identity mapped to it, or any of them plus enc) counts, in any casing.
 export function hasPartnerEmail(
   host: PreselectHost,
   emailKey: string,
   eventAttributes: Record<string, unknown> = {},
 ): boolean {
   const emailKeys = new Set(
-    [emailKey, 'emailsha256', host.mappedEmailSha256Key].filter(isString).map((key) => key.toLowerCase()),
+    [emailKey, 'emailsha256', host.mappedEmailSha256Key]
+      .filter((key): key is string => isString(key) && key !== '')
+      .flatMap((key) => [key.toLowerCase(), key.toLowerCase() + ENCRYPTED_KEY_SUFFIX]),
   );
   const currentUser = host.getCurrentUser?.();
   const sources: Array<Record<string, unknown>> = [
@@ -1623,12 +1627,6 @@ export function hasPartnerEmail(
 }
 
 const EMAIL_CLASS_KEYS = ['email', 'emailsha256'];
-const ENCRYPTED_KEY_SUFFIX = 'enc';
-
-// A key that carries an encrypted value: one ending in enc, in any casing, longer than the suffix alone.
-function isEncryptedKey(key: string): boolean {
-  return key.length > ENCRYPTED_KEY_SUFFIX.length && key.toLowerCase().endsWith(ENCRYPTED_KEY_SUFFIX);
-}
 
 // An attribute or identity key that holds the shopper's email, raw, hashed or encrypted (the key plus enc), in any
 // casing.
@@ -1833,22 +1831,19 @@ function collectAttributes(
 
   const collected: Record<string, unknown> = {};
   for (const key of configEntry.attributeKeys) {
-    // An encrypted key arrives in more than one casing, so each source is read in any casing, its exact spelling first.
-    const encrypted = isEncryptedKey(key);
-    const read = encrypted ? readValueInAnyCasing : readOwnValue;
-    const eventValue = encrypted ? read(event.EventAttributes ?? {}, key) : host.getEventAttributeValue(event, key);
-    const cachedValue = read(host.userAttributes, key);
+    const eventValue = host.getEventAttributeValue(event, key);
+    const cachedValue = readOwnValue(host.userAttributes, key);
     let value =
       !isEmpty(eventValue) || skipsRememberedValues(host, configEntry, key)
         ? eventValue
         : !isEmpty(cachedValue)
           ? cachedValue
-          : read(livePersistedAttributes, key);
+          : readOwnValue(livePersistedAttributes, key);
     if (isEmpty(value) && identityKeys.has(key)) {
       if (!userIdentities) {
         userIdentities = host.getUserIdentities?.() ?? {};
       }
-      const identityValue = read(userIdentities, key);
+      const identityValue = readOwnValue(userIdentities, key);
       value = isString(identityValue) && identityValue !== '' ? identityValue : undefined;
     }
     if (isEmpty(value)) {
