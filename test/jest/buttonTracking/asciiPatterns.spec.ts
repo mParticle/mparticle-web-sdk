@@ -26,7 +26,10 @@ function nonAsciiTokens(file: string): string[] {
     const visit = (node: ts.Node): void => {
         if (node.getChildCount(sourceFile) === 0) {
             const token = node.getText(sourceFile);
-            if (/[^\x00-\x7F]/.test(token)) {
+            // A string's value counts too: the minifier writes 'を' back out as the raw
+            // character, while '\\u3092' stays a backslash and letters.
+            const value = ts.isStringLiteralLike(node) ? node.text : '';
+            if (/[^\x00-\x7F]/.test(token + value)) {
                 const { line } = sourceFile.getLineAndCharacterOfPosition(
                     node.getStart(sourceFile)
                 );
