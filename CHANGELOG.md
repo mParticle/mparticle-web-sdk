@@ -1,5 +1,13 @@
 # Changelog
 
+## [3.34.2](https://github.com/mParticle/mparticle-web-sdk/compare/v3.34.1...v3.34.2) (2026-11-18)
+
+
+### Bug Fixes
+
+* **rokt:** count an encrypted email as an email for pre-selection ([#1872](https://github.com/mParticle/mparticle-web-sdk/issues/1872)) ([b8fdcaa](https://github.com/mParticle/mparticle-web-sdk/commit/b8fdcaaae805df373bf117a637c1cb36a78c9d64))
+* **rokt:** key an encrypted email by presence in the pre-selection dedupe ([#1874](https://github.com/mParticle/mparticle-web-sdk/issues/1874)) ([12a80b7](https://github.com/mParticle/mparticle-web-sdk/commit/12a80b70b455acd07331b2693886b598342244df))
+
 ## [3.34.1](https://github.com/mParticle/mparticle-web-sdk/compare/v3.34.0...v3.34.1) (2026-11-18)
 
 
