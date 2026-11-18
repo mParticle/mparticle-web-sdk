@@ -487,19 +487,29 @@ from** dropdown and run its workflows in order:
    registry-preflights all kit artifacts before publishing core. It then checks
    out the immutable release tag, waits up to five minutes for core to become
    visible on npm, publishes all packages in `kits/publish-matrix.json`
-   concurrently with a bounded worker pool, and runs `auditRemotePackages` in
-   strict mode at the end of `publish-kits.js`, reusing the tarballs it already
-   packed so a missing or mismatched kit fails **Publish V3 kits** (`publish-kits`)
-   before `advance-staging` moves `v3-staging` (with no extra `npm pack` and no
-   extra workflow job). In **V3 Release - Step 1**, npm is then checked a second
+   concurrently with a bounded worker pool, and runs `auditRemotePackages` at
+   the end of `publish-kits.js`, reusing the tarballs it already packed.
+   A package npm has not confirmed within five minutes warns in the log and step
+   summary, without failing **Publish V3 kits** (`publish-kits`). A different
+   artifact or a conflicting dist-tag still fails before `advance-staging`
+   moves `v3-staging` (with no extra `npm pack` and no extra workflow job).
+   In **V3 Release - Step 1**, npm is then checked a second
    time by the release gate in **Upload and stage V3 candidate** described below:
    `check-release-parity.ts` compares every package's `dist.integrity` with the
    candidate and reads npm again for up to 10 minutes before it fails the
    release. The gate does not read dist-tags: `npm publish --tag` sets them,
    `assertDistTagWillNotMoveBackward` guards them before each publish,
-   `auditRemotePackages` verifies them at the end of `publish-kits.js`, and the
+   `auditRemotePackages` checks them at the end of `publish-kits.js`, and the
    next release's `--preflight-tags` refuses to start until every kit's tag
-   matches core's. The standalone **Audit V3 kits on npm** entrypoint
+   matches core's. An absent or older stable dist-tag is treated as propagation
+   lag and warns; a newer or otherwise conflicting tag fails. The staging gate
+   does not catch a tag still lagging after that warning. Confirm warned tags
+   with `npm view <package> dist-tags.next --prefer-online`, or use the standalone
+   strict audit; otherwise the next release's preflight catches them.
+   The five-minute post-publish audit window is unchanged. It could be shortened
+   now that package visibility is gated again before staging, but a shorter
+   window also reduces the chance to detect a tag conflict in this run.
+   The standalone **Audit V3 kits on npm** entrypoint
    (`publish-kits.js --audit`) warns when npm has not confirmed a package yet
    and fails on a mismatched artifact or dist-tag (or fails on both when called
    with `--strict`), and stays callable for standalone checks. The next
@@ -522,8 +532,9 @@ from** dropdown and run its workflows in order:
    Release Please), rerun **V3 Release - Step 1** from `v3-staging` with
    `dryRun=false` and `resumeKitReleaseTag` set to the exact Step 1 tag.
    Branch-mode recovery validates that immutable tag, resumes kits without
-   republishing core, and runs the integrated strict npm audit at the end of
-   `publish-kits.js` so a missing or mismatched kit fails the recovery run.
+   republishing core, and runs the same integrated npm audit at the end of
+   `publish-kits.js`: unconfirmed packages warn and mismatches fail. A green
+   publish or recovery job alone is not proof that the candidate can stage.
    Because a branch-mode `resumeKitReleaseTag` recovery run
    skips Perform Release, Package and Upload, once it finishes green dispatch
    **V3 shadow release: upload candidate** (`v3-shadow-candidate.yml`) on
@@ -643,9 +654,10 @@ A real v3 Step 1 run can publish core and create the GitHub Release before all
    Otherwise, dispatch **V3 Release - Step 1** from `v3-staging` with `dryRun=false`
    and `resumeKitReleaseTag` set to the failed run's exact tag.
 5. Wait for recovery to publish any missing kits (existing byte-identical
-   packages are skipped) and for `publish-kits.js` to run its integrated strict
-   npm audit to verify core and all 33 kits at that version on `next` and fail
-   on any missing or mismatched package.
+   packages are skipped) and for `publish-kits.js` to check core and all 33 kits
+   at that version on `next`. Unconfirmed packages warn in the log and step
+   summary; mismatched artifacts or conflicting dist-tags fail. Follow up on
+   warned tags as described above; the staging gate checks integrity, not tags.
 6. For a Release Please release, **Re-run failed jobs** on the original Step 1
    run re-runs `advance-staging` and `upload-v3-candidate` using the original
    run's packaged candidate (or, if `v3-staging` already moved and only

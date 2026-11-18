@@ -56,7 +56,7 @@ describe('kit release scripts', () => {
             'git rev-parse "${RESUME_KIT_RELEASE_TAG}^{commit}"'
         );
         expect(definition.jobs['publish-kits']).toBeDefined();
-        // The integrated strict audit in publish-kits.js replaces audit-kits.
+        // The integrated audit in publish-kits.js replaces audit-kits.
         expect(definition.jobs['audit-kits']).toBeUndefined();
     });
 
@@ -166,7 +166,7 @@ describe('kit release scripts', () => {
         expect(
             jobs['publish-kits'].steps.map((step: {run?: string}) => step.run)
         ).toContain('node scripts/publish-kits.js');
-        // publish-kits.js runs a strict audit at the end of main() reusing the
+        // publish-kits.js runs an audit at the end of main() reusing the
         // packed tarballs, and the release gate's npm parity check
         // (check-release-parity.ts with --npm-retry-seconds 600) reads npm in
         // the candidate workflow as well; there is no separate --audit step or
@@ -2564,9 +2564,88 @@ describe('kit release scripts', () => {
         }
     });
 
-    it('runs auditRemotePackages in strict mode at the end of publish-kits reusing the packed tarballs and exits non-zero when a kit is missing after publish', async () => {
+    it.each([
+        ['older dist-tag', 'sha512-kit', '3.0.0', null],
+        ['npm view failure', 'sha512-kit', '3.0.1', null],
+        ['artifact mismatch', 'sha512-other', '3.0.1', 'integrity mismatch'],
+        ['conflicting dist-tag', 'sha512-kit', '3.0.2', 'dist-tag next points to 3.0.2'],
+    ])('handles %s after publish without relaxing mismatch failures', async (scenario, integrity, tag, failure) => {
         const tempDirectory = fs.mkdtempSync(
-            path.join(os.tmpdir(), 'mparticle-publish-strict-audit-')
+            path.join(os.tmpdir(), 'mparticle-publish-audit-result-')
+        );
+        const summaryPath = path.join(tempDirectory, 'summary.md');
+        const previousVersion = process.env.RELEASE_VERSION;
+        const previousDistTag = process.env.NPM_DIST_TAG;
+        const previousSummary = process.env.GITHUB_STEP_SUMMARY;
+        const log = jest.spyOn(console, 'log').mockImplementation(() => undefined);
+        const kitName = '@mparticle/web-example-kit';
+        const artifacts = [
+            {name: '@mparticle/web-sdk', integrity: 'sha512-core'},
+            {name: kitName, integrity: 'sha512-kit'},
+        ];
+        try {
+            process.env.RELEASE_VERSION = '3.0.1';
+            process.env.NPM_DIST_TAG = 'next';
+            process.env.GITHUB_STEP_SUMMARY = summaryPath;
+            const published = jest.fn(async (_artifacts, _version, _tag, options) => {
+                options.results.push({name: kitName, result: 'published'});
+            });
+            const result = main({
+                inventory: {publishEntries: [{name: kitName, local_path: 'kits/example'}]},
+                packReleaseArtifacts: () => artifacts,
+                viewTag: () => '3.0.0',
+                waitForPublishedCore: () => undefined,
+                publishKitArtifacts: published,
+                auditOptions: {
+                    maxAttempts: 1,
+                    viewPackage: (spec: string, field: string) => {
+                        if (spec.startsWith(kitName)) {
+                            if (scenario === 'npm view failure') {
+                                const error = new Error('npm view timed out') as Error & {code?: string};
+                                error.code = 'NPM_VIEW_FAILED';
+                                throw error;
+                            }
+                            return field === 'dist.integrity' ? integrity : tag;
+                        }
+                        return field === 'dist.integrity' ? 'sha512-core' : '3.0.1';
+                    },
+                },
+            });
+            if (failure) {
+                await expect(result).rejects.toThrow(failure);
+            } else {
+                await expect(result).resolves.toBeUndefined();
+                expect(log).toHaveBeenCalledWith(expect.stringContaining(
+                    `::warning::npm has not confirmed ${kitName} yet:`
+                ));
+            }
+            expect(published).toHaveBeenCalledTimes(1);
+            const summary = fs.readFileSync(summaryPath, 'utf8');
+            expect(summary).toContain(failure ? '| failed:' : 'not confirmed yet (warning):');
+            if (!failure) {
+                expect(summary).not.toContain('Release stopped');
+                expect(summary).not.toContain('Kits not yet recorded successful');
+            }
+        } finally {
+            log.mockRestore();
+            for (const [key, value] of [
+                ['RELEASE_VERSION', previousVersion],
+                ['NPM_DIST_TAG', previousDistTag],
+                ['GITHUB_STEP_SUMMARY', previousSummary],
+            ]) {
+                if (value === undefined) {
+                    delete process.env[key];
+                } else {
+                    process.env[key] = value;
+                }
+            }
+            fs.rmSync(tempDirectory, {force: true, recursive: true});
+        }
+    });
+
+    it('reuses packed tarballs after publish and warns without failing when npm visibility lags', async () => {
+        const tempDirectory = fs.mkdtempSync(
+            path.join(os.tmpdir(), 'mparticle-publish-audit-')
         );
         const coreVersion = JSON.parse(
             fs.readFileSync(path.join(__dirname, '../../package.json'), 'utf8')
@@ -2661,7 +2740,7 @@ describe('kit release scripts', () => {
                 'Kits not yet recorded successful'
             );
 
-            // Still missing at the 5-minute deadline: fails.
+            // Still missing at the 5-minute deadline: warns without failing.
             clockMs = 1_000_000;
             wait.mockClear();
             packArtifacts.mockClear();
@@ -2687,19 +2766,15 @@ describe('kit release scripts', () => {
                         },
                     },
                 })
-            ).rejects.toThrow(
-                `npm audit found 1 unverified package(s): @mparticle/web-rokt-kit: @mparticle/web-rokt-kit@${coreVersion} is not yet visible on npm`
-            );
+            ).resolves.toBeUndefined();
             expect(packArtifacts).toHaveBeenCalledTimes(1);
             expect(wait).toHaveBeenCalledTimes(59);
             expect(clockMs).toBe(1_000_000 + 295_000);
             const missingSummary = fs.readFileSync(summaryPath, 'utf8');
             expect(missingSummary).toContain(
-                '| `@mparticle/web-rokt-kit` | not confirmed yet (failed in strict mode):'
+                '| `@mparticle/web-rokt-kit` | not confirmed yet (warning):'
             );
-            expect(missingSummary).toContain(
-                'Kits not yet recorded successful: `@mparticle/web-rokt-kit`'
-            );
+            expect(missingSummary).not.toContain('Kits not yet recorded successful');
 
             fs.writeFileSync(
                 preloadPath,
@@ -2831,7 +2906,7 @@ describe('kit release scripts', () => {
                 '| `@mparticle/web-rokt-kit` | verified |'
             );
 
-            // CLI: still missing at the deadline: fails.
+            // CLI: still missing at the deadline: warns and exits zero.
             fs.writeFileSync(summaryPath, '');
             const cliMissing = spawnSync(
                 process.execPath,
@@ -2852,19 +2927,17 @@ describe('kit release scripts', () => {
                     },
                 }
             );
-            expect(cliMissing.status).toBe(1);
-            expect(cliMissing.stderr).toContain(
-                `npm audit found 1 unverified package(s): @mparticle/web-rokt-kit: @mparticle/web-rokt-kit@${coreVersion} is not yet visible on npm`
+            expect(cliMissing.status).toBe(0);
+            expect(cliMissing.stdout).toContain(
+                `::warning::npm has not confirmed @mparticle/web-rokt-kit yet: @mparticle/web-rokt-kit@${coreVersion} is not yet visible on npm`
             );
-            // Core + 33 kits are packed once; the end-of-publish strict audit reuses them.
+            // Core + 33 kits are packed once; the end-of-publish audit reuses them.
             expect(fs.readFileSync(packCountFile, 'utf8')).toBe('34');
             const cliMissingSummary = fs.readFileSync(summaryPath, 'utf8');
             expect(cliMissingSummary).toContain(
-                '| `@mparticle/web-rokt-kit` | not confirmed yet (failed in strict mode):'
+                '| `@mparticle/web-rokt-kit` | not confirmed yet (warning):'
             );
-            expect(cliMissingSummary).toContain(
-                'Kits not yet recorded successful: `@mparticle/web-rokt-kit`'
-            );
+            expect(cliMissingSummary).not.toContain('Kits not yet recorded successful');
 
             fs.writeFileSync(summaryPath, '');
             const cliSuccess = spawnSync(
@@ -2988,7 +3061,7 @@ describe('kit release scripts', () => {
                 readme.indexOf('2. **Step 2: Publish SDK Release to Release Order Branch**')
             );
             expect(step1Section).toContain(
-                'runs `auditRemotePackages` in\n   strict mode at the end of `publish-kits.js`, reusing the tarballs it already\n   packed'
+                'runs `auditRemotePackages` at\n   the end of `publish-kits.js`, reusing the tarballs it already packed'
             );
             expect(step1Section).toContain(
                 'npm is then checked a second\n   time by the release gate in **Upload and stage V3 candidate** described below:\n   `check-release-parity.ts`'
