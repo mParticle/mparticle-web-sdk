@@ -563,8 +563,8 @@ export class PageViewTracker {
 
         this.log(
             outgoing === this
-                ? '[init] retiring this tracker for a repeat mParticle.init() — transferring pending navigations and tearing down'
-                : '[init] retiring a tracker from a previous module load — transferring pending navigations and tearing down'
+                ? '[init] retiring this tracker for a repeat mParticle.init() - transferring pending navigations and tearing down'
+                : '[init] retiring a tracker from a previous module load - transferring pending navigations and tearing down'
         );
 
         const pages = outgoing.takePendingNavigations();
