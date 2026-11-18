@@ -1628,15 +1628,26 @@ export function hasPartnerEmail(
 
 const EMAIL_CLASS_KEYS = ['email', 'emailsha256'];
 
+function emailClassKeys(mappedEmailSha256Key?: string): string[] {
+  return isString(mappedEmailSha256Key) && mappedEmailSha256Key !== ''
+    ? [...EMAIL_CLASS_KEYS, mappedEmailSha256Key.toLowerCase()]
+    : EMAIL_CLASS_KEYS;
+}
+
 // An attribute or identity key that holds the shopper's email, raw, hashed or encrypted (the key plus enc), in any
 // casing.
 export function isPreselectEmailKey(key: string, mappedEmailSha256Key?: string): boolean {
   const lower = key.toLowerCase();
-  const emailKeys =
-    isString(mappedEmailSha256Key) && mappedEmailSha256Key !== ''
-      ? [...EMAIL_CLASS_KEYS, mappedEmailSha256Key.toLowerCase()]
-      : EMAIL_CLASS_KEYS;
-  return emailKeys.some((emailKey) => lower === emailKey || lower === emailKey + ENCRYPTED_KEY_SUFFIX);
+  return emailClassKeys(mappedEmailSha256Key).some(
+    (emailKey) => lower === emailKey || lower === emailKey + ENCRYPTED_KEY_SUFFIX,
+  );
+}
+
+// An encrypted form of an email-class key. Its ciphertext changes on every call, so the dedupe digest keys it by
+// presence only.
+function isEncryptedEmailKey(key: string, mappedEmailSha256Key?: string): boolean {
+  const lower = key.toLowerCase();
+  return emailClassKeys(mappedEmailSha256Key).some((emailKey) => lower === emailKey + ENCRYPTED_KEY_SUFFIX);
 }
 
 // Whether the call will carry the shopper's email, raw or hashed, judged on what selectPlacements would
@@ -1996,10 +2007,19 @@ function getAttributesDigests(
     const outgoing = host.getOutgoingAttributes
       ? host.getOutgoingAttributes(attributes, identifier)
       : { ...(host.getUserIdentities?.() ?? {}), ...filled };
-    const emails = Object.keys(outgoing)
+    const sentEmailKeys = Object.keys(outgoing)
       .sort()
-      .filter((key) => isPreselectEmailKey(key, host.mappedEmailSha256Key) && !isEmpty(readOwnValue(outgoing, key)))
-      .map((key) => [key, readOwnValue(outgoing, key)]);
+      .filter((key) => isPreselectEmailKey(key, host.mappedEmailSha256Key) && !isEmpty(readOwnValue(outgoing, key)));
+    const isEncrypted = (key: string): boolean => isEncryptedEmailKey(key, host.mappedEmailSha256Key);
+    // A fresh ciphertext of the same email is not a changed email, so an encrypted one counts once, by presence, under
+    // its lowercase name.
+    const encryptedEmails = [...new Set(sentEmailKeys.filter(isEncrypted).map((key) => key.toLowerCase()))]
+      .sort()
+      .map((key) => [key, true]);
+    const emails = [
+      ...sentEmailKeys.filter((key) => !isEncrypted(key)).map((key) => [key, readOwnValue(outgoing, key)]),
+      ...encryptedEmails,
+    ];
     // A defaulted key is keyed only by what the call sends for it under every spelling, which can be the default, a
     // later source's value or the shopper's own value under another casing. The page's own spellings of it are left
     // out, so only a change to what goes out fires a fresh call.
@@ -2008,7 +2028,7 @@ function getAttributesDigests(
     const keyedAttributes: Record<string, unknown> = {};
     for (const [name, value] of Object.entries(filled)) {
       if (!isDefaultKey(name)) {
-        keyedAttributes[name] = value;
+        keyedAttributes[name] = isEncrypted(name) ? !isEmpty(value) : value;
       }
     }
     for (const key of defaultKeys) {
@@ -2017,14 +2037,14 @@ function getAttributesDigests(
         .sort()
         .map((name) => [name, outgoing[name]]);
       if (sent.length > 0) {
-        keyedAttributes[key] = sent;
+        keyedAttributes[key] = isEncrypted(key) ? true : sent;
       }
     }
     const keyed = JSON.stringify(keyedAttributes);
     // A source the call merges in later, such as a session attribute, can replace another entry key's value too, so
     // the value the call carries counts wherever it differs. Where none does, the digest is what it was.
     const replaced = [...new Set([...(configEntry?.attributeKeys ?? []), ...Object.keys(filled)])]
-      .filter((key) => !isDefaultKey(key))
+      .filter((key) => !isDefaultKey(key) && !isEncrypted(key))
       .sort()
       .filter((key) => {
         const value = readOwnValue(outgoing, key);
