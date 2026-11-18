@@ -7687,6 +7687,56 @@ describe('Rokt Forwarder', () => {
       await vi.advanceTimersByTimeAsync(600);
       expect(placements).toHaveBeenCalledTimes(1);
     });
+    it.each(['emailEnc', 'emailenc'])(
+      'fires a confirm click whose only email is an encrypted %s user attribute',
+      async (key) => {
+        kit.filters.filteredUser = {
+          getMPID: () => 'intent-user',
+          getUserIdentities: () => ({ userIdentities: { customerid: 'intent-user' } }),
+          getAllUserAttributes: () => ({ tier: 'gold' }),
+        };
+        kit.userAttributes = { tier: 'gold', [key]: 'encrypted-email' };
+        const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+        emit();
+        await vi.advanceTimersByTimeAsync(1);
+        expect(placements).toHaveBeenCalledTimes(1);
+        expect(placements.mock.calls[0][0].attributes).toEqual(
+          expect.objectContaining({
+            [key]: 'encrypted-email',
+            'rokt.preselecttrigger': 'intent_commit|/intent-checkout',
+          }),
+        );
+        expect(diagnosticLines(logSpy, 'no_strict_email')).toEqual([]);
+      },
+    );
+    it('fires a confirm click waiting for an email once an encrypted email user attribute is set', async () => {
+      kit.filters.filteredUser = {
+        getMPID: () => 'intent-user',
+        getUserIdentities: () => ({ userIdentities: { customerid: 'intent-user' } }),
+        getAllUserAttributes: () => ({ tier: 'gold' }),
+      };
+      emit();
+      await vi.advanceTimersByTimeAsync(1);
+      expect(placements).not.toHaveBeenCalled();
+      kit.setUserAttribute('emailEnc', 'encrypted-email');
+      await vi.advanceTimersByTimeAsync(600);
+      expect(placements).toHaveBeenCalledTimes(1);
+    });
+    it('lets a confirm-click call whose only email is encrypted through dispatch', async () => {
+      kit.filters.filteredUser = {
+        getMPID: () => 'intent-user',
+        getUserIdentities: () => ({ userIdentities: { customerid: 'intent-user' } }),
+        getAllUserAttributes: () => ({ tier: 'gold' }),
+      };
+      const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+      await kit.selectPlacements({
+        preselect: true,
+        identifier: 'intent-target',
+        attributes: { 'rokt.preselecttrigger': 'intent_commit|/intent-checkout', EmailEnc: 'encrypted-email' },
+      });
+      expect(placements).toHaveBeenCalledTimes(1);
+      expect(diagnosticLines(logSpy, 'no_strict_email')).toEqual([]);
+    });
     it('needs the shopper email on the call before firing on the confirm click', async () => {
       kit.filters.filteredUser = {
         getMPID: () => 'intent-user',

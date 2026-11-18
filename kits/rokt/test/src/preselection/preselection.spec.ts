@@ -26,6 +26,9 @@ import {
   isReadableFormEmailChange,
   recordShopperInput,
   isPreselectAttributeKey,
+  isPreselectEmailKey,
+  hasPreselectEmail,
+  hasPartnerEmail,
   isPreselectTriggerEventName,
   applyPreselectionConfigSetting,
   reportPreselectArrival,
@@ -1832,6 +1835,9 @@ describe('preselection', () => {
         ['an email attribute', { email: 'shopper@example.test' }, {}],
         ['a hashed email attribute', { EmailSha256: 'a'.repeat(64) }, {}],
         ['the mapped hashed identity', {}, { other: 'a'.repeat(64) }],
+        ['an encrypted email attribute', { emailEnc: 'encrypted-email' }, {}],
+        ['an encrypted email attribute in lower case', { emailenc: 'encrypted-email' }, {}],
+        ['an encrypted hashed email attribute', { emailSha256Enc: 'encrypted-hash' }, {}],
       ])('fires with %s', (_, attributes, identities) => {
         mockConfig.current = [
           { ...CONFIG_ENTRY, attributeKeys: [ATTRIBUTE_KEY, ...Object.keys(attributes)], dispatchDelayMs: 5000 },
@@ -1869,6 +1875,22 @@ describe('preselection', () => {
         maybeFirePreselect(state, host, buildEvent(), PATHNAME);
         send('commit');
         expect(selectPlacementsCalls).toHaveLength(1);
+      });
+      it('counts an encrypted email the call carries from the cached user attributes', () => {
+        host.getUserIdentities = () => ({});
+        host.getOutgoingAttributes = (attributes) => ({ ...attributes, emailEnc: 'encrypted-email' });
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        send('commit');
+        expect(selectPlacementsCalls).toHaveLength(1);
+        expect(loggedDiagnostics.some((line) => line.message.includes('no_strict_email'))).toBe(false);
+      });
+      it('still waits for an email when the call carries only other encrypted keys', () => {
+        host.getUserIdentities = () => ({});
+        host.getOutgoingAttributes = (attributes) => ({ ...attributes, enc: 'encrypted', phoneEnc: 'encrypted' });
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        send('commit');
+        expect(selectPlacementsCalls).toHaveLength(0);
+        expect(loggedDiagnostics.some((line) => line.message.includes('no_strict_email'))).toBe(true);
       });
       it('does not count an email the user attribute filters strip from the call', () => {
         mockConfig.current = [{ ...CONFIG_ENTRY, attributeKeys: [ATTRIBUTE_KEY, 'email'], dispatchDelayMs: 5000 }];
@@ -8068,6 +8090,68 @@ describe('preselection', () => {
 
     it('returns false when no entry matches the account', () => {
       expect(isPreselectAttributeKey('some-other-account', ATTRIBUTE_KEY)).toBe(false);
+    });
+  });
+
+  describe('isPreselectEmailKey', () => {
+    it.each(['email', 'Email', 'emailsha256', 'EmailSha256', 'emailEnc', 'emailenc', 'EMAILENC', 'emailSha256Enc'])(
+      'counts %s as an email key',
+      (key) => {
+        expect(isPreselectEmailKey(key)).toBe(true);
+      },
+    );
+
+    it.each(['enc', 'ENC', 'phoneenc', 'cityenc', 'emailencenc', 'encemail', 'emailsha256encrypted'])(
+      'does not count %s as an email key',
+      (key) => {
+        expect(isPreselectEmailKey(key)).toBe(false);
+      },
+    );
+
+    it('counts the mapped hashed-email key and its encrypted form, in any casing', () => {
+      expect(isPreselectEmailKey('Other', 'other')).toBe(true);
+      expect(isPreselectEmailKey('otherEnc', 'other')).toBe(true);
+      expect(isPreselectEmailKey('otherEnc')).toBe(false);
+    });
+
+    it('never counts a bare enc as an email key, even with an empty mapped key', () => {
+      expect(isPreselectEmailKey('enc', '')).toBe(false);
+    });
+  });
+
+  describe('hasPreselectEmail', () => {
+    it.each([{ emailEnc: 'encrypted-email' }, { emailenc: 'encrypted-email' }, { EMAILENC: 'encrypted-email' }])(
+      'finds an encrypted email in %o',
+      (attributes) => {
+        expect(hasPreselectEmail(attributes)).toBe(true);
+      },
+    );
+
+    it('finds no email in an empty encrypted email or in other encrypted keys', () => {
+      expect(hasPreselectEmail({ emailEnc: '' })).toBe(false);
+      expect(hasPreselectEmail({ enc: 'encrypted', phoneenc: 'encrypted', cityEnc: 'encrypted' })).toBe(false);
+    });
+  });
+
+  describe('hasPartnerEmail', () => {
+    const hostWith = (userAttributes: Record<string, unknown>, mappedEmailSha256Key?: string): PreselectHost =>
+      ({ userAttributes, mappedEmailSha256Key }) as unknown as PreselectHost;
+
+    it.each([{ emailEnc: 'encrypted-email' }, { EMAILENC: 'encrypted-email' }, { emailsha256enc: 'encrypted-hash' }])(
+      'counts an encrypted email the partner sent in %o, so the form never stands in',
+      (userAttributes) => {
+        expect(hasPartnerEmail(hostWith(userAttributes), 'email')).toBe(true);
+      },
+    );
+
+    it('counts the encrypted form of the mapped hashed-email key', () => {
+      expect(hasPartnerEmail(hostWith({ other4Enc: 'encrypted-hash' }, 'other4'), 'email')).toBe(true);
+    });
+
+    it('finds no partner email in an empty encrypted email, another encrypted key or a bare enc', () => {
+      expect(hasPartnerEmail(hostWith({ emailEnc: '', phoneEnc: 'encrypted', enc: 'encrypted' }, ''), 'email')).toBe(
+        false,
+      );
     });
   });
 

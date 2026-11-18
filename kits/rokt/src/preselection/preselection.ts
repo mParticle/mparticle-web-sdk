@@ -1597,16 +1597,20 @@ function readFormEmail(): string | undefined {
   return emails.size === 1 && !ambiguous ? emails.values().next().value : undefined;
 }
 
+const ENCRYPTED_KEY_SUFFIX = 'enc';
+
 // Whether the partner supplies the shopper's email anywhere, including on the unfiltered user: an email
 // filtered from this connection is one the partner chose not to share, so the form must not stand in.
-// A hashed email (emailsha256, or the identity mapped to it) counts, and keys match in any casing.
+// A hashed or encrypted email (emailsha256, the identity mapped to it, or any of them plus enc) counts, in any casing.
 export function hasPartnerEmail(
   host: PreselectHost,
   emailKey: string,
   eventAttributes: Record<string, unknown> = {},
 ): boolean {
   const emailKeys = new Set(
-    [emailKey, 'emailsha256', host.mappedEmailSha256Key].filter(isString).map((key) => key.toLowerCase()),
+    [emailKey, 'emailsha256', host.mappedEmailSha256Key]
+      .filter((key): key is string => isString(key) && key !== '')
+      .flatMap((key) => [key.toLowerCase(), key.toLowerCase() + ENCRYPTED_KEY_SUFFIX]),
   );
   const currentUser = host.getCurrentUser?.();
   const sources: Array<Record<string, unknown>> = [
@@ -1624,10 +1628,15 @@ export function hasPartnerEmail(
 
 const EMAIL_CLASS_KEYS = ['email', 'emailsha256'];
 
-// An attribute or identity key that holds the shopper's email, raw or hashed, in any casing.
+// An attribute or identity key that holds the shopper's email, raw, hashed or encrypted (the key plus enc), in any
+// casing.
 export function isPreselectEmailKey(key: string, mappedEmailSha256Key?: string): boolean {
   const lower = key.toLowerCase();
-  return EMAIL_CLASS_KEYS.includes(lower) || (isString(mappedEmailSha256Key) && lower === mappedEmailSha256Key.toLowerCase());
+  const emailKeys =
+    isString(mappedEmailSha256Key) && mappedEmailSha256Key !== ''
+      ? [...EMAIL_CLASS_KEYS, mappedEmailSha256Key.toLowerCase()]
+      : EMAIL_CLASS_KEYS;
+  return emailKeys.some((emailKey) => lower === emailKey || lower === emailKey + ENCRYPTED_KEY_SUFFIX);
 }
 
 // Whether the call will carry the shopper's email, raw or hashed, judged on what selectPlacements would
