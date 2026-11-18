@@ -1,5 +1,20 @@
 # Changelog
 
+## [3.34.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.33.0...v3.34.0) (2026-11-18)
+
+
+### Features
+
+* **rokt:** match a pre-selection default on the payment family it sends ([#1864](https://github.com/mParticle/mparticle-web-sdk/issues/1864)) ([46b766d](https://github.com/mParticle/mparticle-web-sdk/commit/46b766d0d6e8bd50367d41371f478999efd084b3))
+* **rokt:** take a pre-selection entry's target from an attribute ([#1865](https://github.com/mParticle/mparticle-web-sdk/issues/1865)) ([f32e482](https://github.com/mParticle/mparticle-web-sdk/commit/f32e482b4fad95bee04d09cae93ed92db7ae8c1f))
+
+
+### Bug Fixes
+
+* **button-tracking:** read an orders or purchase flow as a checkout path ([#1862](https://github.com/mParticle/mparticle-web-sdk/issues/1862)) ([4a1873d](https://github.com/mParticle/mparticle-web-sdk/commit/4a1873d64ed7d5b3fbf65acb18813a7401d40715))
+* **rokt:** apply explicit defaults on widened tabs ([#1867](https://github.com/mParticle/mparticle-web-sdk/issues/1867)) ([9bd4185](https://github.com/mParticle/mparticle-web-sdk/commit/9bd4185aaf6eb915c7b5525e519f2fb2d1bc8fc9))
+* **rokt:** send no payment family token when the key arrives under another spelling ([#1866](https://github.com/mParticle/mparticle-web-sdk/issues/1866)) ([36679c9](https://github.com/mParticle/mparticle-web-sdk/commit/36679c9e257c4635477835e0891c5f19f251da5d))
+
 ## [3.33.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.32.3...v3.33.0) (2026-11-17)
 
 
