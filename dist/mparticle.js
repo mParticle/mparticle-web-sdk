@@ -1,6 +1,6 @@
 var mParticle = (function () {
 
-    var version = "3.34.1";
+    var version = "3.34.2";
 
     var Constants = {
       sdkVersion: version,
