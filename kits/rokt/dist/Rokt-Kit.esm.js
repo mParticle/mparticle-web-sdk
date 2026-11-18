@@ -2441,7 +2441,7 @@ function $i(t, e, i) {
   return h().generateHash([t, e, i].join(""));
 }
 function na(t) {
-  let n = "mParticle_wsdkv_" + h().getVersion() + "_kitv_" + "3.34.0";
+  let n = "mParticle_wsdkv_" + h().getVersion() + "_kitv_" + "3.34.1";
   return t && (n += "_" + t), n;
 }
 function Gi(t) {
