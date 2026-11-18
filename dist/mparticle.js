@@ -1,6 +1,6 @@
 var mParticle = (function () {
 
-    var version = "3.33.0";
+    var version = "3.34.0";
 
     var Constants = {
       sdkVersion: version,
@@ -13178,6 +13178,10 @@ var mParticle = (function () {
     // Other hyphenated words make it a content slug, such as /help/checkout-faq or /products/self-checkout-kiosk.
     var CHECKOUT_SEGMENT = '(?:(?:express|guest|quick|secure|complete|one-?page|single-?page|mobile)-)?checkouts?' + '(?:-(?:v\\d+|\\d+|flow|external|process|step(?:-\\d+)?))?';
     var checkoutPath = new RegExp('(?:^|\\/)(?:' + CHECKOUT_SEGMENT + '|payment|order|kasse|paiement|commander?|pago)(?:\\/|$)', 'i');
+    // An order flow with a step after the order id, such as /orders/<id>/purchase, or a /purchase route. A bare /orders or
+    // /orders/<id> is an order list or status page, and an account's order history never counts.
+    var orderFlowPath = /(?:^|\/)(?:orders\/[^/]+\/[^/]+|purchase)(?:\/|$)/i;
+    var accountAreaPath = /(?:^|\/)(?:accounts?|my-?account|profile|order-?history|history)(?:\/|$)/i;
     // A route with a checkout segment itself, not just a payment or order one, which account pages also use.
     var checkoutSegmentPath = new RegExp('(?:^|\\/)' + CHECKOUT_SEGMENT + '(?:\\/|$)', 'i');
     // A confirmation page under a checkout route, such as /checkout/thankyou/<order> or /checkouts/<token>/thank_you, comes
@@ -13251,7 +13255,7 @@ var mParticle = (function () {
     var EDGE = "[\\s!-/:-@\\[-`{-~\\u00A1-\\u00BF\\u00D7\\u00F7\\u2000-\\u206F\\u20A0-\\u20CF\\u2190-\\u2BFF" + "\\u3000-\\u3003\\u3008-\\u3011\\u3014-\\u301F\\u30FB\\uD800-\\uDFFF\\uFE00-\\uFE0F" + "\\uFF01-\\uFF0F\\uFF1A-\\uFF20\\uFF3B-\\uFF40\\uFF5B-\\uFF65]+";
     var EDGE_SYMBOLS = new RegExp('^' + EDGE + '|' + EDGE + '$', 'g');
     function getIntentRouteClass(pathname) {
-      return checkoutPath.test(pathname) && !confirmationPath.test(pathname) ? 'checkout_path' : 'other';
+      return (checkoutPath.test(pathname) || orderFlowPath.test(pathname) && !accountAreaPath.test(pathname)) && !confirmationPath.test(pathname) ? 'checkout_path' : 'other';
     }
     var SEPARATORS = /[-_|\u00B7\u2022]/g;
     var CURRENCY_CODES = /(?:^| )(?:usd|aud|cad|nzd|gbp|eur|chf|sgd|hkd|jpy|inr|mxn)(?= |$)|\b(?:a|au|ca|c|us|nz|hk|s)\$/g;
