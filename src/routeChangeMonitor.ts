@@ -31,7 +31,7 @@ export const patchHistory = (
 ): (() => void) | null => {
     if ((window.history.pushState as MarkedHistoryMethod)[WRAPPED_MARKER]) {
         log(
-            '[patch] history already wrapped, skipping to avoid double-wrap — STACKED WRAPPER DETECTED'
+            '[patch] history already wrapped, skipping to avoid double-wrap - STACKED WRAPPER DETECTED'
         );
         return null;
     }

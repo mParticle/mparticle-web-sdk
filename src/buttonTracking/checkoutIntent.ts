@@ -11,6 +11,13 @@ import { IButtonClick, TEST_ID_ATTRIBUTES } from './buttonDescription';
 
 // Classifies a click, submit or frame focus as checkout intent for the Rokt kit.
 // Reads only short control labels, never form field values, and stores nothing.
+//
+// Code in this file is ASCII only: every non-ASCII character in a pattern is written as a regex
+// escape (`\\u30AB` in a string, `\u00B7` in a regex literal), with the readable text in a comment
+// above it. The CDN's minifier turns a JavaScript string escape back into the raw character, and on
+// a page that is not UTF-8 the browser can then decode the bundle with the page's encoding and
+// break a pattern, so the SDK fails to load. A regex escape is plain ASCII text the minifier leaves
+// alone.
 export type CheckoutIntentKind =
     | 'commit'
     | 'wallet'
@@ -52,9 +59,10 @@ const englishExclusions = new RegExp(
 );
 const otherExclusions = new RegExp(
     [
-        'gutschein|anmelden|warenkorb|bon cadeau|connexion|panier|cupón|iniciar sesión|carrito',
+        'gutschein|anmelden|warenkorb|bon cadeau|connexion|panier|cup\\u00F3n|iniciar sesi\\u00F3n|carrito',
         'carrello|codice sconto|accedi|buono regalo|winkelwagen|kortingscode|inloggen|cadeaubon|achteraf betalen',
-        'カート|クーポン|ログイン|会員登録|ギフト|後払い|メルマガ',
+        // 'カート|クーポン|ログイン|会員登録|ギフト|後払い|メルマガ',
+        '\\u30AB\\u30FC\\u30C8|\\u30AF\\u30FC\\u30DD\\u30F3|\\u30ED\\u30B0\\u30A4\\u30F3|\\u4F1A\\u54E1\\u767B\\u9332|\\u30AE\\u30D5\\u30C8|\\u5F8C\\u6255\\u3044|\\u30E1\\u30EB\\u30DE\\u30AC',
     ].join('|')
 );
 const englishCommits =
@@ -65,17 +73,19 @@ const englishCommits =
     '|pay(?: securely)?(?: now)?|(?:confirm|agree|accept|submit|order|book) and pay' +
     '|pay and place (?:my |your )?order|order with obligation to pay';
 const otherCommits = [
-    '(?:jetzt )?(?:zahlungs|kosten)pflichtig (?:bestellen|buchen)|(?:jetzt )?bezahlen|kauf abschließen|bestellung abschließen',
+    '(?:jetzt )?(?:zahlungs|kosten)pflichtig (?:bestellen|buchen)|(?:jetzt )?bezahlen|kauf abschlie\\u00DFen|bestellung abschlie\\u00DFen',
     'commander et payer|payer(?: maintenant)?|(?:confirmer|finaliser) (?:ma |la )?commande',
     "valider et payer|confirmer et payer|commande avec obligation de paiement|finaliser l'achat",
     '(?:realizar|confirmar|completar) (?:el |mi |la )?(?:pedido|compra|reserva)|finalizar (?:el |mi )?pedido|pagar(?: ahora)?',
-    'pedido con obligación de pago',
+    'pedido con obligaci\\u00F3n de pago',
     "(?:effettua|conferma|concludi|completa) (?:l'|il )?(?:ordine|acquisto)|ordine con obbligo di pagamento",
     'paga(?: ora| adesso)?|ordina e paga',
     '(?:nu )?betalen|bestellen en betalen|bestelling plaatsen|plaats bestelling|bestelling afronden',
     'bestelling met betalingsverplichting',
-    '(?:この内容で|上記の?内容で)?ご?(?:注文|購入|予約|決済|お?支払い?)を?(?:確定|完了)(?:する)?',
-    '(?:この内容で|上記の?内容で)ご?(?:注文|購入|予約)する|ご?注文する|決済する|(?:今すぐ|を)?支払う|お?支払いを行う',
+    // '(?:この内容で|上記の?内容で)?ご?(?:注文|購入|予約|決済|お?支払い?)を?(?:確定|完了)(?:する)?',
+    '(?:\\u3053\\u306E\\u5185\\u5BB9\\u3067|\\u4E0A\\u8A18\\u306E?\\u5185\\u5BB9\\u3067)?\\u3054?(?:\\u6CE8\\u6587|\\u8CFC\\u5165|\\u4E88\\u7D04|\\u6C7A\\u6E08|\\u304A?\\u652F\\u6255\\u3044?)\\u3092?(?:\\u78BA\\u5B9A|\\u5B8C\\u4E86)(?:\\u3059\\u308B)?',
+    // '(?:この内容で|上記の?内容で)ご?(?:注文|購入|予約)する|ご?注文する|決済する|(?:今すぐ|を)?支払う|お?支払いを行う',
+    '(?:\\u3053\\u306E\\u5185\\u5BB9\\u3067|\\u4E0A\\u8A18\\u306E?\\u5185\\u5BB9\\u3067)\\u3054?(?:\\u6CE8\\u6587|\\u8CFC\\u5165|\\u4E88\\u7D04)\\u3059\\u308B|\\u3054?\\u6CE8\\u6587\\u3059\\u308B|\\u6C7A\\u6E08\\u3059\\u308B|(?:\\u4ECA\\u3059\\u3050|\\u3092)?\\u652F\\u6255\\u3046|\\u304A?\\u652F\\u6255\\u3044\\u3092\\u884C\\u3046',
 ].join('|');
 const commits = new RegExp('^(?:' + englishCommits + '|' + otherCommits + ')$');
 // A plain link is navigation, so in English only an order or purchase it
@@ -87,7 +97,8 @@ const linkCommits = new RegExp(
 );
 const routeGatedCommits = new RegExp(
     '^(?:buy now|purchase|register(?: now)?|complete (?:my |your )?registration|jetzt kaufen|kaufen|commander|(?:passer|valider) (?:la |ma )?commande|finalizar (?:la |mi )?compra|' +
-        'comprar ahora|acquista ora|nu kopen|今すぐ購入|購入する|この内容で申し込む)$'
+        // 'comprar ahora|acquista ora|nu kopen|今すぐ購入|購入する|この内容で申し込む)$'
+        'comprar ahora|acquista ora|nu kopen|\\u4ECA\\u3059\\u3050\\u8CFC\\u5165|\\u8CFC\\u5165\\u3059\\u308B|\\u3053\\u306E\\u5185\\u5BB9\\u3067\\u7533\\u3057\\u8FBC\\u3080)$'
 );
 const steps = new RegExp(
     '^(?:' +
@@ -96,11 +107,12 @@ const steps = new RegExp(
             '(?:continue|proceed) to (?:payment|review|billing|shipping|delivery|order review)|review (?:my |your )?order',
             'guest checkout|(?:pay|continue|check ?out) (?:with|by) (?:card|credit card|debit card|credit or debit card)',
             'zur kasse|zur kasse gehen|auschecken|weiter zur zahlung',
-            'passer à la caisse|continuer vers le paiement|procéder au paiement',
+            'passer \\u00E0 la caisse|continuer vers le paiement|proc\\u00E9der au paiement',
             'ir a caja|continuar al pago|tramitar pedido',
             "procedi al checkout|procedi all'acquisto|procedi al pagamento|vai alla cassa",
             'afrekenen|verder naar betalen|doorgaan naar betalen',
-            'レジに進む|ご?(?:購入|注文)手続き(?:(?:へ|に)(?:進む)?)?|お?支払い(?:へ|に)進む|(?:ご注文内容の)?確認画面へ(?:進む)?',
+            // 'レジに進む|ご?(?:購入|注文)手続き(?:(?:へ|に)(?:進む)?)?|お?支払い(?:へ|に)進む|(?:ご注文内容の)?確認画面へ(?:進む)?',
+            '\\u30EC\\u30B8\\u306B\\u9032\\u3080|\\u3054?(?:\\u8CFC\\u5165|\\u6CE8\\u6587)\\u624B\\u7D9A\\u304D(?:(?:\\u3078|\\u306B)(?:\\u9032\\u3080)?)?|\\u304A?\\u652F\\u6255\\u3044(?:\\u3078|\\u306B)\\u9032\\u3080|(?:\\u3054\\u6CE8\\u6587\\u5185\\u5BB9\\u306E)?\\u78BA\\u8A8D\\u753B\\u9762\\u3078(?:\\u9032\\u3080)?',
         ].join('|') +
         ')$'
 );
@@ -110,7 +122,8 @@ const routeGatedSteps = /^save and continue$/;
 const CART_NOUN = '(?:(?:my|your|the) )?(?:shopping )?(?:cart|bag|basket)';
 // "Add to bag", "Add 2 to cart", and "カートに追加する": a click that puts something in the cart.
 const addToCartLabels = new RegExp(
-    '^(?:add(?: [^ ]+){0,5} to ' + CART_NOUN + '|(?:[^を]{0,40}を)?カートに追加(?:する)?)$'
+    // '^(?:add(?: [^ ]+){0,5} to ' + CART_NOUN + '|(?:[^を]{0,40}を)?カートに追加(?:する)?)$'
+    '^(?:add(?: [^ ]+){0,5} to ' + CART_NOUN + '|(?:[^\\u3092]{0,40}\\u3092)?\\u30AB\\u30FC\\u30C8\\u306B\\u8FFD\\u52A0(?:\\u3059\\u308B)?)$'
 );
 // "View cart", "Shopping bag", "Bag", and a count badge such as "1 item in bag",
 // which reads "item in bag" once digits are stripped: a click that opens the cart.
@@ -194,7 +207,7 @@ function getIntentRouteClass(pathname: string): 'checkout_path' | 'other' {
         : 'other';
 }
 
-const SEPARATORS = /[-_|·•]/g;
+const SEPARATORS = /[-_|\u00B7\u2022]/g;
 const CURRENCY_CODES = /(?:^| )(?:usd|aud|cad|nzd|gbp|eur|chf|sgd|hkd|jpy|inr|mxn)(?= |$)|\b(?:a|au|ca|c|us|nz|hk|s)\$/g;
 const WALLET_ALIASES: Array<[RegExp, string]> = [
     [/\bapplepay\b/g, 'apple pay'],

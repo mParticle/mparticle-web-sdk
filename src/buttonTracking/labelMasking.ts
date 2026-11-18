@@ -7,7 +7,7 @@ function createDigitPatterns(): { run: RegExp; number: RegExp } | undefined {
     try {
         return {
             run: new RegExp('\\p{Nd}{6,}', 'u'),
-            number: new RegExp('\\p{Nd}+(?:[.,،٫٬]\\p{Nd}+)*', 'gu'),
+            number: new RegExp('\\p{Nd}+(?:[.,\\u060C\\u066B\\u066C]\\p{Nd}+)*', 'gu'),
         };
     } catch (e) {
         return undefined;
@@ -32,7 +32,7 @@ export function maskLabel(raw: string | null | undefined): string | undefined {
     if (
         !text ||
         text.indexOf('@') !== -1 ||
-        digitPatterns.run.test(text.replace(/[\s()\-‐-―]/g, ''))
+        digitPatterns.run.test(text.replace(/[\s()\-\u2010-\u2015]/g, ''))
     ) {
         return undefined;
     }
