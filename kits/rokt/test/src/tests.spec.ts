@@ -13052,6 +13052,17 @@ describe('Rokt Forwarder', () => {
           expect(selectPlacementsCalls[0]).not.toHaveProperty('cacheMatchTokens');
         });
 
+        it('sends no cacheMatchTokens when the call also sends the key under another spelling', async () => {
+          pushDefaultsConfig({ preselectAttributeDefaults: { placementType: familyDefault('Credit Card') } });
+
+          await (window as any).mParticle.forwarder.selectPlacements({
+            attributes: { placementType: 'Credit Card', PlacementType: 'apple pay' },
+            identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+          });
+
+          expect(selectPlacementsCalls[0]).not.toHaveProperty('cacheMatchTokens');
+        });
+
         it('sends no cacheMatchTokens for a default that does not opt in', async () => {
           pushDefaultsConfig({ preselectAttributeDefaults: { placementType: 'Credit Card' } });
 
