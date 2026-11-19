@@ -165,13 +165,14 @@ export class ButtonTracker {
     private generation = 0;
     private lastCommitClick = -Infinity;
     // The latest trusted click: whether the page excluded it or it was withheld
-    // from the kit, and the intent it already carries to the kit, with its
-    // source, if any.
+    // from the kit, the intent it already carries to the kit, with its source,
+    // if any, and whether an Apple Pay session it began handed over its pick.
     private lastClick: {
         t: number;
         excluded: boolean;
         kind: CheckoutIntentKind | undefined;
         source: CheckoutIntentSource | undefined;
+        applePay: boolean;
     } | null = null;
     private lastSent: { [kind: string]: { t: number; pathname: string } } = {};
     private pagePath: string | null = null;
@@ -240,10 +241,11 @@ export class ButtonTracker {
     // An Apple Pay session begun right after a tracked tap counts as a wallet
     // tap for the kit; one begun with no such tap, or from a tap the page
     // excluded, does not. A tap that reads as a confirm tap reaches the kit as
-    // one. It is delivered on a timer, not after the next paint, since the
-    // payment sheet may hold painting back: a tap that already reads as a
-    // wallet goes now under its own rule, and the throttle drops the copy
-    // queued for the paint.
+    // one, and its Apple Pay pick goes now, ahead of that tap's own delivery
+    // on every path. A wallet tap is delivered on a timer, not after the next
+    // paint, since the payment sheet may hold painting back: a tap that already
+    // reads as a wallet goes now under its own rule, and the throttle drops the
+    // copy queued for the paint.
     public onApplePayBegin(): void {
         const t = Date.now();
         const click = this.lastClick;
@@ -251,13 +253,21 @@ export class ButtonTracker {
             !this.active ||
             !click ||
             click.excluded ||
-            click.kind === 'commit' ||
             t - click.t > APPLE_PAY_AFTER_CLICK_MS ||
             this.isKitSuppressed()
         ) {
             return;
         }
         const pathname = window.location.pathname;
+        if (click.kind === 'commit') {
+            try {
+                this.pickPayment(t, pathname, undefined, 'apple_pay');
+                click.applePay = true;
+            } catch (e) {
+                this.log('[error] Apple Pay delivery threw: ' + e);
+            }
+            return;
+        }
         const generation = this.generation;
         setTimeout(() => {
             if (generation !== this.generation) {
@@ -400,6 +410,7 @@ export class ButtonTracker {
         let checkedNames: string[] | undefined;
         let family: PaymentFrameFamily | undefined;
         let unconfirmedCommit = false;
+        let tap: { applePay: boolean } | undefined;
         if (layer === 'click') {
             // The composed path is only populated during dispatch.
             const path = isFunction(event.composedPath)
@@ -487,7 +498,9 @@ export class ButtonTracker {
                 excluded: excluded || withheld,
                 kind,
                 source,
+                applePay: false,
             };
+            tap = this.lastClick;
         } else if (layer === 'submit') {
             const submitter = (event as Event & { submitter?: Element | null })
                 .submitter;
@@ -547,10 +560,12 @@ export class ButtonTracker {
                     this.logClick(click, pathname, asLink, t);
                 }
                 // Ahead of the intent, so a pre-selection it fires goes out
-                // with this pick.
-                if (choice && isPicked(choice.radio)) {
+                // with this pick. An Apple Pay session this tap began has
+                // already handed over its own.
+                const sessionPicked = !!tap && tap.applePay;
+                if (!sessionPicked && choice && isPicked(choice.radio)) {
                     this.pickPayment(t, pathname, choice.names);
-                } else if (checkedNames) {
+                } else if (!sessionPicked && checkedNames) {
                     this.pickPayment(t, pathname, checkedNames);
                 } else if (family) {
                     this.pickPayment(t, pathname, undefined, family);
