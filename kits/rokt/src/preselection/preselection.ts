@@ -776,22 +776,25 @@ function recordEntryPageView(configEntry: PreselectionConfigEntry, at: number): 
   latestEntryPageViewAt.set(key, Math.max(latestEntryPageViewAt.get(key) ?? 0, at));
 }
 
+// The payment pick an entry's call reads. An entry with alternate target pages counts a pick only when made since the
+// route's latest page view on this page, so one left by an abandoned checkout never sends a later one to another page
+// or fills that call's payment default. Other entries read the pick as before.
+function readEntryPaymentPick(configEntry: PreselectionConfigEntry): PaymentFamily | undefined {
+  const { accountId, targetPageIdentifier } = configEntry;
+  if (!configEntry.alternateTargetPageIdentifiers) {
+    return readPreselectPaymentPick(accountId, targetPageIdentifier);
+  }
+  const since = latestEntryPageViewAt.get(`${accountId}:${targetPageIdentifier}`) ?? kitLoadedAt;
+  return readPreselectPaymentPick(accountId, targetPageIdentifier, since);
+}
+
 // The alternate target page this call names: the shopper's payment pick first, then the page's host, then the device.
-// A pick counts only when made since the route's latest page view on this page, so one left by an abandoned checkout
-// never sends a later one to another page.
 function pickAlternateTargetPageIdentifier(
   configEntry: PreselectionConfigEntry,
   alternates: PreselectAlternateTargetPageIdentifiers,
 ): string | undefined {
   const { byPaymentPick, byHostname, byClientType } = alternates;
-  const key = `${configEntry.accountId}:${configEntry.targetPageIdentifier}`;
-  const paymentPick = byPaymentPick
-    ? readPreselectPaymentPick(
-        configEntry.accountId,
-        configEntry.targetPageIdentifier,
-        latestEntryPageViewAt.get(key) ?? kitLoadedAt,
-      )
-    : undefined;
+  const paymentPick = byPaymentPick ? readEntryPaymentPick(configEntry) : undefined;
   const clientType = byClientType ? getPreselectClientType(navigator.userAgent) : undefined;
   return [
     byPaymentPick && paymentPick ? readOwnValue(byPaymentPick, paymentPick) : undefined,
@@ -890,7 +893,7 @@ function resolvePreselectAttributeDefault(
 function readDefaultPaymentPick(configEntry: PreselectionConfigEntry): PaymentFamily | undefined {
   const defaults = Object.values(configEntry.preselectAttributeDefaults ?? {});
   return defaults.some((attributeDefault) => isObject(attributeDefault) && attributeDefault.byPaymentPick)
-    ? readPreselectPaymentPick(configEntry.accountId, configEntry.targetPageIdentifier)
+    ? readEntryPaymentPick(configEntry)
     : undefined;
 }
 

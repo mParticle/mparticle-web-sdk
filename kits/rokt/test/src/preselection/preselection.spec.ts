@@ -1753,6 +1753,48 @@ describe('preselection', () => {
 
         expect(firedDigest(0)).toBe(withAlternates);
       });
+
+      describe('and a payment default by pick', () => {
+        const firedMessage = () => loggedDiagnostics.find((entry) => entry.code === 'PRESELECT_FIRED')?.message;
+        beforeEach(() => {
+          mockConfig.current[0].attributeKeys = [ATTRIBUTE_KEY, 'paymenttype'];
+          mockConfig.current[0].optionalAttributeKeys = ['paymenttype'];
+          mockConfig.current[0].preselectAttributeDefaults = {
+            paymenttype: { byPaymentPick: { card: 'credit_card' } },
+          };
+          // A card pick made 150 ms into the test.
+          vi.mocked(readPreselectPaymentPick).mockImplementation((_, __, since) =>
+            since === undefined || clock + 150 >= since ? 'card' : undefined,
+          );
+        });
+
+        it('fills no default from a pick an abandoned checkout left before the latest page view', () => {
+          vi.setSystemTime(clock + 100);
+          maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+          vi.setSystemTime(clock + 200);
+          maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+          send('commit', clock + 300);
+
+          expect(selectPlacementsCalls).toHaveLength(1);
+          expect(selectPlacementsCalls[0].identifier).toBe(TARGET_PAGE_IDENTIFIER);
+          expect(firedMessage()).not.toContain('defaulted_keys');
+          vi.mocked(readPreselectPaymentPick).mock.calls.forEach((call) => {
+            expect(call).toEqual([ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, clock + 200]);
+          });
+        });
+
+        it("fills the pick's default on the picked page's call when the pick follows the page view", () => {
+          vi.setSystemTime(clock + 100);
+          maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+          send('commit', clock + 300);
+
+          expect(selectPlacementsCalls).toHaveLength(1);
+          expect(selectPlacementsCalls[0].identifier).toBe(PAID_PAGE);
+          expect(firedMessage()).toContain('[defaulted_keys=paymenttype]');
+        });
+      });
     });
   });
 
@@ -4424,6 +4466,22 @@ describe('preselection', () => {
 
               vi.mocked(readPreselectPaymentPick).mockReturnValue(undefined);
               expect(getPreselectAttributeDefaults(host, mockConfig.current[0], {})).toEqual({});
+            });
+
+            it("reads the pick only since the route's latest page view for an entry with alternate target pages", () => {
+              vi.mocked(readPreselectPaymentPick).mockReturnValue('paypal');
+              useEntry({
+                preselectAttributeDefaults: { [DEFAULTED_KEY]: PAYMENT_DEFAULT },
+                alternateTargetPageIdentifiers: { byPaymentPick: { paypal: 'paid-page' } },
+              });
+
+              getPreselectAttributeDefaults(host, mockConfig.current[0], {});
+
+              expect(readPreselectPaymentPick).toHaveBeenCalledWith(
+                ACCOUNT_ID,
+                TARGET_PAGE_IDENTIFIER,
+                expect.any(Number),
+              );
             });
 
             it('never reads the pick for an entry whose defaults name none', () => {

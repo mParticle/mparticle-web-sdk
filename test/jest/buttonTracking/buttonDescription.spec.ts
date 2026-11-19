@@ -1590,6 +1590,33 @@ describe('describePaymentChoice', () => {
         expect(choiceAt(row)).toEqual({ radio: row, names: ['venmo', 'venmo-option'] });
     });
 
+    it('names a payment radio shoppers read no name for by its hand-written value last', () => {
+        document.body.innerHTML =
+            '<div data-testid="PAYMENT-METHOD-CREDIT"><input type="radio" name="payment-method-list" id="radio-payment-method-list-3" value="CREDIT">' +
+            '<span>Credit or debit card</span></div>';
+
+        expect(choiceAt(byId('radio-payment-method-list-3'))).toEqual({
+            radio: byId('radio-payment-method-list-3'),
+            names: ['radio-payment-method-list-3', 'CREDIT'],
+        });
+    });
+
+    it('reads no value from a payment radio shoppers read a name for', () => {
+        document.body.innerHTML =
+            '<input type="radio" name="payment" id="opt" value="credit"><label for="opt">Store credit</label>';
+
+        expect(choiceAt(byId('opt')).names).toEqual(['store credit', 'opt']);
+    });
+
+    it('reads no value that is not hand-written', () => {
+        document.body.innerHTML =
+            '<input type="radio" name="payment" id="saved" value="card_4242424242424242">' +
+            '<input type="radio" name="payment" id="token" value="pm 1Nq8sK2e">';
+
+        expect(choiceAt(byId('saved')).names).toEqual(['saved']);
+        expect(choiceAt(byId('token')).names).toEqual(['token']);
+    });
+
     it('masks the names like a label', () => {
         document.body.innerHTML =
             '<input type="radio" name="paymentMethod" id="saved"><label for="saved">Visa ending 4242</label>' +
@@ -1610,6 +1637,7 @@ describe('describePaymentChoice', () => {
         ['a radio whose question is not about payment', '<input type="radio" name="disability" id="target"><label for="target">Wheelchair access</label>'],
         ['a checkbox in a payment form', '<form id="payment-form"><input type="checkbox" name="payment_save" id="target"><label for="target">Save my card</label></form>'],
         ['a payment radio nothing names', '<input type="radio" name="payment">'],
+        ['a payment radio named only by a value that is not hand-written', '<input type="radio" name="payment" value="tok_8f3a9c2d71e64b0a">'],
         ['a radio in a payment form whose question is not', '<form id="payment-form"><fieldset id="billing-address"><input type="radio" name="billing_address" id="target"><label for="target">Card address</label></fieldset></form>'],
         ['a named radio in a payment fieldset whose question is not', '<fieldset id="payment"><input type="radio" name="shipping_speed" id="target"><label for="target">Card delivery</label></fieldset>'],
         ['a question that only starts like pay', '<input type="radio" name="payee" id="target"><label for="target">Card</label><input type="radio" name="payroll_period">'],
@@ -1668,6 +1696,17 @@ describe('describeCheckedPaymentChoice', () => {
         expect(describeCheckedPaymentChoice()).toEqual({
             radio: byId('card'),
             names: ['credit card', 'card'],
+        });
+    });
+
+    it('names a checked payment radio shoppers read no name for by its hand-written value last', () => {
+        document.body.innerHTML =
+            '<input type="radio" name="payment-method-list" id="radio-payment-method-list-3" value="CREDIT" checked><span>Credit or debit card</span>' +
+            '<input type="radio" name="payment-method-list" id="radio-payment-method-list-4" value="PAYPAL"><span>PayPal</span>';
+
+        expect(describeCheckedPaymentChoice()).toEqual({
+            radio: byId('radio-payment-method-list-3'),
+            names: ['radio-payment-method-list-3', 'CREDIT'],
         });
     });
 
