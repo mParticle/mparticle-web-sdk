@@ -302,6 +302,13 @@ describe('preselectArrivalStorage', () => {
       expect(readPreselectPaymentPick('1', 'confirmation')).toBeUndefined();
     });
 
+    it('reads a pick made at or after since, and nothing older', () => {
+      recordPreselectPaymentPick('1', 'confirmation', 'card', 950);
+
+      expect(readPreselectPaymentPick('1', 'confirmation', 950)).toBe('card');
+      expect(readPreselectPaymentPick('1', 'confirmation', 951)).toBeUndefined();
+    });
+
     it('reads nothing after the arrival was reported', () => {
       recordPreselectPaymentPick('1', 'confirmation', 'paypal', 950);
       markPreselectArrival('1', 'confirmation');

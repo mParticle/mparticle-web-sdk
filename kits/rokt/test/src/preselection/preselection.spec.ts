@@ -15,6 +15,7 @@ import {
   flushPendingPreselectDispatches,
   findPreselectionConfig,
   findPreselectionConfigByIdentifier,
+  getCallIdentifier,
   getPreselectLookupAttributes,
   getPreselectCacheMatchKeys,
   hasPreselectionConfigForAccount,
@@ -1666,6 +1667,91 @@ describe('preselection', () => {
         expect(selectPlacementsCalls).toHaveLength(1);
         expect(outgoing).toHaveBeenCalledWith(expect.anything(), TARGET_PAGE_IDENTIFIER);
         expect(outgoing).not.toHaveBeenCalledWith(expect.anything(), 'group-a');
+      });
+    });
+
+    describe('with alternateTargetPageIdentifiers', () => {
+      const PAID_PAGE = 'preselect-paid-page';
+      const firedDigest = (call: number) => vi.mocked(recordPreselectFired).mock.calls[call][2];
+      beforeEach(() => {
+        mockConfig.current[0].alternateTargetPageIdentifiers = {
+          byPaymentPick: { card: PAID_PAGE, paypal: PAID_PAGE },
+        };
+      });
+
+      it('files the call under the page the payment pick names and keys its records by the entry', () => {
+        vi.mocked(readPreselectPaymentPick).mockReturnValue('card');
+
+        send();
+
+        expect(selectPlacementsCalls).toHaveLength(1);
+        expect(selectPlacementsCalls[0].identifier).toBe(PAID_PAGE);
+        expect(selectPlacementsCalls[0][PRESELECT_ENTRY_OPTION]).toBe(TARGET_PAGE_IDENTIFIER);
+        expect(readPreselectPaymentPick).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, expect.any(Number));
+        expect(recordPreselectFired).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, expect.any(Number), false);
+        expect(findPreselectionConfigByIdentifier(ACCOUNT_ID, PAID_PAGE)).toBe(mockConfig.current[0]);
+      });
+
+      it("reads only a pick made since the route's latest page view, which the click never moves", () => {
+        vi.setSystemTime(clock + 100);
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        vi.setSystemTime(clock + 200);
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+        send('commit', clock + 300);
+
+        expect(selectPlacementsCalls).toHaveLength(1);
+        expect(readPreselectPaymentPick).toHaveBeenCalled();
+        vi.mocked(readPreselectPaymentPick).mock.calls.forEach((call) => {
+          expect(call).toEqual([ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, clock + 200]);
+        });
+      });
+
+      it.each([
+        ['no payment pick', undefined],
+        ['a pick the entry does not name', 'apple_pay' as const],
+      ])('keeps targetPageIdentifier with %s', (_, pick) => {
+        vi.mocked(readPreselectPaymentPick).mockReturnValue(pick);
+
+        send();
+
+        expect(selectPlacementsCalls).toHaveLength(1);
+        expect(selectPlacementsCalls[0].identifier).toBe(TARGET_PAGE_IDENTIFIER);
+        expect(selectPlacementsCalls[0][PRESELECT_ENTRY_OPTION]).toBeUndefined();
+      });
+
+      it('fires for the picked page after a fire for targetPageIdentifier with the same attributes', () => {
+        send();
+        const firstDigest = firedDigest(0);
+        vi.mocked(wasPreselectFiredRecently).mockImplementation((_, __, digest) => digest === firstDigest);
+        vi.mocked(readPreselectPaymentPick).mockReturnValue('card');
+
+        send();
+
+        expect(selectPlacementsCalls.map((call) => call.identifier)).toEqual([TARGET_PAGE_IDENTIFIER, PAID_PAGE]);
+        expect(firedDigest(1)).not.toBe(firstDigest);
+      });
+
+      it('still skips a repeat fire for the same picked page', () => {
+        vi.mocked(readPreselectPaymentPick).mockReturnValue('card');
+        send();
+        const firstDigest = firedDigest(0);
+        vi.mocked(wasPreselectFiredRecently).mockImplementation((_, __, digest) => digest === firstDigest);
+
+        send();
+
+        expect(selectPlacementsCalls).toHaveLength(1);
+      });
+
+      it('keeps the dedupe digest of an entry without alternates', () => {
+        send();
+        const withAlternates = firedDigest(0);
+        delete mockConfig.current[0].alternateTargetPageIdentifiers;
+        vi.mocked(recordPreselectFired).mockClear();
+
+        send();
+
+        expect(firedDigest(0)).toBe(withAlternates);
       });
     });
   });
@@ -7940,6 +8026,57 @@ describe('preselection', () => {
       expect(state.pending[0].event).toBe(triggerEvent);
     });
 
+    describe('with alternateTargetPageIdentifiers', () => {
+      const PAID_PAGE = 'preselect-paid-page';
+      let active: Map<string, { expiresAt: number; attributesDigest: number; byEvent?: boolean }>;
+      const fireEvent = (pick: 'card' | undefined) => {
+        vi.mocked(readPreselectPaymentPick).mockReturnValue(pick);
+        maybeFirePreselectForEvent(state, host, buildCustomEvent(TRIGGER_EVENT_NAME), PATHNAME);
+      };
+
+      beforeEach(() => {
+        mockConfig.current[0].alternateTargetPageIdentifiers = { byPaymentPick: { card: PAID_PAGE } };
+        active = new Map();
+        vi.mocked(buildActivePreselectFieldKey).mockImplementation((accountId, scope) => `${accountId}:${scope}`);
+        vi.mocked(setActivePreselect).mockImplementation((key, attributesDigest, byEvent) => {
+          active.set(key, { expiresAt: Date.now() + 60_000, attributesDigest, byEvent });
+        });
+        vi.mocked(getActivePreselect).mockImplementation((key) => active.get(key) ?? null);
+      });
+
+      it.each([
+        ['the default page, then the picked page', undefined, 'card', [TARGET_PAGE_IDENTIFIER, PAID_PAGE]],
+        ['the picked page, then the default page', 'card', undefined, [PAID_PAGE, TARGET_PAGE_IDENTIFIER]],
+      ] as const)('fires events for %s within the active period', (_, firstPick, secondPick, identifiers) => {
+        fireEvent(firstPick);
+        fireEvent(secondPick);
+
+        expect(selectPlacementsCalls.map((call) => call.identifier)).toEqual(identifiers);
+      });
+
+      it('still skips a repeat event for the same page', () => {
+        fireEvent('card');
+        fireEvent('card');
+
+        expect(selectPlacementsCalls.map((call) => call.identifier)).toEqual([PAID_PAGE]);
+      });
+
+      it.each([
+        ['the default page, then the picked page', undefined, 'card', [TARGET_PAGE_IDENTIFIER, PAID_PAGE]],
+        ['the picked page, then the default page', 'card', undefined, [PAID_PAGE, TARGET_PAGE_IDENTIFIER]],
+      ] as const)('fires an event for %s over a held page view', (_, firstPick, secondPick, identifiers) => {
+        vi.useFakeTimers();
+        mockConfig.current[0].dispatchDelayMs = DELAY_MS;
+        fireEvent(firstPick);
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        expect(state.scheduledDispatch).toBeDefined();
+
+        fireEvent(secondPick);
+
+        expect(selectPlacementsCalls.map((call) => call.identifier)).toEqual(identifiers);
+      });
+    });
+
     it('skips while an event preselection is active, even when the attributes changed', () => {
       vi.mocked(getActivePreselect).mockReturnValue({ expiresAt: Date.now() + 60_000, attributesDigest: 1, byEvent: true });
 
@@ -8068,6 +8205,27 @@ describe('preselection', () => {
 
     it('returns undefined when no entry matches the identifier', () => {
       expect(findPreselectionConfigByIdentifier(ACCOUNT_ID, 'some-other-page')).toBeUndefined();
+    });
+
+    describe('for an entry with alternateTargetPageIdentifiers', () => {
+      const ENTRY_WITH_ALTERNATES = {
+        ...CONFIG_ENTRY,
+        alternateTargetPageIdentifiers: {
+          byPaymentPick: { card: 'paid-page' },
+          byClientType: { MobileWeb: 'mobile-page' },
+        },
+      };
+      beforeEach(() => {
+        mockConfig.current = [ENTRY_WITH_ALTERNATES];
+      });
+
+      it.each([TARGET_PAGE_IDENTIFIER, 'paid-page', 'mobile-page'])('matches a call for %s', (identifier) => {
+        expect(findPreselectionConfigByIdentifier(ACCOUNT_ID, identifier)).toBe(ENTRY_WITH_ALTERNATES);
+      });
+
+      it('does not match any other identifier', () => {
+        expect(findPreselectionConfigByIdentifier(ACCOUNT_ID, 'desktop-page')).toBeUndefined();
+      });
     });
 
     it("ignores a call's attributes for an entry without targetPageIdentifierAttribute", () => {
@@ -9820,5 +9978,54 @@ describe('getPreselectClientType', () => {
     ['an empty user agent', '', undefined],
   ])('classes %s', (_label, userAgent, clientType) => {
     expect(getPreselectClientType(userAgent)).toBe(clientType);
+  });
+});
+
+describe('getCallIdentifier with alternateTargetPageIdentifiers', () => {
+  const IPHONE = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148';
+  const entryWith = (alternateTargetPageIdentifiers: PreselectionConfigEntry['alternateTargetPageIdentifiers']) => ({
+    ...CONFIG_ENTRY,
+    alternateTargetPageIdentifiers,
+  });
+  const ALL = {
+    byPaymentPick: { card: 'pick-page' },
+    byHostname: { [window.location.hostname]: 'host-page' },
+    byClientType: { MobileWeb: 'mobile-page' },
+  };
+
+  beforeEach(() => {
+    vi.mocked(readPreselectPaymentPick).mockReset();
+    vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue(IPHONE);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('takes the payment pick first', () => {
+    vi.mocked(readPreselectPaymentPick).mockReturnValue('card');
+    expect(getCallIdentifier(entryWith(ALL), {})).toBe('pick-page');
+  });
+
+  it('then the host', () => {
+    expect(getCallIdentifier(entryWith(ALL), {})).toBe('host-page');
+  });
+
+  it('then the device', () => {
+    expect(getCallIdentifier(entryWith({ ...ALL, byHostname: { 'other.example.com': 'host-page' } }), {})).toBe(
+      'mobile-page',
+    );
+  });
+
+  it('else targetPageIdentifier', () => {
+    vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue('Mozilla/5.0 (compatible; unknown device)');
+    expect(getCallIdentifier(entryWith({ byClientType: { MobileWeb: 'mobile-page' } }), {})).toBe(
+      TARGET_PAGE_IDENTIFIER,
+    );
+  });
+
+  it('reads no payment pick for alternates that name none', () => {
+    getCallIdentifier(entryWith({ byClientType: { MobileWeb: 'mobile-page' } }), {});
+    expect(readPreselectPaymentPick).not.toHaveBeenCalled();
   });
 });

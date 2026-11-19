@@ -217,6 +217,86 @@ describe('parsePreselectionConfigSetting', () => {
     });
   });
 
+  describe('alternateTargetPageIdentifiers', () => {
+    const ALTERNATES = {
+      byPaymentPick: { card: 'paid_page', paypal: 'paid_page' },
+      byHostname: { 'shop.example.com': 'shop_page' },
+      byClientType: { MobileWeb: 'mobile_page' },
+    };
+
+    it('parses the alternate target pages and drops keys it does not know', () => {
+      const entry = { ...ENTRY, alternateTargetPageIdentifiers: { ...ALTERNATES, byLater: { x: 'y' } } };
+      expect(parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([entry]))).toEqual({
+        entries: [{ accountId: ACCOUNT_ID, ...ENTRY, alternateTargetPageIdentifiers: ALTERNATES }],
+      });
+    });
+
+    it('parses one map on its own', () => {
+      const alternateTargetPageIdentifiers = { byPaymentPick: { apple_pay: 'paid_page' } };
+      expect(
+        parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([{ ...ENTRY, alternateTargetPageIdentifiers }])),
+      ).toEqual({ entries: [{ accountId: ACCOUNT_ID, ...ENTRY, alternateTargetPageIdentifiers }] });
+    });
+
+    it.each([
+      ['a string', 'paid_page'],
+      ['an array', ['paid_page']],
+      ['no map', {}],
+      ['only unknown keys', { byLater: { x: 'y' } }],
+      ['an empty map', { byPaymentPick: {} }],
+      ['an unknown payment family', { byPaymentPick: { bitcoin: 'paid_page' } }],
+      ['a host not in lower case', { byHostname: { 'Shop.example.com': 'shop_page' } }],
+      ['an unknown device', { byClientType: { Tablet: 'tablet_page' } }],
+      ['an empty identifier', { byPaymentPick: { card: '' } }],
+      ['an identifier with a space', { byPaymentPick: { card: 'paid page' } }],
+      ['an identifier with a control character', { byPaymentPick: { card: 'paid\u0007page' } }],
+      ['an identifier that is not a string', { byPaymentPick: { card: 1 } }],
+      ['one valid map beside an invalid one', { byPaymentPick: { card: 'paid_page' }, byClientType: { Tablet: 'x' } }],
+    ])('rejects %s', (_, alternateTargetPageIdentifiers) => {
+      expect(
+        parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([{ ...ENTRY, alternateTargetPageIdentifiers }])),
+      ).toEqual({ error: 'entry 1 alternateTargetPageIdentifiers' });
+    });
+
+    it('rejects an entry that also names targetPageIdentifierAttribute', () => {
+      const entry = {
+        ...ENTRY,
+        targetPageIdentifierAttribute: 'pageGroup',
+        alternateTargetPageIdentifiers: ALTERNATES,
+      };
+      expect(parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([entry]))).toEqual({
+        error: 'entry 1 alternateTargetPageIdentifiers',
+      });
+    });
+
+    it.each([
+      ["another entry's targetPageIdentifier", { pathname: '/other', targetPageIdentifier: 'paid_page' }],
+      [
+        "another entry's alternate",
+        {
+          pathname: '/other',
+          targetPageIdentifier: 'other_page',
+          alternateTargetPageIdentifiers: { byClientType: { DesktopWeb: 'paid_page' } },
+        },
+      ],
+    ])('rejects a setting where an alternate is %s', (_, other) => {
+      const entries = [
+        { ...ENTRY, alternateTargetPageIdentifiers: { byPaymentPick: { card: 'paid_page' } } },
+        { ...ENTRY, ...other },
+      ];
+      expect(parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting(entries))).toEqual({
+        error: 'entry 2 targetPageIdentifier',
+      });
+    });
+
+    it('accepts an alternate equal to its own entry targetPageIdentifier', () => {
+      const alternateTargetPageIdentifiers = { byHostname: { 'shop.example.com': ENTRY.targetPageIdentifier } };
+      expect(
+        parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([{ ...ENTRY, alternateTargetPageIdentifiers }])),
+      ).toEqual({ entries: [{ accountId: ACCOUNT_ID, ...ENTRY, alternateTargetPageIdentifiers }] });
+    });
+  });
+
   it('trims the attribute that names the target page, so a padded name still finds its value', () => {
     const entry = { ...ENTRY, targetPageIdentifierAttribute: ' pageGroup ' };
     expect(parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([entry]))).toEqual({
