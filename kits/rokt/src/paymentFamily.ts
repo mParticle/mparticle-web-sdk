@@ -62,6 +62,12 @@ const PICKER_TYPE = 'radio';
 // Element kinds that are never a radio or checkbox, for a click whose type was stripped.
 const BUTTON_ELEMENTS = ['button', 'role', 'wallet'];
 const LABEL_FIELDS = ['label', 'aria_label', 'test_id', 'element_id', 'element_name'];
+const NAME_FIELDS = ['label', 'aria_label'];
+
+// A button's own name is its aria label, or a label that wasn't borrowed from a nearby heading.
+function hasOwnName(attributes: Record<string, unknown>): boolean {
+  return (!!attributes.label && attributes.label_source !== 'heading') || !!attributes.aria_label;
+}
 
 // The payment method an auto button click picked: a checked payment radio, or a wallet button.
 // Plain buttons and links only count when their label names a wallet, so "Place order" never reads as a pick.
@@ -85,7 +91,9 @@ export function paymentFamilyFromClick(attributes: Record<string, unknown> | und
   if (!isPicker && attributes.type === undefined && !BUTTON_ELEMENTS.includes(String(attributes.element))) {
     return undefined;
   }
-  for (const field of LABEL_FIELDS) {
+  // A named button is read by its name alone, so a "Place order" button whose id names a wallet is no pick.
+  const fields = !isPicker && hasOwnName(attributes) ? NAME_FIELDS : LABEL_FIELDS;
+  for (const field of fields) {
     const family = classifyPaymentFamily(attributes[field]);
     if (family && (isPicker || family !== 'card')) {
       return family;
