@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.35.1](https://github.com/mParticle/mparticle-web-sdk/compare/v3.35.0...v3.35.1) (2026-11-19)
+
+
+### Bug Fixes
+
+* **button-tracking:** hand the kit an Apple Pay pick when a confirm tap opens the sheet ([#1881](https://github.com/mParticle/mparticle-web-sdk/issues/1881)) ([d1c0c9a](https://github.com/mParticle/mparticle-web-sdk/commit/d1c0c9a73a66bfc766e42e5d87a609a2899b9296))
+
 ## [3.35.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.34.3...v3.35.0) (2026-11-19)
 
 
