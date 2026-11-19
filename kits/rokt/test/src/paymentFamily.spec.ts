@@ -162,6 +162,8 @@ describe('paymentFamily', () => {
       [{ names: ['visa ending ####'] }, 'card'],
       [{ names: ['', 'paypalOption'] }, 'paypal'],
       [{ names: ['continue', 'pay with venmo', 'card'] }, 'venmo'],
+      [{ names: ['radio-payment-method-list-3', 'CREDIT'] }, 'card'],
+      [{ names: ['radio-payment-method-list-4', 'PAYPAL'] }, 'paypal'],
     ])('reads %j as %s', (pick, family) => {
       expect(paymentFamilyFromPick(pick)).toBe(family);
     });

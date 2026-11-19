@@ -1187,12 +1187,17 @@ function distinctNames(names: Array<string | undefined>): string[] {
 }
 
 // What names a payment option: the names shoppers read, then its hand-written
-// ids.
+// ids. An option shoppers read no name for, such as a bare radio beside its
+// text, is named by its hand-written value last.
 function optionNames(radio: Element): string[] {
+    const shown = shownOptionNames(radio);
     return distinctNames(
-        shownOptionNames(radio).concat(
+        shown.concat(
             stableIdentifier(radio.getAttribute('id')),
-            firstIdentifier(radio, TEST_ID_ATTRIBUTES)
+            firstIdentifier(radio, TEST_ID_ATTRIBUTES),
+            distinctNames(shown).length
+                ? undefined
+                : stableIdentifier(radio.getAttribute('value'))
         )
     );
 }
