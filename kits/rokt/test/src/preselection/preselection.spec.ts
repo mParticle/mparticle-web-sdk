@@ -8026,6 +8026,57 @@ describe('preselection', () => {
       expect(state.pending[0].event).toBe(triggerEvent);
     });
 
+    describe('with alternateTargetPageIdentifiers', () => {
+      const PAID_PAGE = 'preselect-paid-page';
+      let active: Map<string, { expiresAt: number; attributesDigest: number; byEvent?: boolean }>;
+      const fireEvent = (pick: 'card' | undefined) => {
+        vi.mocked(readPreselectPaymentPick).mockReturnValue(pick);
+        maybeFirePreselectForEvent(state, host, buildCustomEvent(TRIGGER_EVENT_NAME), PATHNAME);
+      };
+
+      beforeEach(() => {
+        mockConfig.current[0].alternateTargetPageIdentifiers = { byPaymentPick: { card: PAID_PAGE } };
+        active = new Map();
+        vi.mocked(buildActivePreselectFieldKey).mockImplementation((accountId, scope) => `${accountId}:${scope}`);
+        vi.mocked(setActivePreselect).mockImplementation((key, attributesDigest, byEvent) => {
+          active.set(key, { expiresAt: Date.now() + 60_000, attributesDigest, byEvent });
+        });
+        vi.mocked(getActivePreselect).mockImplementation((key) => active.get(key) ?? null);
+      });
+
+      it.each([
+        ['the default page, then the picked page', undefined, 'card', [TARGET_PAGE_IDENTIFIER, PAID_PAGE]],
+        ['the picked page, then the default page', 'card', undefined, [PAID_PAGE, TARGET_PAGE_IDENTIFIER]],
+      ] as const)('fires events for %s within the active period', (_, firstPick, secondPick, identifiers) => {
+        fireEvent(firstPick);
+        fireEvent(secondPick);
+
+        expect(selectPlacementsCalls.map((call) => call.identifier)).toEqual(identifiers);
+      });
+
+      it('still skips a repeat event for the same page', () => {
+        fireEvent('card');
+        fireEvent('card');
+
+        expect(selectPlacementsCalls.map((call) => call.identifier)).toEqual([PAID_PAGE]);
+      });
+
+      it.each([
+        ['the default page, then the picked page', undefined, 'card', [TARGET_PAGE_IDENTIFIER, PAID_PAGE]],
+        ['the picked page, then the default page', 'card', undefined, [PAID_PAGE, TARGET_PAGE_IDENTIFIER]],
+      ] as const)('fires an event for %s over a held page view', (_, firstPick, secondPick, identifiers) => {
+        vi.useFakeTimers();
+        mockConfig.current[0].dispatchDelayMs = DELAY_MS;
+        fireEvent(firstPick);
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+        expect(state.scheduledDispatch).toBeDefined();
+
+        fireEvent(secondPick);
+
+        expect(selectPlacementsCalls.map((call) => call.identifier)).toEqual(identifiers);
+      });
+    });
+
     it('skips while an event preselection is active, even when the attributes changed', () => {
       vi.mocked(getActivePreselect).mockReturnValue({ expiresAt: Date.now() + 60_000, attributesDigest: 1, byEvent: true });
 

@@ -1171,6 +1171,21 @@ function hasWaitingPageView(state: PreselectState, pathname: string): boolean {
   return state.pending.some((entry) => entry.pathname === pathname && isPageViewTrigger(entry.event));
 }
 
+// An entry with alternate target pages keeps one active record per target page, so a call for one page never holds off
+// a call for another. Every other entry keeps one per scope.
+function buildActiveRecordKey(
+  accountId: string,
+  scope: string,
+  configEntry: PreselectionConfigEntry | undefined,
+  attributes: Record<string, unknown>,
+): string {
+  const page = configEntry?.alternateTargetPageIdentifiers ? getCallIdentifier(configEntry, attributes) : undefined;
+  return buildActivePreselectFieldKey(
+    accountId,
+    page !== undefined && page !== configEntry?.targetPageIdentifier ? `${scope}@${page}` : scope,
+  );
+}
+
 // What the event would meet in resolveAndDispatch and fireDispatch, read without side effects:
 // it sends now, waits in the queue for a gate or an attribute, or is skipped as active.
 function getEventDispatchOutcome(
@@ -1190,7 +1205,9 @@ function getEventDispatchOutcome(
   // fireDispatch skips an event while a record an event wrote is active, or when the active
   // record already carries these attributes.
   const accountId = host.accountId || '';
-  const active = getActivePreselect(buildActivePreselectFieldKey(accountId, stripTrailingSlash(pathname)));
+  const active = getActivePreselect(
+    buildActiveRecordKey(accountId, stripTrailingSlash(pathname), configEntry, collected),
+  );
   if (!active) {
     return 'now';
   }
@@ -2211,7 +2228,7 @@ function fireDispatch(
     return false;
   }
 
-  const activePreselectKey = buildActivePreselectFieldKey(accountId, activeRecordScope);
+  const activePreselectKey = buildActiveRecordKey(accountId, activeRecordScope, configEntry, attributes);
   const digests = getAttributesDigests(host, accountId, identifier, attributes);
   const attributesDigest = digests.digest;
   // One pre-selection per checkout on the confirm click: once this tab fired these attributes for the
@@ -3042,7 +3059,7 @@ function fireCartPageView(state: PreselectState, host: PreselectHost, pathname: 
   state.cartPageViewPathname = undefined;
   // The once-per-checkout and active pre-selection checks fireDispatch makes, skipped here without a log line.
   const digests = getAttributesDigests(host, accountId, entry.targetPageIdentifier, collected);
-  const active = getActivePreselect(buildActivePreselectFieldKey(accountId, entry.targetPageIdentifier));
+  const active = getActivePreselect(buildActiveRecordKey(accountId, entry.targetPageIdentifier, entry, collected));
   if (
     wasFiredRecentlyFor(accountId, entry.targetPageIdentifier, digests) ||
     matchesStoredDigest(active?.attributesDigest, digests)
