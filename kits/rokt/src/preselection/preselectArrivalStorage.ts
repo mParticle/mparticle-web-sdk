@@ -360,10 +360,18 @@ export function recordPreselectPaymentPick(
   writeRecord(fieldKey, { ...record, paymentPick: family, paymentPickAt: t });
 }
 
-// The payment family the shopper last picked in this tab for a target page, within the arrival window, or undefined.
-export function readPreselectPaymentPick(accountId: string, targetPageIdentifier: string): PaymentFamily | undefined {
+// The payment family the shopper last picked in this tab for a target page, within the arrival window and no earlier
+// than since when given, or undefined.
+export function readPreselectPaymentPick(
+  accountId: string,
+  targetPageIdentifier: string,
+  since?: number,
+): PaymentFamily | undefined {
   const record = readOpenRecord(buildFieldKey(accountId, targetPageIdentifier));
-  return record.paymentPick !== undefined && record.paymentPickAt !== undefined && isWithinWindow(record.paymentPickAt)
+  return record.paymentPick !== undefined &&
+    record.paymentPickAt !== undefined &&
+    isWithinWindow(record.paymentPickAt) &&
+    (since === undefined || record.paymentPickAt >= since)
     ? record.paymentPick
     : undefined;
 }

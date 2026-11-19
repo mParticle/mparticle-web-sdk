@@ -24,6 +24,12 @@ export interface PreselectAttributeDefault {
   matchPaymentFamily?: boolean;
 }
 
+export interface PreselectAlternateTargetPageIdentifiers {
+  byPaymentPick?: Partial<Record<PaymentFamily, string>>;
+  byHostname?: Record<string, string>;
+  byClientType?: Partial<Record<PreselectClientType, string>>;
+}
+
 export interface PreselectIntentSelectors {
   commit?: string[];
   checkoutStep?: string[];
@@ -46,6 +52,10 @@ export interface PreselectionConfigEntry {
   // A target page's call whose identifier matches more than one entry, as when two entries' attributes hold the same
   // value or this value equals another entry's targetPageIdentifier, goes to none of them.
   targetPageIdentifierAttribute?: string;
+  // Opt-in, for a route that ends on one of several target pages: the call goes out under the page the shopper's payment
+  // pick, then the page's host, then the device names, else targetPageIdentifier, which still keys the entry's records.
+  // A target page's call matches this entry under any of these identifiers.
+  alternateTargetPageIdentifiers?: PreselectAlternateTargetPageIdentifiers;
   // Attributes that gate the dispatch and form the cache key. Include one only if it is
   // stable between checkout and the target page and is used to select offers; an attribute
   // that moves in between turns every arrival into a miss. Attributes on the

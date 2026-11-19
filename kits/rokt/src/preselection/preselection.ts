@@ -4,11 +4,12 @@ import type { IUserIdentities } from '@mparticle/web-sdk';
 import {
   PRESELECTION_CONFIG,
   PRESELECT_SKIP_DEFAULT,
+  type PreselectAlternateTargetPageIdentifiers,
   type PreselectAttributeDefault,
   type PreselectClientType,
   type PreselectionConfigEntry,
 } from './preselectionConfig';
-import { parsePreselectionConfigSetting } from './preselectionConfigSetting';
+import { getEntryTargetPageIdentifiers, parsePreselectionConfigSetting } from './preselectionConfigSetting';
 import {
   buildActivePreselectFieldKey,
   getActivePreselect,
@@ -696,7 +697,7 @@ export function findPreselectionConfigByIdentifier(
 
   const matches = getPreselectionEntries(accountId).filter((entry) =>
     entry.targetPageIdentifierAttribute === undefined
-      ? entry.targetPageIdentifier === identifier
+      ? getEntryTargetPageIdentifiers(entry).includes(identifier)
       : attributes !== undefined && getCallIdentifier(entry, attributes) === identifier,
   );
   return matches.length === 1 ? matches[0] : undefined;
@@ -766,16 +767,53 @@ function isControlCharacter(char: string): boolean {
   return code < 0x20 || (code >= 0x7f && code <= 0x9f);
 }
 
+const kitLoadedAt = Date.now();
+// The latest page view or pathname trigger on each entry's route on this page, by account and entry key.
+const latestEntryPageViewAt = new Map<string, number>();
+
+function recordEntryPageView(configEntry: PreselectionConfigEntry, at: number): void {
+  const key = `${configEntry.accountId}:${configEntry.targetPageIdentifier}`;
+  latestEntryPageViewAt.set(key, Math.max(latestEntryPageViewAt.get(key) ?? 0, at));
+}
+
+// The alternate target page this call names: the shopper's payment pick first, then the page's host, then the device.
+// A pick counts only when made since the route's latest page view on this page, so one left by an abandoned checkout
+// never sends a later one to another page.
+function pickAlternateTargetPageIdentifier(
+  configEntry: PreselectionConfigEntry,
+  alternates: PreselectAlternateTargetPageIdentifiers,
+): string | undefined {
+  const { byPaymentPick, byHostname, byClientType } = alternates;
+  const key = `${configEntry.accountId}:${configEntry.targetPageIdentifier}`;
+  const paymentPick = byPaymentPick
+    ? readPreselectPaymentPick(
+        configEntry.accountId,
+        configEntry.targetPageIdentifier,
+        latestEntryPageViewAt.get(key) ?? kitLoadedAt,
+      )
+    : undefined;
+  const clientType = byClientType ? getPreselectClientType(navigator.userAgent) : undefined;
+  return [
+    byPaymentPick && paymentPick ? readOwnValue(byPaymentPick, paymentPick) : undefined,
+    byHostname ? readOwnValue(byHostname, window.location.hostname) : undefined,
+    byClientType && clientType ? readOwnValue(byClientType, clientType) : undefined,
+  ].find(isString);
+}
+
 // The identifier a call for this entry goes out under: its own value of targetPageIdentifierAttribute, trimmed, when
-// the entry names one, else targetPageIdentifier. Undefined when that value is not a non-empty string free of
-// whitespace and control characters once trimmed, so no call goes out under it.
+// the entry names one, else the alternate target page it picks, else targetPageIdentifier. Undefined when that value is
+// not a non-empty string free of whitespace and control characters once trimmed, so no call goes out under it.
 export function getCallIdentifier(
   configEntry: PreselectionConfigEntry,
   attributes: Record<string, unknown>,
 ): string | undefined {
   const key = configEntry.targetPageIdentifierAttribute;
   if (key === undefined) {
-    return configEntry.targetPageIdentifier;
+    const alternates = configEntry.alternateTargetPageIdentifiers;
+    return (
+      (alternates ? pickAlternateTargetPageIdentifier(configEntry, alternates) : undefined) ??
+      configEntry.targetPageIdentifier
+    );
   }
   const value = readValueInAnyCasing(attributes, key);
   if (!isString(value)) {
@@ -2052,7 +2090,15 @@ function getAttributesDigests(
       })
       .map((key) => [key, readOwnValue(outgoing, key)]);
     const withEmails = emails.length > 0 ? `${keyed}|${JSON.stringify(emails)}` : keyed;
-    const withReplaced = replaced.length > 0 ? `${withEmails}>${JSON.stringify(replaced)}` : withEmails;
+    const withAttributes = replaced.length > 0 ? `${withEmails}>${JSON.stringify(replaced)}` : withEmails;
+    // A call for an alternate target page is a different call, so a fire for one page never holds off another's.
+    const alternateTarget = configEntry?.alternateTargetPageIdentifiers
+      ? getCallIdentifier(configEntry, attributes)
+      : undefined;
+    const withReplaced =
+      alternateTarget !== undefined && alternateTarget !== identifier
+        ? `${withAttributes}@${alternateTarget}`
+        : withAttributes;
     // The default marker the call carries, from the same filtered fills the call uses.
     const marker = getPreselectDefaultedMarker(host.getPreselectFills?.(attributes, identifier) ?? fills, outgoing);
     return marker
@@ -2138,7 +2184,7 @@ function fireDispatch(
   // targetPageIdentifier.
   const usesTargetAttribute = configEntry?.targetPageIdentifierAttribute !== undefined;
   const callIdentifier =
-    configEntry && usesTargetAttribute
+    configEntry && (usesTargetAttribute || configEntry.alternateTargetPageIdentifiers)
       ? getCallIdentifier(configEntry, host.filterAttributes ? host.filterAttributes(attributes) : attributes)
       : identifier;
   if (callIdentifier === undefined) {
@@ -2458,6 +2504,14 @@ function holdOrFirePreselect(
   if (!configEntry) {
     recordNearMissForArrival(host, pathname);
     return;
+  }
+  // A replayed page view carries its own trigger time, so only a new one moves this forward.
+  if (
+    configEntry.alternateTargetPageIdentifiers &&
+    !intentKindOf(event) &&
+    !isConfiguredTriggerEvent(configEntry, event)
+  ) {
+    recordEntryPageView(configEntry, triggeredAt);
   }
 
   // Ahead of the not-ready branch on purpose: that branch persists a snapshot keyed to whoever

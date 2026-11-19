@@ -144,6 +144,51 @@ function isAttributeDefault(value: unknown): boolean {
   );
 }
 
+// An identifier goes out as written, so it must be non-empty with no whitespace or control characters.
+function isIdentifier(value: unknown): value is string {
+  return (
+    isNonEmptyString(value) &&
+    !/\s/.test(value) &&
+    !Array.from(value).some(
+      (char) => char.charCodeAt(0) < 0x20 || (char.charCodeAt(0) >= 0x7f && char.charCodeAt(0) <= 0x9f),
+    )
+  );
+}
+
+function isIdentifierMap(map: unknown, isKey: (key: string) => boolean): boolean {
+  return (
+    isObject(map) &&
+    Object.keys(map).length > 0 &&
+    Object.entries(map).every(([key, identifier]) => isKey(key) && isIdentifier(identifier))
+  );
+}
+
+// At least one of the three maps, each keyed as a default's are. Other keys are ignored so a later kit can add one.
+function isAlternateTargetPageIdentifiers(value: unknown): boolean {
+  if (!isObject(value)) {
+    return false;
+  }
+  const { byPaymentPick, byHostname, byClientType } = value;
+  const maps: Array<[unknown, (key: string) => boolean]> = [
+    [byPaymentPick, isPaymentFamily],
+    [byHostname, (host) => host !== '' && host === host.toLowerCase()],
+    [byClientType, (type) => CLIENT_TYPES.includes(type)],
+  ];
+  const present = maps.filter(([map]) => map !== undefined);
+  return present.length > 0 && present.every(([map, isKey]) => isIdentifierMap(map, isKey));
+}
+
+// Every identifier a target page's call can match this entry under.
+export function getEntryTargetPageIdentifiers(entry: PreselectionConfigEntry): string[] {
+  const alternates = entry.alternateTargetPageIdentifiers;
+  return [
+    entry.targetPageIdentifier,
+    ...Object.values(alternates?.byPaymentPick ?? {}),
+    ...Object.values(alternates?.byHostname ?? {}),
+    ...Object.values(alternates?.byClientType ?? {}),
+  ];
+}
+
 // Reasons name the field only, never its value, since they ship over the logging pipeline.
 function parseEntry(accountId: string, raw: unknown): PreselectionConfigEntry | string {
   if (!isObject(raw)) {
@@ -158,6 +203,7 @@ function parseEntry(accountId: string, raw: unknown): PreselectionConfigEntry | 
   const defaults = raw.preselectAttributeDefaults !== undefined ? raw.preselectAttributeDefaults : legacyDefaults;
   const widenedOptionalKeys = raw.widenedOptionalAttributeKeys;
   const { targetPageIdentifierAttribute } = raw;
+  const alternateTargets = raw.alternateTargetPageIdentifiers;
 
   if (raw.accountId !== undefined && raw.accountId !== accountId) {
     return 'accountId';
@@ -187,6 +233,13 @@ function parseEntry(accountId: string, raw: unknown): PreselectionConfigEntry | 
       isSelectPlacementsAttributePersistenceDenied(targetPageIdentifierAttribute.trim()))
   ) {
     return 'targetPageIdentifierAttribute';
+  }
+  // Both choose the call's identifier, so an entry names one at most.
+  if (
+    alternateTargets !== undefined &&
+    (targetPageIdentifierAttribute !== undefined || !isAlternateTargetPageIdentifiers(alternateTargets))
+  ) {
+    return 'alternateTargetPageIdentifiers';
   }
   if (!isStringArray(attributeKeys) || attributeKeys.length === 0) {
     return 'attributeKeys';
@@ -306,6 +359,14 @@ function parseEntry(accountId: string, raw: unknown): PreselectionConfigEntry | 
   if (targetPageIdentifierAttribute !== undefined) {
     entry.targetPageIdentifierAttribute = targetPageIdentifierAttribute.trim();
   }
+  if (alternateTargets !== undefined) {
+    const { byPaymentPick, byHostname, byClientType } = alternateTargets as Record<string, unknown>;
+    entry.alternateTargetPageIdentifiers = {
+      ...(byPaymentPick !== undefined ? { byPaymentPick } : {}),
+      ...(byHostname !== undefined ? { byHostname } : {}),
+      ...(byClientType !== undefined ? { byClientType } : {}),
+    } as PreselectionConfigEntry['alternateTargetPageIdentifiers'];
+  }
   if (optionalAttributeKeys !== undefined) {
     entry.optionalAttributeKeys = optionalAttributeKeys;
   }
@@ -372,7 +433,9 @@ export function parsePreselectionConfigSetting(accountId: string, setting: strin
     if (isString(entry)) {
       return { error: `entry ${i + 1} ${entry}` };
     }
-    if (entries.some((existing) => existing.targetPageIdentifier === entry.targetPageIdentifier)) {
+    // A target page's call must name one entry, so no two entries share any identifier.
+    const targets = getEntryTargetPageIdentifiers(entry);
+    if (entries.some((existing) => getEntryTargetPageIdentifiers(existing).some((id) => targets.includes(id)))) {
       return { error: `entry ${i + 1} targetPageIdentifier` };
     }
     entries.push(entry);
