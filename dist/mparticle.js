@@ -1,6 +1,6 @@
 var mParticle = (function () {
 
-    var version = "3.34.2";
+    var version = "3.34.3";
 
     var Constants = {
       sdkVersion: version,
@@ -13212,7 +13212,7 @@ var mParticle = (function () {
     var routeGatedCommits = new RegExp('^(?:buy now|purchase|register(?: now)?|complete (?:my |your )?registration|jetzt kaufen|kaufen|commander|(?:passer|valider) (?:la |ma )?commande|finalizar (?:la |mi )?compra|' +
     // 'comprar ahora|acquista ora|nu kopen|\u4ECA\u3059\u3050\u8CFC\u5165|\u8CFC\u5165\u3059\u308B|\u3053\u306E\u5185\u5BB9\u3067\u7533\u3057\u8FBC\u3080)$'
     "comprar ahora|acquista ora|nu kopen|\\u4ECA\\u3059\\u3050\\u8CFC\\u5165|\\u8CFC\\u5165\\u3059\\u308B|\\u3053\\u306E\\u5185\\u5BB9\\u3067\\u7533\\u3057\\u8FBC\\u3080)$");
-    var steps = new RegExp('^(?:' + ["(?:let's |lets |go to |proceed to |secure )?(?:check ?out|checkout)(?: now| securely| as guest)?", '(?:continue|proceed) to (?:payment|review|billing|shipping|delivery|order review)|review (?:my |your )?order', 'guest checkout|(?:pay|continue|check ?out) (?:with|by) (?:card|credit card|debit card|credit or debit card)', 'zur kasse|zur kasse gehen|auschecken|weiter zur zahlung', "passer \\u00E0 la caisse|continuer vers le paiement|proc\\u00E9der au paiement", 'ir a caja|continuar al pago|tramitar pedido', "procedi al checkout|procedi all'acquisto|procedi al pagamento|vai alla cassa", 'afrekenen|verder naar betalen|doorgaan naar betalen',
+    var steps = new RegExp('^(?:' + ["(?:let's |lets |go to |proceed to |continue to |secure )?(?:check ?out|checkout)(?: now| securely| as guest)?", '(?:continue|proceed) to (?:payment|review|billing|shipping|delivery|order review)|review (?:my |your )?order', 'guest checkout|continue as (?:a )?guest|(?:pay|continue|check ?out) (?:with|by) (?:card|credit card|debit card|credit or debit card)', 'zur kasse|zur kasse gehen|auschecken|weiter zur zahlung', "passer \\u00E0 la caisse|continuer vers le paiement|proc\\u00E9der au paiement", 'ir a caja|continuar al pago|tramitar pedido', "procedi al checkout|procedi all'acquisto|procedi al pagamento|vai alla cassa", 'afrekenen|verder naar betalen|doorgaan naar betalen',
     // '\u30EC\u30B8\u306B\u9032\u3080|\u3054?(?:\u8CFC\u5165|\u6CE8\u6587)\u624B\u7D9A\u304D(?:(?:\u3078|\u306B)(?:\u9032\u3080)?)?|\u304A?\u652F\u6255\u3044(?:\u3078|\u306B)\u9032\u3080|(?:\u3054\u6CE8\u6587\u5185\u5BB9\u306E)?\u78BA\u8A8D\u753B\u9762\u3078(?:\u9032\u3080)?',
     "\\u30EC\\u30B8\\u306B\\u9032\\u3080|\\u3054?(?:\\u8CFC\\u5165|\\u6CE8\\u6587)\\u624B\\u7D9A\\u304D(?:(?:\\u3078|\\u306B)(?:\\u9032\\u3080)?)?|\\u304A?\\u652F\\u6255\\u3044(?:\\u3078|\\u306B)\\u9032\\u3080|(?:\\u3054\\u6CE8\\u6587\\u5185\\u5BB9\\u306E)?\\u78BA\\u8A8D\\u753B\\u9762\\u3078(?:\\u9032\\u3080)?"].join('|') + ')$');
     // "Save and continue" also saves profile, address and card forms, so it is a step only on a checkout segment's route
@@ -13272,7 +13272,7 @@ var mParticle = (function () {
     }
     var SEPARATORS = /[-_|\u00B7\u2022]/g;
     var CURRENCY_CODES = /(?:^| )(?:usd|aud|cad|nzd|gbp|eur|chf|sgd|hkd|jpy|inr|mxn)(?= |$)|\b(?:a|au|ca|c|us|nz|hk|s)\$/g;
-    var WALLET_ALIASES = [[/\bapplepay\b/g, 'apple pay'], [/\bg ?pay\b/g, 'google pay'], [/\bamazonpay\b/g, 'amazon pay'], [/\bshoppay\b/g, 'shop pay'], [/\bcashapp\b/g, 'cash app']];
+    var WALLET_ALIASES = [[/\bapplepay\b/g, 'apple pay'], [/\bgooglepay\b/g, 'google pay'], [/\bg ?pay\b/g, 'google pay'], [/\bamazonpay\b/g, 'amazon pay'], [/\bshoppay\b/g, 'shop pay'], [/\bcashapp\b/g, 'cash app']];
     // Labels longer than this are sentences: they neither match nor veto intent.
     var MAX_LABEL_WORDS = 8;
     function normalize(text) {
