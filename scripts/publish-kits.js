@@ -1335,7 +1335,7 @@ function appendRecoverySummary(version, remainingPackageNames = []) {
         '   - **Branch mode (dispatched from `v3-staging` before Release Please)**: dispatch **V3 Release - Step 1** from `v3-staging` with:',
         '     - `dryRun=false`',
         `     - \`resumeKitReleaseTag=${releaseTag}\``,
-        '4. Wait for the recovery run to publish any missing kits and verify core and all 33 kits on `next` (`publish-kits.js` runs its integrated strict npm audit at the end of **Publish V3 kits**).',
+        '4. Wait for the recovery run to publish any missing kits and verify core and all 33 kits on `next` (`publish-kits.js` checks npm at the end of **Publish V3 kits**; unconfirmed packages warn, mismatches fail).',
         '5. Complete candidate upload and staging for the mode used:',
         `   - **Tag mode**: **Re-run failed jobs** on the original Step 1 run re-runs \`advance-staging\` and \`upload-v3-candidate\` using the original run's packaged candidate (or, if \`v3-staging\` already moved and only candidate upload or stage failed, dispatch **V3 shadow release: upload candidate** (\`v3-shadow-candidate.yml\`) on \`main\` with \`step1_run_id\` set to the original Step 1 run's ID, \`release_gate=true\`, and \`release_tag=${releaseTag}\` within the candidate's 7-day retention window).`,
         "   - **Branch mode**: because `resumeKitReleaseTag` skips packaging and upload, dispatch **V3 shadow release: upload candidate** (`v3-shadow-candidate.yml`) on `main` with `step1_run_id` set to the original failed Step 1 run's ID and `release_gate=true` within the candidate's 7 days.",
@@ -1599,9 +1599,12 @@ async function main(options = {}) {
             `Published every kit at ${version} with dist-tag ${distTag}`
         );
 
+        // Publication succeeded; registry visibility lag is advisory here.
+        // The staging release gate still requires every package's integrity.
+        // Keep artifact and conflicting dist-tag mismatches fatal.
         runPackageAudit(packageArtifacts, version, distTag, {
             ...options,
-            strict: true,
+            strict: false,
             beforeAuditSummary: () => appendSummary(version, distTag, results),
         });
     } catch (error) {
@@ -1639,7 +1642,7 @@ async function main(options = {}) {
 
 // By default only a mismatch fails: a package npm has not confirmed yet is
 // reported as a warning, because the publish itself already succeeded. With
-// strict: true (used at the end of main() and under --audit --strict), any
+// strict: true (used under --audit --strict), any
 // unconfirmed or missing package also fails.
 function auditMain(options = {}) {
     const strict = options.strict === true;
