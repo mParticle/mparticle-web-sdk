@@ -240,10 +240,10 @@ export class ButtonTracker {
     // An Apple Pay session begun right after a tracked tap counts as a wallet
     // tap for the kit; one begun with no such tap, or from a tap the page
     // excluded, does not. A tap that reads as a confirm tap reaches the kit as
-    // one. It is delivered on a timer, not after the next paint, since the
-    // payment sheet may hold painting back: a tap that already reads as a
-    // wallet goes now under its own rule, and the throttle drops the copy
-    // queued for the paint.
+    // one, with Apple Pay as its payment pick. It is delivered on a timer, not
+    // after the next paint, since the payment sheet may hold painting back: a
+    // tap that already reads as a wallet goes now under its own rule, and the
+    // throttle drops the copy queued for the paint.
     public onApplePayBegin(): void {
         const t = Date.now();
         const click = this.lastClick;
@@ -251,7 +251,6 @@ export class ButtonTracker {
             !this.active ||
             !click ||
             click.excluded ||
-            click.kind === 'commit' ||
             t - click.t > APPLE_PAY_AFTER_CLICK_MS ||
             this.isKitSuppressed()
         ) {
@@ -266,6 +265,9 @@ export class ButtonTracker {
             try {
                 // Ahead of the intent, so a pre-selection it fires carries this pick.
                 this.pickPayment(t, pathname, undefined, 'apple_pay');
+                if (click.kind === 'commit') {
+                    return;
+                }
                 this.emit(
                     'wallet',
                     click.kind === 'wallet' ? click.source : 'api',

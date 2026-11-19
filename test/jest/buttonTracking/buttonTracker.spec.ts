@@ -2495,16 +2495,56 @@ describe('ButtonTracker', () => {
             );
         });
 
-        it('sends a confirm tap as itself when Apple Pay begins from it', () => {
+        it('sends a confirm tap as itself when Apple Pay begins from it, after an Apple Pay pick', () => {
+            const heard: string[] = [];
+            const pick = jest.fn(() => heard.push('pick'));
+            notify.mockImplementation(() => heard.push('intent'));
+            roktManager.attachKit(({
+                filters: {},
+                launcher: {},
+                onCheckoutIntent: notify,
+                onPaymentPick: pick,
+            } as unknown) as IRoktKit);
             startTracker();
             listener(docAdd, 'click')(trustedClick(button('Place order')));
             beginApplePay();
             afterPaint();
 
+            expect(heard).toEqual(['pick', 'intent']);
+            expect(pick).toHaveBeenCalledWith({
+                t: 1000000,
+                pathname: '/checkout',
+                names: undefined,
+                family: 'apple_pay',
+            });
             expect(notify).toHaveBeenCalledTimes(1);
             expect(notify).toHaveBeenCalledWith(
                 expect.objectContaining({ kind: 'commit' })
             );
+        });
+
+        it.each([
+            ['the page excluded', true, 0],
+            ['more than a second before the session', false, 1001],
+        ])('gives no Apple Pay pick for a confirm tap %s', (_, excluded, wait) => {
+            const pick = jest.fn();
+            roktManager.attachKit(({
+                filters: {},
+                launcher: {},
+                onCheckoutIntent: notify,
+                onPaymentPick: pick,
+            } as unknown) as IRoktKit);
+            startTracker();
+            const confirm = button('Place order');
+            if (excluded) {
+                confirm.setAttribute('data-mp-no-track', '');
+            }
+            listener(docAdd, 'click')(trustedClick(confirm));
+            jest.advanceTimersByTime(wait);
+            beginApplePay();
+            afterPaint();
+
+            expect(pick).not.toHaveBeenCalled();
         });
 
         it('wraps begin once on a window whose earlier tracker lost its state', () => {
