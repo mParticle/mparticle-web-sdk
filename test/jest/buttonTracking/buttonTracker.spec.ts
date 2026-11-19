@@ -2523,6 +2523,51 @@ describe('ButtonTracker', () => {
             );
         });
 
+        it('hands over the Apple Pay pick before a confirm tap the page hides before the next paint', () => {
+            const heard: string[] = [];
+            const pick = jest.fn(() => heard.push('pick'));
+            notify.mockImplementation(() => heard.push('intent'));
+            roktManager.attachKit(({
+                filters: {},
+                launcher: {},
+                onCheckoutIntent: notify,
+                onPaymentPick: pick,
+            } as unknown) as IRoktKit);
+            startTracker();
+            listener(docAdd, 'click')(trustedClick(button('Place order')));
+            beginApplePay();
+            listener(winAdd, 'pagehide')({ type: 'pagehide' });
+
+            expect(heard).toEqual(['pick', 'intent']);
+            expect(pick).toHaveBeenCalledWith(
+                expect.objectContaining({ family: 'apple_pay' })
+            );
+        });
+
+        it('hands over no checked payment radio from a confirm tap whose Apple Pay session already gave the pick', () => {
+            const pick = jest.fn();
+            roktManager.attachKit(({
+                filters: {},
+                launcher: {},
+                onCheckoutIntent: notify,
+                onPaymentPick: pick,
+            } as unknown) as IRoktKit);
+            startTracker();
+            document.body.innerHTML =
+                '<label><input type="radio" name="payment_method" id="card-option" checked> Card</label>';
+            listener(docAdd, 'click')(trustedClick(button('Place order')));
+            beginApplePay();
+            afterPaint();
+
+            expect(pick).toHaveBeenCalledTimes(1);
+            expect(pick).toHaveBeenCalledWith(
+                expect.objectContaining({ names: undefined, family: 'apple_pay' })
+            );
+            expect(notify).toHaveBeenCalledWith(
+                expect.objectContaining({ kind: 'commit' })
+            );
+        });
+
         it.each([
             ['the page excluded', true, 0],
             ['more than a second before the session', false, 1001],
