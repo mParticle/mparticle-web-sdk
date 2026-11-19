@@ -1,5 +1,18 @@
 # Changelog
 
+## [3.34.3](https://github.com/mParticle/mparticle-web-sdk/compare/v3.34.2...v3.34.3) (2026-11-19)
+
+
+### Bug Fixes
+
+* **button-tracking:** read continue as guest, continue to checkout and googlepay labels ([#1869](https://github.com/mParticle/mparticle-web-sdk/issues/1869)) ([1d389b8](https://github.com/mParticle/mparticle-web-sdk/commit/1d389b89c1b5684dd0aa9e0c5657221417ba403a))
+* **rokt:** read a named button's payment method from its name, not its id ([#1877](https://github.com/mParticle/mparticle-web-sdk/issues/1877)) ([9274259](https://github.com/mParticle/mparticle-web-sdk/commit/9274259c79348e83af26e5e57ff4a6131c333334))
+
+
+### Miscellaneous
+
+* **identity:** isolate the successful identify callback test ([#1875](https://github.com/mParticle/mparticle-web-sdk/issues/1875)) ([1c99283](https://github.com/mParticle/mparticle-web-sdk/commit/1c99283ee237b83e0f80e7a524320bf0fe2adbc2))
+
 ## [3.34.2](https://github.com/mParticle/mparticle-web-sdk/compare/v3.34.1...v3.34.2) (2026-11-18)
 
 
