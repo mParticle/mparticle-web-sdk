@@ -1,6 +1,6 @@
 var mParticle = (function () {
 
-    var version = "3.34.3";
+    var version = "3.35.0";
 
     var Constants = {
       sdkVersion: version,
@@ -13119,9 +13119,11 @@ var mParticle = (function () {
       });
     }
     // What names a payment option: the names shoppers read, then its hand-written
-    // ids.
+    // ids. An option shoppers read no name for, such as a bare radio beside its
+    // text, is named by its hand-written value last.
     function optionNames(radio) {
-      return distinctNames(shownOptionNames(radio).concat(stableIdentifier(radio.getAttribute('id')), firstIdentifier(radio, TEST_ID_ATTRIBUTES)));
+      var shown = shownOptionNames(radio);
+      return distinctNames(shown.concat(stableIdentifier(radio.getAttribute('id')), firstIdentifier(radio, TEST_ID_ATTRIBUTES), distinctNames(shown).length ? undefined : stableIdentifier(radio.getAttribute('value'))));
     }
     function describePaymentChoice(control, path) {
       if (path === void 0) {

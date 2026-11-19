@@ -1,5 +1,17 @@
 # Changelog
 
+## [3.35.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.34.3...v3.35.0) (2026-11-19)
+
+
+### Features
+
+* **rokt:** pre-select one of several target pages per checkout ([#1878](https://github.com/mParticle/mparticle-web-sdk/issues/1878)) ([6a3474d](https://github.com/mParticle/mparticle-web-sdk/commit/6a3474d07fc76c3a02e2c02a4ec97ce4754ad2b6))
+
+
+### Bug Fixes
+
+* **rokt:** name a payment radio shoppers read no name for by its value ([#1880](https://github.com/mParticle/mparticle-web-sdk/issues/1880)) ([74eaf62](https://github.com/mParticle/mparticle-web-sdk/commit/74eaf62961c5d2e9f212471526c801b6ea1ff983))
+
 ## [3.34.3](https://github.com/mParticle/mparticle-web-sdk/compare/v3.34.2...v3.34.3) (2026-11-19)
 
 
