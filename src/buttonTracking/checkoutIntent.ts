@@ -103,9 +103,9 @@ const routeGatedCommits = new RegExp(
 const steps = new RegExp(
     '^(?:' +
         [
-            "(?:let's |lets |go to |proceed to |secure )?(?:check ?out|checkout)(?: now| securely| as guest)?",
+            "(?:let's |lets |go to |proceed to |continue to |secure )?(?:check ?out|checkout)(?: now| securely| as guest)?",
             '(?:continue|proceed) to (?:payment|review|billing|shipping|delivery|order review)|review (?:my |your )?order',
-            'guest checkout|(?:pay|continue|check ?out) (?:with|by) (?:card|credit card|debit card|credit or debit card)',
+            'guest checkout|continue as (?:a )?guest|(?:pay|continue|check ?out) (?:with|by) (?:card|credit card|debit card|credit or debit card)',
             'zur kasse|zur kasse gehen|auschecken|weiter zur zahlung',
             'passer \\u00E0 la caisse|continuer vers le paiement|proc\\u00E9der au paiement',
             'ir a caja|continuar al pago|tramitar pedido',
@@ -211,6 +211,7 @@ const SEPARATORS = /[-_|\u00B7\u2022]/g;
 const CURRENCY_CODES = /(?:^| )(?:usd|aud|cad|nzd|gbp|eur|chf|sgd|hkd|jpy|inr|mxn)(?= |$)|\b(?:a|au|ca|c|us|nz|hk|s)\$/g;
 const WALLET_ALIASES: Array<[RegExp, string]> = [
     [/\bapplepay\b/g, 'apple pay'],
+    [/\bgooglepay\b/g, 'google pay'],
     [/\bg ?pay\b/g, 'google pay'],
     [/\bamazonpay\b/g, 'amazon pay'],
     [/\bshoppay\b/g, 'shop pay'],

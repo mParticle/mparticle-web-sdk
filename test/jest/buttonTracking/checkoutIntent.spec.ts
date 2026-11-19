@@ -241,6 +241,9 @@ describe('checkoutIntent', () => {
             ['Check out with Afterpay', null, 'wallet'],
             ['Continue to PayPal', null, 'wallet'],
             ['applepay', null, 'wallet'],
+            ['googlepay checkout', null, 'wallet'],
+            ['GOOGLEPAY', null, 'wallet'],
+            ['googlepay', 'Google Pay available', undefined],
             ['apple pay logo', null, 'wallet'],
             ['PayPal', null, 'wallet'],
             ['Continue with Link', null, undefined],
@@ -252,6 +255,14 @@ describe('checkoutIntent', () => {
             ['Pay in 4 interest-free payments. Learn more', null, undefined],
             ["Let's Check Out", null, 'checkout_step'],
             ['Continue to Review', null, 'checkout_step'],
+            ['Continue to checkout', null, 'checkout_step'],
+            ['Continue to Checkout >', null, 'checkout_step'],
+            ['Continue as guest', null, 'checkout_step'],
+            ['Continue as a guest', null, 'checkout_step'],
+            ['Continue shopping', null, undefined],
+            ['Continue as guest user', null, undefined],
+            ['Sign in or continue as guest', null, undefined],
+            ['Continue as guest', 'Sign in or continue as guest', undefined],
             ['Pay With Card', null, 'checkout_step'],
             ['Pay with credit card', null, 'checkout_step'],
             ['Pay with gift card', null, undefined],
@@ -274,6 +285,12 @@ describe('checkoutIntent', () => {
             expect(classify([control('<a href="/bill">Pay</a>')], '/account')).toBeUndefined();
             expect(classify([control('<a href="/pay">Confirm and pay</a>')], '/account')).toBeUndefined();
             expect(classify([control('<a href="#" role="button">Pay</a>')], '/checkout')).toBe('commit');
+        });
+        it('reads continue to checkout and continue as guest links as checkout steps', () => {
+            expect(classify([control('<a href="/checkout">Continue to checkout</a>')], '/cart')).toBe('checkout_step');
+            expect(classify([control('<a href="/checkout/guest">Continue as guest</a>')], '/checkout/login')).toBe(
+                'checkout_step'
+            );
         });
         it('never reads buy now or purchase on a plain link as a commit', () => {
             expect(classify([control('<a href="/product/1">Buy now</a>')], '/checkout')).toBeUndefined();
