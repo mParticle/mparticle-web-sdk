@@ -109,6 +109,42 @@ describe('paymentFamily', () => {
       expect(paymentFamilyFromClick({ type: 'radio', checked: 'true', label: 'Klarna' })).toBe('klarna');
     });
 
+    it.each([
+      ['its label', { type: 'submit', element: 'wallet', label: 'Place order', element_id: 'klarna-checkout-button' }],
+      ['its aria label', { type: 'button', element: 'button', aria_label: 'Continue', test_id: 'paypal-submit' }],
+    ])('reads a button named by %s by that name only, never its ids', (_, attributes) => {
+      expect(paymentFamilyFromClick(attributes)).toBeUndefined();
+    });
+
+    it('still reads a named wallet button from its name', () => {
+      expect(paymentFamilyFromClick({ type: 'button', label: 'Pay with PayPal', element_id: 'express-btn' })).toBe(
+        'paypal',
+      );
+    });
+
+    it('reads ids past a label borrowed from a nearby heading', () => {
+      expect(
+        paymentFamilyFromClick({
+          type: 'button',
+          element: 'button',
+          label: 'Express checkout',
+          label_source: 'heading',
+          test_id: 'google-pay-button',
+        }),
+      ).toBe('google_pay');
+    });
+
+    it('still reads a checked picker from its id when its label names no method', () => {
+      expect(
+        paymentFamilyFromClick({
+          type: 'radio',
+          checked: true,
+          label: 'Pay in 4 installments',
+          element_id: 'afterpay',
+        }),
+      ).toBe('afterpay');
+    });
+
     it('only takes card words from a picker, never from a button', () => {
       expect(paymentFamilyFromClick({ type: 'submit', label: 'pay with card' })).toBeUndefined();
     });
