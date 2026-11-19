@@ -1,7 +1,7 @@
 import Events from '../../src/events';
 import { IEvents } from '../../src/events.interfaces';
 import { IMParticleWebSDKInstance } from '../../src/mp-instance';
-import { parseQueryParamAllowlist } from '../../src/pageViewTracker';
+import { parseQueryParamConfig } from '../../src/pageViewTracker';
 import { MessageType } from '../../src/types';
 import { Dictionary } from '../../src/utils';
 
@@ -93,7 +93,7 @@ describe('Events#logPageView', () => {
     });
 
     it('should attach a configured additional query param', () => {
-        sdkConfig.autoLogPageViewQueryParams = parseQueryParamAllowlist(
+        sdkConfig.autoLogPageViewQueryParams = parseQueryParamConfig(
             'promo_code'
         );
         window.history.replaceState({}, '', '/?promo_code=SAVE20&ref=g');

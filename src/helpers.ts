@@ -6,6 +6,7 @@ import Validators from './validators';
 import KitFilterHelper from './kitFilterHelper';
 import { IMParticleWebSDKInstance } from './mp-instance';
 import { SDKHelpersApi } from './sdkRuntimeModels';
+
 import { IMParticleUser, IdentityCallback, IdentityResult, ISDKUserIdentity } from './identity-user-interfaces';
 import { IAliasResult } from './identity.interfaces';
 import { AliasUsersCallback, MPID, UserIdentities } from '@mparticle/web-sdk';

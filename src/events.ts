@@ -25,6 +25,7 @@ import {
     allowedQueryParams,
     autoPageViewAttribute,
     IPageViewOptions,
+
     paramsToAttributes,
 } from './pageViewTracker';
 
@@ -178,7 +179,6 @@ export default function Events(
                     allowedQueryParams(
                         getHref(),
                         mpInstance._Store.SDKConfig.autoLogPageViewQueryParams
-                            ?.allowed
                     )
                 ),
                 hostname: window.location.hostname,

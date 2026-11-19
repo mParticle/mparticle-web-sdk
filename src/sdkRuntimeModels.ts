@@ -17,6 +17,7 @@ import {
 import Validators from './validators';
 import { Dictionary, valueof } from './utils';
 import { IKitConfigs } from './configAPIClient';
+
 import { SDKConsentApi, SDKConsentState } from './consent';
 import MPSideloadedKit from './sideloadedKit';
 import { ISessionManager } from './sessionManager';
