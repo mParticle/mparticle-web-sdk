@@ -277,8 +277,10 @@ jobs:
 
                   RUN_FILE="$RUNNER_TEMP/release-run.json"
                   jq '.workflow_run' "$GITHUB_EVENT_PATH" > "$RUN_FILE"
-                  V3_STEP2_ID="$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/v3-release-step-2.yml" --jq .id)"
-                  V3_STEP3_ID="$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/v3-release-step-3.yml" --jq .id)"
+                  # Retries a 5xx or network error; see the script's header.
+                  . scripts/v3-release/gh-api-retry.sh
+                  V3_STEP2_ID="$(gh_api_retry "repos/${GITHUB_REPOSITORY}/actions/workflows/v3-release-step-2.yml" --jq .id)"
+                  V3_STEP3_ID="$(gh_api_retry "repos/${GITHUB_REPOSITORY}/actions/workflows/v3-release-step-3.yml" --jq .id)"
                   RELEASE_PLEASE_MODE=false
                   if [ "${RELEASE_PLEASE_ENABLED:-}" = 'true' ]; then
                       RELEASE_PLEASE_MODE=true
@@ -292,7 +294,7 @@ jobs:
                   # The attempt's jobs show whether a Step 3 run's push step ran:
                   # a dry run skips it and still concludes success.
                   JOBS_FILE="$RUNNER_TEMP/release-jobs.json"
-                  gh api --paginate "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/attempts/${RUN_ATTEMPT}/jobs?per_page=100" |
+                  gh_api_retry --paginate "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/attempts/${RUN_ATTEMPT}/jobs?per_page=100" |
                       jq -s '[.[].jobs[]]' > "$JOBS_FILE"
                   node --experimental-strip-types scripts/v3-release/shadow-release-trigger.ts release-step \
                       --run "$RUN_FILE" \
