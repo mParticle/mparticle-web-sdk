@@ -112,7 +112,7 @@ describe('ButtonTracker', () => {
     const afterPaint = () => jest.advanceTimersByTime(40);
 
     const click = (target: Element, path?: Array<EventTarget>) => {
-        listener(docAdd, 'click')(trustedClick(target, path));
+        listener(winAdd, 'click')(trustedClick(target, path));
         afterPaint();
     };
 
@@ -154,14 +154,16 @@ describe('ButtonTracker', () => {
     it('attaches capture and passive listeners', () => {
         startTracker();
 
-        expect(docAdd).toHaveBeenCalledWith('click', expect.any(Function), {
+        expect(winAdd).toHaveBeenCalledWith('click', expect.any(Function), {
             capture: true,
             passive: true,
         });
-        expect(docAdd).toHaveBeenCalledWith('submit', expect.any(Function), {
+        expect(winAdd).toHaveBeenCalledWith('submit', expect.any(Function), {
             capture: true,
             passive: true,
         });
+        expect(docAdd).not.toHaveBeenCalledWith('click', expect.any(Function), expect.anything());
+        expect(docAdd).not.toHaveBeenCalledWith('submit', expect.any(Function), expect.anything());
         expect(winAdd).toHaveBeenCalledWith('blur', expect.any(Function), {
             passive: true,
         });
@@ -313,7 +315,7 @@ describe('ButtonTracker', () => {
     it('waits for the next paint before classifying, unless the page is hidden', () => {
         startTracker();
 
-        listener(docAdd, 'click')(trustedClick(button('Place order')));
+        listener(winAdd, 'click')(trustedClick(button('Place order')));
         jest.advanceTimersByTime(0);
         expect(notify).not.toHaveBeenCalled();
         afterPaint();
@@ -324,7 +326,7 @@ describe('ButtonTracker', () => {
             value: 'hidden',
         });
         window.history.replaceState({}, '', '/checkout/review');
-        listener(docAdd, 'click')(trustedClick(button('Place order')));
+        listener(winAdd, 'click')(trustedClick(button('Place order')));
         jest.advanceTimersByTime(0);
         expect(notify).toHaveBeenCalledTimes(2);
         delete (document as any).visibilityState;
@@ -334,7 +336,7 @@ describe('ButtonTracker', () => {
         'delivers a waiting click when the page is left before the next paint (%s)',
         type => {
             startTracker();
-            listener(docAdd, 'click')(trustedClick(button('Place order')));
+            listener(winAdd, 'click')(trustedClick(button('Place order')));
             expect(logEvent).not.toHaveBeenCalled();
 
             Object.defineProperty(document, 'visibilityState', {
@@ -375,6 +377,32 @@ describe('ButtonTracker', () => {
         );
     });
 
+    it('keeps hearing clicks when a page script drops capture click listeners added to the document', () => {
+        // Some page scripts wrap addEventListener and remove any capture click
+        // listener added to the document right after it is added.
+        docAdd.mockImplementation(function(
+            this: Document,
+            type: string,
+            fn: EventListenerOrEventListenerObject,
+            options?: boolean | AddEventListenerOptions
+        ) {
+            const capture =
+                options === true ||
+                (typeof options === 'object' && options.capture === true);
+            if (type === 'click' && capture) {
+                return;
+            }
+            EventTarget.prototype.addEventListener.call(this, type, fn, options);
+        });
+        startTracker();
+
+        click(button('Place order'));
+
+        expect(notify).toHaveBeenCalledWith(
+            expect.objectContaining({ kind: 'commit' })
+        );
+    });
+
     it('ignores untrusted events', () => {
         startTracker();
 
@@ -396,7 +424,7 @@ describe('ButtonTracker', () => {
         startTracker();
         const event = trustedClick(button('Place order'));
 
-        listener(docAdd, 'click')(event);
+        listener(winAdd, 'click')(event);
         afterPaint();
 
         expect(event.preventDefault).not.toHaveBeenCalled();
@@ -450,7 +478,7 @@ describe('ButtonTracker', () => {
     it('classifies a submit by its submitter', () => {
         startTracker();
 
-        listener(docAdd, 'submit')(trustedSubmit(button('Pay now')));
+        listener(winAdd, 'submit')(trustedSubmit(button('Pay now')));
         afterPaint();
 
         expect(notify).toHaveBeenCalledWith(expect.objectContaining({ kind: 'commit', t: 1000000 }));
@@ -469,7 +497,7 @@ describe('ButtonTracker', () => {
 
         click(confirm);
         jest.advanceTimersByTime(5000);
-        listener(docAdd, 'submit')(trustedSubmit(confirm));
+        listener(winAdd, 'submit')(trustedSubmit(confirm));
         afterPaint();
 
         expect(notify.mock.calls.map(call => [call[0].kind, call[0].source])).toEqual([
@@ -489,7 +517,7 @@ describe('ButtonTracker', () => {
     it('ignores a submit whose submitter is not a checkout control', () => {
         startTracker();
 
-        listener(docAdd, 'submit')(trustedSubmit(button('Search')));
+        listener(winAdd, 'submit')(trustedSubmit(button('Search')));
         afterPaint();
 
         expect(notify).not.toHaveBeenCalled();
@@ -504,7 +532,7 @@ describe('ButtonTracker', () => {
         submitter.textContent = 'Pay now';
         wrapper.appendChild(submitter);
 
-        listener(docAdd, 'submit')(trustedSubmit(submitter));
+        listener(winAdd, 'submit')(trustedSubmit(submitter));
         afterPaint();
 
         expect(notify).not.toHaveBeenCalled();
@@ -513,7 +541,7 @@ describe('ButtonTracker', () => {
     it('ignores a submit without a submitter when no commit click came first', () => {
         startTracker();
 
-        listener(docAdd, 'submit')(trustedSubmit(null));
+        listener(winAdd, 'submit')(trustedSubmit(null));
         afterPaint();
 
         expect(notify).not.toHaveBeenCalled();
@@ -527,7 +555,7 @@ describe('ButtonTracker', () => {
 
         window.history.replaceState({}, '', '/checkout/review');
         jest.setSystemTime(1001000);
-        listener(docAdd, 'submit')(trustedSubmit(null));
+        listener(winAdd, 'submit')(trustedSubmit(null));
         afterPaint();
 
         expect(notify).toHaveBeenCalledWith(expect.objectContaining({ kind: 'commit', t: 1001000, source: 'submit' }));
@@ -540,7 +568,7 @@ describe('ButtonTracker', () => {
 
         window.history.replaceState({}, '', '/checkout/review');
         jest.setSystemTime(1001001);
-        listener(docAdd, 'submit')(trustedSubmit(null));
+        listener(winAdd, 'submit')(trustedSubmit(null));
         afterPaint();
 
         expect(notify).not.toHaveBeenCalled();
@@ -732,7 +760,7 @@ describe('ButtonTracker', () => {
             startTracker();
             const radio = setup();
 
-            listener(docAdd, 'click')(trustedClick(button('Place order')));
+            listener(winAdd, 'click')(trustedClick(button('Place order')));
             change(radio);
             afterPaint();
 
@@ -951,7 +979,7 @@ describe('ButtonTracker', () => {
             const tracker = startTracker();
 
             expect(tracker.isActive).toBe(false);
-            expect(docAdd).not.toHaveBeenCalledWith(
+            expect(winAdd).not.toHaveBeenCalledWith(
                 'click',
                 expect.any(Function),
                 expect.anything()
@@ -999,7 +1027,7 @@ describe('ButtonTracker', () => {
         it('drops a click read before noTargeting arrives but delivered after it', () => {
             startTracker();
 
-            listener(docAdd, 'click')(trustedClick(button('Size 10')));
+            listener(winAdd, 'click')(trustedClick(button('Size 10')));
             initManager({ noTargeting: true });
             afterPaint();
 
@@ -1107,7 +1135,7 @@ describe('ButtonTracker', () => {
             startTracker();
             const target = button('Place order');
 
-            listener(docAdd, 'click')(trustedClick(target));
+            listener(winAdd, 'click')(trustedClick(target));
             // The page's own handler runs after this capture listener.
             target.disabled = true;
             target.textContent = 'Processing';
@@ -1222,7 +1250,7 @@ describe('ButtonTracker', () => {
                 link.textContent = 'Continue';
                 document.body.appendChild(link);
 
-                listener(docAdd, 'click')(trustedClick(btn));
+                listener(winAdd, 'click')(trustedClick(btn));
                 jest.setSystemTime(1000025);
                 afterPaint();
 
@@ -1235,7 +1263,7 @@ describe('ButtonTracker', () => {
                 );
 
                 jest.setSystemTime(1000100);
-                listener(docAdd, 'click')(trustedClick(link));
+                listener(winAdd, 'click')(trustedClick(link));
                 jest.setSystemTime(1000125);
                 afterPaint();
 
@@ -1257,7 +1285,7 @@ describe('ButtonTracker', () => {
                     sessionStore.sessionStartDate = new Date(deliveredAt);
                 });
 
-                listener(docAdd, 'click')(trustedClick(button('Place order')));
+                listener(winAdd, 'click')(trustedClick(button('Place order')));
                 jest.setSystemTime(1000025);
                 afterPaint();
 
@@ -1424,7 +1452,7 @@ describe('ButtonTracker', () => {
                 click(button('Add to bag'));
                 notify.mockClear();
 
-                listener(docAdd, 'submit')(trustedSubmit(null));
+                listener(winAdd, 'submit')(trustedSubmit(null));
                 afterPaint();
 
                 expect(notify).not.toHaveBeenCalled();
@@ -1435,7 +1463,7 @@ describe('ButtonTracker', () => {
                 const addToBag = button('Add to bag');
 
                 click(addToBag);
-                listener(docAdd, 'submit')(trustedSubmit(addToBag));
+                listener(winAdd, 'submit')(trustedSubmit(addToBag));
                 afterPaint();
 
                 expect(notify).toHaveBeenCalledTimes(1);
@@ -1662,7 +1690,7 @@ describe('ButtonTracker', () => {
                 store.SDKConfig.flags.autoButtonTracking = false;
                 startTracker(true, { logButtons: false, logLinks: false });
 
-                expect(docAdd.mock.calls.filter(call => call[0] === 'click')).toEqual([]);
+                expect(winAdd.mock.calls.filter(call => call[0] === 'click')).toEqual([]);
             });
         });
 
@@ -1780,7 +1808,7 @@ describe('ButtonTracker', () => {
             // a click the page cancelled is over.
             box.checked = type === 'checkbox' ? !before : true;
             const event = trustedClick(box);
-            listener(docAdd, 'click')(event);
+            listener(winAdd, 'click')(event);
             event.defaultPrevented = true;
             box.checked = before;
             afterPaint();
@@ -1799,7 +1827,7 @@ describe('ButtonTracker', () => {
             const standard = document.getElementById('standard') as HTMLInputElement;
             const express = document.getElementById('express') as HTMLInputElement;
             const clickNow = (box: HTMLInputElement) =>
-                listener(docAdd, 'click')(trustedClick(box));
+                listener(winAdd, 'click')(trustedClick(box));
 
             // Toggled on and off, then two radios picked, all before the next paint.
             gift.checked = true;
@@ -1828,7 +1856,7 @@ describe('ButtonTracker', () => {
 
         it('logs nothing for submits or wallet frame focus', () => {
             startTracker();
-            listener(docAdd, 'submit')(trustedSubmit(button('Pay now')));
+            listener(winAdd, 'submit')(trustedSubmit(button('Pay now')));
             afterPaint();
 
             expect(logEvent).not.toHaveBeenCalled();
@@ -2013,7 +2041,7 @@ describe('ButtonTracker', () => {
                 startUploader(10000);
                 startTracker();
 
-                listener(docAdd, 'click')(trustedClick(button('Add')));
+                listener(winAdd, 'click')(trustedClick(button('Add')));
                 window.dispatchEvent(new Event(type));
                 jest.advanceTimersByTime(100);
 
@@ -2045,7 +2073,7 @@ describe('ButtonTracker', () => {
 
     it('ignores a click made while opted out even if opt-in returns before classification', () => {
         startTracker();
-        const handler = listener(docAdd, 'click');
+        const handler = listener(winAdd, 'click');
         store.isEnabled = false;
 
         handler(trustedClick(button('Place order')));
@@ -2057,7 +2085,7 @@ describe('ButtonTracker', () => {
 
     it('drops a click queued before an opt-out even if opt-in returns before classification', () => {
         const tracker = startTracker();
-        const handler = listener(docAdd, 'click');
+        const handler = listener(winAdd, 'click');
 
         handler(trustedClick(button('Place order')));
         store.isEnabled = false;
@@ -2070,13 +2098,13 @@ describe('ButtonTracker', () => {
 
     it('does not let a click classified while opted out arm a later submit', () => {
         startTracker();
-        const clickHandler = listener(docAdd, 'click');
+        const clickHandler = listener(winAdd, 'click');
 
         clickHandler(trustedClick(button('Place order')));
         store.isEnabled = false;
         afterPaint();
         store.isEnabled = true;
-        listener(docAdd, 'submit')(trustedSubmit(null));
+        listener(winAdd, 'submit')(trustedSubmit(null));
         afterPaint();
 
         expect(notify).not.toHaveBeenCalled();
@@ -2084,15 +2112,15 @@ describe('ButtonTracker', () => {
 
     it('removes its listeners on teardown and drops queued work', () => {
         const tracker = startTracker();
-        const handler = listener(docAdd, 'click');
+        const handler = listener(winAdd, 'click');
 
         handler(trustedClick(button('Place order')));
         tracker.teardown();
         afterPaint();
 
         expect(notify).not.toHaveBeenCalled();
-        expect(docRemove).toHaveBeenCalledWith('click', handler, true);
-        expect(docRemove).toHaveBeenCalledWith('submit', handler, true);
+        expect(winRemove).toHaveBeenCalledWith('click', handler, true);
+        expect(winRemove).toHaveBeenCalledWith('submit', handler, true);
         expect(winRemove).toHaveBeenCalledWith('blur', handler);
         expect(winRemove).toHaveBeenCalledWith(
             'pageshow',
@@ -2116,7 +2144,7 @@ describe('ButtonTracker', () => {
     it('drops queued work on a back-forward cache restore', () => {
         startTracker();
 
-        listener(docAdd, 'click')(trustedClick(button('Place order')));
+        listener(winAdd, 'click')(trustedClick(button('Place order')));
         listener(winAdd, 'pageshow')({ persisted: true });
         afterPaint();
 
@@ -2126,7 +2154,7 @@ describe('ButtonTracker', () => {
     it('keeps queued work on an ordinary pageshow', () => {
         startTracker();
 
-        listener(docAdd, 'click')(trustedClick(button('Place order')));
+        listener(winAdd, 'click')(trustedClick(button('Place order')));
         listener(winAdd, 'pageshow')({ persisted: false });
         afterPaint();
 
@@ -2138,7 +2166,7 @@ describe('ButtonTracker', () => {
         initManager();
         startTracker();
 
-        listener(docAdd, 'click')(trustedClick(button('Place order')));
+        listener(winAdd, 'click')(trustedClick(button('Place order')));
         window.history.replaceState({}, '', '/order/confirmation');
         afterPaint();
         roktManager.attachKit(({
@@ -2179,8 +2207,8 @@ describe('ButtonTracker', () => {
 
         expect(notify).toHaveBeenCalledTimes(1);
         expect(
-            docAdd.mock.calls.filter(call => call[0] === 'click').length -
-                docRemove.mock.calls.filter(call => call[0] === 'click').length
+            winAdd.mock.calls.filter(call => call[0] === 'click').length -
+                winRemove.mock.calls.filter(call => call[0] === 'click').length
         ).toBe(1);
     });
 
@@ -2191,7 +2219,7 @@ describe('ButtonTracker', () => {
             throw new Error('boom');
         };
 
-        expect(() => listener(docAdd, 'click')(broken)).not.toThrow();
+        expect(() => listener(winAdd, 'click')(broken)).not.toThrow();
         click(button('Place order'));
 
         expect(notify).toHaveBeenCalledTimes(1);
@@ -2202,7 +2230,7 @@ describe('ButtonTracker', () => {
         const beginApplePay = () => new pay.ApplePaySession().begin();
         // A click on inner text whose path climbs through its parent.
         const clickInside = (target: Element) => {
-            listener(docAdd, 'click')({
+            listener(winAdd, 'click')({
                 ...trustedClick(target),
                 composedPath: () => [
                     target,
@@ -2414,7 +2442,7 @@ describe('ButtonTracker', () => {
             startTracker();
             document.body.innerHTML =
                 '<apple-pay-button buttonstyle="black" type="buy"></apple-pay-button>';
-            listener(docAdd, 'click')(
+            listener(winAdd, 'click')(
                 trustedClick(document.querySelector('apple-pay-button')!)
             );
             beginApplePay();
@@ -2483,7 +2511,7 @@ describe('ButtonTracker', () => {
             startTracker();
             document.body.innerHTML =
                 '<apple-pay-button buttonstyle="black" type="buy"></apple-pay-button>';
-            listener(docAdd, 'click')(
+            listener(winAdd, 'click')(
                 trustedClick(document.querySelector('apple-pay-button')!)
             );
             beginApplePay();
@@ -2506,7 +2534,7 @@ describe('ButtonTracker', () => {
                 onPaymentPick: pick,
             } as unknown) as IRoktKit);
             startTracker();
-            listener(docAdd, 'click')(trustedClick(button('Place order')));
+            listener(winAdd, 'click')(trustedClick(button('Place order')));
             beginApplePay();
             afterPaint();
 
@@ -2534,7 +2562,7 @@ describe('ButtonTracker', () => {
                 onPaymentPick: pick,
             } as unknown) as IRoktKit);
             startTracker();
-            listener(docAdd, 'click')(trustedClick(button('Place order')));
+            listener(winAdd, 'click')(trustedClick(button('Place order')));
             beginApplePay();
             listener(winAdd, 'pagehide')({ type: 'pagehide' });
 
@@ -2555,7 +2583,7 @@ describe('ButtonTracker', () => {
             startTracker();
             document.body.innerHTML =
                 '<label><input type="radio" name="payment_method" id="card-option" checked> Card</label>';
-            listener(docAdd, 'click')(trustedClick(button('Place order')));
+            listener(winAdd, 'click')(trustedClick(button('Place order')));
             beginApplePay();
             afterPaint();
 
@@ -2584,7 +2612,7 @@ describe('ButtonTracker', () => {
             if (excluded) {
                 confirm.setAttribute('data-mp-no-track', '');
             }
-            listener(docAdd, 'click')(trustedClick(confirm));
+            listener(winAdd, 'click')(trustedClick(confirm));
             jest.advanceTimersByTime(wait);
             beginApplePay();
             afterPaint();
@@ -2667,7 +2695,7 @@ describe('ButtonTracker', () => {
             });
 
             expect(() => startTracker()).not.toThrow();
-            expect(docAdd).toHaveBeenCalledWith(
+            expect(winAdd).toHaveBeenCalledWith(
                 'click',
                 expect.any(Function),
                 expect.anything()

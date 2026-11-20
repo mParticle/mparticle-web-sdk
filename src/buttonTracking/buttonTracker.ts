@@ -213,8 +213,11 @@ export class ButtonTracker {
             return;
         }
 
-        win.document.addEventListener('click', this.onEvent, CAPTURE_PASSIVE);
-        win.document.addEventListener('submit', this.onEvent, CAPTURE_PASSIVE);
+        // Clicks and submits are heard on the window, ahead of the document: some
+        // page scripts wrap addEventListener and drop any capture click listener
+        // added to the document, which would leave the tracker hearing nothing.
+        win.addEventListener('click', this.onEvent, CAPTURE_PASSIVE);
+        win.addEventListener('submit', this.onEvent, CAPTURE_PASSIVE);
         win.addEventListener('blur', this.onEvent, PASSIVE);
         win.addEventListener('pageshow', this.onPageShow, PASSIVE);
         win.addEventListener('beforeunload', this.onHide, CAPTURE_PASSIVE);
@@ -292,8 +295,8 @@ export class ButtonTracker {
     public teardown(): void {
         const win = btnWindow();
         if (win) {
-            win.document.removeEventListener('click', this.onEvent, true);
-            win.document.removeEventListener('submit', this.onEvent, true);
+            win.removeEventListener('click', this.onEvent, true);
+            win.removeEventListener('submit', this.onEvent, true);
             win.removeEventListener('blur', this.onEvent);
             win.removeEventListener('pageshow', this.onPageShow);
             win.removeEventListener('beforeunload', this.onHide, true);
