@@ -1,5 +1,22 @@
 # Changelog
 
+## [3.36.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.35.1...v3.36.0) (2026-11-20)
+
+
+### Features
+
+* **web:** combine internal privacy flags ([#1858](https://github.com/mParticle/mparticle-web-sdk/issues/1858)) ([db2ad0f](https://github.com/mParticle/mparticle-web-sdk/commit/db2ad0f591e5999d571d2e2e499ccdccbedb5feb))
+
+
+### Bug Fixes
+
+* **button-tracking:** hear clicks and submits on the window so a page script can't drop the tracker's listener ([#1884](https://github.com/mParticle/mparticle-web-sdk/issues/1884)) ([c17e343](https://github.com/mParticle/mparticle-web-sdk/commit/c17e34351a17b35587862ef1bb333b1b3ff9c3b7))
+
+
+### Miscellaneous
+
+* **button-tracking:** cover real dispatched clicks and submits end to end ([#1885](https://github.com/mParticle/mparticle-web-sdk/issues/1885)) ([8f7a1f6](https://github.com/mParticle/mparticle-web-sdk/commit/8f7a1f6da47b19d124f975e72c8221fbffe632bb))
+
 ## [3.35.1](https://github.com/mParticle/mparticle-web-sdk/compare/v3.35.0...v3.35.1) (2026-11-19)
 
 
