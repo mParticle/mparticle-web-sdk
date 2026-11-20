@@ -198,13 +198,22 @@ describe('batch uploader', () => {
             // the previous session ID because the identity call back fired
             // before the session logic that determines if a new session should
             // start.
+
+            // Only the explicit uploads below send batches: the 1s timer could ship
+            // Session Start and AST before a slow identity response adds the UAC.
+            window.mParticle.config.flags.eventBatchingIntervalMillis = 60000;
+
+            // A new value on every callback: setting the same value again logs
+            // no UAC, which a random value did about once in a thousand runs.
+            let callbackCount = 0;
             window.mParticle.config.identityCallback = function(result) {
                 let currentUser = result.getUser()
                 if (currentUser) {
+                    callbackCount += 1;
                     // TODO: Investigate if we should update definitely typed typings for
                     // setUserAttribute which only allows strings right now
                     // more context at https://go.mparticle.com/work/SQDSDKS-4576
-                    currentUser.setUserAttribute("number", `${Math.floor((Math.random() * 1000) + 1)}`)
+                    currentUser.setUserAttribute("number", `${callbackCount}`)
                 }
             }
             
