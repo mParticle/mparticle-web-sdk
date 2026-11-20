@@ -6691,6 +6691,201 @@ describe('Rokt Forwarder', () => {
       expect(placements).not.toHaveBeenCalled();
       expect(diagnosticLines(logSpy, 'intent_observed')).toEqual([]);
     });
+    describe('a payment pick just after the confirm tap', () => {
+      const preselectCalls = () =>
+        placements.mock.calls.map(([options]) => options).filter((options) => options.preselect === true);
+      const pick = (family: string) =>
+        kit.onPaymentPick(Object.freeze({ t: Date.now(), pathname: '/intent-checkout', family }));
+      beforeEach(async () => {
+        await reinit(
+          buildSettings({
+            attributeKeys: ['tier', 'paymenttype'],
+            preselectAttributeDefaults: {
+              paymenttype: { value: 'credit_card', byPaymentPick: { card: 'credit_card', apple_pay: 'apple_pay' } },
+            },
+          }),
+        );
+      });
+      it('fires the tap again with an Apple Pay session the page began after the call went out', async () => {
+        const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+        emit('commit');
+        await vi.advanceTimersByTimeAsync(1);
+        expect(preselectCalls()).toHaveLength(1);
+        expect(preselectCalls()[0].attributes.paymenttype).toBe('credit_card');
+
+        await vi.advanceTimersByTimeAsync(300);
+        pick('apple_pay');
+        await vi.advanceTimersByTimeAsync(1);
+        expect(preselectCalls()).toHaveLength(2);
+        expect(preselectCalls()[1]).toEqual({
+          ...preselectCalls()[0],
+          attributes: { ...preselectCalls()[0].attributes, paymenttype: 'apple_pay' },
+        });
+        expect(diagnosticLines(logSpy, 'intent')).toEqual([
+          expect.stringContaining('[intent_kind=commit]'),
+          expect.stringContaining('[intent_kind=commit]'),
+        ]);
+      });
+      it('sends one more call per tap, however many picks follow', async () => {
+        emit('commit');
+        await vi.advanceTimersByTimeAsync(1);
+        pick('apple_pay');
+        await vi.advanceTimersByTimeAsync(100);
+        pick('card');
+        await vi.advanceTimersByTimeAsync(1);
+        expect(preselectCalls().map((options) => options.attributes.paymenttype)).toEqual(['credit_card', 'apple_pay']);
+      });
+      it('leaves the call alone when the pick comes more than a second after the tap', async () => {
+        emit('commit');
+        await vi.advanceTimersByTimeAsync(1_001);
+        pick('apple_pay');
+        await vi.advanceTimersByTimeAsync(1);
+        expect(preselectCalls()).toHaveLength(1);
+      });
+      it('leaves the call alone, logging nothing, when the pick sends the value it already sent', async () => {
+        const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+        emit('commit');
+        await vi.advanceTimersByTimeAsync(1);
+        pick('card');
+        await vi.advanceTimersByTimeAsync(1);
+        expect(preselectCalls()).toHaveLength(1);
+        expect(diagnosticLines(logSpy, 'active_preselection')).toEqual([]);
+      });
+      it('leaves the call alone once the shopper left the route', async () => {
+        emit('commit');
+        await vi.advanceTimersByTimeAsync(1);
+        window.history.replaceState({}, '', '/intent-elsewhere');
+        pick('apple_pay');
+        await vi.advanceTimersByTimeAsync(1);
+        expect(preselectCalls()).toHaveLength(1);
+      });
+      it('leaves an entry whose call reads no pick alone', async () => {
+        await reinit(
+          buildSettings({ attributeKeys: ['tier', 'paymenttype'], preselectAttributeDefaults: { paymenttype: 'credit_card' } }),
+        );
+        emit('commit');
+        await vi.advanceTimersByTimeAsync(1);
+        pick('apple_pay');
+        await vi.advanceTimersByTimeAsync(1);
+        expect(preselectCalls()).toHaveLength(1);
+      });
+      it('still fires the tap again for a pick exactly a second after it', async () => {
+        emit('commit');
+        await vi.advanceTimersByTimeAsync(1_000);
+        pick('apple_pay');
+        await vi.advanceTimersByTimeAsync(1);
+        expect(preselectCalls().map((options) => options.attributes.paymenttype)).toEqual(['credit_card', 'apple_pay']);
+      });
+      it('fires a wallet tap on the entry route again too', async () => {
+        emit('wallet');
+        await vi.advanceTimersByTimeAsync(1);
+        pick('apple_pay');
+        await vi.advanceTimersByTimeAsync(1);
+        expect(preselectCalls().map((options) => options.attributes.paymenttype)).toEqual(['credit_card', 'apple_pay']);
+      });
+      it('sends the page view the tap released again, keeping the attributes only its event carried', async () => {
+        await reinit(
+          buildSettings({
+            attributeKeys: ['tier', 'paymenttype', 'currency'],
+            preselectAttributeDefaults: {
+              paymenttype: { value: 'credit_card', byPaymentPick: { card: 'credit_card', apple_pay: 'apple_pay' } },
+            },
+          }),
+        );
+        kit.process({ EventDataType: 3, EventName: 'page view', EventAttributes: { currency: 'usd' } });
+        await vi.advanceTimersByTimeAsync(1);
+        expect(preselectCalls()).toHaveLength(0);
+        emit('commit');
+        await vi.advanceTimersByTimeAsync(1);
+        pick('apple_pay');
+        await vi.advanceTimersByTimeAsync(1);
+        expect(preselectCalls().map(({ attributes }) => [attributes.currency, attributes.paymenttype])).toEqual([
+          ['usd', 'credit_card'],
+          ['usd', 'apple_pay'],
+        ]);
+      });
+      it('sets the pick against the one the call went out with, when an auto click records it first', async () => {
+        emit('commit');
+        await vi.advanceTimersByTimeAsync(1);
+        kit.process({
+          EventDataType: 4,
+          EventName: 'Auto Button Click',
+          EventAttributes: { type: 'radio', checked: true, label: 'apple pay', is_auto_button_click: true },
+        } as any);
+        pick('apple_pay');
+        await vi.advanceTimersByTimeAsync(1);
+        expect(preselectCalls().map((options) => options.attributes.paymenttype)).toEqual(['credit_card', 'apple_pay']);
+      });
+      it('lets a call still waiting for an attribute read the pick when it goes, with no extra call', async () => {
+        await reinit(
+          buildSettings({
+            attributeKeys: ['tier', 'paymenttype', 'boxoffice'],
+            preselectAttributeDefaults: {
+              paymenttype: { value: 'credit_card', byPaymentPick: { card: 'credit_card', apple_pay: 'apple_pay' } },
+            },
+          }),
+        );
+        emit('commit');
+        await vi.advanceTimersByTimeAsync(1);
+        pick('apple_pay');
+        await vi.advanceTimersByTimeAsync(1);
+        expect(preselectCalls()).toHaveLength(0);
+        kit.setUserAttribute('boxoffice', 'north');
+        await vi.advanceTimersByTimeAsync(1);
+        expect(preselectCalls().map((options) => options.attributes.paymenttype)).toEqual(['apple_pay']);
+      });
+      it('sends nothing more once another shopper is signed in', async () => {
+        emit('commit');
+        await vi.advanceTimersByTimeAsync(1);
+        const user = kit.filters.filteredUser;
+        kit.filters.filteredUser = { ...user, getMPID: () => 'other-user' };
+        try {
+          pick('apple_pay');
+          await vi.advanceTimersByTimeAsync(1);
+        } finally {
+          kit.filters.filteredUser = user;
+        }
+        expect(preselectCalls()).toHaveLength(1);
+      });
+      describe('for an entry with alternate target pages', () => {
+        const preselectIdentifiers = () => preselectCalls().map((options) => options.identifier);
+        it('sets the pick against the one the call used, not one left from before the page view', async () => {
+          await reinit(buildSettings({ alternateTargetPageIdentifiers: { byPaymentPick: { apple_pay: 'ap-page' } } }));
+          pick('apple_pay');
+          await vi.advanceTimersByTimeAsync(10);
+          kit.process({ EventDataType: 3, EventName: 'page view', EventAttributes: {} });
+          await vi.advanceTimersByTimeAsync(1);
+          emit('commit');
+          await vi.advanceTimersByTimeAsync(1);
+          pick('apple_pay');
+          await vi.advanceTimersByTimeAsync(1);
+          expect(preselectIdentifiers()).toEqual(['confirmation', 'ap-page']);
+        });
+        it('keeps the tap for a later pick when one maps to the page the call already went to', async () => {
+          await reinit(
+            buildSettings({
+              alternateTargetPageIdentifiers: { byPaymentPick: { card: 'confirmation', apple_pay: 'ap-page' } },
+            }),
+          );
+          emit('commit');
+          await vi.advanceTimersByTimeAsync(1);
+          pick('card');
+          await vi.advanceTimersByTimeAsync(100);
+          pick('apple_pay');
+          await vi.advanceTimersByTimeAsync(1);
+          expect(preselectIdentifiers()).toEqual(['confirmation', 'ap-page']);
+        });
+      });
+      it('leaves the pick alone after a tap checkout intent dropped', async () => {
+        (window as any).mParticle.Rokt.isCheckoutIntentLive = () => false;
+        emit('commit');
+        await vi.advanceTimersByTimeAsync(1);
+        (window as any).mParticle.Rokt.isCheckoutIntentLive = () => true;
+        pick('apple_pay');
+        await vi.advanceTimersByTimeAsync(1);
+        expect(preselectCalls()).toHaveLength(0);
+      });
+    });
     describe('a cart click', () => {
       let originalGetCurrentUser: unknown;
       let currentMpid: string;

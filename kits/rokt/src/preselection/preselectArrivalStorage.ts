@@ -216,6 +216,9 @@ export function recordPreselectFired(
   targetPageIdentifier: string,
   digest?: number,
   byCart = false,
+  // The pick the fire's call went out with, when the caller knows it (null for none), so an entry's own cutoff for
+  // picks applies; otherwise the tab's latest pick.
+  pickUsed?: PaymentFamily | null,
 ): PreselectFireMark | undefined {
   const fieldKey = buildFieldKey(accountId, targetPageIdentifier);
   const record = readOpenRecord(fieldKey);
@@ -231,9 +234,11 @@ export function recordPreselectFired(
       : undefined;
   // The shadow payment check compares the pick this fire went out with, not one made after it.
   const pickAtFire =
-    record.paymentPick !== undefined && record.paymentPickAt !== undefined && isWithinWindow(record.paymentPickAt)
-      ? record.paymentPick
-      : undefined;
+    pickUsed !== undefined
+      ? (pickUsed ?? undefined)
+      : record.paymentPick !== undefined && record.paymentPickAt !== undefined && isWithinWindow(record.paymentPickAt)
+        ? record.paymentPick
+        : undefined;
   writeRecord(
     fieldKey,
     withFireMark(record, {
@@ -358,6 +363,13 @@ export function recordPreselectPaymentPick(
     return;
   }
   writeRecord(fieldKey, { ...record, paymentPick: family, paymentPickAt: t });
+}
+
+// The payment family this tab's latest fire for a target page went out with, while that fire is within the window and
+// the shopper has not arrived since, or undefined.
+export function readPreselectPaymentAtFire(accountId: string, targetPageIdentifier: string): PaymentFamily | undefined {
+  const record = readOpenRecord(buildFieldKey(accountId, targetPageIdentifier));
+  return record.firedAt !== undefined && isWithinWindow(record.firedAt) ? record.paymentAtFire : undefined;
 }
 
 // The payment family the shopper last picked in this tab for a target page, within the arrival window and no earlier
