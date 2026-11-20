@@ -394,7 +394,17 @@ describe('ButtonTracker', () => {
             }
             EventTarget.prototype.addEventListener.call(this, type, fn, options);
         });
+        // Spied before the tracker exists, so a click its listener receives is
+        // seen even though the untrusted test click stops at the trust gate.
+        const observe = jest.spyOn(ButtonTracker.prototype as any, 'observe');
         startTracker();
+
+        const target = button('Place order');
+        target.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+        expect(observe).toHaveBeenCalledWith(
+            expect.objectContaining({ type: 'click', target })
+        );
 
         click(button('Place order'));
 
