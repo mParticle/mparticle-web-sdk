@@ -1382,7 +1382,7 @@ class RoktKit implements KitInterface {
     this.onPaymentPick = hasPreselectionConfigForAccount(this.accountId)
       ? (signal: PreselectPaymentPickSignal): void => {
           try {
-            handlePreselectPaymentPick(this.buildPreselectHost(), signal);
+            handlePreselectPaymentPick(this._preselectState, this.buildPreselectHost(), signal);
           } catch {
             return;
           }

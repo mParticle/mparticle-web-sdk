@@ -6691,6 +6691,94 @@ describe('Rokt Forwarder', () => {
       expect(placements).not.toHaveBeenCalled();
       expect(diagnosticLines(logSpy, 'intent_observed')).toEqual([]);
     });
+    describe('a payment pick just after the confirm tap', () => {
+      const preselectCalls = () =>
+        placements.mock.calls.map(([options]) => options).filter((options) => options.preselect === true);
+      const pick = (family: string) =>
+        kit.onPaymentPick(Object.freeze({ t: Date.now(), pathname: '/intent-checkout', family }));
+      beforeEach(async () => {
+        await reinit(
+          buildSettings({
+            attributeKeys: ['tier', 'paymenttype'],
+            preselectAttributeDefaults: {
+              paymenttype: { value: 'credit_card', byPaymentPick: { card: 'credit_card', apple_pay: 'apple_pay' } },
+            },
+          }),
+        );
+      });
+      it('fires the tap again with an Apple Pay session the page began after the call went out', async () => {
+        const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+        emit('commit');
+        await vi.advanceTimersByTimeAsync(1);
+        expect(preselectCalls()).toHaveLength(1);
+        expect(preselectCalls()[0].attributes.paymenttype).toBe('credit_card');
+
+        await vi.advanceTimersByTimeAsync(300);
+        pick('apple_pay');
+        await vi.advanceTimersByTimeAsync(1);
+        expect(preselectCalls()).toHaveLength(2);
+        expect(preselectCalls()[1]).toEqual({
+          ...preselectCalls()[0],
+          attributes: { ...preselectCalls()[0].attributes, paymenttype: 'apple_pay' },
+        });
+        expect(diagnosticLines(logSpy, 'intent')).toEqual([
+          expect.stringContaining('[intent_kind=commit]'),
+          expect.stringContaining('[intent_kind=commit]'),
+        ]);
+      });
+      it('sends one more call per tap, however many picks follow', async () => {
+        emit('commit');
+        await vi.advanceTimersByTimeAsync(1);
+        pick('apple_pay');
+        await vi.advanceTimersByTimeAsync(100);
+        pick('card');
+        await vi.advanceTimersByTimeAsync(1);
+        expect(preselectCalls().map((options) => options.attributes.paymenttype)).toEqual(['credit_card', 'apple_pay']);
+      });
+      it('leaves the call alone when the pick comes more than a second after the tap', async () => {
+        emit('commit');
+        await vi.advanceTimersByTimeAsync(1_001);
+        pick('apple_pay');
+        await vi.advanceTimersByTimeAsync(1);
+        expect(preselectCalls()).toHaveLength(1);
+      });
+      it('leaves the call alone, logging nothing, when the pick sends the value it already sent', async () => {
+        const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+        emit('commit');
+        await vi.advanceTimersByTimeAsync(1);
+        pick('card');
+        await vi.advanceTimersByTimeAsync(1);
+        expect(preselectCalls()).toHaveLength(1);
+        expect(diagnosticLines(logSpy, 'active_preselection')).toEqual([]);
+      });
+      it('leaves the call alone once the shopper left the route', async () => {
+        emit('commit');
+        await vi.advanceTimersByTimeAsync(1);
+        window.history.replaceState({}, '', '/intent-elsewhere');
+        pick('apple_pay');
+        await vi.advanceTimersByTimeAsync(1);
+        expect(preselectCalls()).toHaveLength(1);
+      });
+      it('leaves an entry whose call reads no pick alone', async () => {
+        await reinit(
+          buildSettings({ attributeKeys: ['tier', 'paymenttype'], preselectAttributeDefaults: { paymenttype: 'credit_card' } }),
+        );
+        emit('commit');
+        await vi.advanceTimersByTimeAsync(1);
+        pick('apple_pay');
+        await vi.advanceTimersByTimeAsync(1);
+        expect(preselectCalls()).toHaveLength(1);
+      });
+      it('leaves the pick alone after a tap checkout intent dropped', async () => {
+        (window as any).mParticle.Rokt.isCheckoutIntentLive = () => false;
+        emit('commit');
+        await vi.advanceTimersByTimeAsync(1);
+        (window as any).mParticle.Rokt.isCheckoutIntentLive = () => true;
+        pick('apple_pay');
+        await vi.advanceTimersByTimeAsync(1);
+        expect(preselectCalls()).toHaveLength(0);
+      });
+    });
     describe('a cart click', () => {
       let originalGetCurrentUser: unknown;
       let currentMpid: string;

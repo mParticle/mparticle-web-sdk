@@ -503,6 +503,9 @@ export function handlePreselectIntentSignal(
   }
   state.intentSource = signalSource(signal);
   const kind = intentTriggerKind(signal.kind);
+  state.latestIntentFire = isCart
+    ? undefined
+    : { kind, pathname: stripTrailingSlash(currentPathname), t: signal.t };
   const held = state.scheduledDispatch;
   if (held && stripTrailingSlash(held.pathname) === stripTrailingSlash(currentPathname)) {
     cancelScheduledDispatch(state);
@@ -604,13 +607,75 @@ export function recordPreselectPaymentClick(host: PreselectHost, event: SDKEvent
   }
 }
 
-// Shadow only, like an auto click: the payment radios and payment frames the core SDK sees but
-// never logs. The names are read here and dropped; only the family is stored.
-export function handlePreselectPaymentPick(host: PreselectHost, signal: PreselectPaymentPickSignal): void {
+// The payment radios, payment frames and wallet sessions the core SDK sees but never logs. The names are read here and
+// dropped; only the family is stored. A pick that lands just after a confirm tap fired, such as an Apple Pay session a
+// payment form begins once its own checks are done, fires that tap again when it changes what the call sent.
+export function handlePreselectPaymentPick(
+  state: PreselectState,
+  host: PreselectHost,
+  signal: PreselectPaymentPickSignal,
+): void {
   const accountId = paymentPickAccount(host);
-  if (accountId) {
-    recordPaymentFamily(accountId, paymentFamilyFromPick(signal), signal?.t);
+  if (!accountId) return;
+  const family = paymentFamilyFromPick(signal);
+  const lateFor = lateIntentFireFor(state, accountId, family, signal?.t);
+  recordPaymentFamily(accountId, family, signal?.t);
+  if (lateFor) {
+    // Once per tap, so a run of picks never sends a run of calls.
+    state.latestIntentFire = undefined;
+    maybeFirePreselect(state, host, intentTriggerEvent(lateFor.kind), window.location.pathname, undefined, lateFor.t);
   }
+}
+
+// The core SDK hands over an Apple Pay session's pick only within a second of the tap that began it.
+const LATE_PAYMENT_PICK_MS = 1_000;
+
+// The confirm, wallet or checkout-step tap a pick arrived just after, when that tap's call already went out on the
+// entry's own route, the shopper is still there, and the pick changes a value or page the entry reads from it. A call
+// still held or waiting reads the pick when it goes, so it needs nothing here.
+function lateIntentFireFor(
+  state: PreselectState,
+  accountId: string,
+  family: PaymentFamily | undefined,
+  t: number | undefined,
+): PreselectState['latestIntentFire'] {
+  const tap = state.latestIntentFire;
+  if (!tap || !family) return undefined;
+  const now = Date.now();
+  const pickedAt = typeof t === 'number' && Number.isFinite(t) && t <= now ? t : now;
+  const sinceTap = pickedAt - tap.t;
+  const pathname = stripTrailingSlash(window.location.pathname);
+  if (sinceTap < 0 || sinceTap > LATE_PAYMENT_PICK_MS || pathname !== tap.pathname) return undefined;
+  const waiting =
+    state.pending.some((dispatch) => stripTrailingSlash(dispatch.pathname) === pathname) ||
+    (state.scheduledDispatch !== undefined && stripTrailingSlash(state.scheduledDispatch.pathname) === pathname);
+  const entry = waiting ? undefined : findPreselectionConfig(accountId, pathname);
+  if (!entry || entry.cartIntent === true || !wasPreselectFiredRecently(accountId, entry.targetPageIdentifier)) {
+    return undefined;
+  }
+  return pickChangesEntry(entry, readEntryPaymentPick(entry), family) ? tap : undefined;
+}
+
+// Whether picking next rather than previous changes a payment default's value or the alternate target page the entry's
+// call goes out under.
+function pickChangesEntry(
+  entry: PreselectionConfigEntry,
+  previous: PaymentFamily | undefined,
+  next: PaymentFamily,
+): boolean {
+  if (previous === next) return false;
+  const defaultChanges = Object.values(entry.preselectAttributeDefaults ?? {}).some(
+    (attributeDefault) =>
+      isObject(attributeDefault) &&
+      attributeDefault.byPaymentPick !== undefined &&
+      resolvePreselectAttributeDefault(attributeDefault, previous) !==
+        resolvePreselectAttributeDefault(attributeDefault, next),
+  );
+  const byPick = entry.alternateTargetPageIdentifiers?.byPaymentPick;
+  return (
+    defaultChanges ||
+    (byPick !== undefined && (previous ? readOwnValue(byPick, previous) : undefined) !== readOwnValue(byPick, next))
+  );
 }
 
 function isConfiguredTriggerEvent(configEntry: PreselectionConfigEntry, event: SDKEvent): boolean {
@@ -1315,6 +1380,9 @@ export interface PreselectState {
     triggeredAt: number;
   };
   identityWait?: IdentityWait;
+  // The latest confirm, wallet or checkout-step tap handled on its entry's own route, so a payment pick that lands just
+  // after it can fire it again.
+  latestIntentFire?: { kind: IntentTriggerKind; pathname: string; t: number };
 }
 
 // A guest's wallet tap off every entry, waiting for the guest to be identified.

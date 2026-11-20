@@ -6861,7 +6861,7 @@ describe('preselection', () => {
             ['the family of a payment frame', { family: 'google_pay' }, 'google_pay'],
           ])('records %s for each target page', (_, fields, family) => {
             const signal = pick(fields);
-            handlePreselectPaymentPick(host, signal);
+            handlePreselectPaymentPick(state, host, signal);
 
             expect(recordPreselectPaymentPick).toHaveBeenCalledWith(
               ACCOUNT_ID,
@@ -6877,7 +6877,7 @@ describe('preselection', () => {
             ['a timestamp later than Date.now()', () => Date.now() + 1_000],
           ])('falls back to Date.now() when the signal carries %s', (_, timestamp) => {
             const resolved = typeof timestamp === 'function' ? timestamp() : timestamp;
-            handlePreselectPaymentPick(host, {
+            handlePreselectPaymentPick(state, host, {
               t: resolved as number,
               pathname: PATHNAME,
               family: 'paypal',
@@ -6896,7 +6896,7 @@ describe('preselection', () => {
             ['a balance', { names: ['gift card'] }],
             ['an unknown family', { family: 'bitcoin' }],
           ])('records nothing for %s', (_, fields) => {
-            handlePreselectPaymentPick(host, pick(fields));
+            handlePreselectPaymentPick(state, host, pick(fields));
 
             expect(recordPreselectPaymentPick).not.toHaveBeenCalled();
           });
@@ -6911,7 +6911,7 @@ describe('preselection', () => {
           ])('records nothing while %s', (_, gate) => {
             gate();
 
-            handlePreselectPaymentPick(host, pick({ family: 'paypal' }));
+            handlePreselectPaymentPick(state, host, pick({ family: 'paypal' }));
 
             expect(recordPreselectPaymentPick).not.toHaveBeenCalled();
           });
@@ -6919,7 +6919,7 @@ describe('preselection', () => {
           it('records nothing for an account with no pre-selection entries', () => {
             mockConfig.current = [];
 
-            handlePreselectPaymentPick(host, pick({ family: 'paypal' }));
+            handlePreselectPaymentPick(state, host, pick({ family: 'paypal' }));
 
             expect(recordPreselectPaymentPick).not.toHaveBeenCalled();
           });
