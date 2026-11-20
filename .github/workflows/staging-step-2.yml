@@ -36,7 +36,7 @@ jobs:
             GIT_COMMITTER_EMAIL: developers@mparticle.com
         steps:
             - name: Checkout repository
-              uses: actions/checkout@v6
+              uses: actions/checkout@v7
               with:
                   fetch-depth: 0
                   repository: ${{ github.repository }}
