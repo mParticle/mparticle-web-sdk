@@ -27,6 +27,12 @@ export interface ICookieConsentFlags {
     doNotShareOrSell?: boolean;
 }
 
+/**
+ * @internal Called after a page or derived update changes any combined flag,
+ * with the combined values from before the update.
+ */
+export type CookieConsentChangeListener = (previous: ICookieConsentFlags) => void;
+
 export interface ICookieConsentManager {
     /**
      * Targeting is allowed when noTargeting is false (default)
@@ -48,6 +54,9 @@ export interface ICookieConsentManager {
      * Sets the attribute when noTargeting is true, removes it when false.
      */
     syncNoTargetingAttribute: (user: IMParticleUser | null) => void;
+
+    /** @internal */
+    setChangeListener?: (listener: CookieConsentChangeListener | null) => void;
 }
 
 /**
@@ -64,6 +73,8 @@ export default class CookieConsentManager implements ICookieConsentManager {
     private pageFlags: Partial<ICookieConsentFlags> = {};
     /** @internal */
     private derivedFlags: Partial<ICookieConsentFlags> = {};
+    /** @internal */
+    private changeListener: CookieConsentChangeListener | null = null;
 
     constructor(private flags: ICookieConsentFlags) {
         this.flags = {
@@ -74,21 +85,54 @@ export default class CookieConsentManager implements ICookieConsentManager {
     }
 
     /** @internal */
+    setChangeListener(listener: CookieConsentChangeListener | null): void {
+        this.changeListener = listener;
+    }
+
+    /** @internal */
     setPageFlags(flags: Partial<ICookieConsentFlags>): void {
+        const previous = this.getCombinedFlags();
         this.pageFlags = {
             noFunctional: flags.noFunctional === true,
             noTargeting: flags.noTargeting === true,
             doNotShareOrSell: flags.doNotShareOrSell === true,
         };
+        this.notifyIfChanged(previous);
     }
 
     /** @internal */
     replaceDerivedFlags(flags: Partial<ICookieConsentFlags>): void {
+        const previous = this.getCombinedFlags();
         this.derivedFlags = {
             noFunctional: flags.noFunctional === true,
             noTargeting: flags.noTargeting === true,
             doNotShareOrSell: flags.doNotShareOrSell === true,
         };
+        this.notifyIfChanged(previous);
+    }
+
+    /** @internal */
+    private getCombinedFlags(): ICookieConsentFlags {
+        return {
+            noFunctional: this.getNoFunctional(),
+            noTargeting: this.getNoTargeting(),
+            doNotShareOrSell: this.getDoNotShareOrSell(),
+        };
+    }
+
+    /** @internal */
+    private notifyIfChanged(previous: ICookieConsentFlags): void {
+        if (!this.changeListener) {
+            return;
+        }
+        const current = this.getCombinedFlags();
+        if (
+            current.noFunctional !== previous.noFunctional ||
+            current.noTargeting !== previous.noTargeting ||
+            current.doNotShareOrSell !== previous.doNotShareOrSell
+        ) {
+            this.changeListener(previous);
+        }
     }
 
     /**

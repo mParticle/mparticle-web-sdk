@@ -490,4 +490,52 @@ describe('ForegroundTimeTracker', () => {
             expect(updatePersistenceSpy).toHaveBeenCalled();
         });
     });
+
+    describe('live privacy restriction', () => {
+        it('stops writing while the live reader reports noFunctional', () => {
+            let restricted = false;
+            const tracker = new ForegroundTimeTracker(timerKey, false, () => restricted);
+            tracker['totalTime'] = 500;
+            restricted = true;
+
+            tracker.updateTimeInPersistence();
+            expect(localStorage.getItem(mockStorageKey)).toBeNull();
+
+            restricted = false;
+            tracker.updateTimeInPersistence();
+            expect(localStorage.getItem(mockStorageKey)).toBe('500');
+        });
+
+        it('loads stored time when only the live reader is unrestricted at start', () => {
+            localStorage.setItem(mockStorageKey, '1000');
+            const tracker = new ForegroundTimeTracker(timerKey, false, () => false);
+            expect(tracker['totalTime']).toBe(1000);
+        });
+
+        it('resumes writes when a restriction present at creation is lifted', () => {
+            localStorage.setItem(mockStorageKey, '1000');
+            let restricted = true;
+            const tracker = new ForegroundTimeTracker(timerKey, false, () => restricted);
+            expect(tracker['totalTime']).toBe(0);
+
+            restricted = false;
+            tracker['totalTime'] = 500;
+            tracker.updateTimeInPersistence();
+            expect(localStorage.getItem(mockStorageKey)).toBe('500');
+        });
+
+        it('never writes under an initialization restriction', () => {
+            const tracker = new ForegroundTimeTracker(timerKey, true, () => false);
+            tracker['totalTime'] = 500;
+            tracker.updateTimeInPersistence();
+            expect(localStorage.getItem(mockStorageKey)).toBeNull();
+        });
+
+        it('clearStoredTime removes the stored value', () => {
+            localStorage.setItem(mockStorageKey, '1000');
+            const tracker = new ForegroundTimeTracker(timerKey);
+            tracker.clearStoredTime();
+            expect(localStorage.getItem(mockStorageKey)).toBeNull();
+        });
+    });
 });

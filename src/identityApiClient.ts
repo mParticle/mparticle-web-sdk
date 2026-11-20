@@ -26,6 +26,7 @@ import {
 } from './identity-user-interfaces';
 import { IMParticleWebSDKInstance } from './mp-instance';
 import { ErrorCodes, WSDKErrorSeverity } from './reporting/types';
+import { onIdentityRequestSettled } from './privacyTransitions';
 
 const { HTTPCodes, Messages, IdentityMethods } = Constants;
 
@@ -355,6 +356,9 @@ export default function IdentityAPIClient(
             // selectPlacements call with no MPID can still be waiting for this request.
             mpInstance._RoktManager?.processMessageQueue();
             invokeCallback(callback, HTTPCodes.noHttpCoverage, errorMessage);
+        } finally {
+            // An initial identify deferred behind this request can run now.
+            onIdentityRequestSettled(mpInstance);
         }
     };
 

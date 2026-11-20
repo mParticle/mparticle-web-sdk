@@ -7,6 +7,7 @@ import { IMParticleUser } from './identity-user-interfaces';
 import { IMParticleWebSDKInstance } from './mp-instance';
 import { hasIdentityRequestChanged, isNoFunctionalWithoutId } from './identity-utils';
 import { logDeprecatedMethodUsage } from './reporting/deprecatedMethodLogger';
+import { isFunctionalStorageRevoked } from './privacyTransitions';
 
 const { Messages } = Constants;
 
@@ -154,8 +155,28 @@ export default function SessionManager(
             return;
         }
 
-        const cookies: IPersistenceMinified =
+        let cookies: IPersistenceMinified =
             mpInstance._Persistence.getPersistence();
+
+        // A page or derived restriction removes the stored session (keeping
+        // only the privacy choices) and blocks writes, so decide from the
+        // session held in memory instead, timing it from now when no event
+        // was sent yet.
+        const { sessionId, dateLastEventSent } = mpInstance._Store;
+        if (
+            !cookies?.gs?.sid &&
+            sessionId &&
+            isFunctionalStorageRevoked(mpInstance)
+        ) {
+            cookies = {
+                gs: {
+                    sid: sessionId,
+                    les: dateLastEventSent
+                        ? dateLastEventSent.getTime()
+                        : Date.now(),
+                },
+            } as IPersistenceMinified;
+        }
 
         if (!cookies || (cookies.gs && !cookies.gs.sid)) {
             mpInstance.Logger.verbose(
