@@ -1,3 +1,5 @@
+import terserPlugin from '../../scripts/rollup/terserPlugin';
+
 export default [
     {
         input: 'src/GoogleAdWordsEventForwarder.js',
@@ -8,6 +10,7 @@ export default [
             name: 'mpAdWordsKit',
             strict: false,
         },
+        plugins: [terserPlugin],
     },
     {
         input: 'src/GoogleAdWordsEventForwarder.js',

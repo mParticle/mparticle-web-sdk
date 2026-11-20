@@ -2,7 +2,13 @@ import { readdirSync, readFileSync } from 'fs';
 import { join, relative } from 'path';
 import ts from 'typescript';
 
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { Linter } = require('eslint');
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const globals = require('globals');
+
 const SRC_DIR = join(__dirname, '../../src');
+const BUNDLE_PATH = join(__dirname, '../../dist/Rokt-Kit.iife.js');
 
 const COMPUTED_BINDING = 'computed key in a destructuring binding';
 const COMPUTED_ASSIGNMENT = 'computed key in a destructuring assignment';
@@ -34,7 +40,7 @@ function isAssignmentTarget(node: ts.Node): boolean {
   return false;
 }
 
-// Lists the destructuring shapes NUglify, the CDN's minifier, renames or rewrites wrongly.
+// Lists the destructuring shapes a minifier can rename or rewrite wrongly.
 function unsafeDestructuring(fileName: string, text: string): string[] {
   const source = ts.createSourceFile(fileName, text, ts.ScriptTarget.Latest, true);
   const found: string[] = [];
@@ -131,13 +137,48 @@ const ALLOWED: [string, string][] = [
   ['patterns in for-in assignment heads', 'for ({ length: y } in obj) {} for ([y] in obj) {}'],
 ];
 
+function undeclaredNames(code: string): string[] {
+  const linter = new Linter({ configType: 'flat' });
+  const messages: { fatal?: boolean; ruleId?: string | null; message: string }[] = linter.verify(code, [
+    {
+      languageOptions: {
+        ecmaVersion: 'latest',
+        sourceType: 'script',
+        globals: { ...globals.browser, ...globals.es2021 },
+      },
+      rules: { 'no-undef': 'error' },
+    },
+  ]);
+  const fatal = messages.find((message) => message.fatal);
+  if (fatal) {
+    throw new Error(`does not parse: ${fatal.message}`);
+  }
+  return Array.from(
+    new Set(
+      messages
+        .filter((message) => message.ruleId === 'no-undef')
+        .map((message) => /'(.+)' is not defined/.exec(message.message)?.[1] ?? message.message),
+    ),
+  );
+}
+
 describe('minifier-safe syntax', () => {
-  it('has no destructuring shapes the CDN minifier mishandles', () => {
+  it('has no unsafe destructuring shapes in source or in the minified IIFE bundle', () => {
     const files = sourceFiles(SRC_DIR);
     expect(files.length).toBeGreaterThan(0);
     expect(files.flatMap((path) => unsafeDestructuring(relative(SRC_DIR, path), readFileSync(path, 'utf8')))).toEqual(
       [],
     );
+
+    const bundle = readFileSync(BUNDLE_PATH, 'utf8');
+    expect(bundle.length).toBeGreaterThan(0);
+    expect(unsafeDestructuring('dist/Rokt-Kit.iife.js', bundle)).toEqual([]);
+    expect(undeclaredNames(bundle)).toEqual([]);
+  });
+
+  it('reports an undeclared identifier left in a minified bundle', () => {
+    const broken = '(function(){function n(n){const{[K]:t,...r}=n||{};return[t,r]}window.f=n})()';
+    expect(undeclaredNames(broken)).toEqual(['K']);
   });
 
   it.each(FLAGGED)('flags %s', (_description, code, ...forms) => {

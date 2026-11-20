@@ -1,4 +1,5 @@
 import commonjs from 'rollup-plugin-commonjs';
+import terserPlugin from '../../scripts/rollup/terserPlugin';
 
 const { BUILD } = process.env;
 
@@ -24,6 +25,7 @@ const builds = {
             file: 'packages/AdobeServer/dist/AdobeServerSideKit.iife.js',
             format: 'iife',
         },
+        plugins: [terserPlugin],
     },
     // creates npm module for adobe server side kit
     server_cjs: {
@@ -42,6 +44,7 @@ const builds = {
             file: 'packages/AdobeClient/dist/AdobeClientSideKit.iife.js',
             format: 'iife',
         },
+        plugins: [terserPlugin],
     },
     // creates npm module for adobe client side kit
     client_cjs: {
@@ -70,7 +73,7 @@ const builds = {
             file: './HeartbeatKit/dist/AdobeHBKit.iife.js',
             format: 'iife',
         },
-        plugins: [commonjs()],
+        plugins: [commonjs(), terserPlugin],
     },
 };
 
