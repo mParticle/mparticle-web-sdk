@@ -55,6 +55,7 @@ import ForegroundTimer from './foregroundTimeTracker';
 import RoktManager, { IRoktOptions } from './roktManager';
 import filteredMparticleUser from './filteredMparticleUser';
 import CookieConsentManager, { ICookieConsentManager } from './cookieConsentManager';
+import { applyPrivacyFlagChange } from './privacyTransitions';
 import { ErrorReportingDispatcher } from './reporting/errorReportingDispatcher';
 import { LoggingDispatcher } from './reporting/loggingDispatcher';
 import { IErrorReportingService, ILoggingService } from './reporting/types';
@@ -1677,6 +1678,10 @@ function runPreConfigFetchInitialization(mpInstance, apiKey, config) {
         config?.launcherOptions
     );
     mpInstance._CookieConsentManager = new CookieConsentManager({ noFunctional, noTargeting, doNotShareOrSell });
+    // Page and derived flag changes after initialization reach storage and identity.
+    mpInstance._CookieConsentManager.setChangeListener(previous =>
+        applyPrivacyFlagChange(mpInstance, previous)
+    );
 
     // Check to see if localStorage is available before main configuration runs
     // since we will need this for the current implementation of user persistence

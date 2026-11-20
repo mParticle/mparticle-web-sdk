@@ -5,6 +5,7 @@ import { IMParticleWebSDKInstance } from './mp-instance';
 import { IPersistence, IPersistenceMinified } from './persistence.interfaces';
 import { MPID } from '@mparticle/web-sdk';
 import { CookieSyncDates } from './cookieSyncManager';
+import { isStoredRecordPurged } from './privacyTransitions';
 import { Dictionary, isObject, generateUniqueId } from './utils';
 import { IMParticleInstanceManager } from './sdkRuntimeModels';
 
@@ -284,14 +285,26 @@ export default function _Persistence(
         }
     };
 
+    // Blocks mprtcl-v4 writes while noFunctional is true. Once the stored
+    // record holds only the privacy choices, each blocked write refreshes
+    // them from memory, so a later consent change or user switch is kept.
+    function isWriteBlocked(): boolean {
+        if (!mpInstance._CookieConsentManager?.getNoFunctional()) {
+            return false;
+        }
+        if (isStoredRecordPurged(mpInstance)) {
+            self.storePrivacyChoices();
+        }
+        return true;
+    }
+
     // https://go.mparticle.com/work/SQDSDKS-6021
     this.setLocalStorage = function(): void {
         if (!mpInstance._Store.isLocalStorageAvailable) {
             return;
         }
 
-        // Block mprtcl-v4 localStorage when noFunctional is true
-        if (mpInstance._CookieConsentManager?.getNoFunctional()) {
+        if (isWriteBlocked()) {
             return;
         }
 
@@ -335,6 +348,61 @@ export default function _Persistence(
                     'Error with setting localStorage item.'
                 );
             }
+        }
+    };
+
+    // Writes a record holding only the privacy choices: the logging opt-out
+    // (gs.ie = false) and the current user's consent state. It is used after
+    // functional data is removed so that both are still honoured on the next
+    // page load. It carries no other identity or session data.
+    this.storePrivacyChoices = function(): void {
+        const store = mpInstance._Store;
+        const key = store.storageName;
+        const record = { gs: {} } as IPersistenceMinified;
+        const mpid = store.mpid;
+        const userRecord = mpid && store.persistenceData[mpid];
+        const consentState = userRecord && userRecord.con;
+        if (store.isEnabled === false) {
+            record.gs.ie = false;
+        }
+        if (consentState) {
+            record.cu = mpid;
+            (record as Dictionary)[mpid] = { con: consentState };
+        }
+        const hasChoices = !!consentState || store.isEnabled === false;
+        try {
+            if (self.useLocalStorage()) {
+                if (!hasChoices) {
+                    window.localStorage.removeItem(encodeURIComponent(key));
+                    return;
+                }
+                window.localStorage.setItem(
+                    encodeURIComponent(key),
+                    self.encodePersistence(JSON.stringify(record))
+                );
+                return;
+            }
+            if (!hasChoices) {
+                self.expireCookies(key);
+                return;
+            }
+            const expires = new Date(
+                Date.now() +
+                    mpInstance._Store.SDKConfig.cookieExpiration *
+                        24 *
+                        60 *
+                        60 *
+                        1000
+            ).toUTCString();
+            const cookieDomain = self.getCookieDomain();
+            const domain = cookieDomain === '' ? '' : ';domain=' + cookieDomain;
+            writeCookie(
+                encodeURIComponent(key) +
+                    '=' +
+                    createFullEncodedCookie(record, expires, domain)
+            );
+        } catch (e) {
+            mpInstance.Logger.error('Error storing privacy choices.');
         }
     };
 
@@ -455,8 +523,7 @@ export default function _Persistence(
     // https://go.mparticle.com/work/SQDSDKS-5022
     // https://go.mparticle.com/work/SQDSDKS-6021
     this.setCookie = function(): void {
-        // Block mprtcl-v4 cookies when noFunctional is true
-        if (mpInstance._CookieConsentManager?.getNoFunctional()) {
+        if (isWriteBlocked()) {
             return;
         }
 
@@ -965,8 +1032,7 @@ export default function _Persistence(
 
     // https://go.mparticle.com/work/SQDSDKS-6021
     this.savePersistence = function(persistence: IPersistenceMinified): void {
-        // Block mprtcl-v4 persistence when noFunctional is true
-        if (mpInstance._CookieConsentManager?.getNoFunctional()) {
+        if (isWriteBlocked()) {
             return;
         }
 
@@ -1021,6 +1087,9 @@ export default function _Persistence(
     };
 
     this.getPersistence = function(): IPersistenceMinified | null {
+        if (isStoredRecordPurged(mpInstance)) {
+            return null;
+        }
         let persistence = this.useLocalStorage()
             ? this.getLocalStorage()
             : this.getCookie();

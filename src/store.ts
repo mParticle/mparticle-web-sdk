@@ -759,7 +759,15 @@ export default function Store(
             const { noFunctional } = normalizeRoktLauncherOptions(
                 config?.launcherOptions
             );
-            mpInstance._timeOnSiteTimer = new ForegroundTimer(workspaceToken, noFunctional);
+            // This config's own restriction always applies. The live reader
+            // adds page and derived restrictions without changing it.
+            const isNoFunctional = (): boolean =>
+                !!mpInstance._CookieConsentManager?.getNoFunctional();
+            mpInstance._timeOnSiteTimer = new ForegroundTimer(
+                workspaceToken,
+                noFunctional,
+                isNoFunctional
+            );
         } else {
             mpInstance.Logger.warning(
                 'You should have a workspaceToken on your config object for security purposes.'
