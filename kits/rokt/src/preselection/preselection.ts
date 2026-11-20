@@ -28,6 +28,7 @@ import {
   recordPreselectIntent,
   recordPreselectNearMiss,
   readPreselectPaymentPick,
+  readPreselectPaymentAtFire,
   recordPreselectPaymentPick,
   recordPreselectTrigger,
   recordPreselectCartAdd,
@@ -503,13 +504,17 @@ export function handlePreselectIntentSignal(
   }
   state.intentSource = signalSource(signal);
   const kind = intentTriggerKind(signal.kind);
-  state.latestIntentFire = isCart
-    ? undefined
-    : { kind, pathname: stripTrailingSlash(currentPathname), t: signal.t };
+  // The tap keeps the dispatch it fires, so a payment pick that lands just after it can send that dispatch again.
+  const keepTap = (refire: (current: PreselectHost) => void): ((current: PreselectHost) => void) => {
+    state.latestIntentFire = isCart
+      ? undefined
+      : { pathname: stripTrailingSlash(currentPathname), t: signal.t, refire };
+    return refire;
+  };
   const held = state.scheduledDispatch;
   if (held && stripTrailingSlash(held.pathname) === stripTrailingSlash(currentPathname)) {
     cancelScheduledDispatch(state);
-    releaseHeldDispatch(state, host, held, 'intent_released', kind);
+    keepTap((current) => releaseHeldDispatch(state, current, held, 'intent_released', kind))(host);
     return;
   }
   const pending = state.pending.find(
@@ -517,17 +522,21 @@ export function handlePreselectIntentSignal(
   );
   if (pending) {
     pending.intentSeen = kind;
+    const { event, triggeringUserId, triggeredAt } = pending;
+    const fire = keepTap((current) =>
+      maybeFirePreselect(state, current, event, currentPathname, triggeringUserId, triggeredAt, kind),
+    );
     // A dispatch held only for the click goes now; one still missing identity, attributes or the
     // launcher keeps the intent and goes the moment it resolves.
     if (pending.waitingFor === 'intent') {
       state.pending = state.pending.filter((dispatch) => dispatch !== pending);
-      maybeFirePreselect(
-        state, host, pending.event, currentPathname, pending.triggeringUserId, pending.triggeredAt, kind,
-      );
+      fire(host);
     }
     return;
   }
-  maybeFirePreselect(state, host, intentTriggerEvent(kind), currentPathname, undefined, signal.t);
+  keepTap((current) =>
+    maybeFirePreselect(state, current, intentTriggerEvent(kind), currentPathname, undefined, signal.t),
+  )(host);
 }
 
 // What a checkout intent signal needs before the kit acts on or logs it, checked again when a waiting tap ends.
@@ -623,7 +632,7 @@ export function handlePreselectPaymentPick(
   if (lateFor) {
     // Once per tap, so a run of picks never sends a run of calls.
     state.latestIntentFire = undefined;
-    maybeFirePreselect(state, host, intentTriggerEvent(lateFor.kind), window.location.pathname, undefined, lateFor.t);
+    lateFor.refire(host);
   }
 }
 
@@ -631,8 +640,9 @@ export function handlePreselectPaymentPick(
 const LATE_PAYMENT_PICK_MS = 1_000;
 
 // The confirm, wallet or checkout-step tap a pick arrived just after, when that tap's call already went out on the
-// entry's own route, the shopper is still there, and the pick changes a value or page the entry reads from it. A call
-// still held or waiting reads the pick when it goes, so it needs nothing here.
+// entry's own route, the shopper is still there, and the pick changes a value or page the entry reads from it, set
+// against the pick that call went out with. A call still held or waiting reads the pick when it goes, so it needs
+// nothing here.
 function lateIntentFireFor(
   state: PreselectState,
   accountId: string,
@@ -653,7 +663,9 @@ function lateIntentFireFor(
   if (!entry || entry.cartIntent === true || !wasPreselectFiredRecently(accountId, entry.targetPageIdentifier)) {
     return undefined;
   }
-  return pickChangesEntry(entry, readEntryPaymentPick(entry), family) ? tap : undefined;
+  return pickChangesEntry(entry, readPreselectPaymentAtFire(accountId, entry.targetPageIdentifier), family)
+    ? tap
+    : undefined;
 }
 
 // Whether picking next rather than previous changes a payment default's value or the alternate target page the entry's
@@ -1380,9 +1392,9 @@ export interface PreselectState {
     triggeredAt: number;
   };
   identityWait?: IdentityWait;
-  // The latest confirm, wallet or checkout-step tap handled on its entry's own route, so a payment pick that lands just
-  // after it can fire it again.
-  latestIntentFire?: { kind: IntentTriggerKind; pathname: string; t: number };
+  // The latest confirm, wallet or checkout-step tap handled on its entry's own route, with the dispatch it fires, so a
+  // payment pick that lands just after it can send that dispatch again.
+  latestIntentFire?: { pathname: string; t: number; refire: (host: PreselectHost) => void };
 }
 
 // A guest's wallet tap off every entry, waiting for the guest to be identified.
