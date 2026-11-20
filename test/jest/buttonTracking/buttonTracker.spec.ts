@@ -479,21 +479,43 @@ describe('ButtonTracker', () => {
             );
         });
 
-        it('still logs one event per click after the tracker restarts and a newer one takes over', () => {
+        it.each([
+            [
+                'init runs again on the same tracker',
+                () => {
+                    startTracker().init({ hasRoktKit: true, logButtons: true, logLinks: false });
+                },
+            ],
+            [
+                'the tracker is torn down and started again',
+                () => {
+                    const tracker = startTracker();
+                    tracker.teardown();
+                    tracker.init({ hasRoktKit: true, logButtons: true, logLinks: false });
+                },
+            ],
+            [
+                'a newer tracker takes over from an older one',
+                () => {
+                    startTracker();
+                    startTracker();
+                },
+            ],
+        ])('logs one event and hands the kit one commit per click after %s', (_how, restart) => {
             const delivered = deliverAsTrusted();
-            const first = startTracker();
-            first.init({ hasRoktKit: true, logButtons: true, logLinks: false });
-            first.teardown();
-            first.init({ hasRoktKit: true, logButtons: true, logLinks: false });
-            startTracker();
+            restart();
 
-            button('Size guide').dispatchEvent(
+            button('Place order').dispatchEvent(
                 new MouseEvent('click', { bubbles: true, cancelable: true })
             );
             afterPaint();
 
             expect(delivered).toHaveBeenCalledTimes(1);
             expect(logEvent).toHaveBeenCalledTimes(1);
+            expect(notify).toHaveBeenCalledTimes(1);
+            expect(notify).toHaveBeenCalledWith(
+                expect.objectContaining({ kind: 'commit' })
+            );
         });
 
         it('hands the kit one commit when a confirm tap also submits its form', () => {
