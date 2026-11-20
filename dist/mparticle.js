@@ -1,6 +1,6 @@
 var mParticle = (function () {
 
-    var version = "3.35.1";
+    var version = "3.36.0";
 
     var Constants = {
       sdkVersion: version,
@@ -11801,36 +11801,56 @@ var mParticle = (function () {
     var CookieConsentManager = /** @class */function () {
       function CookieConsentManager(flags) {
         this.flags = flags;
+        /** @internal */
+        this.pageFlags = {};
+        /** @internal */
+        this.derivedFlags = {};
         this.flags = {
           noFunctional: flags.noFunctional === true,
           noTargeting: flags.noTargeting === true,
           doNotShareOrSell: flags.doNotShareOrSell === true
         };
       }
+      /** @internal */
+      CookieConsentManager.prototype.setPageFlags = function (flags) {
+        this.pageFlags = {
+          noFunctional: flags.noFunctional === true,
+          noTargeting: flags.noTargeting === true,
+          doNotShareOrSell: flags.doNotShareOrSell === true
+        };
+      };
+      /** @internal */
+      CookieConsentManager.prototype.replaceDerivedFlags = function (flags) {
+        this.derivedFlags = {
+          noFunctional: flags.noFunctional === true,
+          noTargeting: flags.noTargeting === true,
+          doNotShareOrSell: flags.doNotShareOrSell === true
+        };
+      };
       /**
        * Returns true if third-party targeting is disabled.
        * Targeting is allowed when noTargeting is false (default).
        */
       CookieConsentManager.prototype.getNoTargeting = function () {
-        return this.flags.noTargeting;
+        return this.flags.noTargeting || this.pageFlags.noTargeting === true || this.derivedFlags.noTargeting === true;
       };
       /**
        * Returns true if functional tracking is disabled.
        * Functional tracking is allowed when noFunctional is false (default).
        */
       CookieConsentManager.prototype.getNoFunctional = function () {
-        return this.flags.noFunctional;
+        return this.flags.noFunctional || this.pageFlags.noFunctional === true || this.derivedFlags.noFunctional === true;
       };
       /**
        * Returns true if the user has opted out of the sale or sharing of their data.
        * Sharing is allowed when doNotShareOrSell is false (default).
        */
       CookieConsentManager.prototype.getDoNotShareOrSell = function () {
-        return this.flags.doNotShareOrSell;
+        return this.flags.doNotShareOrSell || this.pageFlags.doNotShareOrSell === true || this.derivedFlags.doNotShareOrSell === true;
       };
       CookieConsentManager.prototype.syncNoTargetingAttribute = function (user) {
         if (!user) return;
-        if (this.flags.noTargeting) {
+        if (this.getNoTargeting()) {
           user.setUserAttribute(NO_TARGETING_ATTRIBUTE, true);
         } else if (hasOwnProp(user.getAllUserAttributes(), NO_TARGETING_ATTRIBUTE)) {
           user.removeUserAttribute(NO_TARGETING_ATTRIBUTE);
@@ -13756,8 +13776,11 @@ var mParticle = (function () {
           this.log('opted out, not starting');
           return;
         }
-        win.document.addEventListener('click', this.onEvent, CAPTURE_PASSIVE);
-        win.document.addEventListener('submit', this.onEvent, CAPTURE_PASSIVE);
+        // Clicks and submits are heard on the window, ahead of the document: some
+        // page scripts wrap addEventListener and drop any capture click listener
+        // added to the document, which would leave the tracker hearing nothing.
+        win.addEventListener('click', this.onEvent, CAPTURE_PASSIVE);
+        win.addEventListener('submit', this.onEvent, CAPTURE_PASSIVE);
         win.addEventListener('blur', this.onEvent, PASSIVE);
         win.addEventListener('pageshow', this.onPageShow, PASSIVE);
         win.addEventListener('beforeunload', this.onHide, CAPTURE_PASSIVE);
@@ -13817,8 +13840,8 @@ var mParticle = (function () {
       ButtonTracker.prototype.teardown = function () {
         var win = btnWindow();
         if (win) {
-          win.document.removeEventListener('click', this.onEvent, true);
-          win.document.removeEventListener('submit', this.onEvent, true);
+          win.removeEventListener('click', this.onEvent, true);
+          win.removeEventListener('submit', this.onEvent, true);
           win.removeEventListener('blur', this.onEvent);
           win.removeEventListener('pageshow', this.onPageShow);
           win.removeEventListener('beforeunload', this.onHide, true);
