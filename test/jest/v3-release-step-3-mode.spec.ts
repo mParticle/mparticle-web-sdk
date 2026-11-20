@@ -548,7 +548,7 @@ describe('V3 Step 3 Release Please mode', () => {
         );
         expect(resolve.permissions.actions).toBe('read');
         expect(plan.run).toContain(
-            'gh api --paginate "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/attempts/${RUN_ATTEMPT}/jobs?per_page=100"'
+            'gh_api_retry --paginate "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/attempts/${RUN_ATTEMPT}/jobs?per_page=100"'
         );
         expect(plan.run).toContain('--jobs "$JOBS_FILE"');
     });

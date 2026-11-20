@@ -142,8 +142,10 @@ jobs:
                       echo 'step1_run_id must be a workflow run ID.'
                       exit 1
                   fi
-                  gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${STEP1_RUN_ID}" > "$RUN_FILE"
-                  V3_WORKFLOW_ID="$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/v3-release-step-1.yml" --jq .id)"
+                  # Retries a 5xx or network error; see the script's header.
+                  . scripts/v3-release/gh-api-retry.sh
+                  gh_api_retry "repos/${GITHUB_REPOSITORY}/actions/runs/${STEP1_RUN_ID}" > "$RUN_FILE"
+                  V3_WORKFLOW_ID="$(gh_api_retry "repos/${GITHUB_REPOSITORY}/actions/workflows/v3-release-step-1.yml" --jq .id)"
                   RUN_ID="$(jq -r .id "$RUN_FILE")"
                   RUN_ATTEMPT="$(jq -r .run_attempt "$RUN_FILE")"
                   if [[ ! "$RUN_ID" =~ ^[1-9][0-9]{0,19}$ ]] || [[ ! "$RUN_ATTEMPT" =~ ^[1-9][0-9]{0,3}$ ]]; then
@@ -154,10 +156,10 @@ jobs:
                   # kits, and when its package job ran; a re-run of failed jobs
                   # keeps an earlier attempt's candidate, made in that window.
                   ARTIFACTS_FILE="$RUNNER_TEMP/step1-artifacts.json"
-                  gh api --paginate "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/artifacts?per_page=100" |
+                  gh_api_retry --paginate "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/artifacts?per_page=100" |
                       jq -s '[.[].artifacts[]]' > "$ARTIFACTS_FILE"
                   JOBS_FILE="$RUNNER_TEMP/step1-jobs.json"
-                  gh api --paginate "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/attempts/${RUN_ATTEMPT}/jobs?per_page=100" |
+                  gh_api_retry --paginate "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/attempts/${RUN_ATTEMPT}/jobs?per_page=100" |
                       jq -s '[.[].jobs[]]' > "$JOBS_FILE"
                   set -- \
                       --run "$RUN_FILE" \
@@ -192,7 +194,8 @@ jobs:
                   RELEASE_GATE: ${{ github.event_name == 'workflow_dispatch' && inputs.release_gate && 'true' || 'false' }}
               run: |
                   set -euo pipefail
-                  COUNT="$(gh api --paginate "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/artifacts?per_page=100" |
+                  . scripts/v3-release/gh-api-retry.sh
+                  COUNT="$(gh_api_retry --paginate "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/artifacts?per_page=100" |
                       jq -s --arg name "$ARTIFACT_NAME" \
                           '[.[].artifacts[] | select(.name == $name and (.expired | not))] | length')"
                   if [ "$COUNT" = '1' ]; then
