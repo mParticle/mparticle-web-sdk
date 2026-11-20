@@ -413,6 +413,222 @@ describe('ButtonTracker', () => {
         );
     });
 
+    describe('real clicks and submits dispatched through the page', () => {
+        // jsdom only dispatches untrusted events. Each event the tracker's
+        // listener receives is handed on marked trusted, with every method still
+        // bound to the real event, so the click runs the whole path: dispatch,
+        // classification, logging and the kit hand-off.
+        const deliverAsTrusted = () => {
+            const proto = ButtonTracker.prototype as any;
+            const observe = proto.observe;
+            return jest
+                .spyOn(proto, 'observe')
+                .mockImplementation(function(this: unknown, event: unknown) {
+                    const real = event as Record<string | symbol, unknown>;
+                    const trusted = new Proxy(real, {
+                        get: (target, key) => {
+                            if (key === 'isTrusted') {
+                                return true;
+                            }
+                            const value = target[key];
+                            return typeof value === 'function'
+                                ? (value as Function).bind(target)
+                                : value;
+                        },
+                    });
+                    return observe.call(this, trusted);
+                });
+        };
+
+        // Page listeners added by a test, removed after it.
+        let pageListeners: Array<[EventTarget, string, EventListener, boolean]>;
+        const onPage = (
+            target: EventTarget,
+            type: string,
+            fn: EventListener,
+            capture = false
+        ) => {
+            target.addEventListener(type, fn, capture);
+            pageListeners.push([target, type, fn, capture]);
+        };
+
+        beforeEach(() => {
+            pageListeners = [];
+        });
+
+        afterEach(() => {
+            pageListeners.forEach(([target, type, fn, capture]) =>
+                target.removeEventListener(type, fn, capture)
+            );
+        });
+
+        it('logs one event and hands the kit one commit per click', () => {
+            const delivered = deliverAsTrusted();
+            startTracker();
+
+            button('Place order').dispatchEvent(
+                new MouseEvent('click', { bubbles: true, cancelable: true })
+            );
+            afterPaint();
+
+            expect(delivered).toHaveBeenCalledTimes(1);
+            expect(logEvent).toHaveBeenCalledTimes(1);
+            expect(notify).toHaveBeenCalledTimes(1);
+            expect(notify).toHaveBeenCalledWith(
+                expect.objectContaining({ kind: 'commit' })
+            );
+        });
+
+        it.each([
+            [
+                'init runs again on the same tracker',
+                () => {
+                    startTracker().init({ hasRoktKit: true, logButtons: true, logLinks: false });
+                },
+            ],
+            [
+                'the tracker is torn down and started again',
+                () => {
+                    const tracker = startTracker();
+                    tracker.teardown();
+                    tracker.init({ hasRoktKit: true, logButtons: true, logLinks: false });
+                },
+            ],
+            [
+                'a newer tracker takes over from an older one',
+                () => {
+                    startTracker();
+                    startTracker();
+                },
+            ],
+        ])('logs one event and hands the kit one commit per click after %s', (_how, restart) => {
+            const delivered = deliverAsTrusted();
+            restart();
+
+            button('Place order').dispatchEvent(
+                new MouseEvent('click', { bubbles: true, cancelable: true })
+            );
+            afterPaint();
+
+            expect(delivered).toHaveBeenCalledTimes(1);
+            expect(logEvent).toHaveBeenCalledTimes(1);
+            expect(notify).toHaveBeenCalledTimes(1);
+            expect(notify).toHaveBeenCalledWith(
+                expect.objectContaining({ kind: 'commit' })
+            );
+        });
+
+        it('hands the kit one commit when a confirm tap also submits its form', () => {
+            const delivered = deliverAsTrusted();
+            startTracker();
+            const form = document.createElement('form');
+            const submit = document.createElement('button');
+            submit.type = 'submit';
+            submit.textContent = 'Place order';
+            form.appendChild(submit);
+            document.body.appendChild(form);
+            // The page handles the order itself, as most checkouts do.
+            onPage(form, 'submit', event => event.preventDefault());
+
+            submit.click();
+            afterPaint();
+
+            expect(delivered.mock.calls.map(call => (call[0] as Event).type)).toEqual([
+                'click',
+                'submit',
+            ]);
+            expect(logEvent).toHaveBeenCalledTimes(1);
+            expect(notify).toHaveBeenCalledTimes(1);
+            expect(notify).toHaveBeenCalledWith(
+                expect.objectContaining({ kind: 'commit' })
+            );
+        });
+
+        it("leaves the page's click as it was: never cancelled or stopped, every page listener runs once", () => {
+            deliverAsTrusted();
+            const preventDefault = jest.spyOn(Event.prototype, 'preventDefault');
+            const stopPropagation = jest.spyOn(Event.prototype, 'stopPropagation');
+            const stopImmediate = jest.spyOn(Event.prototype, 'stopImmediatePropagation');
+            startTracker();
+            const target = button('Place order');
+            const seen: string[] = [];
+            const record = (where: string): EventListener => event => {
+                seen.push(where + (event.defaultPrevented ? ':cancelled' : ''));
+            };
+            onPage(window, 'click', record('window capture'), true);
+            onPage(document, 'click', record('document capture'), true);
+            onPage(target, 'click', record('target'));
+            onPage(document, 'click', record('document bubble'));
+            onPage(window, 'click', record('window bubble'));
+
+            const event = new MouseEvent('click', { bubbles: true, cancelable: true });
+            target.dispatchEvent(event);
+            afterPaint();
+
+            expect(seen).toEqual([
+                'window capture',
+                'document capture',
+                'target',
+                'document bubble',
+                'window bubble',
+            ]);
+            expect(event.defaultPrevented).toBe(false);
+            expect(preventDefault).not.toHaveBeenCalled();
+            expect(stopPropagation).not.toHaveBeenCalled();
+            expect(stopImmediate).not.toHaveBeenCalled();
+            expect(logEvent).toHaveBeenCalledTimes(1);
+        });
+
+        it("keeps a click the page cancels cancelled, and still logs it once", () => {
+            deliverAsTrusted();
+            startTracker();
+            const target = button('Place order');
+            onPage(target, 'click', event => event.preventDefault());
+
+            const event = new MouseEvent('click', { bubbles: true, cancelable: true });
+            target.dispatchEvent(event);
+            afterPaint();
+
+            expect(event.defaultPrevented).toBe(true);
+            expect(logEvent).toHaveBeenCalledTimes(1);
+        });
+
+        it.each([
+            ['its own document capture listener', () => document],
+            ['a window capture listener added before the SDK', () => window],
+        ])('still hears a click once when the page stops it in %s', (_where, at) => {
+            const delivered = deliverAsTrusted();
+            onPage(at(), 'click', event => event.stopPropagation(), true);
+            startTracker();
+
+            button('Place order').dispatchEvent(
+                new MouseEvent('click', { bubbles: true, cancelable: true })
+            );
+            afterPaint();
+
+            expect(delivered).toHaveBeenCalledTimes(1);
+            expect(logEvent).toHaveBeenCalledTimes(1);
+            expect(notify).toHaveBeenCalledTimes(1);
+        });
+
+        it('does not see a click an earlier window capture listener stops with stopImmediatePropagation', () => {
+            // A known limit, and no different from listening on the document:
+            // a listener that runs first and stops the rest of the window's
+            // listeners hides the click from every later listener.
+            const delivered = deliverAsTrusted();
+            onPage(window, 'click', event => event.stopImmediatePropagation(), true);
+            startTracker();
+
+            button('Place order').dispatchEvent(
+                new MouseEvent('click', { bubbles: true, cancelable: true })
+            );
+            afterPaint();
+
+            expect(delivered).not.toHaveBeenCalled();
+            expect(logEvent).not.toHaveBeenCalled();
+        });
+    });
+
     it('ignores untrusted events', () => {
         startTracker();
 
