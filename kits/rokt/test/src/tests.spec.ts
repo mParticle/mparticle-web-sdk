@@ -6834,6 +6834,48 @@ describe('Rokt Forwarder', () => {
         await vi.advanceTimersByTimeAsync(1);
         expect(preselectCalls().map((options) => options.attributes.paymenttype)).toEqual(['apple_pay']);
       });
+      it('sends nothing more once another shopper is signed in', async () => {
+        emit('commit');
+        await vi.advanceTimersByTimeAsync(1);
+        const user = kit.filters.filteredUser;
+        kit.filters.filteredUser = { ...user, getMPID: () => 'other-user' };
+        try {
+          pick('apple_pay');
+          await vi.advanceTimersByTimeAsync(1);
+        } finally {
+          kit.filters.filteredUser = user;
+        }
+        expect(preselectCalls()).toHaveLength(1);
+      });
+      describe('for an entry with alternate target pages', () => {
+        const preselectIdentifiers = () => preselectCalls().map((options) => options.identifier);
+        it('sets the pick against the one the call used, not one left from before the page view', async () => {
+          await reinit(buildSettings({ alternateTargetPageIdentifiers: { byPaymentPick: { apple_pay: 'ap-page' } } }));
+          pick('apple_pay');
+          await vi.advanceTimersByTimeAsync(10);
+          kit.process({ EventDataType: 3, EventName: 'page view', EventAttributes: {} });
+          await vi.advanceTimersByTimeAsync(1);
+          emit('commit');
+          await vi.advanceTimersByTimeAsync(1);
+          pick('apple_pay');
+          await vi.advanceTimersByTimeAsync(1);
+          expect(preselectIdentifiers()).toEqual(['confirmation', 'ap-page']);
+        });
+        it('keeps the tap for a later pick when one maps to the page the call already went to', async () => {
+          await reinit(
+            buildSettings({
+              alternateTargetPageIdentifiers: { byPaymentPick: { card: 'confirmation', apple_pay: 'ap-page' } },
+            }),
+          );
+          emit('commit');
+          await vi.advanceTimersByTimeAsync(1);
+          pick('card');
+          await vi.advanceTimersByTimeAsync(100);
+          pick('apple_pay');
+          await vi.advanceTimersByTimeAsync(1);
+          expect(preselectIdentifiers()).toEqual(['confirmation', 'ap-page']);
+        });
+      });
       it('leaves the pick alone after a tap checkout intent dropped', async () => {
         (window as any).mParticle.Rokt.isCheckoutIntentLive = () => false;
         emit('commit');

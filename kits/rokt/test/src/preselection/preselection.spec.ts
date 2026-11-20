@@ -578,7 +578,7 @@ describe('preselection', () => {
         expect(loggedDiagnostics.map((line) => line.message)).toEqual([
           'Rokt Kit: preselect fired [reason=intent] [identity_types=email] [intent_kind=wallet] [intent_route=before_entry] [intent_source=vendor] [logged_in=true]',
         ]);
-        expect(recordPreselectFired).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, TAP_DIGEST, false);
+        expect(recordPreselectFired).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, TAP_DIGEST, false, null);
         expect(buildActivePreselectFieldKey).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER);
         expect(buildActivePreselectFieldKey).not.toHaveBeenCalledWith(ACCOUNT_ID, PRODUCT_PATH);
         expect(state.pending).toHaveLength(0);
@@ -829,7 +829,7 @@ describe('preselection', () => {
           throw new Error('boom');
         };
         tap('wallet');
-        expect(recordPreselectFired).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, TAP_DIGEST, false);
+        expect(recordPreselectFired).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, TAP_DIGEST, false, null);
         expect(restorePreselectFired).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, undefined, TAP_DIGEST);
         expect(restoreActivePreselect).toHaveBeenCalledWith(FIELD_KEY, null, TAP_DIGEST);
         expect(loggedEvents).toContainEqual(expect.objectContaining({ code: 'PRESELECT_DISPATCH_FAILED' }));
@@ -1461,7 +1461,13 @@ describe('preselection', () => {
         // The entry that fired travels with the call, named by its key.
         expect(selectPlacementsCalls[0][PRESELECT_ENTRY_OPTION]).toBe(TARGET_PAGE_IDENTIFIER);
         // The records stay keyed by the entry's targetPageIdentifier.
-        expect(recordPreselectFired).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, expect.any(Number), false);
+        expect(recordPreselectFired).toHaveBeenCalledWith(
+          ACCOUNT_ID,
+          TARGET_PAGE_IDENTIFIER,
+          expect.any(Number),
+          false,
+          null,
+        );
         // The call it sends is matched back to the entry on its own value.
         expect(
           findPreselectionConfigByIdentifier(
@@ -1688,7 +1694,13 @@ describe('preselection', () => {
         expect(selectPlacementsCalls[0].identifier).toBe(PAID_PAGE);
         expect(selectPlacementsCalls[0][PRESELECT_ENTRY_OPTION]).toBe(TARGET_PAGE_IDENTIFIER);
         expect(readPreselectPaymentPick).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, expect.any(Number));
-        expect(recordPreselectFired).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, expect.any(Number), false);
+        expect(recordPreselectFired).toHaveBeenCalledWith(
+          ACCOUNT_ID,
+          TARGET_PAGE_IDENTIFIER,
+          expect.any(Number),
+          false,
+          'card',
+        );
         expect(findPreselectionConfigByIdentifier(ACCOUNT_ID, PAID_PAGE)).toBe(mockConfig.current[0]);
       });
 
@@ -1921,6 +1933,7 @@ describe('preselection', () => {
           TARGET_PAGE_IDENTIFIER,
           djb2(`${JSON.stringify({ [ATTRIBUTE_KEY]: 'gold' })}|${JSON.stringify([['email', 'shopper@example.test']])}`),
           false,
+          null,
         );
       });
       it('counts a corrected email the entry does not list as changed attributes', () => {
@@ -2890,7 +2903,7 @@ describe('preselection', () => {
       expect(messages()).toEqual([
         'Rokt Kit: preselect fired [reason=intent] [identity_types=email] [intent_kind=cart] [intent_route=before_entry] [intent_source=label] [logged_in=false]',
       ]);
-      expect(recordPreselectFired).toHaveBeenCalledWith(ACCOUNT_ID, BAG_TARGET, CART_DIGEST, true);
+      expect(recordPreselectFired).toHaveBeenCalledWith(ACCOUNT_ID, BAG_TARGET, CART_DIGEST, true, null);
       expect(buildActivePreselectFieldKey).toHaveBeenCalledWith(ACCOUNT_ID, BAG_TARGET);
       expect(recordPreselectIntent).toHaveBeenCalledWith(ACCOUNT_ID, BAG_TARGET, 'cart', clock);
       expect(state.pending).toHaveLength(0);
@@ -3146,7 +3159,7 @@ describe('preselection', () => {
           preselectBoundUser: { mpid: MPID, requireLogin: true },
         }),
       ]);
-      expect(recordPreselectFired).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, CART_DIGEST, false);
+      expect(recordPreselectFired).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, CART_DIGEST, false, null);
       expect(recordPreselectFired).not.toHaveBeenCalledWith(ACCOUNT_ID, BAG_TARGET, expect.anything(), expect.anything());
       expect(observedLines()).toEqual([]);
     });
@@ -3289,6 +3302,7 @@ describe('preselection', () => {
         BAG_TARGET,
         CART_DIGEST,
         false,
+        null,
       );
       expect(buildActivePreselectFieldKey).toHaveBeenCalledWith(ACCOUNT_ID, BAG_TARGET);
       expect(state.scheduledDispatch).toBeUndefined();
@@ -6344,7 +6358,13 @@ describe('preselection', () => {
         maybeFirePreselect(state, host, buildEvent(), PATHNAME);
 
         expect(recordPreselectTrigger).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, true);
-        expect(recordPreselectFired).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, expect.any(Number), false);
+        expect(recordPreselectFired).toHaveBeenCalledWith(
+          ACCOUNT_ID,
+          TARGET_PAGE_IDENTIFIER,
+          expect.any(Number),
+          false,
+          null,
+        );
       });
 
       it('records an anonymous trigger without marking a fire', () => {
@@ -8680,7 +8700,13 @@ describe('preselection', () => {
       };
       addInput('guest@example.com');
       maybeFirePreselect(state, host, buildEvent(), PATHNAME);
-      expect(recordPreselectFired).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, expect.any(Number), false);
+      expect(recordPreselectFired).toHaveBeenCalledWith(
+        ACCOUNT_ID,
+        TARGET_PAGE_IDENTIFIER,
+        expect.any(Number),
+        false,
+        null,
+      );
       expect(restorePreselectFired).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, undefined, expect.any(Number));
       expect(restoreActivePreselect).toHaveBeenCalledWith(FIELD_KEY, null, expect.any(Number));
     });
