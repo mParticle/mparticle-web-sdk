@@ -9,6 +9,22 @@ If loading mParticle via [npm](https://docs.mparticle.com/developers/sdk/web/sel
 npm i @mparticle/web-rokt-kit
 ```
 
+# GDPR consent mapping
+
+The `consentMappingSDK` setting is a JSON-encoded array of GDPR purpose-to-flag mappings, using the same `map` (purpose) and `value` (target) fields as the GA4 kit. For example:
+
+```json
+[
+  { "map": "targeted_advertising", "value": "noTargeting" },
+  { "map": "functional", "value": "noFunctional" },
+  { "map": "sale_of_data", "value": "doNotShareOrSell" }
+]
+```
+
+The kit applies exactly the configured entries; there are no built-in defaults. Purpose names are trimmed and lowercased, matching how the SDK stores GDPR purposes. Only an explicit `Consented: false` adds a restriction; granted or absent purposes add nothing and never remove an opt-out set through `launcherOptions` or a page-level privacy control. Unknown target flags are ignored, and several purposes can restrict the same flag.
+
+The kit refreshes these flags at initialization and before events, identity updates and placement dispatch (including dispatch after an asynchronous wait). While the combined flags (initialization, page-level and consent-derived) restrict more than `launcherOptions` already do, the kit applies them to launcher creation, saved recreation options, page-history signals, device storage and exit intent, keeps the current user's `$NoTargeting` attribute in step, and passes them to a launcher exposing `setPrivacyControl`. Older launchers without that API keep their creation-time request privacy state. With no mapping and no page-level control, behaviour is unchanged.
+
 # Device storage
 
 The kit keeps a small amount of state under one key, `mp-rokt-kit`, in `localStorage` and `sessionStorage`.

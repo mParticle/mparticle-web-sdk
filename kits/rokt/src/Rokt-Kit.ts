@@ -120,6 +120,20 @@ import {
 } from './launcherAttachState';
 import { ExitIntentWatcher, type ExitIntentConfig, type LeadCapturePayload } from './ExitIntentWatcher';
 
+interface PrivacyFlags {
+  noTargeting: boolean;
+  noFunctional: boolean;
+  doNotShareOrSell: boolean;
+}
+
+interface ConsentMapping {
+  map: string;
+  value: keyof PrivacyFlags;
+}
+
+const PRIVACY_FLAG_KEYS: ReadonlyArray<keyof PrivacyFlags> = ['noTargeting', 'noFunctional', 'doNotShareOrSell'];
+const NO_PRIVACY_FLAGS: PrivacyFlags = { noTargeting: false, noFunctional: false, doNotShareOrSell: false };
+
 interface RoktKitSettings {
   accountId: string;
   roktExtensions?: string;
@@ -131,6 +145,7 @@ interface RoktKitSettings {
   errorUrl?: string;
   workspaceIdSyncApiKey?: string;
   preselectionConfig?: string;
+  consentMappingSDK?: string;
 }
 
 interface EventAttributeCondition {
@@ -179,6 +194,7 @@ interface RoktLauncher {
   hashAttributes(attributes: Record<string, unknown>): Promise<Record<string, unknown>>;
   use(extensionName: string): Promise<unknown>;
   terminate(): Promise<void>;
+  setPrivacyControl?(flags: PrivacyFlags): void;
   enablePreselection?: boolean;
   preselectVariant?: 'widened' | 'standard';
 }
@@ -242,6 +258,13 @@ interface RoktManager {
 }
 
 interface MParticleInstance {
+  _CookieConsentManager?: {
+    replaceDerivedFlags?(flags: Partial<PrivacyFlags>): void;
+    syncNoTargetingAttribute?(user: IMParticleUser | null): void;
+    getNoTargeting(): boolean;
+    getNoFunctional(): boolean;
+    getDoNotShareOrSell(): boolean;
+  };
   setIntegrationAttribute(moduleId: number, attrs: Record<string, unknown>): void;
 }
 
@@ -279,7 +302,11 @@ interface MParticleExtended {
   Identity?: {
     search?: WorkspaceIdSyncSearcher;
     modify?: (identityApiData: { userIdentities?: IUserIdentities }, callback?: () => void) => void;
-    getCurrentUser?: () => { setUserAttribute?: (key: string, value: unknown) => void } | null;
+    getCurrentUser?: () => {
+      setUserAttribute?: (key: string, value: unknown) => void;
+      getMPID?: () => string;
+      getConsentState?: () => { getGDPRConsentState?: () => Record<string, { Consented?: boolean }> } | null;
+    } | null;
   };
 }
 
@@ -396,6 +423,8 @@ const EXIT_INTENT_ACCOUNT_ID_OVERRIDES = [
   '3292347205549055462',
 ];
 const EXIT_INTENT_DEFAULT_IDENTIFIER = 'exit-intent-placement';
+// Dispatch option marking a selection the kit started from exit intent. Stripped before the launcher call.
+const EXIT_INTENT_ORIGIN_OPTION = 'exitIntentOrigin';
 
 // Bound on how long selectPlacements will wait for an in-flight Workspace
 // IDSync search before proceeding without the userIdentifiedInWorkspace flag.
@@ -963,6 +992,17 @@ class RoktKit implements KitInterface {
   });
   private _exitIntentEnabledForAccount = false;
   private _pendingInitWarnings: string[] = [];
+  private _consentMappings: ConsentMapping[] = [];
+  // Effective flags while they restrict more than init launcherOptions do; null otherwise.
+  private _effectivePrivacyFlags: PrivacyFlags | null = null;
+  private _noTargetingSyncedMpid: string | null | undefined;
+  private _privacyControlLauncher: RoktLauncher | null = null;
+  private _isRefreshingConsentPrivacy = false;
+  private _hasDerivedPrivacyFlags = false;
+  // The launcher being created was given restricting flags that may have lifted before it attached.
+  private _isLauncherCreatedRestricted = false;
+  // The launcher in place when that creation started (a terminated one during recreation); it is not the new one.
+  private _launcherBeforeCreation: RoktLauncher | null = null;
 
   private accountId: string | null = null;
   private _preselectState: PreselectState = createPreselectState();
@@ -1287,6 +1327,10 @@ class RoktKit implements KitInterface {
       accountId,
       ...(launcherOptions || {}),
     };
+    // A launcher without setPrivacyControl only ever sees the options it was created with.
+    this.applyPrivacyFlagsToOptions(options, this._effectivePrivacyFlags || NO_PRIVACY_FLAGS);
+    this._isLauncherCreatedRestricted = this._effectivePrivacyFlags !== null;
+    this._launcherBeforeCreation = this.launcher;
 
     let launcherPromise: Promise<RoktLauncher>;
     if (this.isPartnerInLocalLauncherTestGroup()) {
@@ -1327,6 +1371,7 @@ class RoktKit implements KitInterface {
     }
     // Locally cache the launcher and filters
     this.launcher = launcher;
+    this.refreshConsentPrivacy();
     markLauncherAttached(this._launcherAttachState);
 
     const roktFilters = mp().Rokt?.filters;
@@ -1535,10 +1580,117 @@ class RoktKit implements KitInterface {
     return !!(this.isInitialized && this.launcher);
   }
 
+  // What init launcherOptions already restrict today, with noDeviceId implying noTargeting and noFunctional.
+  private getInitPrivacyFlags(): PrivacyFlags {
+    const options = (mp().Rokt?.launcherOptions || {}) as Record<string, unknown>;
+    const isDeviceIdDisabled = this.isDeviceIdDisabled();
+    return {
+      noTargeting: options.noTargeting === true || isDeviceIdDisabled,
+      noFunctional: options.noFunctional === true || isDeviceIdDisabled,
+      doNotShareOrSell: options.doNotShareOrSell === true,
+    };
+  }
+
+  // Writes restricting flags into launcher options; an unrestricted flag goes back to its init value.
+  private applyPrivacyFlagsToOptions(target: Record<string, unknown>, flags: PrivacyFlags): void {
+    const initOptions = (mp().Rokt?.launcherOptions || {}) as Record<string, unknown>;
+    for (const key of PRIVACY_FLAG_KEYS) {
+      if (flags[key]) {
+        target[key] = true;
+      } else if (Object.prototype.hasOwnProperty.call(initOptions, key)) {
+        target[key] = initOptions[key];
+      } else {
+        delete target[key];
+      }
+    }
+  }
+
+  // Replaces only consent's contribution in core; never feeds combined flags back as init or page flags.
+  // The effective flags are init launcherOptions OR core's flags (init, page and consent-derived). While they
+  // restrict no more than init launcherOptions do, nothing here acts, so integrations without a mapping or a
+  // page opt-out keep today's launcher options, storage and attributes.
+  private refreshConsentPrivacy(isInit = false): void {
+    // Syncing $NoTargeting fans out to forwarders and can re-enter the kit.
+    if (this._isRefreshingConsentPrivacy) return;
+    this._isRefreshingConsentPrivacy = true;
+    try {
+      this.applyConsentPrivacy(isInit);
+    } finally {
+      this._isRefreshingConsentPrivacy = false;
+    }
+  }
+
+  private applyConsentPrivacy(isInit: boolean): void {
+    const manager = mp().getInstance?.()?._CookieConsentManager;
+    const user = mp().Identity?.getCurrentUser?.() || null;
+    const derived: PrivacyFlags = { noTargeting: false, noFunctional: false, doNotShareOrSell: false };
+    // Without a mapping, core's derived flags stay untouched unless an earlier mapping set them.
+    if (this._consentMappings.length || this._hasDerivedPrivacyFlags) {
+      const consent = user?.getConsentState?.()?.getGDPRConsentState?.() || {};
+      for (const mapping of this._consentMappings) {
+        if (Object.prototype.hasOwnProperty.call(consent, mapping.map) && consent[mapping.map]?.Consented === false) {
+          derived[mapping.value] = true;
+        }
+      }
+      manager?.replaceDerivedFlags?.(derived);
+      this._hasDerivedPrivacyFlags = this._consentMappings.length > 0;
+    }
+    const initFlags = this.getInitPrivacyFlags();
+    const flags: PrivacyFlags = {
+      noTargeting: initFlags.noTargeting || derived.noTargeting || manager?.getNoTargeting?.() === true,
+      noFunctional: initFlags.noFunctional || derived.noFunctional || manager?.getNoFunctional?.() === true,
+      doNotShareOrSell:
+        initFlags.doNotShareOrSell || derived.doNotShareOrSell || manager?.getDoNotShareOrSell?.() === true,
+    };
+    const isRestricted = PRIVACY_FLAG_KEYS.some((key) => flags[key] !== initFlags[key]);
+    const previous = this._effectivePrivacyFlags || initFlags;
+    const isCreatedLauncherAttached = !!this.launcher && this.launcher !== this._launcherBeforeCreation;
+    const isAttachedLauncherStale =
+      this._isLauncherCreatedRestricted && isCreatedLauncherAttached && this._privacyControlLauncher !== this.launcher;
+    if (!isRestricted && !this._effectivePrivacyFlags && !isAttachedLauncherStale) return;
+    this._effectivePrivacyFlags = isRestricted ? flags : null;
+    // Init applies storage, launcher options and exit intent from these flags itself. Writing $NoTargeting from
+    // init would re-enter init through core's forwarder initialization; core syncs it after identify instead.
+    if (isInit) return;
+
+    const mpid = user?.getMPID?.() ?? null;
+    if (
+      user &&
+      (previous.noTargeting !== flags.noTargeting ||
+        (flags.noTargeting !== initFlags.noTargeting && this._noTargetingSyncedMpid !== mpid))
+    ) {
+      this._noTargetingSyncedMpid = mpid;
+      manager?.syncNoTargetingAttribute?.(user as unknown as IMParticleUser);
+    }
+
+    if (previous.noFunctional !== flags.noFunctional) setDevicePersistenceDisabled(flags.noFunctional);
+    if ((flags.noFunctional || flags.noTargeting) && !(previous.noFunctional || previous.noTargeting)) {
+      removeKitStorageFromDevice();
+    }
+    if (!this.isPageHistoryAllowed()) {
+      clearPageViews();
+      clearUtmParams();
+    }
+    if (previous.noTargeting !== flags.noTargeting && this._exitIntentEnabledForAccount) {
+      this.configureExitIntentBridge(this.getEffectiveExitIntentConfig(this.accountId));
+    }
+
+    // Recreation must not restore the values captured before a mid-page consent change.
+    const context = this._launcherAttachState.context;
+    if (context) this.applyPrivacyFlagsToOptions(context.launcherOptions, flags);
+    const isChanged = PRIVACY_FLAG_KEYS.some((key) => previous[key] !== flags[key]);
+    if (this.launcher && (isChanged || this._privacyControlLauncher !== this.launcher)) {
+      this._privacyControlLauncher = this.launcher;
+      if (isCreatedLauncherAttached) this._isLauncherCreatedRestricted = false;
+      this.launcher.setPrivacyControl?.(flags);
+    }
+  }
+
   // When the partner has opted out of targeting (noTargeting launcher option),
   // the kit must not collect behavioral targeting signals such as page views.
   private isTargetingDisabled(): boolean {
     return (
+      this._effectivePrivacyFlags?.noTargeting === true ||
       (mp().Rokt?.launcherOptions as Record<string, unknown> | undefined)?.noTargeting === true ||
       this.isDeviceIdDisabled()
     );
@@ -1553,6 +1705,7 @@ class RoktKit implements KitInterface {
 
   private isPreselectionPrivacyAllowed(): boolean {
     return (
+      this._effectivePrivacyFlags?.doNotShareOrSell !== true &&
       (mp().Rokt?.launcherOptions as Record<string, unknown> | undefined)?.doNotShareOrSell !== true &&
       (navigator as Navigator & { globalPrivacyControl?: boolean }).globalPrivacyControl !== true
     );
@@ -1663,6 +1816,8 @@ class RoktKit implements KitInterface {
   }
 
   private handleExitIntent(reason: string, configuredAttributes: Record<string, unknown>): boolean {
+    // A decline since the last refresh disarms the bridge here, before any selection starts.
+    this.refreshConsentPrivacy();
     if (!this._exitIntentConfig) {
       return false;
     }
@@ -1672,13 +1827,15 @@ class RoktKit implements KitInterface {
     }
 
     try {
-      const selection = mp().Rokt?.selectPlacements?.({
+      const exitIntentOptions: Record<string, unknown> = {
         identifier,
         attributes: {
           ...configuredAttributes,
           exitIntentReason: reason,
         },
-      });
+      };
+      exitIntentOptions[EXIT_INTENT_ORIGIN_OPTION] = true;
+      const selection = mp().Rokt?.selectPlacements?.(exitIntentOptions);
       void Promise.resolve(selection).catch(() => undefined);
       return true;
     } catch {
@@ -1735,9 +1892,19 @@ class RoktKit implements KitInterface {
     _trackerId: unknown,
     filteredUserAttributes?: Record<string, unknown>,
   ): string {
+    const mappings = parseSettingsString<ConsentMapping>((settings as unknown as RoktKitSettings).consentMappingSDK);
+    this._consentMappings = Array.isArray(mappings)
+      ? mappings
+          .filter((entry) => entry && isString(entry.map) && PRIVACY_FLAG_KEYS.includes(entry.value))
+          // Core stores GDPR purposes trimmed and lowercased.
+          .map((entry) => ({ map: entry.map.trim().toLowerCase(), value: entry.value }))
+          .filter((entry) => entry.map.length > 0)
+      : [];
+    this.refreshConsentPrivacy(true);
     // noFunctional, which noDeviceId implies, forbids storing anything on the shopper's device.
     // Applied before anything else, so nothing later in init can fail open.
     const isFunctionalStorageDisabled =
+      this._effectivePrivacyFlags?.noFunctional === true ||
       (mp().Rokt?.launcherOptions as Record<string, unknown> | undefined)?.noFunctional === true ||
       this.isDeviceIdDisabled();
     setDevicePersistenceDisabled(isFunctionalStorageDisabled);
@@ -1803,6 +1970,7 @@ class RoktKit implements KitInterface {
     const launcherOptions: Record<string, unknown> = {
       ...((mp().Rokt?.launcherOptions as Record<string, unknown>) || {}),
     };
+    if (this._effectivePrivacyFlags) this.applyPrivacyFlagsToOptions(launcherOptions, this._effectivePrivacyFlags);
     this.integrationName = generateIntegrationName(launcherOptions.integrationName as string | undefined);
     launcherOptions.integrationName = this.integrationName;
 
@@ -1895,6 +2063,8 @@ class RoktKit implements KitInterface {
       loadRoktScript(ROKT_INTEGRATION_SCRIPT_ID, generateLauncherScript(domain, effectiveRoktExtensionsQueryParams), {
         onLoad: () => {
           if (this.isLauncherReadyToAttach()) {
+            // Consent may have changed while the script loaded.
+            this.refreshConsentPrivacy();
             this.attachLauncher(accountId, launcherOptions, legacyRoktExtensions);
           } else {
             console.error('Rokt object is not available after script load.');
@@ -1912,6 +2082,7 @@ class RoktKit implements KitInterface {
   }
 
   public process(event: SDKEvent): string {
+    this.refreshConsentPrivacy();
     if (event.EventDataType === MESSAGE_TYPE_PAGE_VIEW) recordPreselectIntentPath(window.location.pathname);
     if (!this.isTargetingDisabled()) {
       if (event.EventDataType === MESSAGE_TYPE_PAGE_VIEW) {
@@ -2028,6 +2199,7 @@ class RoktKit implements KitInterface {
       this._identityCallCount += 1;
       this._lastNonModifyCallCount = this._identityCallCount;
     }
+    this.refreshConsentPrivacy();
     const filteredUser = user as FilteredUser;
     this.filters.filteredUser = filteredUser;
     this._workspaceSearchInFlightPromise = this.search(filteredUser);
@@ -2183,6 +2355,7 @@ class RoktKit implements KitInterface {
    * and on a post-terminate createLauncher when the SPA needs a new instance.
    */
   public selectPlacements(options: Record<string, unknown>): RoktSelection | Promise<RoktSelection> | undefined {
+    this.refreshConsentPrivacy();
     const callTimeUser = this.currentUserSnapshot();
     const recreate = this.recreateLauncherIfTerminated();
     if (recreate) {
@@ -2319,11 +2492,16 @@ class RoktKit implements KitInterface {
     options: Record<string, unknown>,
     callTimeUser?: CallTimeUser,
   ): RoktSelection | Promise<RoktSelection> | undefined {
+    this.refreshConsentPrivacy();
     // Undoes the fire's records if this call is dropped below.
     const rollback = options ? getPreselectRollback(options) : undefined;
     // Privacy or consent may change while selectPlacements waits for a search or launcher recreation.
     if (options?.preselect === true && !canDispatchPreselection(this.buildPreselectHost())) {
       rollback?.();
+      return undefined;
+    }
+    // A targeting-disabled user gets no exit-intent selection, including one that waited across a decline.
+    if (options?.[EXIT_INTENT_ORIGIN_OPTION] === true && this.isTargetingDisabled()) {
       return undefined;
     }
     // No computed key in a destructuring pattern: the CDN's NUglify pass drops the constant it names.
@@ -2334,6 +2512,7 @@ class RoktKit implements KitInterface {
     delete dispatchOptions[PRESELECT_FORM_EMAIL_OPTION];
     delete dispatchOptions[PRESELECT_BOUND_USER_OPTION];
     delete dispatchOptions[PRESELECT_ENTRY_OPTION];
+    delete dispatchOptions[EXIT_INTENT_ORIGIN_OPTION];
     options = dispatchOptions;
     // A call for an entry naming targetPageIdentifierAttribute carries the trigger page's value of it as its identifier,
     // which the attribute filter below never reaches. The filter can change while the call waits for a workspace search
