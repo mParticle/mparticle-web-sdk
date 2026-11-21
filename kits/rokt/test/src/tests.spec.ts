@@ -13357,7 +13357,7 @@ describe('Rokt Forwarder', () => {
           expect(selectPlacementsCalls[0].cacheMatchTokens).toEqual({ placementType: 'apple_pay' });
         });
 
-        it('sends the no-family token for a target page value with no payment family', async () => {
+        it('sends no cacheMatchTokens for a target page value with no payment family', async () => {
           pushDefaultsConfig({ preselectAttributeDefaults: { placementType: familyDefault('Credit Card') } });
 
           await (window as any).mParticle.forwarder.selectPlacements({
@@ -13365,10 +13365,10 @@ describe('Rokt Forwarder', () => {
             identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
           });
 
-          expect(selectPlacementsCalls[0].cacheMatchTokens).toEqual({ placementType: 'none' });
+          expect(selectPlacementsCalls[0]).not.toHaveProperty('cacheMatchTokens');
         });
 
-        it('sends the no-family token when the target page sends no value for the key', async () => {
+        it('sends the no-value token when the target page sends no value for the key', async () => {
           pushDefaultsConfig({ preselectAttributeDefaults: { placementType: familyDefault('Credit Card') } });
 
           await (window as any).mParticle.forwarder.selectPlacements({
@@ -13384,14 +13384,14 @@ describe('Rokt Forwarder', () => {
           expect(selectPlacementsCalls[1].cacheMatchTokens).toEqual({ placementType: 'none' });
         });
 
-        it("sends the no-family token for the trigger page's own value with no payment family", async () => {
+        it("sends no cacheMatchTokens for the trigger page's own value with no payment family", async () => {
           pushDefaultsConfig({ preselectAttributeDefaults: { placementType: familyDefault('Credit Card') } });
 
           firePreselectPageview({ placementType: 'Gift Card' });
           await waitForCondition(() => selectPlacementsCalls.length > 0);
 
           expect(selectPlacementsCalls[0].attributes.placementType).toBe('Gift Card');
-          expect(selectPlacementsCalls[0].cacheMatchTokens).toEqual({ placementType: 'none' });
+          expect(selectPlacementsCalls[0]).not.toHaveProperty('cacheMatchTokens');
         });
 
         it('sends no cacheMatchTokens when the speculative call sends no value for the key', async () => {
@@ -13412,15 +13412,20 @@ describe('Rokt Forwarder', () => {
           expect(selectPlacementsCalls[0]).not.toHaveProperty('cacheMatchTokens');
         });
 
-        it('sends no cacheMatchTokens when the call also sends the key under another spelling', async () => {
+        it('sends the no-value token when the target page also sends the key under another spelling', async () => {
           pushDefaultsConfig({ preselectAttributeDefaults: { placementType: familyDefault('Credit Card') } });
 
           await (window as any).mParticle.forwarder.selectPlacements({
             attributes: { placementType: 'Credit Card', PlacementType: 'apple pay' },
             identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
           });
+          await (window as any).mParticle.forwarder.selectPlacements({
+            attributes: { PlacementType: 'PayPal' },
+            identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+          });
 
-          expect(selectPlacementsCalls[0]).not.toHaveProperty('cacheMatchTokens');
+          expect(selectPlacementsCalls[0].cacheMatchTokens).toEqual({ placementType: 'none' });
+          expect(selectPlacementsCalls[1].cacheMatchTokens).toEqual({ placementType: 'none' });
         });
 
         it('sends no cacheMatchTokens for a default that does not opt in', async () => {
@@ -13712,6 +13717,35 @@ describe('Rokt Forwarder', () => {
           expect(selectPlacementsCalls[0].cacheMatchTokens).toEqual({ placementType: 'card' });
           expect(selectPlacementsCalls[1].cacheIdentityKeys).toEqual(['customerid']);
           expect(selectPlacementsCalls[1].cacheMatchTokens).toEqual({ placementType: 'card' });
+        });
+
+        it('sends the no-value token when the target page names the key only under another spelling', async () => {
+          pushIdentityDefaultsConfig({
+            preselectAttributeDefaults: { placementType: { value: 'Credit Card', matchPaymentFamily: true } },
+          });
+
+          firePreselectPageview();
+          await waitForCondition(() => selectPlacementsCalls.length > 0);
+          await (window as any).mParticle.forwarder.selectPlacements({
+            attributes: { PlacementType: 'PayPal' },
+            identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+          });
+
+          expect(selectPlacementsCalls[0].cacheMatchTokens).toEqual({ placementType: 'card' });
+          expect(selectPlacementsCalls[1].cacheMatchTokens).toEqual({ placementType: 'none' });
+        });
+
+        it('keeps a family default strict when its value names no payment family', async () => {
+          pushIdentityDefaultsConfig({
+            preselectAttributeDefaults: { placementType: { value: 'Gift Card', matchPaymentFamily: true } },
+          });
+
+          firePreselectPageview();
+          await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+          expect(selectPlacementsCalls[0].attributes.placementType).toBe('Gift Card');
+          expect(selectPlacementsCalls[0].cacheIdentityKeys).toEqual(['customerid', 'placementType']);
+          expect(selectPlacementsCalls[0]).not.toHaveProperty('cacheMatchTokens');
         });
 
         it('keeps a plain default strict beside a default matched by payment family', async () => {
