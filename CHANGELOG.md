@@ -1,5 +1,20 @@
 # Changelog
 
+## [3.36.1](https://github.com/mParticle/mparticle-web-sdk/compare/v3.36.0...v3.36.1) (2026-11-21)
+
+
+### Bug Fixes
+
+* **button-tracking:** read "Cash App Afterpay" buttons as a wallet tap ([#1894](https://github.com/mParticle/mparticle-web-sdk/issues/1894)) ([3ab9d4e](https://github.com/mParticle/mparticle-web-sdk/commit/3ab9d4ef1ad4b8f3ecce68282503571225cb42c4))
+* **rokt-kit:** log the late payment pick re-send under its own reason ([#1893](https://github.com/mParticle/mparticle-web-sdk/issues/1893)) ([0d9cdd9](https://github.com/mParticle/mparticle-web-sdk/commit/0d9cdd9b7380f67bdd53cae874330a5e5d140867))
+* **rokt-kit:** re-send the pre-selection call when a payment pick lands just after the confirm tap ([#1891](https://github.com/mParticle/mparticle-web-sdk/issues/1891)) ([06666ca](https://github.com/mParticle/mparticle-web-sdk/commit/06666ca83effc577eb4ff441577c3977c252e7d3))
+
+
+### Miscellaneous
+
+* **batch-uploader:** make the returning-session identity callback test deterministic ([#1886](https://github.com/mParticle/mparticle-web-sdk/issues/1886)) ([3dc363b](https://github.com/mParticle/mparticle-web-sdk/commit/3dc363b2cd4fcb65190fed664382eb96f4c8d8de))
+* **release:** retry transient GitHub API errors in V3 gate ([#1889](https://github.com/mParticle/mparticle-web-sdk/issues/1889)) ([ae2f6d0](https://github.com/mParticle/mparticle-web-sdk/commit/ae2f6d0d50fb5cec11b811a2180ca0dc67fd7735))
+
 ## [3.36.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.35.1...v3.36.0) (2026-11-20)
 
 
