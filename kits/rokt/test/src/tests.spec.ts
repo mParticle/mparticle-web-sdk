@@ -6763,6 +6763,19 @@ describe('Rokt Forwarder', () => {
         expect(diagnosticLines(logSpy, 'intent_refire')).toHaveLength(1);
         expect(kit._preselectState.lateRefire).toBeFalsy();
       });
+      it('clears the re-send mark when the re-send throws', async () => {
+        emit('commit');
+        await vi.advanceTimersByTimeAsync(1);
+        kit._preselectState.latestIntentFire.refire = () => {
+          throw new Error('replay failed');
+        };
+        try {
+          pick('apple_pay');
+        } catch {
+          // Either way, the mark must not outlive the re-send.
+        }
+        expect(kit._preselectState.lateRefire).toBeFalsy();
+      });
       it('logs a waiting re-send as the next tap\'s own call once the shopper taps again', async () => {
         await reinit(
           buildSettings({
