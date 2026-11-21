@@ -1,8 +1,10 @@
-const fs = require('fs');
-const os = require('os');
-const path = require('path');
-const zlib = require('zlib');
-const { execFileSync } = require('child_process');
+// Imports keep this file a module, so its names never join the global scope core's build compiles against.
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
+import * as zlib from 'zlib';
+import { execFileSync } from 'child_process';
+
 const { sizes, measure, formatReport } = require('../../scripts/cdn-bundle-size');
 
 describe('cdn-bundle-size', () => {
