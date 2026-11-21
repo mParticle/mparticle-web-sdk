@@ -82,6 +82,9 @@ function formatCell(base, head, bundle, key) {
 }
 
 function formatReport(base, head) {
+    if (!base && !head) {
+        return '### CDN-shaped bundle sizes\n\nNeither side could be measured.\n';
+    }
     const bundles = Array.from(
         new Set(Object.keys(head || {}).concat(Object.keys(base || {})))
     );

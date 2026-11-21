@@ -245,22 +245,16 @@ jobs:
               with:
                   dotnet-version: 8.0.x
 
-            # The bundles are committed, so each is removed first, and again if its own build fails after writing it,
-            # so a failed build reads "not built" rather than a stale or partial size.
+            # Both sides build with this pull request's script, which drops any bundle whose build fails.
             - name: Build this pull request's bundles
-              run: |
-                  rm -f dist/mparticle.js kits/rokt/dist/Rokt-Kit.iife.js
-                  { npm ci && npm run build:iife; } || rm -f dist/mparticle.js
-                  (cd kits/rokt && npm ci && npm run build) || rm -f kits/rokt/dist/Rokt-Kit.iife.js
+              run: bash scripts/cdn-bundle-size-build.sh
 
             - name: Build the base's bundles
               continue-on-error: true
               run: |
                   git worktree add --detach "$RUNNER_TEMP/base" HEAD^1
                   cd "$RUNNER_TEMP/base"
-                  rm -f dist/mparticle.js kits/rokt/dist/Rokt-Kit.iife.js
-                  { npm ci && npm run build:iife; } || rm -f dist/mparticle.js
-                  (cd kits/rokt && npm ci && npm run build) || rm -f kits/rokt/dist/Rokt-Kit.iife.js
+                  bash "$GITHUB_WORKSPACE/scripts/cdn-bundle-size-build.sh"
 
             # A side whose measurement fails reads "not measured" and the other side is still reported.
             - name: Report both after the CDN minifier

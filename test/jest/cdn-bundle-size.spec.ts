@@ -1,4 +1,8 @@
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
 const zlib = require('zlib');
+const { execFileSync } = require('child_process');
 const { sizes, measure, formatReport } = require('../../scripts/cdn-bundle-size');
 
 describe('cdn-bundle-size', () => {
@@ -52,5 +56,71 @@ describe('cdn-bundle-size', () => {
 
     it('records a bundle that is not on disk as not built, without running the minifier', () => {
         expect(measure(['dist/no-such-bundle.js'])).toEqual({ 'dist/no-such-bundle.js': null });
+    });
+
+    it('says so when neither side was measured', () => {
+        expect(formatReport(null, null)).toContain('Neither side could be measured.');
+    });
+});
+
+describe('cdn-bundle-size-build.sh', () => {
+    const script = path.join(__dirname, '../../scripts/cdn-bundle-size-build.sh');
+    const core = 'dist/mparticle.js';
+    const kit = 'kits/rokt/dist/Rokt-Kit.iife.js';
+    let checkout: string;
+
+    // A checkout holding stale committed bundles, where a stand-in npm writes each bundle (unless silent) and then
+    // exits with the given status: build:iife for core, build for the kit.
+    const build = (status: { ci?: number; core?: number; kit?: number; silent?: boolean }) => {
+        checkout = fs.mkdtempSync(path.join(os.tmpdir(), 'cdn-size-build-'));
+        fs.mkdirSync(path.join(checkout, 'bin'));
+        fs.mkdirSync(path.join(checkout, 'dist'));
+        fs.mkdirSync(path.join(checkout, 'kits/rokt/dist'), { recursive: true });
+        fs.writeFileSync(path.join(checkout, core), 'stale');
+        fs.writeFileSync(path.join(checkout, kit), 'stale');
+        fs.writeFileSync(
+            path.join(checkout, 'bin/npm'),
+            [
+                '#!/bin/sh',
+                `[ "$1" = ci ] && exit ${status.ci || 0}`,
+                `[ -n "${status.silent ? 1 : ''}" ] && exit 0`,
+                `[ "$2" = build:iife ] && { echo built > dist/mparticle.js; exit ${status.core || 0}; }`,
+                `echo built > dist/Rokt-Kit.iife.js; exit ${status.kit || 0}`,
+            ].join('\n'),
+            { mode: 0o755 }
+        );
+        execFileSync('bash', [script], {
+            cwd: checkout,
+            env: { ...process.env, PATH: `${path.join(checkout, 'bin')}:${process.env.PATH}` },
+        });
+        const read = (bundle: string) =>
+            fs.existsSync(path.join(checkout, bundle))
+                ? fs.readFileSync(path.join(checkout, bundle), 'utf8').trim()
+                : 'absent';
+        return { core: read(core), kit: read(kit) };
+    };
+
+    afterEach(() => {
+        fs.rmSync(checkout, { recursive: true, force: true });
+    });
+
+    it('replaces both stale bundles when both builds pass', () => {
+        expect(build({})).toEqual({ core: 'built', kit: 'built' });
+    });
+
+    it('drops core when its build fails after writing it, and keeps the kit', () => {
+        expect(build({ core: 1 })).toEqual({ core: 'absent', kit: 'built' });
+    });
+
+    it('drops the kit when its build fails after writing it, and keeps core', () => {
+        expect(build({ kit: 1 })).toEqual({ core: 'built', kit: 'absent' });
+    });
+
+    it('leaves no stale bundle when the installs fail', () => {
+        expect(build({ ci: 1 })).toEqual({ core: 'absent', kit: 'absent' });
+    });
+
+    it('leaves no stale bundle when a passing build writes nothing', () => {
+        expect(build({ silent: true })).toEqual({ core: 'absent', kit: 'absent' });
     });
 });
