@@ -2512,7 +2512,11 @@ class RoktKit implements KitInterface {
       selectPlacementsAttributes,
     );
     const cacheMatchValues = getPreselectCacheMatchValues(cacheConfigEntry, preselectFills, selectPlacementsAttributes);
-    const cacheMatchTokens = getPreselectCacheMatchTokens(cacheConfigEntry, selectPlacementsAttributes);
+    const cacheMatchTokens = getPreselectCacheMatchTokens(
+      cacheConfigEntry,
+      selectPlacementsAttributes,
+      options.preselect !== true,
+    );
     // Only the kit writes the marker: a copy from the page, the user attributes or a session attribute never goes out.
     delete selectPlacementsAttributes[PRESELECT_DEFAULTED_ATTRIBUTE];
     const defaultedMarker = getPreselectDefaultedMarker(preselectFills, selectPlacementsAttributes);

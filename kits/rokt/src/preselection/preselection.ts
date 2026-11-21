@@ -1112,7 +1112,8 @@ function preselectVariantDetail(host: PreselectHost): PreselectDiagnosticDetails
 // The launcher compares identityKeys strictly on arrival, so a defaulted key the confirmation page leaves empty makes
 // the live call instead of keeping an offer picked on a guess. Only on an entry that already declares identityKeys:
 // the launcher treats a call that sent every strict key as identified and then forgives keys that call never sent,
-// which a defaulted key alone would switch on.
+// which a defaulted key alone would switch on. A key matched by payment family stays out, because the launcher never
+// reads a match token on an identity key; its token keeps it strict instead (see getPreselectCacheMatchTokens).
 export function getPreselectCacheIdentityKeys(
   configEntry: PreselectionConfigEntry | undefined,
   fills: Record<string, string> | undefined,
@@ -1122,7 +1123,10 @@ export function getPreselectCacheIdentityKeys(
   if (!identityKeys?.length || !fills) {
     return identityKeys;
   }
-  const defaultedKeys = getSentPreselectDefaults(fills, outgoing);
+  const defaults = configEntry?.preselectAttributeDefaults;
+  const defaultedKeys = getSentPreselectDefaults(fills, outgoing).filter(
+    (key) => !matchesByPaymentFamily(defaults?.[key]),
+  );
   return defaultedKeys.length > 0 ? [...identityKeys, ...defaultedKeys] : identityKeys;
 }
 
@@ -1150,11 +1154,21 @@ export function getPreselectCacheMatchValues(
   return Object.keys(matchValues).length > 0 ? matchValues : undefined;
 }
 
+// The token for a value that names no payment family, so it meets only another such value.
+const NO_PAYMENT_FAMILY_TOKEN = 'none';
+
+function matchesByPaymentFamily(attributeDefault: string | PreselectAttributeDefault | undefined): boolean {
+  return !isString(attributeDefault) && attributeDefault?.matchPaymentFamily === true;
+}
+
 // For each key whose default matches by payment family, the family of the value this call sends, on the speculative
-// call and the target page call alike, so the launcher keeps the cached offers for any value of that family.
+// call and the target page call alike, so the launcher keeps the cached offers for any value of that family. A value
+// that names no family sends NO_PAYMENT_FAMILY_TOKEN, and so does a target page call that sends no value, so an offer
+// picked for one payment type is never kept for an unknown one. A speculative call that sends no value sends no token.
 export function getPreselectCacheMatchTokens(
   configEntry: PreselectionConfigEntry | undefined,
   outgoing: Record<string, unknown>,
+  isTargetPageCall: boolean,
 ): Record<string, string> | undefined {
   const defaults = configEntry?.preselectAttributeDefaults;
   if (!defaults) {
@@ -1162,14 +1176,14 @@ export function getPreselectCacheMatchTokens(
   }
   const matchTokens: Record<string, string> = {};
   Object.keys(defaults).forEach((key) => {
-    const attributeDefault = defaults[key];
-    if (isString(attributeDefault) || attributeDefault?.matchPaymentFamily !== true) {
+    if (!matchesByPaymentFamily(defaults[key]) || hasOtherSpelling(outgoing, key)) {
       return;
     }
-    const family = hasOtherSpelling(outgoing, key) ? undefined : classifyPaymentFamily(readOwnValue(outgoing, key));
-    if (family) {
-      matchTokens[key] = family;
+    const value = readOwnValue(outgoing, key);
+    if (isEmpty(value) && !isTargetPageCall) {
+      return;
     }
+    matchTokens[key] = classifyPaymentFamily(value) ?? NO_PAYMENT_FAMILY_TOKEN;
   });
   return Object.keys(matchTokens).length > 0 ? matchTokens : undefined;
 }
