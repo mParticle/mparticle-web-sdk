@@ -230,7 +230,7 @@ function logObservedIntent(
 // a returning guest whose email was once identified also counts.
 function isLoggedIn(host: PreselectHost): boolean {
   const userId = getUserId(host.filteredUser);
-  const currentUser = host.getCurrentUser?.();
+  const currentUser = host.getCurrentUser();
   return userId !== null && getUserId(currentUser) === userId && currentUser?.isLoggedIn?.() === true;
 }
 
@@ -362,7 +362,7 @@ function awaitIdentity(
   endIdentityWait(state);
   const expire = (): void => {
     state.identityWait = undefined;
-    const current = host.getCurrentHost?.() ?? host;
+    const current = host.getCurrentHost();
     if (intentSignalsApply(current)) logIdentityWaitExpired(current, wait);
   };
   const wait: IdentityWait = {
@@ -544,8 +544,8 @@ export function handlePreselectIntentSignal(
 // What a checkout intent signal needs before the kit acts on or logs it, checked again when a waiting tap ends.
 function intentSignalsApply(host: PreselectHost): boolean {
   return (
-    !host.isTargetingDisabled?.() &&
-    host.isForwardingAllowed?.() !== false &&
+    !host.isTargetingDisabled() &&
+    host.isForwardingAllowed() &&
     checkoutIntentApplies(host) &&
     host.isKitReady() &&
     host.isPreselectionEnabled() &&
@@ -586,8 +586,8 @@ function paymentPickAccount(host: PreselectHost): string | undefined {
   if (
     !accountId ||
     !hasPreselectionConfigForAccount(accountId) ||
-    host.isTargetingDisabled?.() ||
-    host.isForwardingAllowed?.() === false ||
+    host.isTargetingDisabled() ||
+    !host.isForwardingAllowed() ||
     !checkoutIntentApplies(host) ||
     !host.isKitReady() ||
     !host.isPreselectionEnabled()
@@ -951,7 +951,7 @@ export function applyPreselectAttributeDefaults(
 
 // Only the exact 'widened' variant counts; any other value, or none, is a standard tab.
 function isWidenedTab(host: PreselectHost): boolean {
-  return host.getPreselectVariant?.() === 'widened';
+  return host.getPreselectVariant() === 'widened';
 }
 
 // The Rokt launcher's device classes from the user agent: its mobile operating systems first, then the desktop ones
@@ -1029,7 +1029,7 @@ export function getPreselectAttributeDefaults(
     return {};
   }
 
-  const heldKeys = new Set([...getHeldKeys(host.getUserIdentities?.() ?? {}), ...getHeldKeys(attributes)]);
+  const heldKeys = new Set([...getHeldKeys(host.getUserIdentities()), ...getHeldKeys(attributes)]);
   const savedKeys = getHeldKeys(host.userAttributes ?? {});
   const paymentPick = readDefaultPaymentPick(configEntry);
   const fills: Record<string, string> = {};
@@ -1071,14 +1071,10 @@ function skipsRememberedValues(host: PreselectHost, configEntry: PreselectionCon
 // The defaulted key whose value the call would send, under any spelling and in any casing, is one its default skips.
 // Read from what the call sends, after every source, filter and fill, so a stale value the call drops never stops it.
 // Any spelling is enough, and a wrong skip costs only the speed-up, as the target page makes its own call. The parser
-// keeps a default's own fills out of its skipValues, so a guess never stops a call. Without the outgoing view, the
-// call's attributes over saved ones (unless a fill replaces them) over identities stand in for it.
+// keeps a default's own fills out of its skipValues, so a guess never stops a call.
 function findSkippedDefaultKey(
-  host: PreselectHost,
   configEntry: PreselectionConfigEntry,
-  attributes: Record<string, unknown>,
-  outgoing: Record<string, unknown> | undefined,
-  fills: Record<string, string>,
+  outgoing: Record<string, unknown>,
 ): string | undefined {
   const defaults = configEntry.preselectAttributeDefaults ?? {};
   return Object.keys(defaults).find((key) => {
@@ -1087,13 +1083,8 @@ function findSkippedDefaultKey(
       return false;
     }
     const skipValues = attributeDefault.skipValues.map((value) => value.toLowerCase());
-    const sent = outgoing ?? {
-      ...(host.getUserIdentities?.() ?? {}),
-      ...(readOwnValue(fills, key) !== undefined ? {} : (host.userAttributes ?? {})),
-      ...attributes,
-    };
-    return Object.keys(sent).some((name) => {
-      const value = sent[name];
+    return Object.keys(outgoing).some((name) => {
+      const value = outgoing[name];
       return (
         name.toLowerCase() === key.toLowerCase() &&
         (isString(value) || typeof value === 'number' || typeof value === 'boolean') &&
@@ -1105,7 +1096,7 @@ function findSkippedDefaultKey(
 
 // Reported only when the launcher names one of the two arms, so the line never carries anything else it holds.
 function preselectVariantDetail(host: PreselectHost): PreselectDiagnosticDetails {
-  const variant = host.getPreselectVariant?.();
+  const variant = host.getPreselectVariant();
   return variant === 'widened' || variant === 'standard' ? { variant } : {};
 }
 
@@ -1535,40 +1526,40 @@ export interface PreselectHost {
   isKitReady(): boolean;
   isPreselectionEnabled(): boolean;
   // The Rokt launcher's pre-selection variant for this tab, read on each call since the launcher can attach late.
-  getPreselectVariant?(): unknown;
+  getPreselectVariant(): unknown;
   getEventAttributeValue(event: SDKEvent, key: string): unknown;
   logPlacementDiagnostic(entry: DiagnosticLogEntry | null | undefined): void;
   log(entry: DiagnosticLogEntry | null | undefined): void;
   selectPlacements(options: Record<string, unknown>): unknown;
   // False under do-not-share-or-sell or Global Privacy Control, which stop every pre-selection, not
   // only the ones a confirm click fires.
-  isPreselectionPrivacyAllowed?(): boolean;
+  isPreselectionPrivacyAllowed(): boolean;
   // True while the core SDK sends this kit checkout intent signals: the workspace has auto button
   // tracking on and no opt-out or privacy option suppresses them.
-  isCheckoutIntentActive?(): boolean;
+  isCheckoutIntentActive(): boolean;
   // True when the core SDK sends no intent for link clicks, because this connection does not receive Auto Link Click
   // events. Button clicks still send it.
-  isLinkIntentWithheld?(): boolean;
-  getCurrentUser?(): IMParticleUser | null | undefined;
+  isLinkIntentWithheld(): boolean;
+  getCurrentUser(): IMParticleUser | null | undefined;
   // Returns a host built from the kit's state now, for work that runs after this one was built.
-  getCurrentHost?(): PreselectHost;
-  isTargetingDisabled?(): boolean;
+  getCurrentHost(): PreselectHost;
+  isTargetingDisabled(): boolean;
   // False once the user opts out or consent drops the kit. The page form is never read unless true.
-  isForwardingAllowed?(): boolean;
+  isForwardingAllowed(): boolean;
   // True when this connection filters out the Email identity or the identity mapped to the hashed email,
   // so the form must not supply one.
-  isEmailIdentityFiltered?(): boolean;
+  isEmailIdentityFiltered(): boolean;
   // The filtered user's identities keyed by the name selectPlacements sends them under.
-  getUserIdentities?(): Record<string, string>;
+  getUserIdentities(): Record<string, string>;
   // Everything a pre-selection call for the entry whose targetPageIdentifier is entryKey would send with these
   // attributes, in the order selectPlacements merges them: identities, then filtered attributes, then session
   // attributes. The entry is named by its key, never by the call's identifier, which another entry can share.
-  getOutgoingAttributes?(attributes: Record<string, unknown>, entryKey?: string): Record<string, unknown>;
+  getOutgoingAttributes(attributes: Record<string, unknown>, entryKey?: string): Record<string, unknown>;
   // These attributes less those the workspace's attribute filter keeps off a call, so a value the filter removes never
   // names the target page a call goes out under.
-  filterAttributes?(attributes: Record<string, unknown>): Record<string, unknown>;
+  filterAttributes(attributes: Record<string, unknown>): Record<string, unknown>;
   // The defaults that call fills for these attributes, after the workspace's attribute filter.
-  getPreselectFills?(attributes: Record<string, unknown>, entryKey?: string): Record<string, string> | undefined;
+  getPreselectFills(attributes: Record<string, unknown>, entryKey?: string): Record<string, string> | undefined;
   mappedEmailSha256Key?: string;
 }
 
@@ -1801,12 +1792,12 @@ export function hasPartnerEmail(
       .filter((key): key is string => isString(key) && key !== '')
       .flatMap((key) => [key.toLowerCase(), key.toLowerCase() + ENCRYPTED_KEY_SUFFIX]),
   );
-  const currentUser = host.getCurrentUser?.();
+  const currentUser = host.getCurrentUser();
   const sources: Array<Record<string, unknown>> = [
     eventAttributes,
     host.userAttributes,
     host.filteredUser?.getAllUserAttributes?.() ?? {},
-    host.getUserIdentities?.() ?? {},
+    host.getUserIdentities(),
     currentUser?.getAllUserAttributes?.() ?? {},
     (currentUser?.getUserIdentities?.().userIdentities as Record<string, unknown> | undefined) ?? {},
   ];
@@ -1842,13 +1833,7 @@ function isEncryptedEmailKey(key: string, mappedEmailSha256Key?: string): boolea
 // Whether the call will carry the shopper's email, raw or hashed, judged on what selectPlacements would
 // actually send: the attributes after the kit's cache is merged in and its filters run, or an identity.
 function carriesEmail(host: PreselectHost, collected: Record<string, unknown>, identifier?: string): boolean {
-  if (host.getOutgoingAttributes) {
-    return hasPreselectEmail(host.getOutgoingAttributes(collected, identifier), host.mappedEmailSha256Key);
-  }
-  return (
-    hasPreselectEmail(collected, host.mappedEmailSha256Key) ||
-    hasPreselectEmail(host.getUserIdentities?.() ?? {}, host.mappedEmailSha256Key)
-  );
+  return hasPreselectEmail(host.getOutgoingAttributes(collected, identifier), host.mappedEmailSha256Key);
 }
 
 export function hasPreselectEmail(attributes: Record<string, unknown>, mappedEmailSha256Key?: string): boolean {
@@ -1868,13 +1853,13 @@ function whyFormEmailUnreadable(
   if (configEntry.readEmailInput !== true) return 'read_disabled';
   if (!entryMatchesPathname(configEntry, window.location.pathname)) return 'off_route';
   if (
-    host.isForwardingAllowed?.() !== true ||
-    host.isPreselectionPrivacyAllowed?.() === false ||
-    host.isTargetingDisabled?.() === true
+    !host.isForwardingAllowed() ||
+    !host.isPreselectionPrivacyAllowed() ||
+    host.isTargetingDisabled()
   ) {
     return 'privacy_blocked';
   }
-  if (host.isEmailIdentityFiltered?.() === true) return 'email_filtered';
+  if (host.isEmailIdentityFiltered()) return 'email_filtered';
   return hasPartnerEmail(host, emailKey, eventAttributes) ? 'partner_email' : undefined;
 }
 
@@ -1962,7 +1947,7 @@ function getUserId(filteredUser: IMParticleUser | null | undefined): string | nu
 
 function describeMissingIdentity(host: PreselectHost, configEntry: PreselectionConfigEntry): PreselectDiagnosticDetails {
   const kitTypes = getIdentityTypes(host.filteredUser);
-  const currentUser = host.getCurrentUser?.();
+  const currentUser = host.getCurrentUser();
   const currentTypes = getIdentityTypes(currentUser);
   const kitUserId = getUserId(host.filteredUser);
   const currentUserId = getUserId(currentUser);
@@ -2041,7 +2026,7 @@ function collectAttributes(
           : readOwnValue(livePersistedAttributes, key);
     if (isEmpty(value) && identityKeys.has(key)) {
       if (!userIdentities) {
-        userIdentities = host.getUserIdentities?.() ?? {};
+        userIdentities = host.getUserIdentities();
       }
       const identityValue = readOwnValue(userIdentities, key);
       value = isString(identityValue) && identityValue !== '' ? identityValue : undefined;
@@ -2193,9 +2178,7 @@ function getAttributesDigests(
     const filled = applyPreselectAttributeDefaults(attributes, fills);
     // What the call will send, read from the same sources as the confirm-click email check, so a corrected email
     // counts as changed attributes even for an entry whose keys leave email out.
-    const outgoing = host.getOutgoingAttributes
-      ? host.getOutgoingAttributes(attributes, identifier)
-      : { ...(host.getUserIdentities?.() ?? {}), ...filled };
+    const outgoing = host.getOutgoingAttributes(attributes, identifier);
     const sentEmailKeys = Object.keys(outgoing)
       .sort()
       .filter((key) => isPreselectEmailKey(key, host.mappedEmailSha256Key) && !isEmpty(readOwnValue(outgoing, key)));
@@ -2251,7 +2234,7 @@ function getAttributesDigests(
         ? `${withAttributes}@${alternateTarget}`
         : withAttributes;
     // The default marker the call carries, from the same filtered fills the call uses.
-    const marker = getPreselectDefaultedMarker(host.getPreselectFills?.(attributes, identifier) ?? fills, outgoing);
+    const marker = getPreselectDefaultedMarker(host.getPreselectFills(attributes, identifier) ?? fills, outgoing);
     return marker
       ? { digest: djb2(`${withReplaced}#${marker}`), unmarkedDigest: djb2(withReplaced) }
       : { digest: djb2(withReplaced) };
@@ -2287,9 +2270,9 @@ function wasFiredRecentlyFor(
 
 export function canDispatchPreselection(host: PreselectHost): boolean {
   return (
-    !host.isTargetingDisabled?.() &&
-    host.isPreselectionPrivacyAllowed?.() !== false &&
-    host.isForwardingAllowed?.() !== false
+    !host.isTargetingDisabled() &&
+    host.isPreselectionPrivacyAllowed() &&
+    host.isForwardingAllowed()
   );
 }
 
@@ -2339,7 +2322,7 @@ function fireDispatch(
   const usesTargetAttribute = configEntry?.targetPageIdentifierAttribute !== undefined;
   const callIdentifier =
     configEntry && (usesTargetAttribute || configEntry.alternateTargetPageIdentifiers)
-      ? getCallIdentifier(configEntry, host.filterAttributes ? host.filterAttributes(attributes) : attributes)
+      ? getCallIdentifier(configEntry, host.filterAttributes(attributes))
       : identifier;
   if (callIdentifier === undefined) {
     // Diagnostics only: reading the value again on the unfiltered attributes tells a value the filter removed
@@ -2355,9 +2338,9 @@ function fireDispatch(
   }
   const fills = configEntry ? getPreselectAttributeDefaults(host, configEntry, attributes) : {};
   // What the call sends, after the workspace's attribute filter and any later source.
-  const outgoing = host.getOutgoingAttributes?.(attributes, identifier);
+  const outgoing = host.getOutgoingAttributes(attributes, identifier);
   // A shopper whose own value the entry skips has no offer to pre-select, so nothing is sent or recorded.
-  const skippedKey = configEntry ? findSkippedDefaultKey(host, configEntry, attributes, outgoing, fills) : undefined;
+  const skippedKey = configEntry ? findSkippedDefaultKey(configEntry, outgoing) : undefined;
   if (skippedKey) {
     host.logPlacementDiagnostic(
       buildPreselectDiagnosticLogEntry('skipped', `skip_value:${skippedKey}`, intentKindDetail),
@@ -2394,7 +2377,7 @@ function fireDispatch(
   }
 
   // Only the defaults the outgoing call still carries.
-  const defaultedKeys = Object.keys(fills).filter((key) => !outgoing || readOwnValue(outgoing, key) === fills[key]);
+  const defaultedKeys = Object.keys(fills).filter((key) => readOwnValue(outgoing, key) === fills[key]);
   host.logPlacementDiagnostic(
     buildPreselectDiagnosticLogEntry('fired', lateRefire ? 'intent_refire' : reason, {
       identity_types: formatIdentityTypes(getIdentityTypes(host.filteredUser)),
@@ -2531,8 +2514,8 @@ export function maybeFirePersistedPreselect(state: PreselectState, host: Presele
 
 function isReportingDiagnostics(host: PreselectHost): boolean {
   return (
-    !host.isTargetingDisabled?.() &&
-    host.isPreselectionPrivacyAllowed?.() !== false &&
+    !host.isTargetingDisabled() &&
+    host.isPreselectionPrivacyAllowed() &&
     host.isKitReady() &&
     host.isPreselectionEnabled()
   );
@@ -2656,7 +2639,7 @@ function holdOrFirePreselect(
   intentSeen ??= intentKindOf(event) ?? queued?.intentSeen ?? intentKindOf(queued?.event);
   // fireDispatch checks these too, but the not-ready branch below persists a snapshot before any
   // dispatch, and a replayed page view reaches it without passing the kit's own gates.
-  if (host.isTargetingDisabled?.() || host.isPreselectionPrivacyAllowed?.() === false) {
+  if (host.isTargetingDisabled() || !host.isPreselectionPrivacyAllowed()) {
     return;
   }
 
@@ -2796,7 +2779,7 @@ function holdOrFirePreselect(
     state.dispatchTimer = setTimeout(() => {
       state.dispatchTimer = undefined;
       state.scheduledDispatch = undefined;
-      dispatchAfterDelay(state, host.getCurrentHost?.() ?? host, event, pathname, heldForUserId, triggeredAt);
+      dispatchAfterDelay(state, host.getCurrentHost(), event, pathname, heldForUserId, triggeredAt);
     }, holdMs);
     return;
   }
@@ -2855,13 +2838,13 @@ function describeReferrer(): 'same_origin' | 'other_origin' | 'none' {
 
 // While the core SDK delivers checkout intent and intent privacy allows it, the kit acts on intent signals.
 function checkoutIntentApplies(host: PreselectHost): boolean {
-  return host.isCheckoutIntentActive?.() === true && host.isPreselectionPrivacyAllowed?.() !== false;
+  return host.isCheckoutIntentActive() && host.isPreselectionPrivacyAllowed();
 }
 
 // While checkout intent applies, every entry waits for the confirm click, unless link clicks carry no intent: a
 // checkout link could then never release the wait, so the entry keeps its dispatchDelayMs and a click releases it early.
 function pageViewsAwaitIntent(host: PreselectHost): boolean {
-  return checkoutIntentApplies(host) && host.isLinkIntentWithheld?.() !== true;
+  return checkoutIntentApplies(host) && !host.isLinkIntentWithheld();
 }
 
 function releaseHeldDispatch(
@@ -2873,7 +2856,7 @@ function releaseHeldDispatch(
 ): void {
   dispatchAfterDelay(
     state,
-    host.getCurrentHost?.() ?? host,
+    host.getCurrentHost(),
     held.event,
     held.pathname,
     held.heldForUserId,
@@ -2896,7 +2879,7 @@ function dispatchAfterDelay(
   intentSeen?: IntentTriggerKind,
 ): void {
   const configEntry = findPreselectionConfig(host.accountId, pathname);
-  if (!configEntry || host.isTargetingDisabled?.() || host.isPreselectionPrivacyAllowed?.() === false) {
+  if (!configEntry || host.isTargetingDisabled() || !host.isPreselectionPrivacyAllowed()) {
     return;
   }
 
@@ -2960,7 +2943,7 @@ function resolveAndDispatch(
   intentSeen?: IntentTriggerKind,
   consumedPending?: PendingPreselectDispatch,
 ): void {
-  if (host.isPreselectionPrivacyAllowed?.() === false) return;
+  if (!host.isPreselectionPrivacyAllowed()) return;
   const { collected: collectedAttributes, missingKeys, formEmailKey } = collectAttributes(host, event, configEntry);
   const lastPageView = state.lastResolvedPageView;
   const route = intentPathHistory[intentPathHistory.length - 1];
@@ -3346,7 +3329,7 @@ export function reportPreselectArrival(
 
   // Reported only while checkout intent applies and the kit may forward, under the same privacy it was
   // captured with.
-  if (checkoutIntentApplies(host) && host.isForwardingAllowed?.() !== false) {
+  if (checkoutIntentApplies(host) && host.isForwardingAllowed()) {
     host.logPlacementDiagnostic(
       buildPreselectDiagnosticLogEntry('arrived', 'intent_arrival', {
         ...describeIntentBeforeArrival(record),

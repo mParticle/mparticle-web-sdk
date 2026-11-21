@@ -2095,17 +2095,6 @@ describe('preselection', () => {
         expect(selectPlacementsCalls).toHaveLength(0);
         expect(loggedDiagnostics.filter((line) => line.message.includes('no_strict_email'))).toHaveLength(1);
       });
-      it('reads the identities when the host cannot build the outgoing attributes', () => {
-        host.getOutgoingAttributes = undefined;
-        host.getUserIdentities = undefined;
-        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
-        send('commit');
-        expect(selectPlacementsCalls).toHaveLength(0);
-
-        host.getUserIdentities = () => ({ email: 'shopper@example.test' });
-        flushPendingPreselectDispatches(state, host);
-        expect(selectPlacementsCalls).toHaveLength(1);
-      });
       it('counts an email the call carries from the cached user attributes', () => {
         host.getUserIdentities = () => ({});
         host.getOutgoingAttributes = (attributes) => ({ ...attributes, Email: 'shopper@example.test' });
@@ -5757,12 +5746,6 @@ describe('preselection', () => {
             '[current_identity_types=customerid,email] [mpid_match=true]',
           ],
         },
-        {
-          label: 'the current user cannot be read',
-          filteredUser: buildUser(MPID),
-          getCurrentUser: undefined,
-          fragments: ['[identity_reason=no_identities]', '[mpid_match=unknown]'],
-        },
       ])('reports the identity detail when $label', ({ filteredUser, getCurrentUser, fragments }) => {
         host.filteredUser = filteredUser;
         host.getCurrentUser = getCurrentUser;
@@ -9122,10 +9105,6 @@ describe('preselection', () => {
           setup: () => (host.isForwardingAllowed = () => false),
         },
         {
-          label: 'when the host cannot say whether forwarding is allowed',
-          setup: () => (host.isForwardingAllowed = undefined),
-        },
-        {
           label: 'under do-not-share-or-sell or Global Privacy Control',
           setup: () => (host.isPreselectionPrivacyAllowed = () => false),
         },
@@ -9791,7 +9770,6 @@ describe('preselection', () => {
 
     it.each([
       { label: 'after the user opts out or consent drops the kit', allowed: () => false },
-      { label: 'when the host cannot say', allowed: undefined },
     ])('never reads the form $label, including from a running hold', ({ allowed }) => {
       mockConfig.current = [{ ...EMAIL_ENTRY, dispatchDelayMs: 1000 }];
       host.filteredUser = {
@@ -9972,7 +9950,6 @@ describe('preselection', () => {
           label: 'after the user opts out or consent drops the kit',
           setup: () => (host.isForwardingAllowed = () => false),
         },
-        { label: 'when the host cannot say', setup: () => (host.isForwardingAllowed = undefined) },
       ])('is privacy_blocked $label', ({ setup }) => {
         setup();
         addInput('guest@example.com');
