@@ -245,16 +245,13 @@ jobs:
               with:
                   dotnet-version: 8.0.x
 
-            # The bundles are committed, so each is removed first and a failed build reads "not built".
+            # The bundles are committed, so each is removed first, and again if its own build fails after writing it,
+            # so a failed build reads "not built" rather than a stale or partial size.
             - name: Build this pull request's bundles
-              continue-on-error: true
               run: |
                   rm -f dist/mparticle.js kits/rokt/dist/Rokt-Kit.iife.js
-                  npm ci
-                  npm run build:iife
-                  cd kits/rokt
-                  npm ci
-                  npm run build
+                  { npm ci && npm run build:iife; } || rm -f dist/mparticle.js
+                  (cd kits/rokt && npm ci && npm run build) || rm -f kits/rokt/dist/Rokt-Kit.iife.js
 
             - name: Build the base's bundles
               continue-on-error: true
@@ -262,17 +259,15 @@ jobs:
                   git worktree add --detach "$RUNNER_TEMP/base" HEAD^1
                   cd "$RUNNER_TEMP/base"
                   rm -f dist/mparticle.js kits/rokt/dist/Rokt-Kit.iife.js
-                  npm ci
-                  npm run build:iife
-                  cd kits/rokt
-                  npm ci
-                  npm run build
+                  { npm ci && npm run build:iife; } || rm -f dist/mparticle.js
+                  (cd kits/rokt && npm ci && npm run build) || rm -f kits/rokt/dist/Rokt-Kit.iife.js
 
+            # A side whose measurement fails reads "not measured" and the other side is still reported.
             - name: Report both after the CDN minifier
               run: |
                   BUNDLES="dist/mparticle.js kits/rokt/dist/Rokt-Kit.iife.js"
-                  node scripts/cdn-bundle-size.js measure "$RUNNER_TEMP/head.json" $BUNDLES
-                  (cd "$RUNNER_TEMP/base" && node "$GITHUB_WORKSPACE/scripts/cdn-bundle-size.js" measure "$RUNNER_TEMP/base.json" $BUNDLES)
+                  node scripts/cdn-bundle-size.js measure "$RUNNER_TEMP/head.json" $BUNDLES || rm -f "$RUNNER_TEMP/head.json"
+                  (cd "$RUNNER_TEMP/base" && node "$GITHUB_WORKSPACE/scripts/cdn-bundle-size.js" measure "$RUNNER_TEMP/base.json" $BUNDLES) || rm -f "$RUNNER_TEMP/base.json"
                   node scripts/cdn-bundle-size.js report "$RUNNER_TEMP/base.json" "$RUNNER_TEMP/head.json" | tee -a "$GITHUB_STEP_SUMMARY"
 
     # Coverage is uploaded separately so instrumentation can't affect the

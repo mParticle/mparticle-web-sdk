@@ -1,5 +1,5 @@
 const zlib = require('zlib');
-const { sizes, formatReport } = require('../../scripts/cdn-bundle-size');
+const { sizes, measure, formatReport } = require('../../scripts/cdn-bundle-size');
 
 describe('cdn-bundle-size', () => {
     it('measures built bytes, minified bytes and the minified bytes at gzip level 9', () => {
@@ -37,5 +37,20 @@ describe('cdn-bundle-size', () => {
             '| `dist/a.js` | 5 (base not built) | 4 (base not built) | 3 (base not built) |'
         );
         expect(report).toContain('| `dist/b.js` | not built | not built | not built |');
+    });
+
+    it('marks a side whose measurement was never written', () => {
+        const measured = { 'dist/a.js': { built: 5, minified: 4, gzip: 3 } };
+
+        expect(formatReport(null, measured)).toContain(
+            '| `dist/a.js` | 5 (base not measured) | 4 (base not measured) | 3 (base not measured) |'
+        );
+        expect(formatReport(measured, null)).toContain(
+            '| `dist/a.js` | not measured | not measured | not measured |'
+        );
+    });
+
+    it('records a bundle that is not on disk as not built, without running the minifier', () => {
+        expect(measure(['dist/no-such-bundle.js'])).toEqual({ 'dist/no-such-bundle.js': null });
     });
 });

@@ -25,8 +25,9 @@ function sizes(built, minified) {
 
 function measure(bundles) {
     const built = bundles.filter(bundle => fs.existsSync(bundle));
-    const outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cdn-size-'));
+    let outputDir;
     if (built.length > 0) {
+        outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cdn-size-'));
         const minify = spawnSync(
             'dotnet',
             [
@@ -68,24 +69,26 @@ function formatChange(change) {
     return (change > 0 ? '+' : '-') + formatBytes(Math.abs(change));
 }
 
-function formatCell(base, head, key) {
-    if (!head) {
-        return 'not built';
+// A measurement is null when it was never written; a bundle in it is null when its build failed.
+function formatCell(base, head, bundle, key) {
+    if (!head || !head[bundle]) {
+        return head ? 'not built' : 'not measured';
     }
-    const bytes = formatBytes(head[key]);
-    return base
-        ? `${bytes} (${formatChange(head[key] - base[key])})`
-        : `${bytes} (base not built)`;
+    const bytes = formatBytes(head[bundle][key]);
+    if (!base || !base[bundle]) {
+        return `${bytes} (base not ${base ? 'built' : 'measured'})`;
+    }
+    return `${bytes} (${formatChange(head[bundle][key] - base[bundle][key])})`;
 }
 
 function formatReport(base, head) {
     const bundles = Array.from(
-        new Set(Object.keys(head).concat(Object.keys(base)))
+        new Set(Object.keys(head || {}).concat(Object.keys(base || {})))
     );
     const rows = bundles.map(
         bundle =>
             `| \`${bundle}\` | ${COLUMNS.map(([key]) =>
-                formatCell(base[bundle], head[bundle], key)
+                formatCell(base, head, bundle, key)
             ).join(' | ')} |`
     );
     return [
@@ -102,7 +105,9 @@ function formatReport(base, head) {
 }
 
 function readMeasurement(file) {
-    return fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : {};
+    return fs.existsSync(file)
+        ? JSON.parse(fs.readFileSync(file, 'utf8'))
+        : null;
 }
 
 function main([command, ...args]) {
@@ -126,4 +131,4 @@ if (require.main === module) {
     process.exitCode = main(process.argv.slice(2));
 }
 
-module.exports = { sizes, formatReport };
+module.exports = { sizes, measure, formatReport };
