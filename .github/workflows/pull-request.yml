@@ -223,6 +223,58 @@ jobs:
                   { echo dist/mparticle.js; find kits -name '*.iife.js'; } |
                   xargs node ../scripts/check-cdn-minifier.js
 
+    # Report-only: core and the Rokt kit as the CDN serves them, for this pull request merged onto its base and for
+    # that base, so the difference is this pull request's own.
+    cdn-bundle-size:
+        name: CDN-Shaped Bundle Size
+        runs-on: ubuntu-latest
+        timeout-minutes: 20
+        permissions:
+            contents: read
+        steps:
+            - uses: actions/checkout@v6
+              with:
+                  fetch-depth: 2
+                  persist-credentials: false
+
+            - uses: actions/setup-node@v7
+              with:
+                  node-version: 24.x
+
+            - uses: actions/setup-dotnet@v4
+              with:
+                  dotnet-version: 8.0.x
+
+            # The bundles are committed, so each is removed first and a failed build reads "not built".
+            - name: Build this pull request's bundles
+              continue-on-error: true
+              run: |
+                  rm -f dist/mparticle.js kits/rokt/dist/Rokt-Kit.iife.js
+                  npm ci
+                  npm run build:iife
+                  cd kits/rokt
+                  npm ci
+                  npm run build
+
+            - name: Build the base's bundles
+              continue-on-error: true
+              run: |
+                  git worktree add --detach "$RUNNER_TEMP/base" HEAD^1
+                  cd "$RUNNER_TEMP/base"
+                  rm -f dist/mparticle.js kits/rokt/dist/Rokt-Kit.iife.js
+                  npm ci
+                  npm run build:iife
+                  cd kits/rokt
+                  npm ci
+                  npm run build
+
+            - name: Report both after the CDN minifier
+              run: |
+                  BUNDLES="dist/mparticle.js kits/rokt/dist/Rokt-Kit.iife.js"
+                  node scripts/cdn-bundle-size.js measure "$RUNNER_TEMP/head.json" $BUNDLES
+                  (cd "$RUNNER_TEMP/base" && node "$GITHUB_WORKSPACE/scripts/cdn-bundle-size.js" measure "$RUNNER_TEMP/base.json" $BUNDLES)
+                  node scripts/cdn-bundle-size.js report "$RUNNER_TEMP/base.json" "$RUNNER_TEMP/head.json" | tee -a "$GITHUB_STEP_SUMMARY"
+
     # Coverage is uploaded separately so instrumentation can't affect the
     # assertions in the test jobs above. Needs a CODECOV_TOKEN secret.
     coverage-core:
