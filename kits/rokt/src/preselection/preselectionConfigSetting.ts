@@ -145,7 +145,7 @@ function isAttributeDefault(value: unknown): boolean {
 }
 
 // An identifier goes out as written, so it must be non-empty with no whitespace or control characters.
-function isIdentifier(value: unknown): value is string {
+export function isIdentifier(value: unknown): value is string {
   return (
     isNonEmptyString(value) &&
     !/\s/.test(value) &&

@@ -9,7 +9,11 @@ import {
   type PreselectClientType,
   type PreselectionConfigEntry,
 } from './preselectionConfig';
-import { getEntryTargetPageIdentifiers, parsePreselectionConfigSetting } from './preselectionConfigSetting';
+import {
+  getEntryTargetPageIdentifiers,
+  isIdentifier,
+  parsePreselectionConfigSetting,
+} from './preselectionConfigSetting';
 import {
   buildActivePreselectFieldKey,
   getActivePreselect,
@@ -588,26 +592,19 @@ export function isAutoClickEvent(event: SDKEvent): boolean {
 
 // The account a payment pick is recorded for, under the checkout intent gates, or undefined.
 function paymentPickAccount(host: PreselectHost): string | undefined {
-  const accountId = host.accountId;
-  if (
-    !accountId ||
-    !hasPreselectionConfigForAccount(accountId) ||
-    host.isTargetingDisabled() ||
-    !host.isForwardingAllowed() ||
-    !checkoutIntentApplies(host) ||
-    !host.isKitReady() ||
-    !host.isPreselectionEnabled()
-  ) {
-    return undefined;
-  }
-  return accountId;
+  return intentSignalsApply(host) ? host.accountId! : undefined;
+}
+
+// When a payment pick happened: its signal's time, unless that is missing, not finite or still to come.
+function getPickTime(t: number | undefined): number {
+  const now = Date.now();
+  return typeof t === 'number' && Number.isFinite(t) && t <= now ? t : now;
 }
 
 function recordPaymentFamily(accountId: string, family: PaymentFamily | undefined, t?: number): void {
   if (!family) return;
   const identifiers = new Set(getPreselectionEntries(accountId).map((entry) => entry.targetPageIdentifier));
-  const now = Date.now();
-  const pickedAt = typeof t === 'number' && Number.isFinite(t) && t <= now ? t : now;
+  const pickedAt = getPickTime(t);
   identifiers.forEach((identifier) => recordPreselectPaymentPick(accountId, identifier, family, pickedAt));
 }
 
@@ -671,9 +668,7 @@ function lateIntentFireFor(
 ): PreselectState['latestIntentFire'] {
   const tap = state.latestIntentFire;
   if (!tap || !family) return undefined;
-  const now = Date.now();
-  const pickedAt = typeof t === 'number' && Number.isFinite(t) && t <= now ? t : now;
-  const sinceTap = pickedAt - tap.t;
+  const sinceTap = getPickTime(t) - tap.t;
   const pathname = stripTrailingSlash(window.location.pathname);
   if (sinceTap < 0 || sinceTap > LATE_PAYMENT_PICK_MS || pathname !== tap.pathname) return undefined;
   // The replay carries what the tap's dispatch sent, so it goes only to the shopper that tap fired for.
@@ -862,11 +857,6 @@ function readValueInAnyCasing(source: Record<string, unknown>, key: string): unk
   return values.length > 0 && values.every((value) => value === values[0]) ? values[0] : undefined;
 }
 
-function isControlCharacter(char: string): boolean {
-  const code = char.charCodeAt(0);
-  return code < 0x20 || (code >= 0x7f && code <= 0x9f);
-}
-
 const kitLoadedAt = Date.now();
 // The latest page view or pathname trigger on each entry's route on this page, by account and entry key.
 const latestEntryPageViewAt = new Map<string, number>();
@@ -932,7 +922,7 @@ export function getCallIdentifier(
     return undefined;
   }
   const trimmed = value.trim();
-  return trimmed !== '' && !/\s/.test(trimmed) && !Array.from(trimmed).some(isControlCharacter) ? trimmed : undefined;
+  return isIdentifier(trimmed) ? trimmed : undefined;
 }
 
 // Applies the fills getPreselectAttributeDefaults chose, dropping each filled key's other spellings. Applied to the
