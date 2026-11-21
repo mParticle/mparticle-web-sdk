@@ -1710,6 +1710,76 @@ describe('Rokt Forwarder', () => {
       });
     });
 
+    describe('a call missing an option', () => {
+      const diagnostic = (reason: string) =>
+        expect.objectContaining({ message: `Rokt Kit: preselect missed [reason=${reason}]` });
+
+      beforeEach(async () => {
+        await (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {
+          favoriteStore: 'test-store',
+        });
+      });
+
+      it('goes out with the kit\'s own attributes when the call has no options', async () => {
+        await (window as any).mParticle.forwarder.selectPlacements(undefined);
+
+        expect((window as any).Rokt.selectPlacementsOptions).toEqual({
+          attributes: {
+            favoriteStore: 'test-store',
+            mparticle_session_id: 'test-mp-session-id',
+            mparticle_device_id: 'test-mp-device-id',
+            mpid: '123',
+          },
+        });
+      });
+
+      it('goes out with the saved attributes when the call has no attributes', async () => {
+        await (window as any).mParticle.forwarder.selectPlacements({ identifier: 'test-placement' });
+
+        expect((window as any).Rokt.selectPlacementsOptions).toEqual({
+          identifier: 'test-placement',
+          attributes: {
+            favoriteStore: 'test-store',
+            mparticle_session_id: 'test-mp-session-id',
+            mparticle_device_id: 'test-mp-device-id',
+            mpid: '123',
+          },
+        });
+      });
+
+      it('drops a call whose bound-user option is not an object, as a logged-in drop', async () => {
+        const kit = (window as any).mParticle.forwarder;
+        const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+
+        const selection = await kit.selectPlacements({
+          identifier: 'test-placement',
+          attributes: { test: 'test' },
+          preselectBoundUser: 'shopper',
+        });
+
+        expect(selection).toBeUndefined();
+        expect((window as any).Rokt.selectPlacementsCalled).toBeFalsy();
+        expect(logSpy).toHaveBeenCalledWith(diagnostic('logged_in_dropped'));
+        logSpy.mockRestore();
+      });
+
+      it('drops a call whose bound user has no id', async () => {
+        const kit = (window as any).mParticle.forwarder;
+        const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+
+        const selection = await kit.selectPlacements({
+          identifier: 'test-placement',
+          attributes: { test: 'test' },
+          preselectBoundUser: { requireLogin: false },
+        });
+
+        expect(selection).toBeUndefined();
+        expect((window as any).Rokt.selectPlacementsCalled).toBeFalsy();
+        expect(logSpy).toHaveBeenCalledWith(diagnostic('user_changed_dropped'));
+        logSpy.mockRestore();
+      });
+    });
+
     describe('a user identified while the call waits', () => {
       const makeUser = (
         mpid: string,
@@ -1807,6 +1877,58 @@ describe('Rokt Forwarder', () => {
         expect((window as any).Rokt.selectPlacementsCalled).toBeFalsy();
         expect((window as any).mParticle.loggedEvents).toEqual([]);
         expect(kit.userAttributes).toEqual({ tier: 'gold-B' });
+        expect(logSpy).toHaveBeenCalledWith(expect.objectContaining({ code: 'SELECT_PLACEMENTS_USER_CHANGED' }));
+        logSpy.mockRestore();
+      });
+
+      it("drops a logged-in shopper's pre-selection call when another user is identified mid-search", async () => {
+        const kit = (window as any).mParticle.forwarder;
+        const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+        const selection = kit.selectPlacements({
+          identifier: 'test-placement',
+          attributes: { email: 'a@example.com' },
+          preselect: true,
+        });
+        identify('B', true, { email: 'b@example.com', customerid: 'cust-B' }, { tier: 'gold-B' });
+        finishSearch();
+
+        expect(await selection).toBeUndefined();
+        expect((window as any).Rokt.selectPlacementsCalled).toBeFalsy();
+        expect(logSpy).toHaveBeenCalledWith(
+          expect.objectContaining({ message: 'Rokt Kit: preselect missed [reason=logged_in_dropped]' }),
+        );
+        logSpy.mockRestore();
+      });
+
+      it('drops a pre-selection call for a guest when another user is identified during the search', async () => {
+        const kit = (window as any).mParticle.forwarder;
+        const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+        coreUser = { ...coreUser, loggedIn: false };
+        const selection = kit.selectPlacements({
+          identifier: 'test-placement',
+          attributes: { email: 'a@example.com' },
+          preselect: true,
+        });
+        identify('B', false, { email: 'b@example.com' });
+        finishSearch();
+
+        expect(await selection).toBeUndefined();
+        expect((window as any).Rokt.selectPlacementsCalled).toBeFalsy();
+        expect(logSpy).toHaveBeenCalledWith(
+          expect.objectContaining({ message: 'Rokt Kit: preselect missed [reason=user_changed_dropped]' }),
+        );
+        logSpy.mockRestore();
+      });
+
+      it('drops a call with no attributes when another user is identified during the search', async () => {
+        const kit = (window as any).mParticle.forwarder;
+        const logSpy = vi.spyOn(kit.loggingService, 'log');
+        const selection = kit.selectPlacements({ identifier: 'test-placement' });
+        identify('B', true, { email: 'b@example.com', customerid: 'cust-B' });
+        finishSearch();
+
+        expect(await selection).toBeUndefined();
+        expect((window as any).Rokt.selectPlacementsCalled).toBeFalsy();
         expect(logSpy).toHaveBeenCalledWith(expect.objectContaining({ code: 'SELECT_PLACEMENTS_USER_CHANGED' }));
         logSpy.mockRestore();
       });
