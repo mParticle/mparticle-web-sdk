@@ -60,6 +60,16 @@ import { djb2, isEmpty, isObject, isString, readOwnValue } from '../utils';
 
 const settingEntriesByAccount = new Map<string, PreselectionConfigEntry[]>();
 
+// One pre-selection outcome line through the host's diagnostic logger.
+function logOutcome(
+  host: PreselectHost,
+  outcome: Parameters<typeof buildPreselectDiagnosticLogEntry>[0],
+  reason: string,
+  details?: PreselectDiagnosticDetails,
+): void {
+  host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry(outcome, reason, details));
+}
+
 // An account with a valid preselectionConfig setting uses only its entries; otherwise it keeps
 // PRESELECTION_CONFIG. Returns why a present setting was rejected, or undefined.
 export function applyPreselectionConfigSetting(accountId: string, setting: string | undefined): string | undefined {
@@ -214,16 +224,14 @@ function logObservedIntent(
   if (observedIntentKinds.has(observedKey)) return;
   observedIntentKinds.add(observedKey);
   const source = signalSource(signal);
-  host.logPlacementDiagnostic(
-    buildPreselectDiagnosticLogEntry('skipped', 'intent_observed', {
-      intent_kind: signal.kind,
-      intent_route: route,
-      ...(source ? { intent_source: source } : {}),
-      has_email: carriesEmail(host, {}),
-      has_identity: hasValidIdentity(host.filteredUser),
-      ...extra,
-    }),
-  );
+  logOutcome(host, 'skipped', 'intent_observed', {
+    intent_kind: signal.kind,
+    intent_route: route,
+    ...(source ? { intent_source: source } : {}),
+    has_email: carriesEmail(host, {}),
+    has_identity: hasValidIdentity(host.filteredUser),
+    ...extra,
+  });
 }
 
 // Logged in is mParticle's persisted identity state, not the site's sign-in: where email is a login identity,
@@ -393,12 +401,10 @@ function resolveIdentityWait(state: PreselectState, host: PreselectHost): void {
   if (!wait || !hasValidIdentity(host.filteredUser)) return;
   endIdentityWait(state);
   if (!intentSignalsApply(host)) return;
-  host.logPlacementDiagnostic(
-    buildPreselectDiagnosticLogEntry('identity_arrived', 'pending_identity', {
-      intent_kind: wait.signal.kind,
-      ...sinceTriggerDetail(wait.signal.t),
-    }),
-  );
+  logOutcome(host, 'identity_arrived', 'pending_identity', {
+    intent_kind: wait.signal.kind,
+    ...sinceTriggerDetail(wait.signal.t),
+  });
   // Any route change since the tap ends its visit, even when the shopper comes back to the tapped page.
   const movedOn =
     intentPathHistory[intentPathHistory.length - 1] !== wait.route ||
@@ -2328,12 +2334,10 @@ function fireDispatch(
     // Diagnostics only: reading the value again on the unfiltered attributes tells a value the filter removed
     // (cause=filtered) from one the trigger never carried. The call is dropped either way.
     const filtered = configEntry !== undefined && getCallIdentifier(configEntry, attributes) !== undefined;
-    host.logPlacementDiagnostic(
-      buildPreselectDiagnosticLogEntry('missed', 'no_target_page_identifier', {
-        ...intentKindDetail,
-        ...(filtered ? { cause: 'filtered' } : {}),
-      }),
-    );
+    logOutcome(host, 'missed', 'no_target_page_identifier', {
+      ...intentKindDetail,
+      ...(filtered ? { cause: 'filtered' } : {}),
+    });
     return false;
   }
   const fills = configEntry ? getPreselectAttributeDefaults(host, configEntry, attributes) : {};
@@ -2342,9 +2346,7 @@ function fireDispatch(
   // A shopper whose own value the entry skips has no offer to pre-select, so nothing is sent or recorded.
   const skippedKey = configEntry ? findSkippedDefaultKey(configEntry, outgoing) : undefined;
   if (skippedKey) {
-    host.logPlacementDiagnostic(
-      buildPreselectDiagnosticLogEntry('skipped', `skip_value:${skippedKey}`, intentKindDetail),
-    );
+    logOutcome(host, 'skipped', `skip_value:${skippedKey}`, intentKindDetail);
     return false;
   }
 
@@ -2355,18 +2357,18 @@ function fireDispatch(
   // target page, a later step's click or a repeated click sends nothing until the shopper arrives. Changed
   // attributes, such as a corrected email, fire again. Delay and page-view fires keep the short dedupe below.
   if (intent && wasFiredRecentlyFor(accountId, identifier, digests, intent !== 'intent_cart')) {
-    host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('skipped', 'active_preselection', intentKindDetail));
+    logOutcome(host, 'skipped', 'active_preselection', intentKindDetail);
     return true;
   }
   if (skipWhileActive && getActivePreselect(activePreselectKey)?.byEvent) {
-    host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('skipped', 'active_preselection'));
+    logOutcome(host, 'skipped', 'active_preselection');
     return false;
   }
 
   const previousActive = attributesDigest !== undefined ? getActivePreselect(activePreselectKey) : null;
   if (attributesDigest !== undefined) {
     if (matchesStoredDigest(previousActive?.attributesDigest, digests)) {
-      host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('skipped', 'active_preselection', intentKindDetail));
+      logOutcome(host, 'skipped', 'active_preselection', intentKindDetail);
       return true;
     }
     setActivePreselect(
@@ -2378,22 +2380,20 @@ function fireDispatch(
 
   // Only the defaults the outgoing call still carries.
   const defaultedKeys = Object.keys(fills).filter((key) => readOwnValue(outgoing, key) === fills[key]);
-  host.logPlacementDiagnostic(
-    buildPreselectDiagnosticLogEntry('fired', lateRefire ? 'intent_refire' : reason, {
-      identity_types: formatIdentityTypes(getIdentityTypes(host.filteredUser)),
-      ...(formEmailKey ? { email_source: 'input' } : {}),
-      ...(intent
-        ? {
-            ...intentKindDetail,
-            intent_route: offEntry ? offEntry.route : 'entry',
-            ...(intentSource ? { intent_source: intentSource } : {}),
-            ...(offEntry ? { logged_in: offEntry.loggedIn } : {}),
-          }
-        : {}),
-      ...preselectVariantDetail(host),
-      ...(defaultedKeys.length > 0 ? { defaulted_keys: defaultedKeys.join(',') } : {}),
-    }),
-  );
+  logOutcome(host, 'fired', lateRefire ? 'intent_refire' : reason, {
+    identity_types: formatIdentityTypes(getIdentityTypes(host.filteredUser)),
+    ...(formEmailKey ? { email_source: 'input' } : {}),
+    ...(intent
+      ? {
+          ...intentKindDetail,
+          intent_route: offEntry ? offEntry.route : 'entry',
+          ...(intentSource ? { intent_source: intentSource } : {}),
+          ...(offEntry ? { logged_in: offEntry.loggedIn } : {}),
+        }
+      : {}),
+    ...preselectVariantDetail(host),
+    ...(defaultedKeys.length > 0 ? { defaulted_keys: defaultedKeys.join(',') } : {}),
+  });
   const fireMarkKey = `${accountId}:${identifier}`;
   const fireLink = linkFireRollback(
     latestFireMarkLinks,
@@ -2486,7 +2486,7 @@ export function maybeFirePersistedPreselect(state: PreselectState, host: Presele
 
   // A page view saved before checkout intent applied must not fire now without the click.
   if (!persisted.byEvent && pageViewsAwaitIntent(host)) {
-    host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('missed', 'recovery_awaits_intent'));
+    logOutcome(host, 'missed', 'recovery_awaits_intent');
     return;
   }
 
@@ -2494,9 +2494,7 @@ export function maybeFirePersistedPreselect(state: PreselectState, host: Presele
   const missingKeys = getMissingRequiredAttributeKeys(host, configEntry, attributes);
   if (missingKeys.length > 0) {
     for (const key of missingKeys) {
-      host.logPlacementDiagnostic(
-        buildPreselectDiagnosticLogEntry('missed', `missing_persisted_attribute:${key}`, preselectVariantDetail(host)),
-      );
+      logOutcome(host, 'missed', `missing_persisted_attribute:${key}`, preselectVariantDetail(host));
     }
     return;
   }
@@ -2542,13 +2540,11 @@ function logLeftTriggerPath(
   if (!isReportingDiagnostics(host)) {
     return;
   }
-  host.logPlacementDiagnostic(
-    buildPreselectDiagnosticLogEntry('missed', 'left_trigger_path', {
-      waiting_for: entry.waitingFor,
-      has_identity: hasValidIdentity(host.filteredUser),
-      ...sinceTriggerDetail(entry.triggeredAt),
-    }),
-  );
+  logOutcome(host, 'missed', 'left_trigger_path', {
+    waiting_for: entry.waitingFor,
+    has_identity: hasValidIdentity(host.filteredUser),
+    ...sinceTriggerDetail(entry.triggeredAt),
+  });
 }
 
 export function maybeFirePreselect(
@@ -2617,12 +2613,10 @@ function logCancelledHold(
   cancelledHold: NonNullable<PreselectState['scheduledDispatch']>,
   pathname: string,
 ): void {
-  host.logPlacementDiagnostic(
-    buildPreselectDiagnosticLogEntry('missed', 'hold_cancelled', {
-      held_ms: Date.now() - cancelledHold.heldAt,
-      same_path: cancelledHold.pathname === pathname,
-    }),
-  );
+  logOutcome(host, 'missed', 'hold_cancelled', {
+    held_ms: Date.now() - cancelledHold.heldAt,
+    same_path: cancelledHold.pathname === pathname,
+  });
 }
 
 function holdOrFirePreselect(
@@ -2686,7 +2680,7 @@ function holdOrFirePreselect(
       awaitingIntentLogged: alreadyLogged || canLog,
     });
     if (!alreadyLogged && canLog) {
-      host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('held', 'awaiting_intent'));
+      logOutcome(host, 'held', 'awaiting_intent');
     }
     // Recorded at the page view, so an arrival after a missed click still shows the trigger.
     if (canLog) recordTriggerForArrival(host, configEntry, event);
@@ -2753,9 +2747,7 @@ function holdOrFirePreselect(
   recordTriggerForArrival(host, configEntry, event);
 
   if (!passesIdentityGate(host, configEntry)) {
-    host.logPlacementDiagnostic(
-      buildPreselectDiagnosticLogEntry('missed', 'no_valid_identity', describeMissingIdentity(host, configEntry)),
-    );
+    logOutcome(host, 'missed', 'no_valid_identity', describeMissingIdentity(host, configEntry));
     // Guest checkout can hit this pageview before login; requeue for a later identification.
     enqueuePending(state, host, { event, pathname, triggeringUserId, triggeredAt, intentSeen, waitingFor: 'identity' });
     return;
@@ -2774,7 +2766,7 @@ function holdOrFirePreselect(
     );
     state.scheduledDispatch = { event, pathname, heldAt: Date.now(), heldForUserId, triggeredAt };
     if (!replacesHold) {
-      host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('held', 'dispatch_delay', { delay_ms: holdMs }));
+      logOutcome(host, 'held', 'dispatch_delay', { delay_ms: holdMs });
     }
     state.dispatchTimer = setTimeout(() => {
       state.dispatchTimer = undefined;
@@ -2901,7 +2893,7 @@ function dispatchAfterDelay(
       awaitingIntentLogged: canLog,
     });
     if (canLog) {
-      host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('held', 'awaiting_intent'));
+      logOutcome(host, 'held', 'awaiting_intent');
     }
     return;
   }
@@ -2916,9 +2908,7 @@ function dispatchAfterDelay(
   }
 
   if (!passesIdentityGate(host, configEntry)) {
-    host.logPlacementDiagnostic(
-      buildPreselectDiagnosticLogEntry('missed', 'no_valid_identity', describeMissingIdentity(host, configEntry)),
-    );
+    logOutcome(host, 'missed', 'no_valid_identity', describeMissingIdentity(host, configEntry));
     enqueuePending(state, host, { event, pathname, triggeringUserId, triggeredAt, intentSeen, waitingFor: 'identity' });
     return;
   }
@@ -2968,16 +2958,14 @@ function resolveAndDispatch(
     const identityTypes = getIdentityTypes(host.filteredUser);
     const emailKey = findEmailAttributeKey(configEntry);
     for (const key of missingKeys) {
-      host.logPlacementDiagnostic(
-        buildPreselectDiagnosticLogEntry('missed', `missing_attribute:${key}`, {
-          identity_types: formatIdentityTypes(identityTypes),
-          key_is_identity: identityTypes.some((type) => type.toLowerCase() === key.toLowerCase()),
-          ...(key === emailKey
-            ? { email_reason: describeMissingEmail(host, configEntry, key, event) }
-            : {}),
-          ...preselectVariantDetail(host),
-        }),
-      );
+      logOutcome(host, 'missed', `missing_attribute:${key}`, {
+        identity_types: formatIdentityTypes(identityTypes),
+        key_is_identity: identityTypes.some((type) => type.toLowerCase() === key.toLowerCase()),
+        ...(key === emailKey
+          ? { email_reason: describeMissingEmail(host, configEntry, key, event) }
+          : {}),
+        ...preselectVariantDetail(host),
+      });
     }
     // Sites set these one at a time via setUserAttribute, often after this pageview fires;
     // requeue so the kit's setUserAttribute flush can pick it up once a key arrives.
@@ -2998,12 +2986,10 @@ function resolveAndDispatch(
   if (intentKind && !carriesEmail(host, collectedAttributes, configEntry.targetPageIdentifier)) {
     if (state.noEmailLoggedPathname !== normalizedPathname) {
       state.noEmailLoggedPathname = normalizedPathname;
-      host.logPlacementDiagnostic(
-        buildPreselectDiagnosticLogEntry('missed', 'no_strict_email', {
-          intent_kind: intentKind.replace('intent_', ''),
-          has_identity: hasValidIdentity(host.filteredUser),
-        }),
-      );
+      logOutcome(host, 'missed', 'no_strict_email', {
+        intent_kind: intentKind.replace('intent_', ''),
+        has_identity: hasValidIdentity(host.filteredUser),
+      });
     }
     enqueuePending(state, host, {
       event,
@@ -3233,12 +3219,10 @@ export function flushPendingPreselectDispatches(
     const sinceTrigger = sinceTriggerDetail(triggeredAt);
 
     if (isReporting && waitingFor === 'identity' && hasIdentity) {
-      host.logPlacementDiagnostic(
-        buildPreselectDiagnosticLogEntry('identity_arrived', 'pending_identity', {
-          ...sinceTrigger,
-          on_trigger_path: pathname === currentPathname,
-        }),
-      );
+      logOutcome(host, 'identity_arrived', 'pending_identity', {
+        ...sinceTrigger,
+        on_trigger_path: pathname === currentPathname,
+      });
     }
 
     // Drop a stale entry rather than firing it against a route the user has left.
@@ -3258,7 +3242,7 @@ export function flushPendingPreselectDispatches(
       if (waitingEntry && pageViewsAwaitIntent(host)) {
         // A wait queued before the kit was ready has neither its log line nor its trigger yet.
         if (!entry.awaitingIntentLogged && host.isKitReady() && host.isPreselectionEnabled()) {
-          host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('held', 'awaiting_intent'));
+          logOutcome(host, 'held', 'awaiting_intent');
           recordTriggerForArrival(host, waitingEntry, event);
           entry.awaitingIntentLogged = true;
         }
@@ -3330,12 +3314,10 @@ export function reportPreselectArrival(
   // Reported only while checkout intent applies and the kit may forward, under the same privacy it was
   // captured with.
   if (checkoutIntentApplies(host) && host.isForwardingAllowed()) {
-    host.logPlacementDiagnostic(
-      buildPreselectDiagnosticLogEntry('arrived', 'intent_arrival', {
-        ...describeIntentBeforeArrival(record),
-        ...describePaymentShadow(record, attributes),
-      }),
-    );
+    logOutcome(host, 'arrived', 'intent_arrival', {
+      ...describeIntentBeforeArrival(record),
+      ...describePaymentShadow(record, attributes),
+    });
   }
 
   if (record.firedAt !== undefined) {
@@ -3343,22 +3325,20 @@ export function reportPreselectArrival(
   }
 
   const triggerSeen = record.triggeredAt !== undefined;
-  host.logPlacementDiagnostic(
-    buildPreselectDiagnosticLogEntry('missed', 'arrival_without_fire', {
-      trigger_seen: triggerSeen,
-      identity_seen_on_trigger_path: record.identitySeenAt !== undefined,
-      has_identity: hasValidIdentity(host.filteredUser),
-      // Another tab's checkout caches its offers in that tab, so this arrival still misses. This tab's
-      // own trigger counts too: the device marker can expire, be cleared by another tab or fail to save.
-      trigger_seen_any_tab:
-        triggerSeen || wasPreselectTriggeredInAnyTab(host.accountId, configEntry.targetPageIdentifier),
-      ...sinceTriggerDetail(record.triggeredAt),
-      near_miss_seen: wasNearMissBeforeThisRoute(record.nearMissAt),
-      // Page memory loses the trigger record on a full navigation, so trigger_seen reads false.
-      storage: isDevicePersistenceDisabled() ? 'page' : 'device',
-      referrer: describeReferrer(),
-    }),
-  );
+  logOutcome(host, 'missed', 'arrival_without_fire', {
+    trigger_seen: triggerSeen,
+    identity_seen_on_trigger_path: record.identitySeenAt !== undefined,
+    has_identity: hasValidIdentity(host.filteredUser),
+    // Another tab's checkout caches its offers in that tab, so this arrival still misses. This tab's
+    // own trigger counts too: the device marker can expire, be cleared by another tab or fail to save.
+    trigger_seen_any_tab:
+      triggerSeen || wasPreselectTriggeredInAnyTab(host.accountId, configEntry.targetPageIdentifier),
+    ...sinceTriggerDetail(record.triggeredAt),
+    near_miss_seen: wasNearMissBeforeThisRoute(record.nearMissAt),
+    // Page memory loses the trigger record on a full navigation, so trigger_seen reads false.
+    storage: isDevicePersistenceDisabled() ? 'page' : 'device',
+    referrer: describeReferrer(),
+  });
 }
 
 function describeIntentBeforeArrival(record: PreselectArrivalRecord): PreselectDiagnosticDetails {
