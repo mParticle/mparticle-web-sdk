@@ -131,8 +131,9 @@ const openCartLabels = new RegExp(
     '^(?:(?:(?:view|open|go to) )?' + CART_NOUN + '(?: items?)?' +
         '|items? in ' + CART_NOUN + ')$'
 );
+// "Cash App Afterpay" is one wallet, Afterpay under its newer name, so it is matched whole.
 const WALLET_NAMES =
-    'apple pay|google pay|paypal|venmo|amazon pay|shop pay|klarna|afterpay|clearpay|cash app(?: pay)?|affirm|sezzle|samsung pay';
+    'apple pay|google pay|paypal|venmo|amazon pay|shop pay|klarna|afterpay|clearpay|cash app(?: pay| afterpay)?|affirm|sezzle|samsung pay';
 const WALLET_VERBS =
     'pay|buy|purchase|order|book|donate|subscribe|check ?out|checkout|express checkout|continue|proceed|' +
     'complete purchase|place (?:my |your )?order';
