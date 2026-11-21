@@ -15,6 +15,7 @@ import {
   flushPendingPreselectDispatches,
   findPreselectionConfig,
   findPreselectionConfigByIdentifier,
+  findPreselectionEntryByKey,
   getCallIdentifier,
   getPreselectLookupAttributes,
   getPreselectCacheMatchKeys,
@@ -315,6 +316,35 @@ describe('preselection', () => {
       },
       selectPlacements: (options) => {
         selectPlacementsCalls.push(options);
+      },
+      // The members buildPreselectHost always supplies, valued as the module behaves when one is missing.
+      getPreselectVariant: () => undefined,
+      isPreselectionPrivacyAllowed: () => true,
+      isCheckoutIntentActive: () => false,
+      isLinkIntentWithheld: () => false,
+      getCurrentUser: () => null,
+      getCurrentHost: () => host,
+      isTargetingDisabled: () => false,
+      isForwardingAllowed: () => true,
+      isEmailIdentityFiltered: () => false,
+      getUserIdentities: () => ({}),
+      filterAttributes: (attributes) => attributes,
+      getPreselectFills: (attributes, entryKey) => {
+        const entry = host.isPreselectionEnabled() ? findPreselectionEntryByKey(host.accountId, entryKey) : undefined;
+        return entry ? getPreselectAttributeDefaults(host, entry, attributes) : undefined;
+      },
+      // As the kit builds it: identities, then saved attributes under the call's own, filled. The kit filters with its
+      // own filter rather than through the host, so this one passes everything.
+      getOutgoingAttributes: (attributes, entryKey) => {
+        const entry = host.isPreselectionEnabled() ? findPreselectionEntryByKey(host.accountId, entryKey) : undefined;
+        const merged = { ...host.userAttributes, ...attributes };
+        const filled = entryKey
+          ? applyPreselectAttributeDefaults(merged, host.getPreselectFills?.(attributes, entryKey))
+          : merged;
+        return {
+          ...(host.getUserIdentities?.() ?? {}),
+          ...withoutPreselectCartGateAttribute(host.accountId, filled, entry),
+        };
       },
     };
   });
@@ -5177,7 +5207,7 @@ describe('preselection', () => {
             });
             maybeFirePreselect(state, host, buildEvent(), PATHNAME);
             vi.advanceTimersByTime(DELAY_MS);
-            host.getCurrentHost = undefined;
+            host.getCurrentHost = () => host;
           });
 
           it('replays for the same user once they are identified again', () => {
@@ -8467,8 +8497,11 @@ describe('preselection', () => {
   });
 
   describe('hasPartnerEmail', () => {
-    const hostWith = (userAttributes: Record<string, unknown>, mappedEmailSha256Key?: string): PreselectHost =>
-      ({ userAttributes, mappedEmailSha256Key }) as unknown as PreselectHost;
+    const hostWith = (userAttributes: Record<string, unknown>, mappedEmailSha256Key?: string): PreselectHost => ({
+      ...host,
+      userAttributes,
+      mappedEmailSha256Key,
+    });
 
     it.each([{ emailEnc: 'encrypted-email' }, { EMAILENC: 'encrypted-email' }, { emailsha256enc: 'encrypted-hash' }])(
       'counts an encrypted email the partner sent in %o, so the form never stands in',
