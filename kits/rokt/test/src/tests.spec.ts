@@ -6721,12 +6721,14 @@ describe('Rokt Forwarder', () => {
           ...preselectCalls()[0],
           attributes: { ...preselectCalls()[0].attributes, paymenttype: 'apple_pay' },
         });
-        expect(diagnosticLines(logSpy, 'intent')).toEqual([
-          expect.stringContaining('[intent_kind=commit]'),
-          expect.stringContaining('[intent_kind=commit]'),
+        // The re-send logs under its own reason, so fires counted by reason stay one per tap.
+        expect(diagnosticLines(logSpy, 'intent')).toEqual([expect.stringContaining('[intent_kind=commit]')]);
+        expect(diagnosticLines(logSpy, 'intent_refire')).toEqual([
+          expect.stringMatching(/^Rokt Kit: preselect fired \[reason=intent_refire\].*\[intent_kind=commit\]/),
         ]);
       });
       it('sends one more call per tap, however many picks follow', async () => {
+        const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
         emit('commit');
         await vi.advanceTimersByTimeAsync(1);
         pick('apple_pay');
@@ -6734,6 +6736,69 @@ describe('Rokt Forwarder', () => {
         pick('card');
         await vi.advanceTimersByTimeAsync(1);
         expect(preselectCalls().map((options) => options.attributes.paymenttype)).toEqual(['credit_card', 'apple_pay']);
+        expect(diagnosticLines(logSpy, 'intent')).toHaveLength(1);
+        expect(diagnosticLines(logSpy, 'intent_refire')).toHaveLength(1);
+      });
+      it('tags a re-send that had to wait for an attribute when it goes, and only that one', async () => {
+        await reinit(
+          buildSettings({
+            attributeKeys: ['tier', 'paymenttype', 'boxoffice'],
+            preselectAttributeDefaults: {
+              paymenttype: { value: 'credit_card', byPaymentPick: { card: 'credit_card', apple_pay: 'apple_pay' } },
+            },
+          }),
+        );
+        kit.setUserAttribute('boxoffice', 'north');
+        const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+        emit('commit');
+        await vi.advanceTimersByTimeAsync(1);
+        kit.removeUserAttribute('boxoffice');
+        pick('apple_pay');
+        await vi.advanceTimersByTimeAsync(1);
+        expect(preselectCalls()).toHaveLength(1);
+        kit.setUserAttribute('boxoffice', 'north');
+        await vi.advanceTimersByTimeAsync(1);
+        expect(preselectCalls().map((options) => options.attributes.paymenttype)).toEqual(['credit_card', 'apple_pay']);
+        expect(diagnosticLines(logSpy, 'intent')).toHaveLength(1);
+        expect(diagnosticLines(logSpy, 'intent_refire')).toHaveLength(1);
+        expect(kit._preselectState.lateRefire).toBeFalsy();
+      });
+      it('clears the re-send mark when the re-send throws', async () => {
+        emit('commit');
+        await vi.advanceTimersByTimeAsync(1);
+        kit._preselectState.latestIntentFire.refire = () => {
+          throw new Error('replay failed');
+        };
+        try {
+          pick('apple_pay');
+        } catch {
+          // Either way, the mark must not outlive the re-send.
+        }
+        expect(kit._preselectState.lateRefire).toBeFalsy();
+      });
+      it('logs a waiting re-send as the next tap\'s own call once the shopper taps again', async () => {
+        await reinit(
+          buildSettings({
+            attributeKeys: ['tier', 'paymenttype', 'boxoffice'],
+            preselectAttributeDefaults: {
+              paymenttype: { value: 'credit_card', byPaymentPick: { card: 'credit_card', apple_pay: 'apple_pay' } },
+            },
+          }),
+        );
+        kit.setUserAttribute('boxoffice', 'north');
+        const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+        emit('commit');
+        await vi.advanceTimersByTimeAsync(1);
+        kit.removeUserAttribute('boxoffice');
+        pick('apple_pay');
+        await vi.advanceTimersByTimeAsync(1);
+        emit('commit');
+        await vi.advanceTimersByTimeAsync(1);
+        kit.setUserAttribute('boxoffice', 'north');
+        await vi.advanceTimersByTimeAsync(1);
+        expect(preselectCalls().map((options) => options.attributes.paymenttype)).toEqual(['credit_card', 'apple_pay']);
+        expect(diagnosticLines(logSpy, 'intent')).toHaveLength(2);
+        expect(diagnosticLines(logSpy, 'intent_refire')).toEqual([]);
       });
       it('leaves the call alone when the pick comes more than a second after the tap', async () => {
         emit('commit');
@@ -6795,6 +6860,7 @@ describe('Rokt Forwarder', () => {
         kit.process({ EventDataType: 3, EventName: 'page view', EventAttributes: { currency: 'usd' } });
         await vi.advanceTimersByTimeAsync(1);
         expect(preselectCalls()).toHaveLength(0);
+        const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
         emit('commit');
         await vi.advanceTimersByTimeAsync(1);
         pick('apple_pay');
@@ -6803,6 +6869,8 @@ describe('Rokt Forwarder', () => {
           ['usd', 'credit_card'],
           ['usd', 'apple_pay'],
         ]);
+        expect(diagnosticLines(logSpy, 'intent')).toHaveLength(1);
+        expect(diagnosticLines(logSpy, 'intent_refire')).toHaveLength(1);
       });
       it('sets the pick against the one the call went out with, when an auto click records it first', async () => {
         emit('commit');
@@ -6830,9 +6898,12 @@ describe('Rokt Forwarder', () => {
         pick('apple_pay');
         await vi.advanceTimersByTimeAsync(1);
         expect(preselectCalls()).toHaveLength(0);
+        const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
         kit.setUserAttribute('boxoffice', 'north');
         await vi.advanceTimersByTimeAsync(1);
         expect(preselectCalls().map((options) => options.attributes.paymenttype)).toEqual(['apple_pay']);
+        expect(diagnosticLines(logSpy, 'intent')).toHaveLength(1);
+        expect(diagnosticLines(logSpy, 'intent_refire')).toEqual([]);
       });
       it('sends nothing more once another shopper is signed in', async () => {
         emit('commit');

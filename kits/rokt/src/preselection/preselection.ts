@@ -522,6 +522,8 @@ export function handlePreselectIntentSignal(
   );
   if (pending) {
     pending.intentSeen = kind;
+    // A new tap takes a re-send still waiting here as its own call.
+    pending.lateRefire = undefined;
     const { event, triggeringUserId, triggeredAt } = pending;
     const fire = keepTap((current) =>
       maybeFirePreselect(state, current, event, currentPathname, triggeringUserId, triggeredAt, kind),
@@ -632,7 +634,18 @@ export function handlePreselectPaymentPick(
   if (lateFor) {
     // Once per tap, so a run of picks never sends a run of calls.
     state.latestIntentFire = undefined;
-    lateFor.refire(host);
+    asLateRefire(state, true, () => lateFor.refire(host));
+  }
+}
+
+// Runs send with the state marked as a late pick's re-send, or not, and restores the mark after.
+function asLateRefire(state: PreselectState, lateRefire: boolean, send: () => void): void {
+  const previous = state.lateRefire;
+  state.lateRefire = lateRefire;
+  try {
+    send();
+  } finally {
+    state.lateRefire = previous;
   }
 }
 
@@ -1374,6 +1387,8 @@ export interface PendingPreselectDispatch {
   // Whether this wait for the confirm click has been reported; the first chance may come before
   // the launcher can report it.
   awaitingIntentLogged?: boolean;
+  // Set when a late payment pick's re-send had to wait, so it still logs as one when it goes.
+  lateRefire?: boolean;
 }
 
 export interface PreselectState {
@@ -1408,6 +1423,8 @@ export interface PreselectState {
   // The latest confirm, wallet or checkout-step tap handled on its entry's own route, with the dispatch it fires, so a
   // payment pick that lands just after it can send that dispatch again.
   latestIntentFire?: { pathname: string; t: number; userId: string | null; refire: (host: PreselectHost) => void };
+  // True while that dispatch is sent again, so its fired line can be told apart from the tap's own.
+  lateRefire?: boolean;
 }
 
 // A guest's wallet tap off every entry, waiting for the guest to be identified.
@@ -1484,10 +1501,11 @@ function enqueuePending(state: PreselectState, host: PreselectHost, dispatch: Pe
       ...dispatch,
       triggeredAt: earliestTime(existing.triggeredAt, dispatch.triggeredAt),
       intentSeen: dispatch.intentSeen ?? existing.intentSeen ?? intentKindOf(existing.event),
+      ...(state.lateRefire || existing.lateRefire ? { lateRefire: true } : {}),
     };
     return;
   }
-  state.pending.push(dispatch);
+  state.pending.push(state.lateRefire ? { ...dispatch, lateRefire: true } : dispatch);
 }
 
 export interface PreselectHost {
@@ -2279,6 +2297,9 @@ function fireDispatch(
   // Set for a fire off its entry's route, or from a page a router already moved, which binds the call to its user and
   // says whether it needed a logged-in shopper. A tap also reports its route and whether the shopper was logged in.
   offEntry?: { route?: 'left' | 'before_entry' | 'entry'; loggedIn?: boolean; requireLogin: boolean },
+  // A tap's dispatch sent again for a payment pick that landed just after it. Its fired line takes its own reason, so
+  // fire counts by reason stay one per tap.
+  lateRefire = false,
 ): boolean {
   // Checked here, where every live, replayed and recovered dispatch converges, so no entry point can
   // bypass a noTargeting, do-not-share-or-sell or Global Privacy Control opt-out, a user opt-out or a
@@ -2355,7 +2376,7 @@ function fireDispatch(
   // Only the defaults the outgoing call still carries.
   const defaultedKeys = Object.keys(fills).filter((key) => !outgoing || readOwnValue(outgoing, key) === fills[key]);
   host.logPlacementDiagnostic(
-    buildPreselectDiagnosticLogEntry('fired', reason, {
+    buildPreselectDiagnosticLogEntry('fired', lateRefire ? 'intent_refire' : reason, {
       identity_types: formatIdentityTypes(getIdentityTypes(host.filteredUser)),
       ...(formEmailKey ? { email_source: 'input' } : {}),
       ...(intent
@@ -3010,6 +3031,8 @@ function resolveAndDispatch(
     isEventTrigger,
     formEmailKey,
     intentKind ? state.intentSource : undefined,
+    undefined,
+    state.lateRefire === true,
   );
   // Only a dispatch whose attributes are now active guards later intent; a held-off repeat event must
   // not replace the record of the richer call it was held off by.
@@ -3253,7 +3276,9 @@ export function flushPendingPreselectDispatches(
       return;
     }
 
-    maybeFirePreselect(state, host, event, pathname, triggeringUserId, triggeredAt, intentSeen);
+    asLateRefire(state, entry.lateRefire === true, () =>
+      maybeFirePreselect(state, host, event, pathname, triggeringUserId, triggeredAt, intentSeen),
+    );
   });
 }
 
