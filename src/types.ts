@@ -1,5 +1,6 @@
 import Constants from './constants';
 import { isNumber, parseNumber, valueof } from './utils';
+import { EVENT_TYPE_OTHER, MESSAGE_TYPE_PAGE_EVENT } from './eventTypeIds';
 
 interface IdentitiesByType {
     [key: number]: string;
@@ -9,7 +10,7 @@ export const MessageType = {
     SessionStart: 1 as const,
     SessionEnd: 2 as const,
     PageView: 3 as const,
-    PageEvent: 4 as const,
+    PageEvent: MESSAGE_TYPE_PAGE_EVENT,
     CrashReport: 5 as const,
     OptOut: 6 as const,
     AppStateTransition: 10 as const,
@@ -29,7 +30,7 @@ export const EventType = {
     UserContent: 5 as const,
     UserPreference: 6 as const,
     Social: 7 as const,
-    Other: 8 as const,
+    Other: EVENT_TYPE_OTHER,
     Media: 9 as const,
 
     getName(id: number): string {
