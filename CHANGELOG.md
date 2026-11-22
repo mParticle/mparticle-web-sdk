@@ -1,5 +1,43 @@
 # Changelog
 
+## [3.36.1](https://github.com/mParticle/mparticle-web-sdk/compare/v3.36.0...v3.36.1) (2026-11-22)
+
+
+### Bug Fixes
+
+* **button-tracking:** read "Cash App Afterpay" buttons as a wallet tap ([#1894](https://github.com/mParticle/mparticle-web-sdk/issues/1894)) ([3ab9d4e](https://github.com/mParticle/mparticle-web-sdk/commit/3ab9d4ef1ad4b8f3ecce68282503571225cb42c4))
+* **rokt-kit:** log the late payment pick re-send under its own reason ([#1893](https://github.com/mParticle/mparticle-web-sdk/issues/1893)) ([0d9cdd9](https://github.com/mParticle/mparticle-web-sdk/commit/0d9cdd9b7380f67bdd53cae874330a5e5d140867))
+* **rokt-kit:** match a payment-family default on an entry with identity keys ([#1895](https://github.com/mParticle/mparticle-web-sdk/issues/1895)) ([ec9a1da](https://github.com/mParticle/mparticle-web-sdk/commit/ec9a1da636c2398124f074d8b3c99fa237791abd))
+* **rokt-kit:** re-send the pre-selection call when a payment pick lands just after the confirm tap ([#1891](https://github.com/mParticle/mparticle-web-sdk/issues/1891)) ([06666ca](https://github.com/mParticle/mparticle-web-sdk/commit/06666ca83effc577eb4ff441577c3977c252e7d3))
+
+
+### Miscellaneous
+
+* **batch-uploader:** make the returning-session identity callback test deterministic ([#1886](https://github.com/mParticle/mparticle-web-sdk/issues/1886)) ([3dc363b](https://github.com/mParticle/mparticle-web-sdk/commit/3dc363b2cd4fcb65190fed664382eb96f4c8d8de))
+* **release:** retry transient GitHub API errors in V3 gate ([#1889](https://github.com/mParticle/mparticle-web-sdk/issues/1889)) ([ae2f6d0](https://github.com/mParticle/mparticle-web-sdk/commit/ae2f6d0d50fb5cec11b811a2180ca0dc67fd7735))
+* **rokt-kit:** build a queued pre-selection trigger once per function ([#1904](https://github.com/mParticle/mparticle-web-sdk/issues/1904)) ([6f9389f](https://github.com/mParticle/mparticle-web-sdk/commit/6f9389fdb6b45cb9dc1748f243ad9dc3663a0f80))
+* **rokt-kit:** build the pre-selection unit host the way the kit does ([#1898](https://github.com/mParticle/mparticle-web-sdk/issues/1898)) ([37f66af](https://github.com/mParticle/mparticle-web-sdk/commit/37f66af647e2fa9eae4a7378978e38f5ffd26683))
+* **rokt-kit:** check core and the kit agree on wallet names ([#1910](https://github.com/mParticle/mparticle-web-sdk/issues/1910)) ([a112bdc](https://github.com/mParticle/mparticle-web-sdk/commit/a112bdc0da0b001886162ab2a1ae6175b0a9f6d4))
+* **rokt-kit:** copy validated setting fields from one list ([#1906](https://github.com/mParticle/mparticle-web-sdk/issues/1906)) ([a59f240](https://github.com/mParticle/mparticle-web-sdk/commit/a59f2408a27ea5cbfa7ec8624bc58cdddc705eea))
+* **rokt-kit:** cover the dropped-call paths in the kit's dispatch method ([#1899](https://github.com/mParticle/mparticle-web-sdk/issues/1899)) ([42b4b6d](https://github.com/mParticle/mparticle-web-sdk/commit/42b4b6dcb023a0a3d7c65702baf174d6a1580a7b))
+* **rokt-kit:** drop a pre-selection call through one path ([#1905](https://github.com/mParticle/mparticle-web-sdk/issues/1905)) ([f88fe8e](https://github.com/mParticle/mparticle-web-sdk/commit/f88fe8e6e3af1a9d59b1f3272621a8f869dfb601))
+* **rokt-kit:** give target-scoped pre-selection fires their own entry point ([#1907](https://github.com/mParticle/mparticle-web-sdk/issues/1907)) ([30e72b2](https://github.com/mParticle/mparticle-web-sdk/commit/30e72b262ffb747b876660e8c738c341d9f50ff6))
+* **rokt-kit:** keep one definition of each duplicated pre-selection check ([#1902](https://github.com/mParticle/mparticle-web-sdk/issues/1902)) ([341693a](https://github.com/mParticle/mparticle-web-sdk/commit/341693a9fbc9b639bf9bec0a2251bc45effeb61d))
+* **rokt-kit:** log pre-selection outcomes through one helper ([#1901](https://github.com/mParticle/mparticle-web-sdk/issues/1901)) ([cd1484b](https://github.com/mParticle/mparticle-web-sdk/commit/cd1484b2dc28ece936ec0c346694413950dadae3))
+* **rokt-kit:** move the arrival report out of the pre-selection module ([#1917](https://github.com/mParticle/mparticle-web-sdk/issues/1917)) ([3b88ef7](https://github.com/mParticle/mparticle-web-sdk/commit/3b88ef76d02cd8e9497461189353d4f2c83bd2b9))
+* **rokt-kit:** move the attribute defaults out of the pre-selection module ([#1915](https://github.com/mParticle/mparticle-web-sdk/issues/1915)) ([73e4919](https://github.com/mParticle/mparticle-web-sdk/commit/73e4919c282aeb4a0feb9cc177fa4c9143d93c96))
+* **rokt-kit:** move the cart page view helpers out of the pre-selection module ([#1916](https://github.com/mParticle/mparticle-web-sdk/issues/1916)) ([b2584b2](https://github.com/mParticle/mparticle-web-sdk/commit/b2584b2e29256bc54d531892d806e7eac4668768))
+* **rokt-kit:** move the email key checks out of the pre-selection module ([#1914](https://github.com/mParticle/mparticle-web-sdk/issues/1914)) ([0465cec](https://github.com/mParticle/mparticle-web-sdk/commit/0465ceceeaa4bc49686f4291ae61517a2150d950))
+* **rokt-kit:** move the entry registry out of the pre-selection module ([#1913](https://github.com/mParticle/mparticle-web-sdk/issues/1913)) ([1cb23a7](https://github.com/mParticle/mparticle-web-sdk/commit/1cb23a7690e98747694c0bdd34567277deefd628))
+* **rokt-kit:** move the host checks out of the pre-selection module ([#1912](https://github.com/mParticle/mparticle-web-sdk/issues/1912)) ([5a751bb](https://github.com/mParticle/mparticle-web-sdk/commit/5a751bb2cd879b4ca431ce628a4032b478fa11c0))
+* **rokt-kit:** move the intent signal helpers out of the pre-selection module ([#1918](https://github.com/mParticle/mparticle-web-sdk/issues/1918)) ([d3eed39](https://github.com/mParticle/mparticle-web-sdk/commit/d3eed39ae5f422173b16b84ee7338cd900bb68cc))
+* **rokt-kit:** move the typed-email reader out of the pre-selection module ([#1911](https://github.com/mParticle/mparticle-web-sdk/issues/1911)) ([8e56d5d](https://github.com/mParticle/mparticle-web-sdk/commit/8e56d5de51e00492ecd8c02542250b674de69b49))
+* **rokt-kit:** remove the built-in pre-selection entries that served settings replaced ([#1908](https://github.com/mParticle/mparticle-web-sdk/issues/1908)) ([8a649bb](https://github.com/mParticle/mparticle-web-sdk/commit/8a649bbd6e19168a328b4cba6fa1f7708eeea8f2))
+* **rokt-kit:** require the pre-selection host members the kit always supplies ([#1900](https://github.com/mParticle/mparticle-web-sdk/issues/1900)) ([a99e4cd](https://github.com/mParticle/mparticle-web-sdk/commit/a99e4cd6f327405aea79d753f6445afb7f13f3e8))
+* **rokt-kit:** split the pre-selection hold-or-fire step into its three stages ([#1909](https://github.com/mParticle/mparticle-web-sdk/issues/1909)) ([c757cd9](https://github.com/mParticle/mparticle-web-sdk/commit/c757cd9728bd28a284de0c4f45c3fbc0cb5c0bb4))
+* **rokt-kit:** use one time-window check in the arrival records ([#1903](https://github.com/mParticle/mparticle-web-sdk/issues/1903)) ([baa269b](https://github.com/mParticle/mparticle-web-sdk/commit/baa269b74160eedbf5a9d1ad02247b3ca285b429))
+* **web SDK:** clarify incomplete V3 kit recovery ([#1896](https://github.com/mParticle/mparticle-web-sdk/issues/1896)) ([4a9493e](https://github.com/mParticle/mparticle-web-sdk/commit/4a9493e1abfc28e65cb526b2bb0d6cf8e923f9ba))
+
 ## [3.36.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.35.1...v3.36.0) (2026-11-20)
 
 
