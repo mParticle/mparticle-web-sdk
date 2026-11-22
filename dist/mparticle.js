@@ -1,6 +1,6 @@
 var mParticle = (function () {
 
-    var version = "3.36.0";
+    var version = "3.36.1";
 
     var Constants = {
       sdkVersion: version,
@@ -13248,7 +13248,8 @@ var mParticle = (function () {
     // "View cart", "Shopping bag", "Bag", and a count badge such as "1 item in bag",
     // which reads "item in bag" once digits are stripped: a click that opens the cart.
     var openCartLabels = new RegExp('^(?:(?:(?:view|open|go to) )?' + CART_NOUN + '(?: items?)?' + '|items? in ' + CART_NOUN + ')$');
-    var WALLET_NAMES = 'apple pay|google pay|paypal|venmo|amazon pay|shop pay|klarna|afterpay|clearpay|cash app(?: pay)?|affirm|sezzle|samsung pay';
+    // "Cash App Afterpay" is one wallet, Afterpay under its newer name, so it is matched whole.
+    var WALLET_NAMES = 'apple pay|google pay|paypal|venmo|amazon pay|shop pay|klarna|afterpay|clearpay|cash app(?: pay| afterpay)?|affirm|sezzle|samsung pay';
     var WALLET_VERBS = 'pay|buy|purchase|order|book|donate|subscribe|check ?out|checkout|express checkout|continue|proceed|' + 'complete purchase|place (?:my |your )?order';
     // "Pay with Klarna", "Buy with GPay", "Continue to PayPal".
     var walletPhrases = new RegExp('^(?:(?:' + WALLET_VERBS + ')(?: now| securely)? (?:with|using|via|through|by) (?:' + WALLET_NAMES + ')(?: express(?: checkout)?| checkout)?|(?:continue|proceed|go) (?:to|with) (?:' + WALLET_NAMES + '))$');
