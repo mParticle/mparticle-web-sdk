@@ -2676,70 +2676,11 @@ function holdOrFirePreselect(
   // the not-ready branch, so nothing is stored for a recovered dispatch without the click either.
   // A configured trigger event still dispatches as before.
   if (!intentSeen && !isConfiguredTriggerEvent(configEntry, event) && pageViewsAwaitIntent(host)) {
-    const movedHere = state.intentWaitMovedWithin === configEntry;
-    state.intentWaitMovedWithin = undefined;
-    const alreadyLogged = movedHere || (queued?.waitingFor === 'intent' && queued.awaitingIntentLogged === true);
-    const canLog = host.isKitReady() && host.isPreselectionEnabled();
-    enqueuePending(state, host, {
-      ...trigger,
-      // Bound to an identified shopper, as a timer hold is, so another user's click never sends
-      // this page view's attributes. A guest stays unbound so signing in at checkout still fires.
-      triggeringUserId:
-        triggeringUserId ?? (hasValidIdentity(host.filteredUser) ? getUserId(host.filteredUser) : undefined),
-      waitingFor: 'intent',
-      awaitingIntentLogged: alreadyLogged || canLog,
-    });
-    if (!alreadyLogged && canLog) {
-      logOutcome(host, 'held', 'awaiting_intent');
-    }
-    // Recorded at the page view, so an arrival after a missed click still shows the trigger.
-    if (canLog) recordTriggerForArrival(host, configEntry, event);
-    return;
+    return waitForIntent(state, host, trigger, configEntry, queued);
   }
 
   if (!host.isKitReady()) {
-    // Decided before the snapshot below, so a trigger the queue keeps out never overwrites the
-    // stored copy of the one it keeps.
-    if (yieldsToQueued(state, host, event, pathname)) {
-      return;
-    }
-
-    // The gate below reads the launcher, which does not exist yet, so "disabled" and "not yet
-    // known" are indistinguishable here.
-    const storedDiagnostics: DiagnosticLogEntry[] = [];
-
-    // Not-ready is an infra-readiness race, not an attribute problem, so this usually
-    // resolves. Snapshot it now so a full navigation away doesn't lose it with this page.
-    // Deliberately left ahead of the gate: this has to survive a navigation that can happen
-    // before the launcher ever attaches, so deferring it past the gate would defeat it.
-    // Gating it needs the decision knowable pre-launcher, which is a Web SDK change.
-    const mpid = getUserId(host.filteredUser);
-    if (host.accountId && mpid && hasValidIdentity(host.filteredUser)) {
-      const { collected, missingKeys, formEmailKey } = collectAttributes(host, event, configEntry);
-      if (missingKeys.length === 0 && !formEmailKey) {
-        // Deny-listed attributes may still resolve here (they're read from the raw event or
-        // mParticle's live store, not just host.userAttributes), so strip them before this
-        // snapshot sits in storage rather than going straight over the wire.
-        const persistableAttributes = removeSelectPlacementsAttributePersistenceDeniedAttributes(collected);
-        const byEvent = isConfiguredTriggerEvent(configEntry, event) || !!intentSeen;
-        const wasPersisted = byEvent
-          ? setPendingPreselect(
-              host.accountId,
-              pathname,
-              configEntry.targetPageIdentifier,
-              persistableAttributes,
-              mpid,
-              true,
-            )
-          : setPendingPreselect(host.accountId, pathname, configEntry.targetPageIdentifier, persistableAttributes, mpid);
-        if (!wasPersisted) {
-          storedDiagnostics.push(buildPreselectDiagnosticLogEntry('queued', 'persist_failed'));
-        }
-      }
-    }
-
-    enqueuePending(state, host, { ...trigger, storedDiagnostics, waitingFor: 'launcher' });
-    return;
+    return waitForLauncher(state, host, trigger, configEntry);
   }
 
   if (!host.isPreselectionEnabled()) {
@@ -2761,27 +2702,122 @@ function holdOrFirePreselect(
     !isIntentTriggerEvent(event) &&
     !intentSeen
   ) {
-    const heldForUserId = getUserId(host.filteredUser);
-    const holdMs = Math.min(
-      configEntry.dispatchDelayMs,
-      Math.max(0, triggeredAt + configEntry.dispatchDelayMs - Date.now()),
-    );
-    state.scheduledDispatch = { event, pathname, heldAt: Date.now(), heldForUserId, triggeredAt };
-    if (!replacesHold) {
-      logOutcome(host, 'held', 'dispatch_delay', { delay_ms: holdMs });
-    }
-    state.dispatchTimer = setTimeout(() => {
-      state.dispatchTimer = undefined;
-      state.scheduledDispatch = undefined;
-      dispatchAfterDelay(state, host.getCurrentHost(), event, pathname, heldForUserId, triggeredAt);
-    }, holdMs);
-    return;
+    return holdForDelay(state, host, trigger, configEntry.dispatchDelayMs, replacesHold);
   }
 
   resolveAndDispatch(
     state, host, event, pathname, configEntry, triggeringUserId, triggeredAt, undefined, intentSeen,
     intentSeen ? queued : undefined,
   );
+}
+
+interface PreselectTrigger {
+  event: SDKEvent;
+  pathname: string;
+  triggeringUserId: string | null | undefined;
+  triggeredAt: number;
+  intentSeen?: IntentTriggerKind;
+}
+
+// Queues a page view or pathname trigger until the shopper's confirm click.
+function waitForIntent(
+  state: PreselectState,
+  host: PreselectHost,
+  trigger: PreselectTrigger,
+  configEntry: PreselectionConfigEntry,
+  queued: PendingPreselectDispatch | undefined,
+): void {
+  const movedHere = state.intentWaitMovedWithin === configEntry;
+  state.intentWaitMovedWithin = undefined;
+  const alreadyLogged = movedHere || (queued?.waitingFor === 'intent' && queued.awaitingIntentLogged === true);
+  const canLog = host.isKitReady() && host.isPreselectionEnabled();
+  enqueuePending(state, host, {
+    ...trigger,
+    // Bound to an identified shopper, as a timer hold is, so another user's click never sends
+    // this page view's attributes. A guest stays unbound so signing in at checkout still fires.
+    triggeringUserId:
+      trigger.triggeringUserId ?? (hasValidIdentity(host.filteredUser) ? getUserId(host.filteredUser) : undefined),
+    waitingFor: 'intent',
+    awaitingIntentLogged: alreadyLogged || canLog,
+  });
+  if (!alreadyLogged && canLog) {
+    logOutcome(host, 'held', 'awaiting_intent');
+  }
+  // Recorded at the page view, so an arrival after a missed click still shows the trigger.
+  if (canLog) recordTriggerForArrival(host, configEntry, trigger.event);
+}
+
+// Queues a trigger until the launcher attaches, with a snapshot a full navigation can recover.
+function waitForLauncher(
+  state: PreselectState,
+  host: PreselectHost,
+  trigger: PreselectTrigger,
+  configEntry: PreselectionConfigEntry,
+): void {
+  const { event, pathname, intentSeen } = trigger;
+  // Decided before the snapshot below, so a trigger the queue keeps out never overwrites the
+  // stored copy of the one it keeps.
+  if (yieldsToQueued(state, host, event, pathname)) {
+    return;
+  }
+
+  // The gate below reads the launcher, which does not exist yet, so "disabled" and "not yet
+  // known" are indistinguishable here.
+  const storedDiagnostics: DiagnosticLogEntry[] = [];
+
+  // Not-ready is an infra-readiness race, not an attribute problem, so this usually
+  // resolves. Snapshot it now so a full navigation away doesn't lose it with this page.
+  // Deliberately left ahead of the gate: this has to survive a navigation that can happen
+  // before the launcher ever attaches, so deferring it past the gate would defeat it.
+  // Gating it needs the decision knowable pre-launcher, which is a Web SDK change.
+  const mpid = getUserId(host.filteredUser);
+  if (host.accountId && mpid && hasValidIdentity(host.filteredUser)) {
+    const { collected, missingKeys, formEmailKey } = collectAttributes(host, event, configEntry);
+    if (missingKeys.length === 0 && !formEmailKey) {
+      // Deny-listed attributes may still resolve here (they're read from the raw event or
+      // mParticle's live store, not just host.userAttributes), so strip them before this
+      // snapshot sits in storage rather than going straight over the wire.
+      const persistableAttributes = removeSelectPlacementsAttributePersistenceDeniedAttributes(collected);
+      const byEvent = isConfiguredTriggerEvent(configEntry, event) || !!intentSeen;
+      const wasPersisted = byEvent
+        ? setPendingPreselect(
+            host.accountId,
+            pathname,
+            configEntry.targetPageIdentifier,
+            persistableAttributes,
+            mpid,
+            true,
+          )
+        : setPendingPreselect(host.accountId, pathname, configEntry.targetPageIdentifier, persistableAttributes, mpid);
+      if (!wasPersisted) {
+        storedDiagnostics.push(buildPreselectDiagnosticLogEntry('queued', 'persist_failed'));
+      }
+    }
+  }
+
+  enqueuePending(state, host, { ...trigger, storedDiagnostics, waitingFor: 'launcher' });
+}
+
+// Holds a page view for the entry's dispatchDelayMs, less the time since it triggered.
+function holdForDelay(
+  state: PreselectState,
+  host: PreselectHost,
+  trigger: PreselectTrigger,
+  delayMs: number,
+  replacesHold: boolean,
+): void {
+  const { event, pathname, triggeredAt } = trigger;
+  const heldForUserId = getUserId(host.filteredUser);
+  const holdMs = Math.min(delayMs, Math.max(0, triggeredAt + delayMs - Date.now()));
+  state.scheduledDispatch = { event, pathname, heldAt: Date.now(), heldForUserId, triggeredAt };
+  if (!replacesHold) {
+    logOutcome(host, 'held', 'dispatch_delay', { delay_ms: holdMs });
+  }
+  state.dispatchTimer = setTimeout(() => {
+    state.dispatchTimer = undefined;
+    state.scheduledDispatch = undefined;
+    dispatchAfterDelay(state, host.getCurrentHost(), event, pathname, heldForUserId, triggeredAt);
+  }, holdMs);
 }
 
 // Marks the trigger page as seen for the arrival line, with whether an identity was present.
