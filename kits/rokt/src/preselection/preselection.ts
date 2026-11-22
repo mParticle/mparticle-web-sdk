@@ -1,7 +1,6 @@
 import { SDKEvent } from '@mparticle/web-sdk/internal';
 
 import {
-  PRESELECTION_CONFIG,
   PRESELECT_SKIP_DEFAULT,
   type PreselectAlternateTargetPageIdentifiers,
   type PreselectAttributeDefault,
@@ -11,7 +10,6 @@ import {
 import {
   getEntryTargetPageIdentifiers,
   isIdentifier,
-  parsePreselectionConfigSetting,
 } from './preselectionConfigSetting';
 import {
   buildActivePreselectFieldKey,
@@ -73,11 +71,30 @@ import {
   pageViewsAwaitIntent,
   type PreselectHost,
 } from './hostChecks';
+import {
+  entryMatchesPathname,
+  findMatchingEntryPathname,
+  findPreselectionConfig,
+  findPreselectionEntryByKey,
+  getCartIntentEntries,
+  getEntryPathnames,
+  getPreselectionEntries,
+  hasPreselectionConfigForAccount,
+  nearlyMatches,
+  stripTrailingSlash,
+} from './entries';
 
 export { recordShopperInput } from './formEmail';
 export { canDispatchPreselection, type PreselectHost } from './hostChecks';
-
-const settingEntriesByAccount = new Map<string, PreselectionConfigEntry[]>();
+export {
+  applyPreselectionConfigSetting,
+  findPreselectionConfig,
+  findPreselectionEntryByKey,
+  getPreselectLookupAttributes,
+  hasEmailInputEntry,
+  hasPreselectionConfigForAccount,
+  usesTargetPageIdentifierAttribute,
+} from './entries';
 
 // One pre-selection outcome line through the host's diagnostic logger.
 function logOutcome(
@@ -87,79 +104,6 @@ function logOutcome(
   details?: PreselectDiagnosticDetails,
 ): void {
   host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry(outcome, reason, details));
-}
-
-// An account with a valid preselectionConfig setting uses only its entries; otherwise it keeps
-// PRESELECTION_CONFIG. Returns why a present setting was rejected, or undefined.
-export function applyPreselectionConfigSetting(accountId: string, setting: string | undefined): string | undefined {
-  settingEntriesByAccount.delete(accountId);
-  if (!setting) {
-    return undefined;
-  }
-
-  const result = parsePreselectionConfigSetting(accountId, setting);
-  if ('error' in result) {
-    return result.error;
-  }
-  settingEntriesByAccount.set(accountId, result.entries);
-  return undefined;
-}
-
-function getPreselectionEntries(accountId: string): PreselectionConfigEntry[] {
-  return settingEntriesByAccount.get(accountId) ?? PRESELECTION_CONFIG.filter((entry) => entry.accountId === accountId);
-}
-
-function getEntryPathnames(entry: PreselectionConfigEntry): string[] {
-  return entry.pathnames ? [entry.pathname, ...entry.pathnames] : [entry.pathname];
-}
-
-function findMatchingEntryPathname(entry: PreselectionConfigEntry, pathname: string): string | undefined {
-  return getEntryPathnames(entry).find((configuredPathname) => pathnameMatches(configuredPathname, pathname));
-}
-
-function entryMatchesPathname(entry: PreselectionConfigEntry, pathname: string): boolean {
-  return findMatchingEntryPathname(entry, pathname) !== undefined;
-}
-
-// A '*' in a configured pathname matches exactly one non-empty path segment. Segment counts
-// must be equal, so the pattern is anchored at both ends and cannot widen to another page.
-function pathnameMatches(configuredPathname: string, pathname: string): boolean {
-  const normalizedConfigured = stripTrailingSlash(configuredPathname);
-  const normalizedPathname = stripTrailingSlash(pathname);
-
-  if (!normalizedConfigured.includes('*')) {
-    return normalizedConfigured === normalizedPathname;
-  }
-
-  const configuredSegments = normalizedConfigured.split('/');
-  const pathnameSegments = normalizedPathname.split('/');
-  if (configuredSegments.length !== pathnameSegments.length) {
-    return false;
-  }
-
-  return configuredSegments.every((segment, index) =>
-    segment === '*' ? pathnameSegments[index] !== '' : segment === pathnameSegments[index],
-  );
-}
-
-// A site's own router may or may not add a trailing slash, so one is stripped from both
-// sides before any compare. '/' itself is left alone: it has no slash left to strip.
-function stripTrailingSlash(pathname: string): string {
-  return pathname.length > 1 && pathname.endsWith('/') ? pathname.slice(0, -1) : pathname;
-}
-
-// Diagnostics only, never a trigger: the trigger path in any casing, behind one leading segment
-// (a locale prefix), or followed by more segments.
-function nearlyMatches(configuredPathname: string, pathname: string): boolean {
-  const configured = stripTrailingSlash(configuredPathname).toLowerCase();
-  const segments = stripTrailingSlash(pathname).toLowerCase().split('/');
-  const configuredLength = configured.split('/').length;
-  return (
-    pathnameMatches(configured, segments.join('/')) ||
-    pathnameMatches(configured, ['', ...segments.slice(2)].join('/')) ||
-    (segments.length > configuredLength &&
-      pathnameMatches(configured, segments.slice(0, configuredLength).join('/')))
-  );
 }
 
 // A pathname-driven fire has no page-view event behind it, so attribute resolution falls
@@ -211,10 +155,6 @@ const LIVE_INTENT_MS = 1_000;
 function isLiveIntent(signal: PreselectIntentSignal): boolean {
   const age = Date.now() - signal.t;
   return age >= 0 && age < LIVE_INTENT_MS;
-}
-
-function getCartIntentEntries(accountId: string): PreselectionConfigEntry[] {
-  return getPreselectionEntries(accountId).filter((entry) => entry.cartIntent === true);
 }
 
 function signalSource(signal: PreselectIntentSignal): string | undefined {
@@ -764,17 +704,6 @@ function describeTrigger(
   return `${kind}|${configuredPathname}`;
 }
 
-export function findPreselectionConfig(
-  accountId: string | null | undefined,
-  pathname: string,
-): PreselectionConfigEntry | undefined {
-  if (!accountId) {
-    return undefined;
-  }
-
-  return getPreselectionEntries(accountId).find((entry) => entryMatchesPathname(entry, pathname));
-}
-
 // The entry a target page's own call goes to. A call matches an entry that names targetPageIdentifierAttribute only
 // when its identifier equals the call's own value of that attribute, never by targetPageIdentifier, and any other entry
 // by targetPageIdentifier. A call that matches more than one entry goes to none: two entries' attributes can hold the
@@ -795,52 +724,6 @@ export function findPreselectionConfigByIdentifier(
       : attributes !== undefined && getCallIdentifier(entry, attributes) === identifier,
   );
   return matches.length === 1 ? matches[0] : undefined;
-}
-
-// The attributes a target-page call is matched to its entry on: the saved user attributes with the call's own laid over
-// them, as collectAttributes reads the early call's target value. A call's non-empty value under any spelling of a key
-// replaces every saved spelling of it, so the call's value always wins and a saved value stands only where it has none.
-export function getPreselectLookupAttributes(
-  savedAttributes: Record<string, unknown>,
-  callAttributes: Record<string, unknown>,
-): Record<string, unknown> {
-  const callNames = new Set(
-    Object.keys(callAttributes)
-      .filter((name) => !isEmpty(callAttributes[name]))
-      .map((name) => name.toLowerCase()),
-  );
-  const merged: Record<string, unknown> = {};
-  for (const name of Object.keys(savedAttributes)) {
-    if (!callNames.has(name.toLowerCase())) {
-      merged[name] = savedAttributes[name];
-    }
-  }
-  for (const name of Object.keys(callAttributes)) {
-    if (!isEmpty(callAttributes[name])) {
-      merged[name] = callAttributes[name];
-    }
-  }
-  return merged;
-}
-
-// True when an entry of the account names targetPageIdentifierAttribute, the only kind of entry a target page's call is
-// matched to on its attributes.
-export function usesTargetPageIdentifierAttribute(accountId: string | null | undefined): boolean {
-  return (
-    !!accountId && getPreselectionEntries(accountId).some((entry) => entry.targetPageIdentifierAttribute !== undefined)
-  );
-}
-
-// The entry a fire's records name. A fire keys them by targetPageIdentifier, whatever identifier its call carries, so
-// this is the entry the fire was for.
-export function findPreselectionEntryByKey(
-  accountId: string | null | undefined,
-  key: string | undefined,
-): PreselectionConfigEntry | undefined {
-  if (!accountId || key === undefined) {
-    return undefined;
-  }
-  return getPreselectionEntries(accountId).find((entry) => entry.targetPageIdentifier === key);
 }
 
 // The value under key in any casing: the exact spelling first, else the one value every other spelling agrees on.
@@ -1232,14 +1115,6 @@ export function getPreselectIntentSelectors(
     ...(commit.length > 0 ? { commit } : {}),
     ...(checkoutStep.length > 0 ? { checkout_step: checkoutStep } : {}),
   };
-}
-
-export function hasPreselectionConfigForAccount(accountId: string | null | undefined): boolean {
-  if (!accountId) {
-    return false;
-  }
-
-  return getPreselectionEntries(accountId).length > 0;
 }
 
 export function maybeFirePreselectForPathname(
@@ -1682,10 +1557,6 @@ function passesIdentityGate(host: PreselectHost, configEntry: PreselectionConfig
       !!emailKey &&
       getMissingRequiredAttributeKeys(host, configEntry, {}).includes(emailKey))
   );
-}
-
-export function hasEmailInputEntry(accountId: string | null | undefined): boolean {
-  return !!accountId && getPreselectionEntries(accountId).some((entry) => entry.readEmailInput === true);
 }
 
 function describeMissingIdentity(host: PreselectHost, configEntry: PreselectionConfigEntry): PreselectDiagnosticDetails {
