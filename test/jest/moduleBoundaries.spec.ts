@@ -36,10 +36,10 @@ const CORE_INTO_MODULE: Record<string, string[]> = {
 // these with the core or carry its own copy.
 const MODULE_READS_FROM_CORE: Record<string, string[]> = {
     buttonTracking: [
+        'eventTypeIds.ts',
         'forwarder-utils.ts',
         'kitFilterHelper.ts',
         'pathMasking.ts',
-        'types.ts',
         'utils.ts',
     ],
 };
