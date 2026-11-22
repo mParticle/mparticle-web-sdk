@@ -83,6 +83,12 @@ import {
   nearlyMatches,
   stripTrailingSlash,
 } from './entries';
+import {
+  ENCRYPTED_KEY_SUFFIX,
+  hasPreselectEmail,
+  isEncryptedEmailKey,
+  isPreselectEmailKey,
+} from './emailKeys';
 
 export { recordShopperInput } from './formEmail';
 export { canDispatchPreselection, type PreselectHost } from './hostChecks';
@@ -95,6 +101,7 @@ export {
   hasPreselectionConfigForAccount,
   usesTargetPageIdentifierAttribute,
 } from './entries';
+export { hasPreselectEmail, isPreselectEmailKey } from './emailKeys';
 
 // One pre-selection outcome line through the host's diagnostic logger.
 function logOutcome(
@@ -1406,8 +1413,6 @@ type EmailMissReason =
   | 'unseen_fill'
   | 'no_field';
 
-const ENCRYPTED_KEY_SUFFIX = 'enc';
-
 // Whether the partner supplies the shopper's email anywhere, including on the unfiltered user: an email
 // filtered from this connection is one the partner chose not to share, so the form must not stand in.
 // A hashed or encrypted email (emailsha256, the identity mapped to it, or any of them plus enc) counts, in any casing.
@@ -1435,40 +1440,10 @@ export function hasPartnerEmail(
   );
 }
 
-const EMAIL_CLASS_KEYS = ['email', 'emailsha256'];
-
-function emailClassKeys(mappedEmailSha256Key?: string): string[] {
-  return isString(mappedEmailSha256Key) && mappedEmailSha256Key !== ''
-    ? [...EMAIL_CLASS_KEYS, mappedEmailSha256Key.toLowerCase()]
-    : EMAIL_CLASS_KEYS;
-}
-
-// An attribute or identity key that holds the shopper's email, raw, hashed or encrypted (the key plus enc), in any
-// casing.
-export function isPreselectEmailKey(key: string, mappedEmailSha256Key?: string): boolean {
-  const lower = key.toLowerCase();
-  return emailClassKeys(mappedEmailSha256Key).some(
-    (emailKey) => lower === emailKey || lower === emailKey + ENCRYPTED_KEY_SUFFIX,
-  );
-}
-
-// An encrypted form of an email-class key. Its ciphertext changes on every call, so the dedupe digest keys it by
-// presence only.
-function isEncryptedEmailKey(key: string, mappedEmailSha256Key?: string): boolean {
-  const lower = key.toLowerCase();
-  return emailClassKeys(mappedEmailSha256Key).some((emailKey) => lower === emailKey + ENCRYPTED_KEY_SUFFIX);
-}
-
 // Whether the call will carry the shopper's email, raw or hashed, judged on what selectPlacements would
 // actually send: the attributes after the kit's cache is merged in and its filters run, or an identity.
 function carriesEmail(host: PreselectHost, collected: Record<string, unknown>, identifier?: string): boolean {
   return hasPreselectEmail(host.getOutgoingAttributes(collected, identifier), host.mappedEmailSha256Key);
-}
-
-export function hasPreselectEmail(attributes: Record<string, unknown>, mappedEmailSha256Key?: string): boolean {
-  return Object.keys(attributes).some(
-    (key) => isPreselectEmailKey(key, mappedEmailSha256Key) && !isEmpty(readOwnValue(attributes, key)),
-  );
 }
 
 // Why the form may not be read for this entry now, or undefined when it may, decided before any input value is
