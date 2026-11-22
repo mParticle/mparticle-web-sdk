@@ -8,6 +8,14 @@ run-name: 'V3 Release - Step 3 [${{ inputs.releaseTag }}]'
 # so Step 3 pushes only the three release-order branches. It then requires the
 # tag's commit to be on main. Otherwise it pushes all five branches, as before.
 #
+# When the repository variable V3_RELEASE_ORDER_BRANCHES_RETIRED is also
+# 'true', Step 3 pushes no branch at all. Nothing is served from the three
+# release-order git branches any more: every channel is served from its S3
+# pointer, and the shadow promoter workflow ("V3 shadow release: move release
+# pointers") moves those pointers after this run. The run still makes every check, and its push step
+# still runs on a real run, so the promoter can tell a real run from a dry
+# run. The variable needs Release Please mode: without it the run fails.
+#
 # A dry run never loads the release machine user's token: it checks out and
 # reads origin with the job's read-only GITHUB_TOKEN. A real run first checks
 # that the token is set, and fails at the start if it is empty. Right before
@@ -96,6 +104,7 @@ jobs:
           env:
             RELEASE_TAG: ${{ inputs.releaseTag }}
             RELEASE_PLEASE_ENABLED: ${{ vars.V3_RELEASE_PLEASE_ENABLED }}
+            RELEASE_ORDER_BRANCHES_RETIRED: ${{ vars.V3_RELEASE_ORDER_BRANCHES_RETIRED }}
           run: |
             set -eu
             if ! printf '%s\n' "$RELEASE_TAG" |
@@ -155,6 +164,15 @@ jobs:
               exit 1
             fi
 
+            BRANCHES_RETIRED=false
+            if [ "${RELEASE_ORDER_BRANCHES_RETIRED:-}" = "true" ]; then
+              if [ "$RELEASE_PLEASE_ENABLED" != "true" ]; then
+                echo "V3_RELEASE_ORDER_BRANCHES_RETIRED needs V3_RELEASE_PLEASE_ENABLED to be true; nothing was pushed"
+                exit 1
+              fi
+              BRANCHES_RETIRED=true
+            fi
+
             if [ "$RELEASE_PLEASE_ENABLED" = "true" ]; then
               RELEASE_PLEASE_MODE=true
               # Release Please cuts every V3 tag from main, which already
@@ -166,10 +184,15 @@ jobs:
                 echo "${RELEASE_TAG} is not on origin/${TRUNK_BRANCH}; Release Please cuts V3 tags from ${TRUNK_BRANCH}"
                 exit 1
               fi
-              set -- \
-                "$RELEASE_ORDER_A_BRANCH" \
-                "$RELEASE_ORDER_B_BRANCH" \
-                "$RELEASE_ORDER_C_BRANCH"
+              if [ "$BRANCHES_RETIRED" = "true" ]; then
+                # The release-order branches are retired: no destination.
+                set --
+              else
+                set -- \
+                  "$RELEASE_ORDER_A_BRANCH" \
+                  "$RELEASE_ORDER_B_BRANCH" \
+                  "$RELEASE_ORDER_C_BRANCH"
+              fi
             else
               RELEASE_PLEASE_MODE=false
               set -- \
@@ -180,22 +203,28 @@ jobs:
                 "$RELEASE_ORDER_C_BRANCH"
             fi
 
-            for DESTINATION in "$@"; do
-              DESTINATION_SHA="$(git ls-remote --exit-code origin \
-                "refs/heads/${DESTINATION}" | awk 'NR == 1 { print $1 }')"
-              git fetch --no-tags --force origin \
-                "refs/heads/${DESTINATION}:refs/remotes/origin/${DESTINATION}"
-              if [ "$DESTINATION_SHA" = "$CANDIDATE_SHA" ]; then
-                continue
-              fi
-              if ! git merge-base --is-ancestor "$DESTINATION_SHA" "$CANDIDATE_SHA"; then
-                echo "origin/${DESTINATION} cannot fast-forward to ${RELEASE_TAG}"
-                exit 1
-              fi
-            done
+            # With no destination there is nothing to fast-forward. The count
+            # is checked first because an empty "$@" is an error under set -u
+            # in older shells.
+            if [ "$#" -gt 0 ]; then
+              for DESTINATION in "$@"; do
+                DESTINATION_SHA="$(git ls-remote --exit-code origin \
+                  "refs/heads/${DESTINATION}" | awk 'NR == 1 { print $1 }')"
+                git fetch --no-tags --force origin \
+                  "refs/heads/${DESTINATION}:refs/remotes/origin/${DESTINATION}"
+                if [ "$DESTINATION_SHA" = "$CANDIDATE_SHA" ]; then
+                  continue
+                fi
+                if ! git merge-base --is-ancestor "$DESTINATION_SHA" "$CANDIDATE_SHA"; then
+                  echo "origin/${DESTINATION} cannot fast-forward to ${RELEASE_TAG}"
+                  exit 1
+                fi
+              done
+            fi
 
             echo "track=$TRACK" >> "$GITHUB_OUTPUT"
             echo "release_please_mode=$RELEASE_PLEASE_MODE" >> "$GITHUB_OUTPUT"
+            echo "release_order_branches_retired=$BRANCHES_RETIRED" >> "$GITHUB_OUTPUT"
             echo "candidate_sha=$CANDIDATE_SHA" >> "$GITHUB_OUTPUT"
             echo "development_branch=$DEVELOPMENT_BRANCH" >> "$GITHUB_OUTPUT"
             echo "trunk_branch=$TRUNK_BRANCH" >> "$GITHUB_OUTPUT"
@@ -209,6 +238,7 @@ jobs:
             RELEASE_TAG: ${{ inputs.releaseTag }}
             CANDIDATE_SHA: ${{ steps.candidate.outputs.candidate_sha }}
             RELEASE_PLEASE_MODE: ${{ steps.candidate.outputs.release_please_mode }}
+            RELEASE_ORDER_BRANCHES_RETIRED: ${{ steps.candidate.outputs.release_order_branches_retired }}
             DEVELOPMENT_BRANCH: ${{ steps.candidate.outputs.development_branch }}
             TRUNK_BRANCH: ${{ steps.candidate.outputs.trunk_branch }}
             RELEASE_ORDER_A_BRANCH: ${{ steps.candidate.outputs.release_order_a_branch }}
@@ -238,7 +268,12 @@ jobs:
               echo "HEAD is not the checked candidate ${CANDIDATE_SHA}; nothing was pushed"
               exit 1
             fi
-            if [ "$RELEASE_PLEASE_MODE" = "true" ]; then
+            if [ "${RELEASE_ORDER_BRANCHES_RETIRED:-}" = "true" ]; then
+              # The preflight accepts this only in Release Please mode. The
+              # step still runs and succeeds, which is how the shadow promoter
+              # tells this real run from a dry run.
+              echo "The release-order branches are retired: ${RELEASE_TAG} is confirmed and no branch was pushed. The shadow promoter moves the S3 pointers."
+            elif [ "$RELEASE_PLEASE_MODE" = "true" ]; then
               git push --atomic origin \
                 "HEAD:refs/heads/${RELEASE_ORDER_A_BRANCH}" \
                 "HEAD:refs/heads/${RELEASE_ORDER_B_BRANCH}" \
@@ -263,6 +298,7 @@ jobs:
             RELEASE_ORDER_B_BRANCH: ${{ steps.candidate.outputs.release_order_b_branch }}
             RELEASE_ORDER_C_BRANCH: ${{ steps.candidate.outputs.release_order_c_branch }}
             RELEASE_PLEASE_MODE: ${{ steps.candidate.outputs.release_please_mode }}
+            RELEASE_ORDER_BRANCHES_RETIRED: ${{ steps.candidate.outputs.release_order_branches_retired }}
             DRY_RUN: ${{ github.event.inputs.dryRun }}
             SOURCE_REF: ${{ github.ref }}
           run: |
@@ -272,7 +308,14 @@ jobs:
             else
               ACTION="Completed atomic push"
             fi
-            if [ "$RELEASE_PLEASE_MODE" = "true" ]; then
+            if [ "${RELEASE_ORDER_BRANCHES_RETIRED:-}" = "true" ]; then
+              set --
+              if [ "$DRY_RUN" = "true" ]; then
+                ACTION="Would confirm the release and push no branch"
+              else
+                ACTION="Confirmed the release and pushed no branch"
+              fi
+            elif [ "$RELEASE_PLEASE_MODE" = "true" ]; then
               set -- "$RELEASE_ORDER_A_BRANCH" "$RELEASE_ORDER_B_BRANCH" \
                 "$RELEASE_ORDER_C_BRANCH"
             else
@@ -289,10 +332,15 @@ jobs:
               printf -- '- Release Please mode: `%s`\n' "$RELEASE_PLEASE_MODE"
               printf -- '- Dry run: `%s`\n' "$DRY_RUN"
               printf -- '- Action: `%s`\n' "$ACTION"
-              printf -- '- Destinations:'
-              printf ' `%s`' "$@"
-              printf '\n\n### Atomic command\n\n```sh\n'
-              printf 'git push --atomic origin'
-              printf ' \\\n  HEAD:refs/heads/%s' "$@"
-              printf '\n```\n'
+              printf -- '- Release-order branches retired: `%s`\n' "${RELEASE_ORDER_BRANCHES_RETIRED:-false}"
+              if [ "$#" -gt 0 ]; then
+                printf -- '- Destinations:'
+                printf ' `%s`' "$@"
+                printf '\n\n### Atomic command\n\n```sh\n'
+                printf 'git push --atomic origin'
+                printf ' \\\n  HEAD:refs/heads/%s' "$@"
+                printf '\n```\n'
+              else
+                printf -- '- Destinations: none. The shadow promoter moves the S3 pointers after this run.\n'
+              fi
             } >> "$GITHUB_STEP_SUMMARY"
