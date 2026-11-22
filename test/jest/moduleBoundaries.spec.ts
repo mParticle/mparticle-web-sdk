@@ -73,22 +73,6 @@ const collectRuntimeImports = (srcDir: string): RuntimeImport[] => {
             .relative(srcDir, file)
             .split(path.sep)
             .join('/');
-    const resolveImport = (fromFile: string, specifier: string): string | null => {
-        if (!specifier.startsWith('.')) {
-            return null;
-        }
-        const base = path.resolve(
-            path.dirname(fromFile),
-            specifier.replace(/\.js$/, '')
-        );
-        const found = [
-            base + '.ts',
-            base + '.js',
-            path.join(base, 'index.ts'),
-        ].find(candidate => fs.existsSync(candidate));
-        return found ? relative(found) : null;
-    };
-
     const configFile = ts.readConfigFile(
         path.join(ROOT, 'tsconfig.json'),
         ts.sys.readFile
@@ -99,7 +83,7 @@ const collectRuntimeImports = (srcDir: string): RuntimeImport[] => {
         ROOT
     );
     const sources = listSourceFiles(srcDir);
-    const program = ts.createProgram(sources, {
+    const compilerOptions: ts.CompilerOptions = {
         ...options,
         rootDir: srcDir,
         allowJs: true,
@@ -109,7 +93,22 @@ const collectRuntimeImports = (srcDir: string): RuntimeImport[] => {
         noEmitOnError: false,
         declaration: false,
         sourceMap: false,
-    });
+    };
+    const program = ts.createProgram(sources, compilerOptions);
+    // Resolves the way the compiler does: index files, .js and .ts sources.
+    const resolveImport = (fromFile: string, specifier: string): string | null => {
+        const resolved = ts.resolveModuleName(
+            specifier,
+            fromFile,
+            compilerOptions,
+            ts.sys
+        ).resolvedModule;
+        if (!resolved || resolved.isExternalLibraryImport) {
+            return null;
+        }
+        const file = relative(resolved.resolvedFileName);
+        return file.startsWith('..') ? null : file;
+    };
 
     const imports: RuntimeImport[] = [];
     sources.forEach(source => {
@@ -246,6 +245,9 @@ describe('module boundaries import reader', () => {
         'base.ts': 'export default class Base {}\n',
         'thing.ts': 'export interface IThing { a: number }\n',
         'mod/values.ts': 'export const one = 1;\nexport const two = 2;\n',
+        'mod/index.js': 'export const fromIndex = 1;\n',
+        'directory.ts':
+            "import { fromIndex } from './mod';\nexport const z = fromIndex;\n",
         'aliased.ts':
             "import { one as two } from './mod/values';\nexport const x = two;\n",
         'namespace.ts':
@@ -282,12 +284,13 @@ describe('module boundaries import reader', () => {
         fs.rmSync(dir, { recursive: true, force: true });
     });
 
-    it('reports exported names, namespaces, extends and import(), and skips type-only use', () => {
+    it('reports exported names, namespaces, index files, extends and import(), and skips type-only use', () => {
         const found = collectRuntimeImports(dir)
             .map(({ from, to, names }) => `${from} -> ${to}: ${names.join(', ')}`)
             .sort();
         expect(found).toEqual([
             'aliased.ts -> mod/values.ts: one',
+            'directory.ts -> mod/index.js: fromIndex',
             `mod/computed.ts -> ${UNKNOWN_TARGET}: *`,
             'mod/dynamic.ts -> base.ts: *',
             'mod/extends.ts -> base.ts: default',
