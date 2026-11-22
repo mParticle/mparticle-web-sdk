@@ -12,7 +12,7 @@ import {
     SDKProduct,
     SDKPromotion,
 } from './sdkRuntimeModels';
-import { IPageViewOptions } from './pageViewTracker';
+import { IPageViewOptions } from './pageViewAttributes';
 import { valueof } from './utils';
 import { EventType, ProductActionType, PromotionActionType } from './types';
 
