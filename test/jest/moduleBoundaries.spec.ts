@@ -1,4 +1,5 @@
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 import * as ts from 'typescript';
 
@@ -43,18 +44,15 @@ const MODULE_READS_FROM_CORE: Record<string, string[]> = {
     ],
 };
 
+// An import() whose target is not a plain string, so no check can follow it.
+const UNKNOWN_TARGET = '(unknown target)';
+
 interface RuntimeImport {
     from: string;
     to: string;
-    // Exported names; '*' for a namespace import or `export *`.
+    // Exported names; '*' for a namespace import, `export *` or import().
     names: string[];
 }
-
-const toSrcPath = (file: string): string =>
-    path
-        .relative(SRC, file)
-        .split(path.sep)
-        .join('/');
 
 const listSourceFiles = (dir: string): string[] =>
     fs.readdirSync(dir, { withFileTypes: true }).flatMap(entry => {
@@ -67,23 +65,30 @@ const listSourceFiles = (dir: string): string[] =>
             : [];
     });
 
-const resolveImport = (fromFile: string, specifier: string): string | null => {
-    if (!specifier.startsWith('.')) {
-        return null;
-    }
-    const base = path.resolve(
-        path.dirname(fromFile),
-        specifier.replace(/\.js$/, '')
-    );
-    const found = [base + '.ts', base + '.js', path.join(base, 'index.ts')].find(
-        candidate => fs.existsSync(candidate)
-    );
-    return found ? toSrcPath(found) : null;
-};
+// Compiles every file under srcDir in memory with the build's tsconfig, keeping
+// ES module syntax, and lists the relative imports left in the output.
+const collectRuntimeImports = (srcDir: string): RuntimeImport[] => {
+    const relative = (file: string): string =>
+        path
+            .relative(srcDir, file)
+            .split(path.sep)
+            .join('/');
+    const resolveImport = (fromFile: string, specifier: string): string | null => {
+        if (!specifier.startsWith('.')) {
+            return null;
+        }
+        const base = path.resolve(
+            path.dirname(fromFile),
+            specifier.replace(/\.js$/, '')
+        );
+        const found = [
+            base + '.ts',
+            base + '.js',
+            path.join(base, 'index.ts'),
+        ].find(candidate => fs.existsSync(candidate));
+        return found ? relative(found) : null;
+    };
 
-// Compiles src/ in memory with the build's tsconfig, keeping ES module syntax,
-// and returns each source file's emitted JavaScript.
-const emitSources = (): Map<string, string> => {
     const configFile = ts.readConfigFile(
         path.join(ROOT, 'tsconfig.json'),
         ts.sys.readFile
@@ -93,9 +98,10 @@ const emitSources = (): Map<string, string> => {
         ts.sys,
         ROOT
     );
-    const sources = listSourceFiles(SRC);
+    const sources = listSourceFiles(srcDir);
     const program = ts.createProgram(sources, {
         ...options,
+        rootDir: srcDir,
         allowJs: true,
         module: ts.ModuleKind.ESNext,
         target: ts.ScriptTarget.ES2020,
@@ -104,74 +110,76 @@ const emitSources = (): Map<string, string> => {
         declaration: false,
         sourceMap: false,
     });
-    const emitted = new Map<string, string>();
+
+    const imports: RuntimeImport[] = [];
     sources.forEach(source => {
-        const sourceFile = program.getSourceFile(source);
-        program.emit(sourceFile, (fileName, text) => {
+        let code = '';
+        program.emit(program.getSourceFile(source), (fileName, text) => {
             if (/\.js$/.test(fileName)) {
-                emitted.set(source, text);
+                code = text;
             }
         });
-    });
-    return emitted;
-};
-
-const importsIn = (source: string, code: string): RuntimeImport[] => {
-    const parsed = ts.createSourceFile(
-        source,
-        code,
-        ts.ScriptTarget.Latest,
-        true
-    );
-    const imports: RuntimeImport[] = [];
-    const add = (specifier: ts.Node | undefined, names: string[]): void => {
-        if (!specifier || !ts.isStringLiteralLike(specifier)) {
-            return;
-        }
-        const to = resolveImport(source, specifier.text);
-        if (to) {
-            imports.push({ from: toSrcPath(source), to, names });
-        }
-    };
-    const visit = (node: ts.Node): void => {
-        if (ts.isImportDeclaration(node)) {
-            const clause = node.importClause;
-            const bindings = clause && clause.namedBindings;
-            const names: string[] = [];
-            if (!clause) {
-                names.push('(side effect)');
+        const add = (specifier: string, names: string[]): void => {
+            const to = resolveImport(source, specifier);
+            if (to) {
+                imports.push({ from: relative(source), to, names });
             }
-            if (clause && clause.name) {
-                names.push('default');
-            }
-            if (bindings && ts.isNamespaceImport(bindings)) {
-                names.push('*');
-            }
-            if (bindings && ts.isNamedImports(bindings)) {
-                bindings.elements.forEach(element =>
-                    names.push((element.propertyName || element.name).text)
+        };
+        const visit = (node: ts.Node): void => {
+            if (ts.isImportDeclaration(node)) {
+                const clause = node.importClause;
+                const bindings = clause && clause.namedBindings;
+                const names: string[] = [];
+                if (!clause) {
+                    names.push('(side effect)');
+                }
+                if (clause && clause.name) {
+                    names.push('default');
+                }
+                if (bindings && ts.isNamespaceImport(bindings)) {
+                    names.push('*');
+                }
+                if (bindings && ts.isNamedImports(bindings)) {
+                    bindings.elements.forEach(element =>
+                        names.push((element.propertyName || element.name).text)
+                    );
+                }
+                add((node.moduleSpecifier as ts.StringLiteral).text, names);
+            } else if (ts.isExportDeclaration(node) && node.moduleSpecifier) {
+                const clause = node.exportClause;
+                add(
+                    (node.moduleSpecifier as ts.StringLiteral).text,
+                    clause && ts.isNamedExports(clause)
+                        ? clause.elements.map(
+                              element =>
+                                  (element.propertyName || element.name).text
+                          )
+                        : ['*']
                 );
+            } else if (
+                ts.isCallExpression(node) &&
+                node.expression.kind === ts.SyntaxKind.ImportKeyword
+            ) {
+                let target = node.arguments[0];
+                while (target && ts.isParenthesizedExpression(target)) {
+                    target = target.expression;
+                }
+                if (target && ts.isStringLiteralLike(target)) {
+                    add(target.text, ['*']);
+                } else {
+                    imports.push({
+                        from: relative(source),
+                        to: UNKNOWN_TARGET,
+                        names: ['*'],
+                    });
+                }
             }
-            add(node.moduleSpecifier, names);
-        } else if (ts.isExportDeclaration(node) && node.moduleSpecifier) {
-            const clause = node.exportClause;
-            add(
-                node.moduleSpecifier,
-                clause && ts.isNamedExports(clause)
-                    ? clause.elements.map(
-                          element => (element.propertyName || element.name).text
-                      )
-                    : ['*']
-            );
-        } else if (
-            ts.isCallExpression(node) &&
-            node.expression.kind === ts.SyntaxKind.ImportKeyword
-        ) {
-            add(node.arguments[0], ['*']);
-        }
-        ts.forEachChild(node, visit);
-    };
-    visit(parsed);
+            ts.forEachChild(node, visit);
+        };
+        visit(
+            ts.createSourceFile(source, code, ts.ScriptTarget.Latest, true)
+        );
+    });
     return imports;
 };
 
@@ -179,10 +187,7 @@ const moduleOf = (file: string): string | undefined =>
     MODULE_FOLDERS.find(folder => file.startsWith(folder + '/'));
 
 describe('module boundaries', () => {
-    const runtimeImports: RuntimeImport[] = [];
-    emitSources().forEach((code, source) =>
-        runtimeImports.push(...importsIn(source, code))
-    );
+    const runtimeImports = collectRuntimeImports(SRC);
 
     it('finds the files and imports it checks', () => {
         MODULE_FOLDERS.forEach(folder => {
@@ -191,6 +196,16 @@ describe('module boundaries', () => {
         expect(
             runtimeImports.some(({ from, to }) => moduleOf(from) && !moduleOf(to))
         ).toBe(true);
+    });
+
+    it('can follow every import() in src/', () => {
+        const unknown = runtimeImports
+            .filter(({ to }) => to === UNKNOWN_TARGET)
+            .map(({ from }) => from);
+        expect(
+            unknown,
+            'This import() has a computed target, so this spec cannot check which side of the line it lands on. Use a string literal.'
+        ).toEqual([]);
     });
 
     it('lets core reach into a module folder only through the listed imports', () => {
@@ -223,5 +238,60 @@ describe('module boundaries', () => {
             unlisted,
             'A module now reads a core file its build does not share or copy yet. Add the file to MODULE_READS_FROM_CORE once the module build accounts for it, or import a type only.'
         ).toEqual([]);
+    });
+});
+
+describe('module boundaries import reader', () => {
+    const fixture: Record<string, string> = {
+        'base.ts': 'export default class Base {}\n',
+        'thing.ts': 'export interface IThing { a: number }\n',
+        'mod/values.ts': 'export const one = 1;\nexport const two = 2;\n',
+        'aliased.ts':
+            "import { one as two } from './mod/values';\nexport const x = two;\n",
+        'namespace.ts':
+            "import * as all from './mod/values';\nexport const y = all;\n",
+        'mod/extends.ts':
+            "import Base from '../base';\nexport class Child extends Base {}\n",
+        'mod/typeOnly.ts': [
+            "import { IThing } from '../thing';",
+            'export type { IThing };',
+            'export function read(x: IThing) {',
+            '    const IThing = 1;',
+            '    return IThing;',
+            '}',
+            '',
+        ].join('\n'),
+        'mod/reexportType.ts': "export { IThing } from '../thing';\n",
+        'mod/dynamic.ts': "export const load = () => import(('../base'));\n",
+        'mod/computed.ts':
+            "const target = '../base';\nexport const load = () => import(target);\n",
+    };
+    let dir: string;
+
+    beforeAll(() => {
+        dir = fs.mkdtempSync(path.join(os.tmpdir(), 'module-boundaries-'));
+        Object.keys(fixture).forEach(file => {
+            fs.mkdirSync(path.dirname(path.join(dir, file)), {
+                recursive: true,
+            });
+            fs.writeFileSync(path.join(dir, file), fixture[file]);
+        });
+    });
+
+    afterAll(() => {
+        fs.rmSync(dir, { recursive: true, force: true });
+    });
+
+    it('reports exported names, namespaces, extends and import(), and skips type-only use', () => {
+        const found = collectRuntimeImports(dir)
+            .map(({ from, to, names }) => `${from} -> ${to}: ${names.join(', ')}`)
+            .sort();
+        expect(found).toEqual([
+            'aliased.ts -> mod/values.ts: one',
+            `mod/computed.ts -> ${UNKNOWN_TARGET}: *`,
+            'mod/dynamic.ts -> base.ts: *',
+            'mod/extends.ts -> base.ts: default',
+            'namespace.ts -> mod/values.ts: *',
+        ]);
     });
 });
