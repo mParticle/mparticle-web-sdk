@@ -4,9 +4,9 @@ import {
     BUTTON_CLICK_EVENT_NAME,
     buildButtonClickEvent,
     buildLinkClickEvent,
-    getButtonClickBlocker,
     LINK_CLICK_EVENT_NAME,
 } from '../../../src/buttonTracking/buttonClickEvent';
+import { getButtonClickBlocker } from '../../../src/autoClickForwarding';
 import { IButtonClick } from '../../../src/buttonTracking/buttonDescription';
 import { IKitFilterSettings } from '../../../src/configAPIClient';
 import Helpers from '../../../src/helpers';

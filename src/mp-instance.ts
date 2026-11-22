@@ -67,7 +67,7 @@ import {
     resetPageViewTracking,
 } from './pageViewTracker';
 import { ButtonTracker, resetButtonTracking } from './buttonTracking/buttonTracker';
-import { getButtonClickBlocker } from './buttonTracking/buttonClickEvent';
+import { getButtonClickBlocker } from './autoClickForwarding';
 import Validators from './validators';
 
 export interface IErrorLogMessage {

@@ -27,18 +27,14 @@ const CORE_INTO_MODULE: Record<string, string[]> = {
         'ButtonTracker',
         'resetButtonTracking',
     ],
-    'mp-instance.ts -> buttonTracking/buttonClickEvent.ts': [
-        'getButtonClickBlocker',
-    ],
 };
 
 // The core files each module reads values from. A module build has to share
 // these with the core or carry its own copy.
 const MODULE_READS_FROM_CORE: Record<string, string[]> = {
     buttonTracking: [
+        'autoClickNames.ts',
         'eventTypeIds.ts',
-        'forwarder-utils.ts',
-        'kitFilterHelper.ts',
         'pathMasking.ts',
         'utils.ts',
     ],
