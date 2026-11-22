@@ -567,6 +567,19 @@ from** dropdown and run its workflows in order:
    `v3-development` is retired. `dryRun=true` performs all validation without
    pushing. `dryRun=false` performs the atomic push and releases the candidate
    to those destinations.
+   When the repository variable `V3_RELEASE_ORDER_BRANCHES_RETIRED` is also
+   `true`, the three `v3-release-order-*` git branches are retired: V3 Step 3
+   makes the same checks and pushes no branch, and V3 Step 2 stops at its first
+   step. Every V3 channel is served from its S3 pointer, so the S3 promote that
+   follows Step 3 still moves all release-order channels and `ga`; it then
+   checks that `v3-staging` is still at the tag in place of the three branches.
+   To move one release-order channel, run `promote-release-order` by hand (see
+   **Undo a rollback or replace a build**). The variable needs
+   `V3_RELEASE_PLEASE_ENABLED` to be `true`; without it Step 3 fails before any
+   push. Like `V3_RELEASE_PLEASE_ENABLED`, don't change it while a Step 3 run or
+   its S3 promote is in progress. Setting it back to `false` restores the
+   branch pushes on the next Step 3 run, as long as the three branches still
+   exist and can fast-forward to the tag.
 
 Safe sequence: run Step 1 with `dryRun=true`, then Step 1 with `dryRun=false`;
 copy its release tag; optionally preview and run Step 2 for each needed

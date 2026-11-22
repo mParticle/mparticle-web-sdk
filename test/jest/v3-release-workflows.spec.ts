@@ -1512,7 +1512,7 @@ describe('V3 shadow release workflows', () => {
                 );
                 const [command, jobsList] = fs.readFileSync(nodeLog, 'utf8').split('\n');
                 expect(command).toMatch(
-                    /release-step .* --release-please-mode true --jobs \S+\/release-jobs\.json$/
+                    /release-step .* --release-please-mode true --release-order-branches-retired false --jobs \S+\/release-jobs\.json$/
                 );
                 expect(JSON.parse(jobsList)).toEqual([{ name: 'a' }, { name: 'b' }]);
                 expect(fs.readFileSync(path.join(directory, 'outputs'), 'utf8')).toBe('skip=true\n');

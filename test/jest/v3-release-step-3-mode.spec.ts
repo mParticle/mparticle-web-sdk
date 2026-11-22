@@ -18,6 +18,12 @@ const WORKFLOW = yaml.load(
         'utf8'
     )
 );
+const STEP_2_WORKFLOW = yaml.load(
+    fs.readFileSync(
+        path.join(__dirname, '../../.github/workflows/v3-release-step-2.yml'),
+        'utf8'
+    )
+);
 const V2_WORKFLOW = yaml.load(
     fs.readFileSync(
         path.join(__dirname, '../../.github/workflows/staging-step-3.yml'),
@@ -159,13 +165,17 @@ function synchronize(
     checkout: string,
     root: string,
     enabled: string,
-    beforePush: () => void = () => {}
+    beforePush: () => void = () => {},
+    retired?: string
 ) {
     const outputFile = path.join(root, 'github-output');
     fs.writeFileSync(outputFile, '');
     const candidate = runStep('Resolve and preflight release candidate', checkout, {
         RELEASE_TAG,
         RELEASE_PLEASE_ENABLED: enabled,
+        ...(retired === undefined
+            ? {}
+            : { RELEASE_ORDER_BRANCHES_RETIRED: retired }),
         GITHUB_OUTPUT: outputFile,
     });
     const outputs: Record<string, string> = {};
@@ -183,6 +193,7 @@ function synchronize(
         RELEASE_TAG,
         CANDIDATE_SHA: outputs.candidate_sha,
         RELEASE_PLEASE_MODE: outputs.release_please_mode,
+        RELEASE_ORDER_BRANCHES_RETIRED: outputs.release_order_branches_retired,
         DEVELOPMENT_BRANCH: outputs.development_branch,
         TRUNK_BRANCH: outputs.trunk_branch,
         RELEASE_ORDER_A_BRANCH: outputs.release_order_a_branch,
@@ -233,11 +244,14 @@ function step3Jobs(pushConclusion: string) {
 // --release-please-mode value, or undefined to leave the flag out.
 // pushConclusion is how the run's push step concluded: 'success' for a real
 // run that pushed, 'skipped' for a dry run, 'failure' for a failed push.
+// retired is the --release-order-branches-retired value, or undefined to
+// leave the flag out.
 function shadowPlan(
     root: string,
     checkout: string,
     mode?: string,
-    pushConclusion = 'success'
+    pushConclusion = 'success',
+    retired?: string
 ): string[] {
     const jobsFile = path.join(root, 'step-3-jobs.json');
     fs.writeFileSync(jobsFile, JSON.stringify(step3Jobs(pushConclusion)));
@@ -270,6 +284,9 @@ function shadowPlan(
             '--v3-step3-workflow-id',
             '313',
             ...(mode === undefined ? [] : ['--release-please-mode', mode]),
+            ...(retired === undefined
+                ? []
+                : ['--release-order-branches-retired', retired]),
             '--jobs',
             jobsFile,
         ],
@@ -729,5 +746,292 @@ describe('V3 Step 3 Release Please mode', () => {
         ]) {
             expect(after[branch]).toBe(base);
         }
+    });
+
+    describe('with the release-order branches retired', () => {
+        const RETIRED_VARIABLE = '${{ vars.V3_RELEASE_ORDER_BRANCHES_RETIRED }}';
+
+        it('reads the V3_RELEASE_ORDER_BRANCHES_RETIRED repository variable in Step 3, Step 2 and the shadow promoter plan', () => {
+            const candidate = STEPS.find(
+                step => step.name === 'Resolve and preflight release candidate'
+            );
+            expect(candidate.env.RELEASE_ORDER_BRANCHES_RETIRED).toBe(
+                RETIRED_VARIABLE
+            );
+            for (const name of [PUSH_STEP, 'Report synchronized release']) {
+                const step = STEPS.find(item => item.name === name);
+                expect(step.env.RELEASE_ORDER_BRANCHES_RETIRED).toBe(
+                    '${{ steps.candidate.outputs.release_order_branches_retired }}'
+                );
+                expect(step.run).not.toContain('${{');
+            }
+            const plan = PROMOTE.jobs.resolve.steps.find(
+                (step: any) =>
+                    step.name ===
+                    'Plan from the release run or the dispatch inputs'
+            );
+            expect(plan.env.RELEASE_ORDER_BRANCHES_RETIRED).toBe(
+                RETIRED_VARIABLE
+            );
+            expect(plan.run).toContain(
+                '--release-order-branches-retired "$BRANCHES_RETIRED"'
+            );
+            const guard =
+                STEP_2_WORKFLOW.jobs['promote-release-candidate'].steps[0];
+            expect(guard.name).toBe(
+                'Stop when the release-order branches are retired'
+            );
+            expect(guard.env).toEqual({
+                RELEASE_ORDER_BRANCHES_RETIRED: RETIRED_VARIABLE,
+            });
+            expect(guard.run).not.toContain('${{');
+        });
+
+        it('pushes no branch on a real run, and the push step still succeeds', () => {
+            const { root, origin, checkout, base, release } = setUp(true);
+            roots.push(root);
+
+            const { candidate, outputs, push } = synchronize(
+                checkout,
+                root,
+                'true',
+                () => {},
+                'true'
+            );
+
+            expect(candidate.status).toBe(0);
+            expect(outputs.release_please_mode).toBe('true');
+            expect(outputs.release_order_branches_retired).toBe('true');
+            expect(push.status).toBe(0);
+            expect(push.output).toContain('no branch was pushed');
+            const after = heads(origin);
+            for (const branch of [...RELEASE_ORDER_BRANCHES, 'v3-development']) {
+                expect(after[branch]).toBe(base);
+            }
+            expect(after.main).toBe(release);
+            expect(after['v3-staging']).toBe(release);
+        });
+
+        it('does not need the release-order branches to exist', () => {
+            const { root, origin, checkout } = setUp(true);
+            roots.push(root);
+            for (const branch of RELEASE_ORDER_BRANCHES) {
+                git(origin, 'update-ref', '-d', `refs/heads/${branch}`);
+            }
+
+            const { candidate, push } = synchronize(
+                checkout,
+                root,
+                'true',
+                () => {},
+                'true'
+            );
+
+            expect(candidate.status).toBe(0);
+            expect(push.status).toBe(0);
+            for (const branch of RELEASE_ORDER_BRANCHES) {
+                expect(heads(origin)[branch]).toBeUndefined();
+            }
+        });
+
+        it('still stops before the push step succeeds when the tag moved after the preflight', () => {
+            const { root, seed, checkout, base } = setUp(true);
+            roots.push(root);
+
+            const { candidate, push } = synchronize(
+                checkout,
+                root,
+                'true',
+                () => {
+                    git(seed, 'tag', '-f', RELEASE_TAG, base);
+                    git(seed, 'push', '-q', '-f', 'origin', `refs/tags/${RELEASE_TAG}`);
+                },
+                'true'
+            );
+
+            expect(candidate.status).toBe(0);
+            expect(push.status).not.toBe(0);
+            expect(push.output).toContain('nothing was pushed');
+        });
+
+        it('fails the preflight without Release Please mode', () => {
+            const { root, origin, checkout, base } = setUp(false);
+            roots.push(root);
+
+            const { candidate, push } = synchronize(
+                checkout,
+                root,
+                'false',
+                () => {},
+                'true'
+            );
+
+            expect(candidate.status).not.toBe(0);
+            expect(candidate.output).toContain(
+                'V3_RELEASE_ORDER_BRANCHES_RETIRED needs V3_RELEASE_PLEASE_ENABLED to be true'
+            );
+            expect(push).toBeUndefined();
+            for (const branch of [...RELEASE_ORDER_BRANCHES, 'main']) {
+                expect(heads(origin)[branch]).toBe(base);
+            }
+        });
+
+        it.each([['false'], [''], ['TRUE']])(
+            'pushes the release-order branches as before when the variable is %p',
+            value => {
+                const { root, origin, checkout, release } = setUp(true);
+                roots.push(root);
+
+                const { candidate, outputs, push } = synchronize(
+                    checkout,
+                    root,
+                    'true',
+                    () => {},
+                    value
+                );
+
+                expect(candidate.status).toBe(0);
+                expect(outputs.release_order_branches_retired).toBe('false');
+                expect(push.status).toBe(0);
+                for (const branch of RELEASE_ORDER_BRANCHES) {
+                    expect(heads(origin)[branch]).toBe(release);
+                }
+            }
+        );
+
+        it('reports no destination and no push command', () => {
+            const { root, checkout } = setUp(true);
+            roots.push(root);
+            const summary = path.join(root, 'summary.md');
+            fs.writeFileSync(summary, '');
+
+            const report = runStep('Report synchronized release', checkout, {
+                RELEASE_TAG,
+                TRACK: 'v3',
+                CANDIDATE_SHA: 'a'.repeat(40),
+                DEVELOPMENT_BRANCH: 'v3-development',
+                TRUNK_BRANCH: 'main',
+                RELEASE_ORDER_A_BRANCH: 'v3-release-order-a',
+                RELEASE_ORDER_B_BRANCH: 'v3-release-order-b',
+                RELEASE_ORDER_C_BRANCH: 'v3-release-order-c',
+                RELEASE_PLEASE_MODE: 'true',
+                RELEASE_ORDER_BRANCHES_RETIRED: 'true',
+                DRY_RUN: 'false',
+                SOURCE_REF: 'refs/heads/main',
+                GITHUB_STEP_SUMMARY: summary,
+            });
+
+            expect(report.status).toBe(0);
+            const text = fs.readFileSync(summary, 'utf8');
+            expect(text).toContain('- Release-order branches retired: `true`');
+            expect(text).toContain('- Action: `Confirmed the release and pushed no branch`');
+            expect(text).toContain('- Destinations: none.');
+            expect(text).not.toContain('git push');
+        });
+
+        it('lets the shadow promoter move ga and the release orders on v3-staging alone', () => {
+            const { root, origin, checkout } = setUp(true);
+            roots.push(root);
+            for (const branch of RELEASE_ORDER_BRANCHES) {
+                git(origin, 'update-ref', '-d', `refs/heads/${branch}`);
+            }
+
+            expect(shadowPlan(root, checkout, 'true', 'success', 'true')).toEqual([
+                'step=3',
+                'skip=false',
+                `release_tag=${RELEASE_TAG}`,
+                'release_version=3.30.0',
+                'channels=v3-release-order-a,v3-release-order-b,v3-release-order-c,ga',
+                'branches=v3-staging',
+                'mismatched=',
+            ]);
+        });
+
+        it('moves no pointer once a newer release has been staged', () => {
+            const { root, seed, checkout } = setUp(true);
+            roots.push(root);
+            const newer = commit(seed, '3.31.0');
+            git(seed, 'push', '-q', '-f', 'origin', `${newer}:refs/heads/v3-staging`);
+
+            const plan = shadowPlan(root, checkout, 'true', 'success', 'true');
+
+            expect(plan).toContain('skip=true');
+            expect(plan).toContain('mismatched=v3-staging');
+        });
+
+        it.each([['skipped'], ['failure']])(
+            'moves no pointer when the push step concluded %s',
+            conclusion => {
+                const { root, checkout } = setUp(true);
+                roots.push(root);
+
+                expect(
+                    shadowPlan(root, checkout, 'true', conclusion, 'true')
+                ).toContain('skip=true');
+            }
+        );
+
+        it('rejects the flag without Release Please mode, and a value that is not true or false', () => {
+            const { root, checkout } = setUp(true);
+            roots.push(root);
+
+            expect(() =>
+                shadowPlan(root, checkout, 'false', 'success', 'true')
+            ).toThrow(
+                '--release-order-branches-retired true needs --release-please-mode true'
+            );
+            expect(() =>
+                shadowPlan(root, checkout, 'true', 'success', 'yes')
+            ).toThrow('--release-order-branches-retired must be true or false');
+        });
+
+        it('skips a Step 2 run', () => {
+            const plan = trigger.planReleaseStep(
+                {
+                    id: 36621677033,
+                    run_attempt: 1,
+                    event: 'workflow_dispatch',
+                    status: 'completed',
+                    conclusion: 'success',
+                    path: '.github/workflows/v3-release-step-2.yml',
+                    head_branch: 'main',
+                    display_title: `V3 Release - Step 2 [${RELEASE_TAG} → release-order-a]`,
+                    workflow_id: 212,
+                    head_repository: { full_name: 'example-org/example-repo' },
+                    repository: { full_name: 'example-org/example-repo' },
+                },
+                'example-org/example-repo',
+                { v3Step2: '212', v3Step3: '313' },
+                true,
+                undefined,
+                true
+            );
+
+            expect(plan.skip).toBe(true);
+            expect(plan.reason).toBe(
+                'The release-order branches are retired, so a Step 2 run moves no pointer'
+            );
+            expect(plan.channels).toEqual([]);
+        });
+
+        it.each([
+            ['true', 1],
+            ['false', 0],
+            ['', 0],
+        ])('stops Step 2 at its first step when the variable is %p', (value, status) => {
+            const guard =
+                STEP_2_WORKFLOW.jobs['promote-release-candidate'].steps[0];
+            const result = run(
+                'bash',
+                ['--noprofile', '--norc', '-eo', 'pipefail', '-c', guard.run],
+                os.tmpdir(),
+                { RELEASE_ORDER_BRANCHES_RETIRED: value }
+            );
+
+            expect(result.status).toBe(status);
+            if (status !== 0) {
+                expect(result.output).toContain('promote-release-order');
+            }
+        });
     });
 });

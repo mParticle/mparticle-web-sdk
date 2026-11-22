@@ -2,6 +2,13 @@ name: 'V3 Release - Step 2: Publish SDK Release to Release Order Branch'
 run-name: 'V3 Release - Step 2 [${{ inputs.releaseTag }} → ${{ inputs.releaseOrderBranch }}]'
 
 # The V3 release, Step 2. V2 releases with staging-step-2.yml.
+#
+# Step 2 pushes one release-order git branch. When the repository variable
+# V3_RELEASE_ORDER_BRANCHES_RETIRED is 'true' those branches are retired, so
+# every run, dry runs included, stops at its first step before the release
+# token is used. To move one release-order channel, dispatch the workflow
+# "V3 shadow release: move release pointers" with operation
+# promote-release-order.
 
 on:
     workflow_dispatch:
@@ -37,6 +44,16 @@ jobs:
             GIT_COMMITTER_NAME: mparticle-automation
             GIT_COMMITTER_EMAIL: developers@mparticle.com
         steps:
+            - name: Stop when the release-order branches are retired
+              env:
+                  RELEASE_ORDER_BRANCHES_RETIRED: ${{ vars.V3_RELEASE_ORDER_BRANCHES_RETIRED }}
+              run: |
+                  set -eu
+                  if [ "${RELEASE_ORDER_BRANCHES_RETIRED:-}" = "true" ]; then
+                      echo "::error title=Release-order branches retired::V3_RELEASE_ORDER_BRANCHES_RETIRED is true, so Step 2 no longer pushes a release-order branch. To move one release-order channel, dispatch the workflow 'V3 shadow release: move release pointers' with operation promote-release-order. Nothing was checked out or pushed."
+                      exit 1
+                  fi
+
             - name: Checkout repository
               uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
               with:
