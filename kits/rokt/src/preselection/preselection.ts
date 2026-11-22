@@ -2621,6 +2621,7 @@ function holdOrFirePreselect(
 ): void {
   const queued = state.pending.find((entry) => stripTrailingSlash(entry.pathname) === stripTrailingSlash(pathname));
   intentSeen ??= intentKindOf(event) ?? queued?.intentSeen ?? intentKindOf(queued?.event);
+  const trigger = { event, pathname, triggeringUserId, triggeredAt, intentSeen };
   // fireDispatch checks these too, but the not-ready branch below persists a snapshot before any
   // dispatch, and a replayed page view reaches it without passing the kit's own gates.
   if (host.isTargetingDisabled() || !host.isPreselectionPrivacyAllowed()) {
@@ -2659,13 +2660,11 @@ function holdOrFirePreselect(
     const alreadyLogged = movedHere || (queued?.waitingFor === 'intent' && queued.awaitingIntentLogged === true);
     const canLog = host.isKitReady() && host.isPreselectionEnabled();
     enqueuePending(state, host, {
-      event,
-      pathname,
+      ...trigger,
       // Bound to an identified shopper, as a timer hold is, so another user's click never sends
       // this page view's attributes. A guest stays unbound so signing in at checkout still fires.
       triggeringUserId:
         triggeringUserId ?? (hasValidIdentity(host.filteredUser) ? getUserId(host.filteredUser) : undefined),
-      triggeredAt,
       waitingFor: 'intent',
       awaitingIntentLogged: alreadyLogged || canLog,
     });
@@ -2718,15 +2717,7 @@ function holdOrFirePreselect(
       }
     }
 
-    enqueuePending(state, host, {
-      event,
-      pathname,
-      storedDiagnostics,
-      triggeringUserId,
-      triggeredAt,
-      waitingFor: 'launcher',
-      intentSeen,
-    });
+    enqueuePending(state, host, { ...trigger, storedDiagnostics, waitingFor: 'launcher' });
     return;
   }
 
@@ -2739,7 +2730,7 @@ function holdOrFirePreselect(
   if (!passesIdentityGate(host, configEntry)) {
     logOutcome(host, 'missed', 'no_valid_identity', describeMissingIdentity(host, configEntry));
     // Guest checkout can hit this pageview before login; requeue for a later identification.
-    enqueuePending(state, host, { event, pathname, triggeringUserId, triggeredAt, intentSeen, waitingFor: 'identity' });
+    enqueuePending(state, host, { ...trigger, waitingFor: 'identity' });
     return;
   }
 
@@ -2864,6 +2855,7 @@ function dispatchAfterDelay(
   if (!configEntry || host.isTargetingDisabled() || !host.isPreselectionPrivacyAllowed()) {
     return;
   }
+  const trigger = { event, pathname, triggeringUserId, triggeredAt, intentSeen };
 
   // Checkout intent can start applying while a delay runs. The page view then waits for the click
   // too, still bound to the shopper it was held for.
@@ -2874,14 +2866,7 @@ function dispatchAfterDelay(
     pageViewsAwaitIntent(host)
   ) {
     const canLog = host.isKitReady() && host.isPreselectionEnabled();
-    enqueuePending(state, host, {
-      event,
-      pathname,
-      triggeringUserId,
-      triggeredAt,
-      waitingFor: 'intent',
-      awaitingIntentLogged: canLog,
-    });
+    enqueuePending(state, host, { ...trigger, waitingFor: 'intent', awaitingIntentLogged: canLog });
     if (canLog) {
       logOutcome(host, 'held', 'awaiting_intent');
     }
@@ -2889,7 +2874,7 @@ function dispatchAfterDelay(
   }
 
   if (!host.isKitReady()) {
-    enqueuePending(state, host, { event, pathname, triggeringUserId, triggeredAt, intentSeen, waitingFor: 'launcher' });
+    enqueuePending(state, host, { ...trigger, waitingFor: 'launcher' });
     return;
   }
 
@@ -2899,7 +2884,7 @@ function dispatchAfterDelay(
 
   if (!passesIdentityGate(host, configEntry)) {
     logOutcome(host, 'missed', 'no_valid_identity', describeMissingIdentity(host, configEntry));
-    enqueuePending(state, host, { event, pathname, triggeringUserId, triggeredAt, intentSeen, waitingFor: 'identity' });
+    enqueuePending(state, host, { ...trigger, waitingFor: 'identity' });
     return;
   }
 
@@ -2925,6 +2910,7 @@ function resolveAndDispatch(
 ): void {
   if (!host.isPreselectionPrivacyAllowed()) return;
   const { collected: collectedAttributes, missingKeys, formEmailKey } = collectAttributes(host, event, configEntry);
+  const trigger = { event, pathname, triggeringUserId, triggeredAt, intentSeen };
   const lastPageView = state.lastResolvedPageView;
   const route = intentPathHistory[intentPathHistory.length - 1];
   const normalizedPathname = stripTrailingSlash(pathname);
@@ -2959,14 +2945,7 @@ function resolveAndDispatch(
     }
     // Sites set these one at a time via setUserAttribute, often after this pageview fires;
     // requeue so the kit's setUserAttribute flush can pick it up once a key arrives.
-    enqueuePending(state, host, {
-      event,
-      pathname,
-      triggeringUserId,
-      triggeredAt,
-      intentSeen,
-      waitingFor: 'attribute',
-    });
+    enqueuePending(state, host, { ...trigger, waitingFor: 'attribute' });
     return;
   }
 
@@ -2981,14 +2960,7 @@ function resolveAndDispatch(
         has_identity: hasValidIdentity(host.filteredUser),
       });
     }
-    enqueuePending(state, host, {
-      event,
-      pathname,
-      triggeringUserId,
-      triggeredAt,
-      intentSeen: intentKind,
-      waitingFor: 'attribute',
-    });
+    enqueuePending(state, host, { ...trigger, intentSeen: intentKind, waitingFor: 'attribute' });
     return;
   }
   state.noEmailLoggedPathname = undefined;
