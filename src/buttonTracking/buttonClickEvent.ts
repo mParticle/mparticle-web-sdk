@@ -3,7 +3,7 @@ import { isEventForwarded } from '../forwarder-utils';
 import type KitBlocker from '../kitBlocking';
 import KitFilterHelper from '../kitFilterHelper';
 import { BaseEvent, SDKEvent } from '../sdkRuntimeModels';
-import { EventType, MessageType } from '../types';
+import { EVENT_TYPE_OTHER, MESSAGE_TYPE_PAGE_EVENT } from '../eventTypeIds';
 import { IButtonClick } from './buttonDescription';
 import { pagePath } from '../pathMasking';
 
@@ -66,10 +66,10 @@ export const buildButtonClickEvent = (
     const data = clickAttributes(click, pathname);
     data[AUTO_BUTTON_ATTRIBUTE] = true;
     return {
-        messageType: MessageType.PageEvent,
+        messageType: MESSAGE_TYPE_PAGE_EVENT,
         name: BUTTON_CLICK_EVENT_NAME,
         data,
-        eventType: EventType.Other,
+        eventType: EVENT_TYPE_OTHER,
     };
 };
 
@@ -95,10 +95,10 @@ export const buildLinkClickEvent = (
     );
     data[AUTO_LINK_ATTRIBUTE] = true;
     return {
-        messageType: MessageType.PageEvent,
+        messageType: MESSAGE_TYPE_PAGE_EVENT,
         name: LINK_CLICK_EVENT_NAME,
         data,
-        eventType: EventType.Other,
+        eventType: EVENT_TYPE_OTHER,
     };
 };
 
@@ -160,8 +160,8 @@ export const getButtonClickBlocker = (
     attributes[link ? AUTO_LINK_ATTRIBUTE : AUTO_BUTTON_ATTRIBUTE] = true;
     const click = ({
         EventName: link ? LINK_CLICK_EVENT_NAME : BUTTON_CLICK_EVENT_NAME,
-        EventCategory: EventType.Other,
-        EventDataType: MessageType.PageEvent,
+        EventCategory: EVENT_TYPE_OTHER,
+        EventDataType: MESSAGE_TYPE_PAGE_EVENT,
         EventAttributes: attributes,
     } as unknown) as SDKEvent;
     const checks: Array<[ButtonClickBlocker, Partial<IKitFilterSettings>]> = [
