@@ -40,3 +40,7 @@ export function buildPreselectDiagnosticLogEntry(
     code: code[outcome],
   };
 }
+
+export function sinceTriggerDetail(triggeredAt?: number): PreselectDiagnosticDetails {
+  return triggeredAt === undefined ? {} : { since_trigger_ms: Date.now() - triggeredAt };
+}
