@@ -13,18 +13,14 @@ import {
   recordPreselectFired,
   restorePreselectFired,
   wasPreselectFiredRecently,
-  wasPreselectTriggeredRecently,
-  recordPreselectIntent,
   recordPreselectNearMiss,
   readPreselectPaymentAtFire,
-  recordPreselectPaymentPick,
   recordPreselectTrigger,
   recordPreselectCartAdd,
   wasPreselectCartAdded,
   wasCartUnchangedSinceArrival,
   isPreselectTargetPath,
   type PreselectFireMark,
-  type PreselectIntentKind,
 } from './preselectArrivalStorage';
 import { removeSelectPlacementsAttributePersistenceDeniedAttributes } from '../selectPlacementsAttributePersistence';
 import {
@@ -42,7 +38,6 @@ import { djb2, isEmpty, isObject, isString, readOwnValue } from '../utils';
 import { isEmailInput, readFormEmail, scanFormEmails } from './formEmail';
 import {
   canDispatchPreselection,
-  checkoutIntentApplies,
   formatIdentityTypes,
   getIdentityTypes,
   getUserId,
@@ -61,7 +56,6 @@ import {
   getCartIntentEntries,
   getEntryPathnames,
   getPreselectionEntries,
-  hasPreselectionConfigForAccount,
   nearlyMatches,
   stripTrailingSlash,
 } from './entries';
@@ -96,6 +90,34 @@ import {
 import {
   intentPathHistory,
 } from './arrival';
+import {
+  cartPageViewTriggerEvent,
+  getPickTime,
+  handledIntentSignals,
+  IDENTITY_WAIT_MS,
+  type IdentityWait,
+  INTENT_KINDS,
+  intentCheckoutStepTriggerEvent,
+  intentKindOf,
+  intentRouteOutsideEntry,
+  intentSignalsApply,
+  intentTriggerEvent,
+  intentTriggerKind,
+  type IntentTriggerKind,
+  isIntentTriggerEvent,
+  isLiveIntent,
+  isPathnameTriggerEvent,
+  LATE_PAYMENT_PICK_MS,
+  observedIntentKinds,
+  pathnameTriggerEvent,
+  paymentPickAccount,
+  type PreselectIntentSignal,
+  type PreselectPaymentPickSignal,
+  recordIntentForArrival,
+  recordPaymentFamily,
+  signalPathname,
+  signalSource,
+} from './intent';
 
 export { recordShopperInput } from './formEmail';
 export { canDispatchPreselection, type PreselectHost } from './hostChecks';
@@ -124,70 +146,7 @@ export {
 } from './attributeDefaults';
 export { hasPreselectCartPageView, isPreselectCartAttributeKey, withoutPreselectCartGateAttribute } from './cartPageView';
 export { reportPreselectArrival } from './arrival';
-
-// A pathname-driven fire has no page-view event behind it, so attribute resolution falls
-// through to the user attributes collectAttributes already reads as its fallback.
-const pathnameTriggerEvent = {} as SDKEvent;
-const intentCommitTriggerEvent = {} as SDKEvent;
-const intentWalletTriggerEvent = {} as SDKEvent;
-const intentCheckoutStepTriggerEvent = {} as SDKEvent;
-const intentCartTriggerEvent = {} as SDKEvent;
-const cartPageViewTriggerEvent = {} as SDKEvent;
-type IntentTriggerKind = 'intent_commit' | 'intent_wallet' | 'intent_checkout_step' | 'intent_cart';
-// What the core SDK hands the kit on a checkout intent: the kind, when the shopper acted, and from a
-// newer core the rule that recognised it, the path it happened on and whether a cart click added to the cart.
-export type PreselectIntentSignal = {
-  kind: PreselectIntentKind;
-  t: number;
-  source?: string;
-  pathname?: string;
-  adds?: boolean;
-};
-// What a newer core SDK hands the kit when the shopper picks a payment method: the names of a payment
-// radio's option, or the family of a payment frame they moved into. Only the family read from it is kept.
-export type PreselectPaymentPickSignal = {
-  t: number;
-  pathname?: string;
-  names?: readonly string[];
-  family?: string;
-};
-const INTENT_KINDS: PreselectIntentKind[] = ['commit', 'wallet', 'checkout_step', 'frame', 'cart'];
-const INTENT_SOURCES = ['vendor', 'label', 'brand', 'frame', 'submit', 'name', 'api', 'selector'];
-const MAX_INTENT_PATHNAME_LENGTH = 512;
-
-// What a commit, wallet, cart or opted-in checkout-step click fires as, and the event that stands in for it.
-function intentTriggerKind(kind: PreselectIntentKind): IntentTriggerKind {
-  if (kind === 'commit') return 'intent_commit';
-  if (kind === 'checkout_step') return 'intent_checkout_step';
-  return kind === 'cart' ? 'intent_cart' : 'intent_wallet';
-}
-
-function intentTriggerEvent(kind: IntentTriggerKind): SDKEvent {
-  if (kind === 'intent_commit') return intentCommitTriggerEvent;
-  if (kind === 'intent_checkout_step') return intentCheckoutStepTriggerEvent;
-  return kind === 'intent_cart' ? intentCartTriggerEvent : intentWalletTriggerEvent;
-}
-
-// A signal delivered this soon after its click is live rather than replayed from before the kit attached.
-const LIVE_INTENT_MS = 1_000;
-
-function isLiveIntent(signal: PreselectIntentSignal): boolean {
-  const age = Date.now() - signal.t;
-  return age >= 0 && age < LIVE_INTENT_MS;
-}
-
-function signalSource(signal: PreselectIntentSignal): string | undefined {
-  return typeof signal.source === 'string' && INTENT_SOURCES.includes(signal.source) ? signal.source : undefined;
-}
-
-// Where a tap happened relative to the checkout: on an entry's page, after this tab saw an entry's
-// trigger (the shopper left the checkout), or before any entry.
-function intentRouteOutsideEntry(accountId: string): 'left' | 'before_entry' {
-  const identifiers = new Set(getPreselectionEntries(accountId).map((entry) => entry.targetPageIdentifier));
-  return [...identifiers].some((identifier) => wasPreselectTriggeredRecently(accountId, identifier))
-    ? 'left'
-    : 'before_entry';
-}
+export { type PreselectIntentSignal, type PreselectPaymentPickSignal, recordPreselectIntentPath } from './intent';
 
 function logObservedIntent(
   host: PreselectHost,
@@ -317,9 +276,6 @@ function fireMovedCheckoutStep(
   );
 }
 
-// How long a guest's wallet tap waits for the guest to be identified; a wallet sheet takes about 5 to 20 seconds.
-const IDENTITY_WAIT_MS = 20_000;
-
 // Holds a guest's wallet tap until an identity arrives (resolveIdentityWait) or the window closes. A later tap
 // replaces it and starts its own window.
 function awaitIdentity(
@@ -373,36 +329,6 @@ function resolveIdentityWait(state: PreselectState, host: PreselectHost): void {
     wait.clickPathname !== stripTrailingSlash(window.location.pathname);
   if (movedOn || Date.now() - wait.signal.t >= IDENTITY_WAIT_MS) return logIdentityWaitExpired(host, wait);
   fireOrObserveOffEntry(state, host, wait.signal, wait.clickPathname, wait.visitKey, true);
-}
-
-// The path a newer core carries on the signal, if it is a plain path.
-function signalPathname(signal: PreselectIntentSignal): string | undefined {
-  const pathname = signal.pathname;
-  return typeof pathname === 'string' && pathname.charAt(0) === '/' && pathname.length <= MAX_INTENT_PATHNAME_LENGTH
-    ? stripTrailingSlash(pathname)
-    : undefined;
-}
-const handledIntentSignals = new Set<string>();
-const observedIntentKinds = new Set<string>();
-
-function intentKindOf(event: SDKEvent | undefined): IntentTriggerKind | undefined {
-  if (event === intentCommitTriggerEvent) return 'intent_commit';
-  if (event === intentWalletTriggerEvent) return 'intent_wallet';
-  if (event === intentCheckoutStepTriggerEvent) return 'intent_checkout_step';
-  if (event === intentCartTriggerEvent) return 'intent_cart';
-  return undefined;
-}
-
-function isIntentTriggerEvent(event: SDKEvent): boolean {
-  return intentKindOf(event) !== undefined;
-}
-
-export function recordPreselectIntentPath(pathname: string, since = Date.now()): void {
-  pathname = stripTrailingSlash(pathname);
-  if (intentPathHistory[intentPathHistory.length - 1]?.pathname === pathname) return;
-  intentPathHistory.push({ pathname, since });
-  if (intentPathHistory.length > 8) intentPathHistory.shift();
-  observedIntentKinds.clear();
 }
 
 // The core SDK has already dropped untrusted, throttled and privacy-suppressed signals. With checkout
@@ -508,30 +434,6 @@ export function handlePreselectIntentSignal(
   )(host);
 }
 
-// What a checkout intent signal needs before the kit acts on or logs it, checked again when a waiting tap ends.
-function intentSignalsApply(host: PreselectHost): boolean {
-  return (
-    !host.isTargetingDisabled() &&
-    host.isForwardingAllowed() &&
-    checkoutIntentApplies(host) &&
-    host.isKitReady() &&
-    host.isPreselectionEnabled() &&
-    hasPreselectionConfigForAccount(host.accountId)
-  );
-}
-
-// Each of the account's target pages keeps the intent for its arrival line, wherever the shopper was. A cart
-// click counts only toward the target pages of entries that fire on one.
-function recordIntentForArrival(accountId: string, signal: PreselectIntentSignal): void {
-  const entries = signal.kind === 'cart' ? getCartIntentEntries(accountId) : getPreselectionEntries(accountId);
-  const identifiers = new Set(entries.map((entry) => entry.targetPageIdentifier));
-  identifiers.forEach((identifier) => recordPreselectIntent(accountId, identifier, signal.kind, signal.t));
-}
-
-function isPathnameTriggerEvent(event: SDKEvent): boolean {
-  return event === pathnameTriggerEvent;
-}
-
 const MESSAGE_TYPE_PAGE_EVENT = 4; // mParticle MessageType.PageEvent, what logEvent sends
 // Set by core auto button and link tracking on every automatic click. The names survive the
 // attribute filters and data plans that can strip the markers.
@@ -545,24 +447,6 @@ export function isAutoClickEvent(event: SDKEvent): boolean {
     (event.EventDataType === MESSAGE_TYPE_PAGE_EVENT && AUTO_CLICK_EVENT_NAMES.includes(event.EventName ?? '')) ||
     AUTO_CLICK_ATTRIBUTES.some((name) => String(event.EventAttributes?.[name]) === 'true')
   );
-}
-
-// The account a payment pick is recorded for, under the checkout intent gates, or undefined.
-function paymentPickAccount(host: PreselectHost): string | undefined {
-  return intentSignalsApply(host) ? host.accountId! : undefined;
-}
-
-// When a payment pick happened: its signal's time, unless that is missing, not finite or still to come.
-function getPickTime(t: number | undefined): number {
-  const now = Date.now();
-  return typeof t === 'number' && Number.isFinite(t) && t <= now ? t : now;
-}
-
-function recordPaymentFamily(accountId: string, family: PaymentFamily | undefined, t?: number): void {
-  if (!family) return;
-  const identifiers = new Set(getPreselectionEntries(accountId).map((entry) => entry.targetPageIdentifier));
-  const pickedAt = getPickTime(t);
-  identifiers.forEach((identifier) => recordPreselectPaymentPick(accountId, identifier, family, pickedAt));
 }
 
 // Shadow only: remembers the payment method an auto click picked, so the target page's arrival
@@ -608,9 +492,6 @@ function asLateRefire(state: PreselectState, lateRefire: boolean, send: () => vo
     state.lateRefire = previous;
   }
 }
-
-// The core SDK hands over an Apple Pay session's pick only within a second of the tap that began it.
-const LATE_PAYMENT_PICK_MS = 1_000;
 
 // The confirm, wallet or checkout-step tap a pick arrived just after, when that tap's call already went out on the
 // entry's own route, the same shopper is still there, and the pick changes a value or page the entry reads from it, set
@@ -924,16 +805,6 @@ export interface PreselectState {
   latestIntentFire?: { pathname: string; t: number; userId: string | null; refire: (host: PreselectHost) => void };
   // True while that dispatch is sent again, so its fired line can be told apart from the tap's own.
   lateRefire?: boolean;
-}
-
-// A guest's wallet tap off every entry, waiting for the guest to be identified.
-interface IdentityWait {
-  signal: PreselectIntentSignal;
-  clickPathname: string;
-  visitKey: string;
-  // The route the shopper was on at the tap; object identity separates visits to the same page.
-  route: (typeof intentPathHistory)[number] | undefined;
-  timer: ReturnType<typeof setTimeout>;
 }
 
 export function createPreselectState(): PreselectState {
