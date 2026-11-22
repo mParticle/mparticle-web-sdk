@@ -310,18 +310,14 @@ function fireOrObserveOffEntry(
   if (!carriesEmail(host, collected, entry.targetPageIdentifier)) return observe('no_strict_email');
   // Scoped to the target page, as a recovered fire is: the tapped page is never an entry, so a record
   // under it would never be read again.
-  fireDispatch(
+  fireForTarget(
     host,
     accountId,
-    entry.targetPageIdentifier,
     entry.targetPageIdentifier,
     collected,
     'intent',
     describeTrigger(offEntryKind, entry),
-    false,
     kind,
-    false,
-    undefined,
     signalSource(signal),
     { route, loggedIn, requireLogin: !isCart && !waitsForIdentity },
   );
@@ -342,18 +338,14 @@ function fireMovedCheckoutStep(
   const { collected, missingKeys } = collectAttributes(host, intentCheckoutStepTriggerEvent, entry, false);
   if (missingKeys.length > 0) return observe('missing_attribute');
   if (!carriesEmail(host, collected, entry.targetPageIdentifier)) return observe('no_strict_email');
-  fireDispatch(
+  fireForTarget(
     host,
     host.accountId!,
-    entry.targetPageIdentifier,
     entry.targetPageIdentifier,
     collected,
     'intent',
     describeTrigger('intent_checkout_step', entry, clickPathname),
-    false,
     'intent_checkout_step',
-    false,
-    undefined,
     signalSource(signal),
     { route: 'entry', loggedIn: isLoggedIn(host), requireLogin: false },
   );
@@ -2430,6 +2422,36 @@ function fireDispatch(
   return true;
 }
 
+// A fire keyed to its target page rather than the page it fires from: an off-route tap, a moved checkout step, a
+// recovered call or the cart page view.
+function fireForTarget(
+  host: PreselectHost,
+  accountId: string,
+  identifier: string,
+  attributes: Record<string, unknown>,
+  reason: string,
+  trigger: string,
+  intent?: IntentTriggerKind,
+  intentSource?: string,
+  offEntry?: { route?: 'left' | 'before_entry' | 'entry'; loggedIn?: boolean; requireLogin: boolean },
+): boolean {
+  return fireDispatch(
+    host,
+    accountId,
+    identifier,
+    identifier,
+    attributes,
+    reason,
+    trigger,
+    false,
+    intent,
+    false,
+    undefined,
+    intentSource,
+    offEntry,
+  );
+}
+
 // Recovers a preselect attempt that resolved but couldn't dispatch before the page that
 // queued it went away. Independent of the current pathname on purpose: that's the case
 // being recovered (checkout to its confirmation page), not a reason to discard it. Only
@@ -2489,10 +2511,9 @@ export function maybeFirePersistedPreselect(state: PreselectState, host: Presele
     return;
   }
 
-  fireDispatch(
+  fireForTarget(
     host,
     host.accountId,
-    persisted.identifier,
     persisted.identifier,
     attributes,
     'recovered',
@@ -3142,17 +3163,13 @@ function fireCartPageView(state: PreselectState, host: PreselectHost, pathname: 
   )
     return;
   // Scoped to the target page and bound to its user, as an off-entry tap is.
-  fireDispatch(
+  fireForTarget(
     host,
     accountId,
-    entry.targetPageIdentifier,
     entry.targetPageIdentifier,
     collected,
     'fired',
     describeTrigger('pageview_cart', entry),
-    false,
-    undefined,
-    false,
     undefined,
     undefined,
     { requireLogin: false },
