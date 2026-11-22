@@ -1,6 +1,10 @@
 import { IMParticleUser, SDKEvent } from '@mparticle/web-sdk/internal';
 import type { IUserIdentities } from '@mparticle/web-sdk';
-import { type DiagnosticLogEntry } from './diagnosticTiming';
+import {
+  buildPreselectDiagnosticLogEntry,
+  type DiagnosticLogEntry,
+  type PreselectDiagnosticDetails,
+} from './diagnosticTiming';
 import { isString } from '../utils';
 
 // Logged in is mParticle's persisted identity state, not the site's sign-in: where email is a login identity,
@@ -115,4 +119,14 @@ export function checkoutIntentApplies(host: PreselectHost): boolean {
 // checkout link could then never release the wait, so the entry keeps its dispatchDelayMs and a click releases it early.
 export function pageViewsAwaitIntent(host: PreselectHost): boolean {
   return checkoutIntentApplies(host) && !host.isLinkIntentWithheld();
+}
+
+// One pre-selection outcome line through the host's diagnostic logger.
+export function logOutcome(
+  host: PreselectHost,
+  outcome: Parameters<typeof buildPreselectDiagnosticLogEntry>[0],
+  reason: string,
+  details?: PreselectDiagnosticDetails,
+): void {
+  host.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry(outcome, reason, details));
 }
