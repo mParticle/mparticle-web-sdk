@@ -3743,11 +3743,17 @@ describe('preselection', () => {
       omitUrl: true,
     });
 
-    beforeEach(async () => {
-      const { PRESELECTION_CONFIG } = await vi.importActual<typeof import('../../../src/preselection/preselectionConfig')>(
-        '../../../src/preselection/preselectionConfig',
-      );
-      mockConfig.current = PRESELECTION_CONFIG;
+    beforeEach(() => {
+      mockConfig.current = [
+        {
+          accountId: ENTRY_ACCOUNT_ID,
+          pathname: '/checkout/*/review',
+          targetPageIdentifier: 'ppx-ad-view-prod',
+          attributeKeys: ['email'],
+          optionalAttributeKeys: ['email'],
+          dispatchDelayMs: ENTRY_DELAY_MS,
+        },
+      ];
       host.accountId = ENTRY_ACCOUNT_ID;
       // Signed in, with no email attribute or email identity.
       host.filteredUser = {
@@ -3783,11 +3789,15 @@ describe('preselection', () => {
   describe('checkout registry entry without last name in the match set', () => {
     let configEntry: PreselectionConfigEntry;
 
-    beforeEach(async () => {
-      const { PRESELECTION_CONFIG } = await vi.importActual<typeof import('../../../src/preselection/preselectionConfig')>(
-        '../../../src/preselection/preselectionConfig',
-      );
-      configEntry = PRESELECTION_CONFIG.find((entry) => entry.accountId === '2550745407543340151')!;
+    beforeEach(() => {
+      configEntry = {
+        accountId: '2550745407543340151',
+        pathname: '/checkout',
+        targetPageIdentifier: 'RoktExperience',
+        attributeKeys: ['email', 'firstname', 'customertype', 'loyaltytier', 'paymenttype'],
+        optionalAttributeKeys: ['loyaltytier', 'paymenttype'],
+        dispatchDelayMs: 20000,
+      };
       mockConfig.current = [configEntry];
       host.accountId = configEntry.accountId;
       host.userAttributes = { email: 'test@example.com', firstname: 'Ana', customertype: 'guest' };
