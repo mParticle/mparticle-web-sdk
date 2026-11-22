@@ -353,56 +353,39 @@ function parseEntry(accountId: string, raw: unknown): PreselectionConfigEntry | 
   }
 
   const entry: PreselectionConfigEntry = { accountId, pathname, targetPageIdentifier, attributeKeys };
-  if (pathnames !== undefined) {
-    entry.pathnames = pathnames;
-  }
+  const copyDefined = (source: Record<string, unknown>, target: object, keys: string[]): void =>
+    keys.forEach((key) => {
+      if (source[key] !== undefined) {
+        (target as Record<string, unknown>)[key] = source[key];
+      }
+    });
+  copyDefined(raw, entry, ['pathnames']);
   if (targetPageIdentifierAttribute !== undefined) {
     entry.targetPageIdentifierAttribute = targetPageIdentifierAttribute.trim();
   }
   if (alternateTargets !== undefined) {
-    const { byPaymentPick, byHostname, byClientType } = alternateTargets as Record<string, unknown>;
-    entry.alternateTargetPageIdentifiers = {
-      ...(byPaymentPick !== undefined ? { byPaymentPick } : {}),
-      ...(byHostname !== undefined ? { byHostname } : {}),
-      ...(byClientType !== undefined ? { byClientType } : {}),
-    } as PreselectionConfigEntry['alternateTargetPageIdentifiers'];
+    entry.alternateTargetPageIdentifiers = {};
+    copyDefined(alternateTargets as Record<string, unknown>, entry.alternateTargetPageIdentifiers, [
+      'byPaymentPick',
+      'byHostname',
+      'byClientType',
+    ]);
   }
-  if (optionalAttributeKeys !== undefined) {
-    entry.optionalAttributeKeys = optionalAttributeKeys;
-  }
-  if (widenedOptionalKeys !== undefined) {
-    entry.widenedOptionalAttributeKeys = widenedOptionalKeys;
-  }
-  if (identityKeys !== undefined) {
-    entry.identityKeys = identityKeys;
-  }
-  if (dispatchDelayMs !== undefined) {
-    entry.dispatchDelayMs = dispatchDelayMs as number;
-  }
-  if (releaseHoldOnRouteChange !== undefined) {
-    entry.releaseHoldOnRouteChange = releaseHoldOnRouteChange;
-  }
-  if (checkoutStepIntent !== undefined) {
-    entry.checkoutStepIntent = checkoutStepIntent;
-  }
-  if (intentSelectors !== undefined) {
-    entry.intentSelectors = intentSelectors as PreselectionConfigEntry['intentSelectors'];
-  }
-  if (hosts !== undefined) {
-    entry.hosts = hosts;
-  }
-  if (readEmailInput !== undefined) {
-    entry.readEmailInput = readEmailInput;
-  }
+  copyDefined(raw, entry, [
+    'optionalAttributeKeys',
+    'widenedOptionalAttributeKeys',
+    'identityKeys',
+    'dispatchDelayMs',
+    'releaseHoldOnRouteChange',
+    'checkoutStepIntent',
+    'intentSelectors',
+    'hosts',
+    'readEmailInput',
+  ]);
   if (parsedDefaults !== undefined) {
     entry.preselectAttributeDefaults = parsedDefaults as PreselectionConfigEntry['preselectAttributeDefaults'];
   }
-  if (triggerEventNames !== undefined) {
-    entry.triggerEventNames = triggerEventNames;
-  }
-  if (cartIntent !== undefined) {
-    entry.cartIntent = cartIntent;
-  }
+  copyDefined(raw, entry, ['triggerEventNames', 'cartIntent']);
   // Kept only as a non-empty string on a cartIntent entry; any other value is dropped rather than rejected.
   if (cartIntent === true && isString(cartUserAttribute) && cartUserAttribute !== '') {
     entry.cartUserAttribute = cartUserAttribute;
