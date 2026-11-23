@@ -20,6 +20,26 @@ export interface CandidatePackage {
     npmIntegrity: string;
 }
 
+export interface CandidateModuleCondition {
+    flag: string;
+    value: string;
+}
+
+export interface CandidateModule {
+    name: string;
+    path: string;
+    enabledBy: CandidateModuleCondition[];
+}
+
+// The optional block naming a core built without some features and the module
+// file for each, with the flag values that turn each module on. Every path is
+// also in files, so the metadata hash pins its size and SHA-256.
+export interface CandidateModules {
+    schemaVersion: 1;
+    core: string;
+    files: CandidateModule[];
+}
+
 export interface CandidateMetadata {
     schemaVersion: 1;
     version: string;
@@ -27,6 +47,8 @@ export interface CandidateMetadata {
     buildId: string;
     packages: CandidatePackage[];
     files: CandidateFile[];
+    // Optional, and written last. Read only in canonical mode.
+    modules?: CandidateModules;
 }
 
 export interface ActiveReleasePointer {
@@ -181,6 +203,20 @@ const RELEASE_INDEX_KEYS = [
 ];
 const PACKAGE_KEYS = ['name', 'path', 'npmIntegrity'];
 const FILE_KEYS = ['path', 'size', 'sha256'];
+const MODULES_KEY = 'modules';
+const MODULES_KEYS = ['schemaVersion', 'core', 'files'];
+const MODULE_KEYS = ['name', 'path', 'enabledBy'];
+const MODULE_CONDITION_KEYS = ['flag', 'value'];
+// The server's limits and token alphabet for the modules block. Names, flags
+// and values are rendered into the served bundle's build marker and matched
+// against the page's flags, so they stay inside an alphabet that HTML encoding
+// leaves unchanged.
+const MAX_MODULES = 16;
+const MAX_MODULE_CONDITIONS = 8;
+const MODULE_TOKEN_PATTERN = /^[A-Za-z0-9._-]{1,64}$/;
+// The build marker's words for "no module" and "a name it cannot render".
+const RESERVED_MODULE_NAMES: readonly string[] = ['none', 'unknown'];
+const MODULE_PATH_PATTERN = new RegExp(`^core/dist/${FILE_NAME}\\.js$`);
 
 function fail(message: string): never {
     throw new ReleaseContractError(message);
@@ -738,6 +774,142 @@ function parsePackage(value: unknown, canonical: boolean): CandidatePackage {
     };
 }
 
+function requireExactKeys(
+    value: Record<string, unknown>,
+    keys: string[],
+    description: string
+): void {
+    requireKeys(value, keys, description);
+    if (Object.keys(value).length !== keys.length) {
+        fail(`${description} must have exactly: ${keys.join(', ')}`);
+    }
+}
+
+function parseModuleToken(value: unknown, description: string): string {
+    if (typeof value !== 'string' || !MODULE_TOKEN_PATTERN.test(value)) {
+        return fail(`${description} is not 1 to 64 of [A-Za-z0-9._-]`);
+    }
+    return value;
+}
+
+function parseModulePath(
+    value: unknown,
+    filesByPath: Map<string, CandidateFile>,
+    description: string
+): string {
+    if (typeof value !== 'string' || !MODULE_PATH_PATTERN.test(value)) {
+        return fail(`${description} path is not a core/dist JavaScript file`);
+    }
+    if (REQUIRED_CORE_FILES.includes(value)) {
+        fail(`${description} path is a required core file`);
+    }
+    if (!filesByPath.has(value)) {
+        fail(`${description} path is not listed in files`);
+    }
+    return value;
+}
+
+// Every rule the server applies to the block, so a candidate the producers
+// accept never has its modules ignored by the server. Returns the block in
+// canonical order: modules sorted by name, conditions by flag then value.
+function parseModules(
+    value: unknown,
+    files: CandidateFile[]
+): CandidateModules {
+    const description = 'Candidate metadata modules';
+    if (!isPlainObject(value)) {
+        return fail(`${description} must be a JSON object`);
+    }
+    requireExactKeys(value, MODULES_KEYS, description);
+    if (value.schemaVersion !== SCHEMA_VERSION) {
+        fail(`${description} schema version is not supported`);
+    }
+    const filesByPath = new Map(files.map(file => [file.path, file]));
+    // Listed: parseMetadata checks the required core files first.
+    const fullCore = filesByPath.get('core/dist/mparticle.js')!;
+    const core = parseModulePath(value.core, filesByPath, `${description} core`);
+    const coreSha256 = filesByPath.get(core)!.sha256.toLowerCase();
+    if (coreSha256 === fullCore.sha256.toLowerCase()) {
+        fail(`${description} core is a copy of the full core`);
+    }
+    if (
+        !Array.isArray(value.files) ||
+        value.files.length === 0 ||
+        value.files.length > MAX_MODULES
+    ) {
+        fail(`${description} must list 1 to ${MAX_MODULES} modules`);
+    }
+
+    const names = new Set<string>();
+    const paths = new Set<string>([core]);
+    const modules = value.files.map((item, index) => {
+        const moduleDescription = `${description} entry ${index}`;
+        if (!isPlainObject(item)) {
+            return fail(`${moduleDescription} must be a JSON object`);
+        }
+        requireExactKeys(item, MODULE_KEYS, moduleDescription);
+        const name = parseModuleToken(item.name, `${moduleDescription} name`);
+        if (RESERVED_MODULE_NAMES.includes(name.toLowerCase())) {
+            fail(`${moduleDescription} name is reserved`);
+        }
+        if (names.has(name)) {
+            fail(`${description} lists module '${name}' more than once`);
+        }
+        names.add(name);
+        const modulePath = parseModulePath(
+            item.path,
+            filesByPath,
+            `Module '${name}'`
+        );
+        if (paths.has(modulePath)) {
+            fail(`Module '${name}' path is the core's or another module's`);
+        }
+        paths.add(modulePath);
+        const sha256 = filesByPath.get(modulePath)!.sha256.toLowerCase();
+        if (sha256 === fullCore.sha256.toLowerCase() || sha256 === coreSha256) {
+            fail(`Module '${name}' is a copy of a core`);
+        }
+        if (
+            !Array.isArray(item.enabledBy) ||
+            item.enabledBy.length === 0 ||
+            item.enabledBy.length > MAX_MODULE_CONDITIONS
+        ) {
+            fail(
+                `Module '${name}' must list 1 to ${MAX_MODULE_CONDITIONS} conditions`
+            );
+        }
+        const enabledBy = item.enabledBy.map(condition => {
+            const conditionDescription = `Module '${name}' condition`;
+            if (!isPlainObject(condition)) {
+                return fail(`${conditionDescription} must be a JSON object`);
+            }
+            requireExactKeys(
+                condition,
+                MODULE_CONDITION_KEYS,
+                conditionDescription
+            );
+            return {
+                flag: parseModuleToken(
+                    condition.flag,
+                    `${conditionDescription} flag`
+                ),
+                value: parseModuleToken(
+                    condition.value,
+                    `${conditionDescription} value`
+                ),
+            };
+        });
+        enabledBy.sort(
+            (left, right) =>
+                compareStrings(left.flag, right.flag) ||
+                compareStrings(left.value, right.value)
+        );
+        return { name, path: modulePath, enabledBy };
+    });
+    modules.sort((left, right) => compareStrings(left.name, right.name));
+    return { schemaVersion: SCHEMA_VERSION, core, files: modules };
+}
+
 function parseMetadata(
     bytes: Uint8Array,
     options: ParseOptions = {}
@@ -826,6 +998,11 @@ function parseMetadata(
     if (canonical) {
         validateVersion(metadata.version);
         validateBuildId(metadata.buildId);
+        // Reader mode leaves the block alone, as the server does with one it
+        // cannot use: it serves the full core and keeps the candidate.
+        if (Object.prototype.hasOwnProperty.call(value, MODULES_KEY)) {
+            metadata.modules = parseModules(value[MODULES_KEY], files);
+        }
         const sortedFiles = [...files].sort((left, right) =>
             compareStrings(left.path, right.path)
         );

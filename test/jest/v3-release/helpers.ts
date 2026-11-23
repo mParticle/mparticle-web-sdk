@@ -32,6 +32,29 @@ export const READER_FIXTURE_PATHS = [
     'npm/mparticle-web-sdk-3.5.0.tgz',
 ];
 
+// The golden modules fixture adds a core built without the module, the
+// module, and a modules block to the reader fixture. The server-side reader's
+// tests carry a byte-for-byte copy of metadata.modules.json.
+export const MODULES_FIXTURE_PATHS = [
+    'core/dist/mparticle.buttonTracking.js',
+    'core/dist/mparticle.lean.js',
+];
+
+export const MODULES_BLOCK = {
+    schemaVersion: 1,
+    core: 'core/dist/mparticle.lean.js',
+    files: [
+        {
+            name: 'buttonTracking',
+            path: 'core/dist/mparticle.buttonTracking.js',
+            enabledBy: [
+                { flag: 'autoButtonTracking', value: 'True' },
+                { flag: 'autoLinkTracking', value: 'True' },
+            ],
+        },
+    ],
+};
+
 export const SOURCE_SHA = '0123456789abcdef0123456789abcdef01234567';
 
 export interface TestCandidate {
@@ -54,13 +77,17 @@ export function buildCandidate(
         buildId?: string;
         salt?: string;
         paths?: string[];
+        modules?: boolean;
     } = {}
 ): TestCandidate {
     const version = options.version || '3.5.0';
     const buildId = options.buildId || '12345-1';
     const salt = options.salt || '';
     const packagePath = `npm/mparticle-web-sdk-${version}.tgz`;
-    const paths = (options.paths || READER_FIXTURE_PATHS)
+    const defaultPaths = options.modules
+        ? READER_FIXTURE_PATHS.concat(MODULES_FIXTURE_PATHS)
+        : READER_FIXTURE_PATHS;
+    const paths = (options.paths || defaultPaths)
         .map(filePath =>
             filePath.startsWith('npm/mparticle-web-sdk-') ? packagePath : filePath
         )
@@ -69,7 +96,7 @@ export function buildCandidate(
     for (const filePath of paths) {
         files.set(filePath, fixtureContent(filePath, salt));
     }
-    const metadata = {
+    const metadata: any = {
         schemaVersion: 1,
         version,
         sourceSha: SOURCE_SHA,
@@ -87,6 +114,9 @@ export function buildCandidate(
             sha256: contract.sha256Hex(files.get(filePath)),
         })),
     };
+    if (options.modules) {
+        metadata.modules = JSON.parse(JSON.stringify(MODULES_BLOCK));
+    }
     const metadataBytes = contract.serializeCanonical(metadata);
     return {
         version,

@@ -105,6 +105,35 @@ describe('V3 candidate uploader', () => {
             expect(validated.metadata.files).toHaveLength(8);
         });
 
+        it('accepts and uploads a candidate with a modules block', async () => {
+            const withModules = buildCandidate({ modules: true });
+            const root = writeCandidateDirectory(
+                path.join(directory, 'modules-candidate'),
+                withModules
+            );
+            const validated = uploader.validateLocalCandidate(root, {
+                version: '3.5.0',
+                buildId: '12345-1',
+                metadataSha256: withModules.metadataSha256,
+            });
+            expect(validated.metadata.modules.core).toBe(
+                'core/dist/mparticle.lean.js'
+            );
+            const storage = new InMemoryReleaseStorage();
+            const summary = await uploader.uploadCandidate(validated, storage, FAST);
+            expect(summary.created).toBe(withModules.files.size + 1);
+            for (const filePath of [
+                'core/dist/mparticle.lean.js',
+                'core/dist/mparticle.buttonTracking.js',
+            ]) {
+                expect(
+                    storage
+                        .bytesOf(`${withModules.prefix}${filePath}`)
+                        .equals(withModules.files.get(filePath))
+                ).toBe(true);
+            }
+        });
+
         it('accepts the candidate and binds the expected identity', () => {
             const validated = uploader.validateLocalCandidate(candidateDirectory, {
                 version: '3.5.0',

@@ -252,6 +252,28 @@ describe('V3 release promoter', () => {
             ]);
         });
 
+        it('stages a candidate with a modules block, checking its core and module at required depth', async () => {
+            const withModules = buildCandidate({ version: '3.6.0', buildId: '200-1', modules: true });
+            seedCandidate(storage, withModules);
+            storage.seed(
+                key(withModules, 'core/dist/mparticle.buttonTracking.js'),
+                Buffer.from('tampered module'),
+                contract.candidateObjectHeaders('x.js')
+            );
+            expect(
+                await failureOf('stage', '--version', '3.6.0', '--build-id', '200-1', '--verify', 'required')
+            ).toMatch(/mparticle.buttonTracking.js does not match its metadata/);
+            expect(storage.writes()).toEqual([]);
+
+            seedCandidate(storage, withModules);
+            expect(
+                await run('stage', '--version', '3.6.0', '--build-id', '200-1', '--verify', 'required')
+            ).toBe(0);
+            expect(contract.parsePointer(pointerOn(STAGING)).metadataSha256).toBe(
+                withModules.metadataSha256
+            );
+        });
+
         it('checks npm integrity only at full depth', async () => {
             const tarball = `npm/mparticle-web-sdk-3.5.0.tgz`;
             const tampered = JSON.parse(JSON.stringify(next.metadata));

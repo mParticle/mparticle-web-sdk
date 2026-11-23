@@ -365,7 +365,8 @@ function assertCandidateHeaders(
 
 // Verifies the candidate a pointer would select, as the reader will: the
 // metadata hash, schema and identity, then each file's size and SHA-256.
-// "required" checks the reader's required core bundles; "full" checks every
+// "required" checks the reader's required core bundles and the files its
+// modules block names, which the reader also reads; "full" checks every
 // inventoried file and each npm tarball's integrity.
 async function verifyCandidate(
     storage: ReleaseStorage,
@@ -387,12 +388,17 @@ async function verifyCandidate(
     const metadata = contract.parseMetadata(stored.bytes);
     contract.validateMetadataIdentity(metadata, pointer);
 
+    const readerFiles = new Set<string>(contract.REQUIRED_CORE_FILES);
+    if (metadata.modules) {
+        readerFiles.add(metadata.modules.core);
+        for (const entry of metadata.modules.files) {
+            readerFiles.add(entry.path);
+        }
+    }
     const files =
         depth === 'full'
             ? metadata.files
-            : metadata.files.filter(file =>
-                  contract.REQUIRED_CORE_FILES.includes(file.path)
-              );
+            : metadata.files.filter(file => readerFiles.has(file.path));
     const integrity = new Map<string, string>();
     for (const item of metadata.packages) {
         integrity.set(item.path, item.npmIntegrity);

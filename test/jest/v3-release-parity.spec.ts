@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { spawnSync } from 'child_process';
-import { makeTempDirectory } from './v3-release/helpers';
+import { MODULES_BLOCK, makeTempDirectory } from './v3-release/helpers';
 
 const contract = require('../../scripts/v3-release/release-contract.ts');
 const parity = require('../../scripts/v3-release/check-release-parity.ts');
@@ -114,7 +114,11 @@ describe('V3 shadow release parity', () => {
         };
     }
 
-    function writeMetadata(sourceSha = tagSha, packageNames = [PACKAGE]) {
+    function writeMetadata(
+        sourceSha = tagSha,
+        packageNames = [PACKAGE],
+        modules?: unknown
+    ) {
         const files = listFiles(candidate)
             .filter(filePath => filePath !== 'metadata.json')
             .map(filePath => {
@@ -138,6 +142,7 @@ describe('V3 shadow release parity', () => {
                 ),
             })),
             files,
+            ...(modules ? { modules } : {}),
         };
         fs.writeFileSync(
             path.join(candidate, 'metadata.json'),
@@ -257,6 +262,31 @@ describe('V3 shadow release parity', () => {
             ],
         ]);
         expect(parity.isUploadable(report)).toBe(true);
+    });
+
+    it('reads a candidate with a modules block and checks its core and module like any bundle', () => {
+        write(repository, 'dist/mparticle.lean.js', 'core lean');
+        write(repository, 'dist/mparticle.buttonTracking.js', 'button tracking');
+        git('add', '.');
+        git('commit', '-q', '-m', 'modules');
+        git('tag', '-f', '-a', TAG, '-m', TAG);
+        tagSha = git('rev-parse', `${TAG}^{commit}`);
+        write(candidate, 'core/dist/mparticle.lean.js', 'core lean');
+        write(candidate, 'core/dist/mparticle.buttonTracking.js', 'button tracking');
+        writeArchive();
+        writeMetadata(tagSha, [PACKAGE], MODULES_BLOCK);
+
+        const report = check();
+        expect(report.problems).toEqual([]);
+        expect(report.git).toBe('pass');
+        expect(
+            report.files
+                .filter((file: any) => /lean|buttonTracking/.test(file.candidatePath))
+                .map((file: any) => [file.candidatePath, file.repositoryPath, file.status])
+        ).toEqual([
+            ['core/dist/mparticle.buttonTracking.js', 'dist/mparticle.buttonTracking.js', 'match'],
+            ['core/dist/mparticle.lean.js', 'dist/mparticle.lean.js', 'match'],
+        ]);
     });
 
     it('fails a bundle whose bytes differ from the tag', () => {

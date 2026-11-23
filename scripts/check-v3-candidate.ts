@@ -45,7 +45,16 @@ const metadataKeys = [
     'sourceSha',
     'version',
 ];
+const metadataKeysWithModules = [...metadataKeys, 'modules'].sort();
 const fileKeys = ['path', 'sha256', 'size'];
+const modulesKeys = ['core', 'files', 'schemaVersion'];
+const moduleKeys = ['enabledBy', 'name', 'path'];
+const moduleConditionKeys = ['flag', 'value'];
+const maxModules = 16;
+const maxModuleConditions = 8;
+const moduleTokenPattern = /^[A-Za-z0-9._-]{1,64}$/;
+const reservedModuleNames = ['none', 'unknown'];
+const modulePathPattern = /^core\/dist\/[A-Za-z0-9][A-Za-z0-9._-]*\.js$/;
 const packageKeys = ['name', 'npmIntegrity', 'path'];
 const versionPattern = /^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/;
 const buildIdPattern = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
@@ -358,11 +367,17 @@ function readMetadata(
         );
         return undefined;
     }
-    if (!isRecord(metadata) || !hasExactKeys(metadata, metadataKeys)) {
+    if (
+        !isRecord(metadata) ||
+        !(
+            hasExactKeys(metadata, metadataKeys) ||
+            hasExactKeys(metadata, metadataKeysWithModules)
+        )
+    ) {
         errors.push(
             `${metadataFileName} must be an object with exactly: ${metadataKeys.join(
                 ', '
-            )}`
+            )}, and optionally modules`
         );
         return undefined;
     }
@@ -524,6 +539,134 @@ function checkLayout(files: Map<string, ListedFile>, errors: string[]): void {
                 errors.push(
                     `${kitName} has a source map without its bundle: ${bundle}`
                 );
+            }
+        });
+    });
+}
+
+function checkModulePath(
+    value: unknown,
+    description: string,
+    files: Map<string, ListedFile>,
+    errors: string[]
+): string | undefined {
+    if (typeof value !== 'string' || !modulePathPattern.test(value)) {
+        errors.push(`${description} path is not a core/dist JavaScript file`);
+        return undefined;
+    }
+    if (requiredCoreFiles.includes(value)) {
+        errors.push(`${description} path is a required core bundle`);
+        return undefined;
+    }
+    if (!files.has(value)) {
+        errors.push(`${description} path is not listed: ${value}`);
+        return undefined;
+    }
+    return value;
+}
+
+function isModuleToken(value: unknown): value is string {
+    return typeof value === 'string' && moduleTokenPattern.test(value);
+}
+
+// The server's rules for the optional modules block: a candidate that breaks
+// one would have its modules ignored, and serve the full core everywhere.
+function checkModules(
+    modules: unknown,
+    files: Map<string, ListedFile>,
+    errors: string[]
+): void {
+    if (modules === undefined) {
+        return;
+    }
+    if (!isRecord(modules) || !hasExactKeys(modules, modulesKeys)) {
+        errors.push(
+            `modules must be an object with exactly: ${modulesKeys.join(', ')}`
+        );
+        return;
+    }
+    if (modules.schemaVersion !== 1) {
+        errors.push('modules schemaVersion is not 1');
+    }
+    const fullCore = files.get('core/dist/mparticle.js');
+    const fullCoreSha256 = fullCore ? fullCore.sha256 : undefined;
+    const core = checkModulePath(modules.core, 'modules core', files, errors);
+    const coreFile = core ? files.get(core) : undefined;
+    const coreSha256 = coreFile ? coreFile.sha256 : undefined;
+    if (coreSha256 !== undefined && coreSha256 === fullCoreSha256) {
+        errors.push('modules core is a copy of the full core');
+    }
+    if (
+        !Array.isArray(modules.files) ||
+        modules.files.length === 0 ||
+        modules.files.length > maxModules
+    ) {
+        errors.push(`modules files must list 1 to ${maxModules} modules`);
+        return;
+    }
+
+    const names = new Set<string>();
+    const paths = new Set<string>(core ? [core] : []);
+    modules.files.forEach((entry: unknown, index: number) => {
+        if (!isRecord(entry) || !hasExactKeys(entry, moduleKeys)) {
+            errors.push(
+                `modules file ${index} must be an object with exactly: ${moduleKeys.join(
+                    ', '
+                )}`
+            );
+            return;
+        }
+        if (!isModuleToken(entry.name)) {
+            errors.push(
+                `modules file ${index} name is not 1 to 64 of [A-Za-z0-9._-]`
+            );
+            return;
+        }
+        const name = entry.name;
+        if (reservedModuleNames.includes(name.toLowerCase())) {
+            errors.push(`Module name is reserved: ${name}`);
+        }
+        if (names.has(name)) {
+            errors.push(`Module is listed more than once: ${name}`);
+        }
+        names.add(name);
+        const modulePath = checkModulePath(
+            entry.path,
+            `Module ${name}`,
+            files,
+            errors
+        );
+        if (modulePath) {
+            if (paths.has(modulePath)) {
+                errors.push(
+                    `Module ${name} path is the core's or another module's`
+                );
+            }
+            paths.add(modulePath);
+            const moduleFile = files.get(modulePath);
+            const sha256 = moduleFile ? moduleFile.sha256 : undefined;
+            if (sha256 === fullCoreSha256 || sha256 === coreSha256) {
+                errors.push(`Module ${name} is a copy of a core`);
+            }
+        }
+        if (
+            !Array.isArray(entry.enabledBy) ||
+            entry.enabledBy.length === 0 ||
+            entry.enabledBy.length > maxModuleConditions
+        ) {
+            errors.push(
+                `Module ${name} must list 1 to ${maxModuleConditions} conditions`
+            );
+            return;
+        }
+        entry.enabledBy.forEach((condition: unknown) => {
+            if (
+                !isRecord(condition) ||
+                !hasExactKeys(condition, moduleConditionKeys) ||
+                !isModuleToken(condition.flag) ||
+                !isModuleToken(condition.value)
+            ) {
+                errors.push(`Module ${name} has an invalid condition`);
             }
         });
     });
@@ -741,6 +884,7 @@ function checkCandidate(
     checkIdentity(metadata, expectations, errors);
     const files = checkListedFiles(metadata.files, errors);
     checkLayout(files, errors);
+    checkModules(metadata.modules, files, errors);
     const contents = checkDiskFiles(candidateDirectory, files, errors);
     checkCoreBundleAscii(files, contents, errors);
     checkPackages(metadata.packages, metadata.version, files, contents, errors);
