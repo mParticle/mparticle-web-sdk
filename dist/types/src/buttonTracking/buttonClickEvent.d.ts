@@ -1,12 +1,6 @@
-import { IKitFilterSettings } from '../configAPIClient';
-import type KitBlocker from '../kitBlocking';
 import { BaseEvent } from '../sdkRuntimeModels';
+import { AUTO_BUTTON_ATTRIBUTE, AUTO_LINK_ATTRIBUTE, BUTTON_CLICK_EVENT_NAME, LINK_CLICK_EVENT_NAME } from '../autoClickNames';
 import { IButtonClick } from './buttonDescription';
-export declare const AUTO_BUTTON_ATTRIBUTE = "is_auto_button_click";
-export declare const BUTTON_CLICK_EVENT_NAME = "Auto Button Click";
-export declare const AUTO_LINK_ATTRIBUTE = "is_auto_link_click";
-export declare const LINK_CLICK_EVENT_NAME = "Auto Link Click";
+export { AUTO_BUTTON_ATTRIBUTE, AUTO_LINK_ATTRIBUTE, BUTTON_CLICK_EVENT_NAME, LINK_CLICK_EVENT_NAME, };
 export declare const buildButtonClickEvent: (click: IButtonClick, pathname: string) => BaseEvent;
 export declare const buildLinkClickEvent: (click: IButtonClick, pathname: string) => BaseEvent;
-export type ButtonClickBlocker = 'data plan' | 'forwarding rule' | 'event name filter' | 'event type filter';
-export declare const getButtonClickBlocker: (forwarder: IKitFilterSettings, kitBlocker?: KitBlocker, link?: boolean) => ButtonClickBlocker | undefined;

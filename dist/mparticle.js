@@ -1,6 +1,6 @@
 var mParticle = (function () {
 
-    var version = "3.36.1";
+    var version = "3.37.0";
 
     var Constants = {
       sdkVersion: version,
@@ -888,11 +888,16 @@ var mParticle = (function () {
       return fallback;
     };
 
+    // The message and event type numbers auto click events send. They sit apart
+    // from types.ts so an optional module can read them without the rest of it.
+    var MESSAGE_TYPE_PAGE_EVENT = 4;
+    var EVENT_TYPE_OTHER = 8;
+
     var MessageType$1 = {
       SessionStart: 1,
       SessionEnd: 2,
       PageView: 3,
-      PageEvent: 4,
+      PageEvent: MESSAGE_TYPE_PAGE_EVENT,
       CrashReport: 5,
       OptOut: 6,
       AppStateTransition: 10,
@@ -911,7 +916,7 @@ var mParticle = (function () {
       UserContent: 5,
       UserPreference: 6,
       Social: 7,
-      Other: 8,
+      Other: EVENT_TYPE_OTHER,
       Media: 9,
       getName: function getName(id) {
         switch (id) {
@@ -2542,6 +2547,159 @@ var mParticle = (function () {
       }
     }
 
+    // The query-param allowlist and the attributes a page view carries. Manual page
+    // Parameters that identify which page a view is of. Authorization-flow and campaign
+    // attribution parameters are deliberately absent; an input can add them explicitly.
+    var ALLOWED_QUERY_PARAMS = [
+    // Pagination
+    'page', 'limit', 'offset', 'cursor', 'per_page',
+    // Site search term, as the common platforms spell it. Matching is
+    // case-insensitive. `s` is WordPress and WooCommerce search; other
+    // single-letter names are too generic. `oq` is a storefront search term.
+    'q', 's', 'oq', 'search', 'query', 'keyword', 'keywords', 'term', 'text', 'searchTerm', 'searchText', 'search_query', 'search_text', 'Ntt',
+    // Product and variant identifiers. `cid` is not a category: it is a
+    // customer id on many sites.
+    'pid', 'productId', 'sku', 'skuId', 'variant', 'color', 'colour', 'size',
+    // Category
+    'category',
+    // Referral
+    'ref', 'referrer'];
+    var AUTO_PAGE_VIEW_ATTRIBUTE = 'is_auto_page_view';
+    var CORE_EVENT_FIELDS = ['hostname', 'title', 'path', AUTO_PAGE_VIEW_ATTRIBUTE];
+    var PROTOTYPE_MEMBER_NAMES = ['constructor', '__proto__', 'prototype'];
+    // Server flag values are the strings 'True' and 'False', so these get typed here by habit.
+    var FLAG_VALUE_NAMES = ['true', 'false'];
+    var RESERVED_QUERY_PARAMS = CORE_EVENT_FIELDS.concat(PROTOTYPE_MEMBER_NAMES, FLAG_VALUE_NAMES);
+    var BUILT_IN_NAMES = ALLOWED_QUERY_PARAMS.map(function (name) {
+      return name.toLowerCase();
+    });
+    var isBuiltIn = function isBuiltIn(name) {
+      return BUILT_IN_NAMES.indexOf(name.toLowerCase()) !== -1;
+    };
+    // Excludes `&`, `=`, `%` and whitespace, which would distort the dedup key.
+    var QUERY_PARAM_NAME = /^[a-z0-9_][a-z0-9_.-]{0,63}$/;
+    var MAX_CUSTOM_QUERY_PARAMS = 25;
+    var MAX_CUSTOM_QUERY_PARAM_VALUE_LENGTH = 512;
+    // Params matched by name prefix, for platforms that put a per-product id in the
+    // name. Salesforce Commerce Cloud spells a variant choice
+    // `dwvar_<productId>_<attribute>`, e.g. `dwvar_12345_color=navy`.
+    var ALLOWED_QUERY_PARAM_PREFIXES = ['dwvar_'];
+    var hasAllowedPrefix = function hasAllowedPrefix(name) {
+      return ALLOWED_QUERY_PARAM_PREFIXES.some(function (prefix) {
+        return name.indexOf(prefix) === 0;
+      });
+    };
+    // Whether a query param name, in any case, is one an auto page view captures by default.
+    var isAllowedQueryParam = function isAllowedQueryParam(name) {
+      return isBuiltIn(name) || hasAllowedPrefix(name.toLowerCase());
+    };
+    // Validated here as well as in the dashboard, because remote config is untrusted input.
+    var parseQueryParamAllowlist = function parseQueryParamAllowlist(configured) {
+      var allowed = [];
+      var rejectedPositions = [];
+      var overLimit = 0;
+      if (!configured) {
+        return {
+          allowed: allowed,
+          rejectedPositions: rejectedPositions,
+          overLimit: overLimit
+        };
+      }
+      var entries = Array.isArray(configured) ? configured : String(configured).split(',');
+      entries.forEach(function (entry, index) {
+        var position = index + 1;
+        var name = String(entry).trim().toLowerCase();
+        if (!name) {
+          return;
+        }
+        if (!QUERY_PARAM_NAME.test(name) || RESERVED_QUERY_PARAMS.indexOf(name) !== -1) {
+          rejectedPositions.push(position);
+          return;
+        }
+        if (isBuiltIn(name) || allowed.indexOf(name) !== -1) {
+          return;
+        }
+        if (allowed.length >= MAX_CUSTOM_QUERY_PARAMS) {
+          overLimit++;
+          return;
+        }
+        allowed.push(name);
+      });
+      return {
+        allowed: allowed,
+        rejectedPositions: rejectedPositions,
+        overLimit: overLimit
+      };
+    };
+    // Not localeCompare: this order feeds the dedup key, so it must be identical in every
+    // browser, and localeCompare is locale-dependent.
+    var byName = function byName(a, b) {
+      return a < b ? -1 : a > b ? 1 : 0;
+    };
+    // Built-ins keep their positions and additions sort after them, so a dedup key depends on
+    // which params are configured, not the order they were typed.
+    var effectiveAllowlist = function effectiveAllowlist(extras) {
+      if (extras === void 0) {
+        extras = [];
+      }
+      return ALLOWED_QUERY_PARAMS.concat(extras.filter(function (name) {
+        return !isBuiltIn(name);
+      }).sort(byName));
+    };
+    // Over-long custom values are dropped rather than truncated: two truncated values could
+    // share a dedup key and swallow a real page view.
+    var isWithinValueLimit = function isWithinValueLimit(name, value) {
+      return isBuiltIn(name) || value.length <= MAX_CUSTOM_QUERY_PARAM_VALUE_LENGTH;
+    };
+    // A prefix match is a platform name, not a configured extra, so the custom
+    // value limit does not apply. A name already on the allowlist keeps that
+    // position instead of being appended again.
+    var prefixMatchedParams = function prefixMatchedParams(href, allowlist) {
+      var allParams = queryStringParser(href);
+      return Object.keys(allParams).filter(function (name) {
+        return hasAllowedPrefix(name) && allParams[name] && allowlist.indexOf(name) === -1;
+      }).sort(byName).map(function (name) {
+        return {
+          name: name,
+          value: allParams[name]
+        };
+      });
+    };
+    var allowedQueryParams = function allowedQueryParams(href, extras) {
+      if (extras === void 0) {
+        extras = [];
+      }
+      var allowlist = effectiveAllowlist(extras);
+      var found = queryStringParser(href, allowlist);
+      var listed = allowlist.filter(function (name) {
+        return hasOwnProp(found, name);
+      }).filter(function (name) {
+        return isWithinValueLimit(name, found[name]);
+      }).map(function (name) {
+        return {
+          name: name,
+          value: found[name]
+        };
+      });
+      return listed.concat(prefixMatchedParams(href, allowlist));
+    };
+    var paramsToAttributes = function paramsToAttributes(params) {
+      var attributes = {};
+      params.forEach(function (_a) {
+        var name = _a.name,
+          value = _a.value;
+        attributes[name] = value;
+      });
+      return attributes;
+    };
+    // Absent rather than false on a manual page view, so the attribute is only ever
+    // added by the automatic emitters. Shared by both of them so the key and that
+    // rule have one definition instead of two that can drift.
+    var autoPageViewAttribute = function autoPageViewAttribute(isAutoPageView) {
+      var _a;
+      return isAutoPageView ? (_a = {}, _a[AUTO_PAGE_VIEW_ATTRIBUTE] = true, _a) : {};
+    };
+
     // Masks the parts of a page path that can single out one shopper: pagePath for
     // the path a click logs, pageUrlPath for the page URL and page views every event
     // carries.
@@ -2792,631 +2950,6 @@ var mParticle = (function () {
       }).join('/');
     }
 
-    var HISTORY_METHODS = ['pushState', 'replaceState'];
-    var WRAPPED_MARKER = '__mpApvWrapped__';
-    var supportsHistoryTracking = function supportsHistoryTracking(win) {
-      return !!win && win.history !== undefined && typeof win.history.pushState === 'function' && typeof win.addEventListener === 'function';
-    };
-    // Wraps pushState/replaceState so `onNavigate` runs after the real method, and
-    // returns the single function that undoes it \u2014 or null when nothing was
-    // installed (history is already wrapped, or a frozen/sealed History rejected the
-    // assignment). Handing back one undo closure keeps the wrapper and original
-    // references out of the tracker entirely: there is no half-patched state for a
-    // caller to inspect, and no way to restore the wrong pair.
-    var patchHistory = function patchHistory(onNavigate, log) {
-      if (window.history.pushState[WRAPPED_MARKER]) {
-        log('[patch] history already wrapped, skipping to avoid double-wrap - STACKED WRAPPER DETECTED');
-        return null;
-      }
-      var originals = {};
-      var wrappers = {};
-      HISTORY_METHODS.forEach(function (name) {
-        var original = window.history[name];
-        originals[name] = original;
-        var wrapper = function wrapper() {
-          var args = [];
-          for (var _i = 0; _i < arguments.length; _i++) {
-            args[_i] = arguments[_i];
-          }
-          var result = original.apply(this, args);
-          onNavigate(name);
-          return result;
-        };
-        Object.defineProperty(wrapper, WRAPPED_MARKER, {
-          value: true,
-          enumerable: false
-        });
-        wrappers[name] = wrapper;
-      });
-      // Restore per method: a third party may have patched one of the two on top of
-      // ours after we installed. Clobbering theirs would break their tracking, so
-      // leave anything that is no longer ours in place.
-      var restore = function restore() {
-        return HISTORY_METHODS.forEach(function (name) {
-          if (window.history[name] === wrappers[name]) {
-            window.history[name] = originals[name];
-            log("[teardown] restored original ".concat(name));
-          } else {
-            log("[teardown] ".concat(name, " no longer ours; leaving in place, gating callback to no-op"));
-          }
-        });
-      };
-      try {
-        HISTORY_METHODS.forEach(function (name) {
-          window.history[name] = wrappers[name];
-        });
-      } catch (e) {
-        log("[error] failed to patch history methods (frozen/sealed), rolling back: ".concat(e));
-        try {
-          restore();
-        } catch (restoreError) {
-          log("[error] failed to restore history methods after patch failure: ".concat(restoreError));
-        }
-        return null;
-      }
-      return restore;
-    };
-    // One History patch for the whole SDK, so page-view tracking and preselection do not
-    // stack two wrappers.
-    //
-    // State lives on `window`, not module scope, because Next.js re-executes the bundle per
-    // SPA navigation while the patch from the previous execution stays installed.
-    var WIN_ROUTE_MONITOR_KEY = '__mpRouteMonitor__';
-    var monitorState = function monitorState() {
-      var win = window;
-      if (!win[WIN_ROUTE_MONITOR_KEY]) {
-        win[WIN_ROUTE_MONITOR_KEY] = {
-          listeners: {},
-          undoHistoryPatch: null,
-          popStateListener: null
-        };
-      }
-      return win[WIN_ROUTE_MONITOR_KEY];
-    };
-    // Reads the shared state at call time, so a wrapper installed by a previous bundle
-    // execution still reaches the current listeners.
-    var emit = function emit(source) {
-      Object.values(monitorState().listeners).forEach(function (listener) {
-        try {
-          listener(source);
-        } catch (e) {
-          // One subscriber must not stop the others, and must never break navigation.
-        }
-      });
-    };
-    var install = function install(state, log) {
-      if (state.undoHistoryPatch || state.popStateListener) {
-        return;
-      }
-      state.undoHistoryPatch = patchHistory(emit, log);
-      state.popStateListener = function () {
-        return emit('popstate');
-      };
-      window.addEventListener('popstate', state.popStateListener);
-    };
-    var uninstall = function uninstall(state) {
-      if (state.popStateListener) {
-        window.removeEventListener('popstate', state.popStateListener);
-        state.popStateListener = null;
-      }
-      if (state.undoHistoryPatch) {
-        state.undoHistoryPatch();
-        state.undoHistoryPatch = null;
-      }
-    };
-    // Installs on the first subscriber and tears down after the last leaves, so a workspace
-    // that needs neither is never patched. Unsubscribing only removes the listener while it
-    // still owns its key, so an outgoing instance cannot remove its replacement.
-    var subscribeToRouteChange = function subscribeToRouteChange(key, listener, log) {
-      if (log === void 0) {
-        log = function log() {
-          return undefined;
-        };
-      }
-      if (!supportsHistoryTracking(typeof window === 'undefined' ? null : window)) {
-        return function () {
-          return undefined;
-        };
-      }
-      var state = monitorState();
-      state.listeners[key] = listener;
-      install(state, log);
-      return function () {
-        if (state.listeners[key] !== listener) {
-          return;
-        }
-        delete state.listeners[key];
-        if (Object.keys(state.listeners).length === 0) {
-          uninstall(state);
-        }
-      };
-    };
-
-    // All APV state hangs off one window key, and it is the public debugging
-    // contract: `window.__mpApv__` is what you inspect in a console to see whether
-    // tracking is live.
-    //
-    // It lives on `window` rather than in module scope because Next.js re-executes
-    // the SDK bundle on every SPA navigation: module-level state is reset each time,
-    // but `window` persists for the lifetime of the tab.
-    //
-    // One object rather than a key per flag, so resetting is a single reassignment.
-    // Nothing has to be deleted, and there is no ordering in which half the state
-    // survives the reset.
-    var WIN_APV_KEY = '__mpApv__';
-    // Parameters that identify which page a view is of. Authorization-flow and campaign
-    // attribution parameters are deliberately absent; an input can add them explicitly.
-    var ALLOWED_QUERY_PARAMS = [
-    // Pagination
-    'page', 'limit', 'offset', 'cursor', 'per_page',
-    // Site search term, as the common platforms spell it. Matching is
-    // case-insensitive. `s` is WordPress and WooCommerce search; other
-    // single-letter names are too generic. `oq` is a storefront search term.
-    'q', 's', 'oq', 'search', 'query', 'keyword', 'keywords', 'term', 'text', 'searchTerm', 'searchText', 'search_query', 'search_text', 'Ntt',
-    // Product and variant identifiers. `cid` is not a category: it is a
-    // customer id on many sites.
-    'pid', 'productId', 'sku', 'skuId', 'variant', 'color', 'colour', 'size',
-    // Category
-    'category',
-    // Referral
-    'ref', 'referrer'];
-    var AUTO_PAGE_VIEW_ATTRIBUTE = 'is_auto_page_view';
-    var CORE_EVENT_FIELDS = ['hostname', 'title', 'path', AUTO_PAGE_VIEW_ATTRIBUTE];
-    var PROTOTYPE_MEMBER_NAMES = ['constructor', '__proto__', 'prototype'];
-    // Server flag values are the strings 'True' and 'False', so these get typed here by habit.
-    var FLAG_VALUE_NAMES = ['true', 'false'];
-    var RESERVED_QUERY_PARAMS = CORE_EVENT_FIELDS.concat(PROTOTYPE_MEMBER_NAMES, FLAG_VALUE_NAMES);
-    var BUILT_IN_NAMES = ALLOWED_QUERY_PARAMS.map(function (name) {
-      return name.toLowerCase();
-    });
-    var isBuiltIn = function isBuiltIn(name) {
-      return BUILT_IN_NAMES.indexOf(name.toLowerCase()) !== -1;
-    };
-    // Excludes `&`, `=`, `%` and whitespace, which would distort the dedup key.
-    var QUERY_PARAM_NAME = /^[a-z0-9_][a-z0-9_.-]{0,63}$/;
-    var MAX_CUSTOM_QUERY_PARAMS = 25;
-    var MAX_CUSTOM_QUERY_PARAM_VALUE_LENGTH = 512;
-    // Params matched by name prefix, for platforms that put a per-product id in the
-    // name. Salesforce Commerce Cloud spells a variant choice
-    // `dwvar_<productId>_<attribute>`, e.g. `dwvar_12345_color=navy`.
-    var ALLOWED_QUERY_PARAM_PREFIXES = ['dwvar_'];
-    var hasAllowedPrefix = function hasAllowedPrefix(name) {
-      return ALLOWED_QUERY_PARAM_PREFIXES.some(function (prefix) {
-        return name.indexOf(prefix) === 0;
-      });
-    };
-    // Whether a query param name, in any case, is one an auto page view captures by default.
-    var isAllowedQueryParam = function isAllowedQueryParam(name) {
-      return isBuiltIn(name) || hasAllowedPrefix(name.toLowerCase());
-    };
-    // ---------------------------------------------------------------------------
-    // Pure helpers. No `this`, no globals, no side effects \u2014 callable and assertable
-    // on their own, which is where the interesting rules live.
-    // ---------------------------------------------------------------------------
-    // Validated here as well as in the dashboard, because remote config is untrusted input.
-    var parseQueryParamAllowlist = function parseQueryParamAllowlist(configured) {
-      var allowed = [];
-      var rejectedPositions = [];
-      var overLimit = 0;
-      if (!configured) {
-        return {
-          allowed: allowed,
-          rejectedPositions: rejectedPositions,
-          overLimit: overLimit
-        };
-      }
-      var entries = Array.isArray(configured) ? configured : String(configured).split(',');
-      entries.forEach(function (entry, index) {
-        var position = index + 1;
-        var name = String(entry).trim().toLowerCase();
-        if (!name) {
-          return;
-        }
-        if (!QUERY_PARAM_NAME.test(name) || RESERVED_QUERY_PARAMS.indexOf(name) !== -1) {
-          rejectedPositions.push(position);
-          return;
-        }
-        if (isBuiltIn(name) || allowed.indexOf(name) !== -1) {
-          return;
-        }
-        if (allowed.length >= MAX_CUSTOM_QUERY_PARAMS) {
-          overLimit++;
-          return;
-        }
-        allowed.push(name);
-      });
-      return {
-        allowed: allowed,
-        rejectedPositions: rejectedPositions,
-        overLimit: overLimit
-      };
-    };
-    // Not localeCompare: this order feeds the dedup key, so it must be identical in every
-    // browser, and localeCompare is locale-dependent.
-    var byName = function byName(a, b) {
-      return a < b ? -1 : a > b ? 1 : 0;
-    };
-    // Built-ins keep their positions and additions sort after them, so a dedup key depends on
-    // which params are configured, not the order they were typed.
-    var effectiveAllowlist = function effectiveAllowlist(extras) {
-      if (extras === void 0) {
-        extras = [];
-      }
-      return ALLOWED_QUERY_PARAMS.concat(extras.filter(function (name) {
-        return !isBuiltIn(name);
-      }).sort(byName));
-    };
-    // Over-long custom values are dropped rather than truncated: two truncated values could
-    // share a dedup key and swallow a real page view.
-    var isWithinValueLimit = function isWithinValueLimit(name, value) {
-      return isBuiltIn(name) || value.length <= MAX_CUSTOM_QUERY_PARAM_VALUE_LENGTH;
-    };
-    // A prefix match is a platform name, not a configured extra, so the custom
-    // value limit does not apply. A name already on the allowlist keeps that
-    // position instead of being appended again.
-    var prefixMatchedParams = function prefixMatchedParams(href, allowlist) {
-      var allParams = queryStringParser(href);
-      return Object.keys(allParams).filter(function (name) {
-        return hasAllowedPrefix(name) && allParams[name] && allowlist.indexOf(name) === -1;
-      }).sort(byName).map(function (name) {
-        return {
-          name: name,
-          value: allParams[name]
-        };
-      });
-    };
-    var allowedQueryParams = function allowedQueryParams(href, extras) {
-      if (extras === void 0) {
-        extras = [];
-      }
-      var allowlist = effectiveAllowlist(extras);
-      var found = queryStringParser(href, allowlist);
-      var listed = allowlist.filter(function (name) {
-        return hasOwnProp(found, name);
-      }).filter(function (name) {
-        return isWithinValueLimit(name, found[name]);
-      }).map(function (name) {
-        return {
-          name: name,
-          value: found[name]
-        };
-      });
-      return listed.concat(prefixMatchedParams(href, allowlist));
-    };
-    var paramsToAttributes = function paramsToAttributes(params) {
-      var attributes = {};
-      params.forEach(function (_a) {
-        var name = _a.name,
-          value = _a.value;
-        attributes[name] = value;
-      });
-      return attributes;
-    };
-    // Absent rather than false on a manual page view, so the attribute is only ever
-    // added by the automatic emitters. Shared by both of them so the key and that
-    // rule have one definition instead of two that can drift.
-    var autoPageViewAttribute = function autoPageViewAttribute(isAutoPageView) {
-      var _a;
-      return isAutoPageView ? (_a = {}, _a[AUTO_PAGE_VIEW_ATTRIBUTE] = true, _a) : {};
-    };
-    // Values are re-encoded because they arrive decoded: `{q: 'a&search=b'}` would otherwise
-    // key the same as `{q: 'a', search: 'b'}` and dedup a real navigation away.
-    var pageKey = function pageKey(page) {
-      var query = page.params.map(function (_a) {
-        var name = _a.name,
-          value = _a.value;
-        return "".concat(name, "=").concat(encodeURIComponent(value));
-      }).join('&');
-      return query ? "".concat(page.path, "?").concat(query) : page.path;
-    };
-    // Dedup keys on the pageKey above: a change to any captured param is a new page
-    // (`?page=2` is a distinct pagination view), while a hash-only change, or a
-    // change confined to params we do not capture, is the same page.
-    var isNewPage = function isNewPage(lastKey, candidateKey) {
-      return candidateKey !== lastKey;
-    };
-    // Mirrors the event shape of the public mParticle.logPageView(), but carries the
-    // path and query params captured when the navigation was accepted rather than the
-    // live location.
-    var buildPageViewEvent = function buildPageViewEvent(_a) {
-      var params = _a.params,
-        hostname = _a.hostname,
-        title = _a.title,
-        path = _a.path,
-        isAutoPageView = _a.isAutoPageView;
-      return {
-        messageType: MessageType$1.PageView,
-        name: 'PageView',
-        // Params spread first, then the core fields by name, so a core field always
-        // wins. No allowlist entry collides with hostname/title/path today; naming
-        // them here is what keeps a later addition from silently overwriting one.
-        data: __assign(__assign(__assign({}, paramsToAttributes(params)), {
-          hostname: hostname,
-          title: title,
-          // Masked here, not in the page snapshot, whose raw path tells one page from the next.
-          path: pageUrlPath(path)
-        }), autoPageViewAttribute(isAutoPageView)),
-        eventType: EventType.Unknown
-      };
-    };
-    // ---------------------------------------------------------------------------
-    // Window-scoped APV state. Every read and write goes through these helpers, so
-    // neither the tracker nor mp-instance touches `window` directly and
-    // `typeof window` is checked in exactly one place.
-    // ---------------------------------------------------------------------------
-    var apvWindow = function apvWindow() {
-      return typeof window === 'undefined' ? null : window;
-    };
-    var freshState = function freshState() {
-      return {
-        initialPageViewFired: false
-      };
-    };
-    // Reads tolerate absent state, so a read never mutates `window`. Only the
-    // writers below create it.
-    var readState = function readState() {
-      var win = apvWindow();
-      return win ? win[WIN_APV_KEY] : undefined;
-    };
-    var writeState = function writeState() {
-      var win = apvWindow();
-      if (!win) {
-        return null;
-      }
-      if (!win[WIN_APV_KEY]) {
-        win[WIN_APV_KEY] = freshState();
-      }
-      return win[WIN_APV_KEY];
-    };
-    var getActiveTracker = function getActiveTracker() {
-      var state = readState();
-      return state ? state.tracker : undefined;
-    };
-    var hasInitialPageViewFired = function hasInitialPageViewFired() {
-      var state = readState();
-      return !!(state && state.initialPageViewFired);
-    };
-    var markInitialPageViewFired = function markInitialPageViewFired() {
-      var state = writeState();
-      if (state) {
-        state.initialPageViewFired = true;
-      }
-    };
-    // Returns the page to its pre-APV state: stops the active tracker (restoring the
-    // history methods it patched), then swaps in fresh state. The state object is the
-    // authoritative handle, so this reaches trackers whose owning module is gone.
-    var resetPageViewTracking = function resetPageViewTracking() {
-      var win = apvWindow();
-      if (!win) {
-        return;
-      }
-      var active = getActiveTracker();
-      if (active) {
-        active.teardown();
-      }
-      // One reassignment replaces every flag at once, so nothing can be left behind
-      // whatever shape the previous state was in.
-      win[WIN_APV_KEY] = freshState();
-    };
-    var setActiveTracker = function setActiveTracker(tracker) {
-      var state = writeState();
-      if (state) {
-        state.tracker = tracker;
-      }
-    };
-    var clearActiveTracker = function clearActiveTracker(tracker) {
-      var state = readState();
-      if (state && state.tracker === tracker) {
-        state.tracker = undefined;
-      }
-    };
-    var currentPage = function currentPage(extras) {
-      return {
-        path: window.location.pathname,
-        params: allowedQueryParams(getHref(), extras)
-      };
-    };
-    // Log-safe description of a page: the path, plus the NAMES of the captured
-    // params. Values are deliberately omitted \u2014 verbose logging goes to the console,
-    // and session-replay tooling ships console output off-domain, which is not a
-    // place for an OAuth code or a consumer's search terms.
-    // Only reachable before init() assigns lastPage, which is ahead of any navigation
-    // handler being able to run, so this returns nothing rather than a sentinel.
-    var describePage = function describePage(page) {
-      if (!page) {
-        return '';
-      }
-      var names = page.params.map(function (_a) {
-        var name = _a.name;
-        return name;
-      });
-      // A log line is read by no output, so it takes the click path's fuller rules.
-      var path = pagePath(page.path);
-      return names.length ? "".concat(path, " (params: ").concat(names.join(), ")") : path;
-    };
-    // ---------------------------------------------------------------------------
-    // History patching
-    // ---------------------------------------------------------------------------
-    // ---------------------------------------------------------------------------
-    // Tracker
-    // ---------------------------------------------------------------------------
-    var PageViewTracker = /** @class */function () {
-      function PageViewTracker(mpInstance, options) {
-        this.lastPage = null;
-        this.active = false;
-        this.customQueryParams = [];
-        this.pendingNavigations = [];
-        this.undoHistoryPatch = null;
-        this.mpInstance = mpInstance;
-        this.isAutoPageView = !!(options && options.isAutoPageView);
-      }
-      Object.defineProperty(PageViewTracker.prototype, "isActive", {
-        // True while this tracker owns the history patch and is listening for
-        // navigations. Flips to false on teardown, including the teardown a
-        // successor tracker performs during a handoff. Read-only, and the one thing
-        // worth checking on `window.__mpApv__.tracker` from a console.
-        get: function get() {
-          return this.active;
-        },
-        enumerable: false,
-        configurable: true
-      });
-      PageViewTracker.prototype.init = function () {
-        var _this = this;
-        this.log('[init] PageViewTracker Init');
-        if (!supportsHistoryTracking(apvWindow())) {
-          this.log('[init] unsupported environment (no History API), not starting');
-          return;
-        }
-        // Take over from whichever tracker is currently active: one left behind by
-        // a previous module load, or this same tracker on a repeat
-        // mParticle.init(). Their pending navigations are transferred rather than
-        // dropped \u2014 a route change may have queued a deferred fire that has not
-        // flushed yet, and dropping it loses a page view entirely.
-        var active = getActiveTracker();
-        var inheritedPages = this.retire(active);
-        if (this.active && active !== this) {
-          inheritedPages = inheritedPages.concat(this.retire(this));
-        }
-        this.active = true;
-        this.customQueryParams = this.readCustomQueryParams();
-        this.lastPage = currentPage(this.customQueryParams);
-        this.log("[init] seeded lastPage: ".concat(describePage(this.lastPage)));
-        this.undoHistoryPatch = subscribeToRouteChange('pageView', function (source) {
-          return _this.safeHandleNavigation(source);
-        }, function (message) {
-          return _this.log(message);
-        });
-        setActiveTracker(this);
-        this.log('[init] patched pushState/replaceState + listening for popstate');
-        inheritedPages.forEach(function (page) {
-          return _this.scheduleFire(page);
-        });
-      };
-      PageViewTracker.prototype.teardown = function () {
-        // Discard pending deferred fires (e.g. AutoLogPageView switched off on
-        // re-init). A handoff calls takePendingNavigations() first, so by this
-        // point those paths are already transferred rather than dropped.
-        this.takePendingNavigations();
-        if (this.undoHistoryPatch) {
-          this.undoHistoryPatch();
-          this.undoHistoryPatch = null;
-        }
-        this.active = false;
-        clearActiveTracker(this);
-      };
-      PageViewTracker.prototype.readCustomQueryParams = function () {
-        var _a = this.mpInstance._Store.SDKConfig.autoLogPageViewQueryParams || {},
-          _b = _a.allowed,
-          allowed = _b === void 0 ? [] : _b,
-          _c = _a.rejectedPositions,
-          rejectedPositions = _c === void 0 ? [] : _c,
-          _d = _a.overLimit,
-          overLimit = _d === void 0 ? 0 : _d;
-        if (rejectedPositions.length) {
-          this.mpInstance.Logger.warning('mParticle APV: ignoring invalid additional page view query ' + "parameters at positions ".concat(rejectedPositions.join(', ')));
-        }
-        if (overLimit) {
-          this.mpInstance.Logger.warning("mParticle APV: ignoring ".concat(overLimit, " additional page view ") + "query parameters beyond the limit of " + "".concat(MAX_CUSTOM_QUERY_PARAMS));
-        }
-        if (allowed.length) {
-          this.log("[init] additional query params: ".concat(allowed.join()));
-        }
-        return allowed;
-      };
-      // Stops the outgoing tracker and returns the pages it had queued so this
-      // tracker can re-schedule them once it is active. Private, but reachable
-      // across instances: the handoff protocol stays internal to the class.
-      PageViewTracker.prototype.retire = function (outgoing) {
-        if (!outgoing) {
-          return [];
-        }
-        this.log(outgoing === this ? '[init] retiring this tracker for a repeat mParticle.init() - transferring pending navigations and tearing down' : '[init] retiring a tracker from a previous module load - transferring pending navigations and tearing down');
-        var pages = outgoing.takePendingNavigations();
-        outgoing.teardown();
-        return pages;
-      };
-      // Cancels this tracker's deferred fires and hands back their captured pages.
-      PageViewTracker.prototype.takePendingNavigations = function () {
-        var pending = this.pendingNavigations;
-        this.pendingNavigations = [];
-        pending.forEach(function (_a) {
-          var timeoutId = _a.timeoutId;
-          return clearTimeout(timeoutId);
-        });
-        return pending.map(function (_a) {
-          var page = _a.page;
-          return page;
-        });
-      };
-      PageViewTracker.prototype.safeHandleNavigation = function (source) {
-        // An orphaned wrapper still calls in: teardown can only restore a history
-        // method that is still ours, so one a third party patched over stays
-        // installed and keeps firing at a dead tracker. Bail before touching
-        // lastPath or queueing a fire the flush would just abort. Guarding here
-        // rather than at each wrapper also covers the popstate path.
-        if (!this.active) {
-          return;
-        }
-        try {
-          this.handleNavigation(source);
-        } catch (e) {
-          this.log("[error] navigation handler threw (".concat(source, "), page view skipped: ").concat(e));
-        }
-      };
-      PageViewTracker.prototype.handleNavigation = function (source) {
-        var candidate = currentPage(this.customQueryParams);
-        var lastKey = this.lastPage ? pageKey(this.lastPage) : null;
-        this.log("[detect] navigation signal (source: ".concat(source, ", candidate: ").concat(describePage(candidate), ", last: ").concat(describePage(this.lastPage), ")"));
-        if (!isNewPage(lastKey, pageKey(candidate))) {
-          this.log("[dedupe] page unchanged, skipping (source: ".concat(source, ", page: ").concat(describePage(candidate), ")"));
-          return;
-        }
-        this.log("[accept] page changed, scheduling fire (source: ".concat(source, ", from: ").concat(describePage(this.lastPage), ", to: ").concat(describePage(candidate), ")"));
-        this.lastPage = candidate;
-        this.scheduleFire(candidate);
-      };
-      // Deferred by a macrotask so the router's post-navigation render commit has a
-      // chance to update document.title before the event is built. The path and
-      // query params are snapshotted now because they are already settled, whereas a
-      // same-tick navigation would overwrite window.location before the flush reads
-      // it.
-      PageViewTracker.prototype.scheduleFire = function (page) {
-        var _this = this;
-        var timeoutId = setTimeout(function () {
-          _this.pendingNavigations = _this.pendingNavigations.filter(function (p) {
-            return p.timeoutId !== timeoutId;
-          });
-          if (!_this.active) {
-            _this.log('[defer] fire aborted, tracker inactive (torn down before flush)');
-            return;
-          }
-          _this.mpInstance._SessionManager.resetSessionTimer();
-          _this.firePageView(page);
-        }, 0);
-        this.pendingNavigations.push({
-          page: page,
-          timeoutId: timeoutId
-        });
-      };
-      PageViewTracker.prototype.firePageView = function (page) {
-        var title = window.document.title;
-        var event = buildPageViewEvent(__assign(__assign({}, page), {
-          hostname: window.location.hostname,
-          title: title,
-          isAutoPageView: this.isAutoPageView
-        }));
-        // A title can name the shopper or an order, so it stays out of the log
-        // line, for the same reason describePage omits param values.
-        this.log("[fire] deferred flush -> _Events.logEvent(PageView) (page: ".concat(describePage(page), ")"));
-        this.mpInstance._Events.logEvent(event);
-      };
-      PageViewTracker.prototype.log = function (message) {
-        this.mpInstance.Logger.verbose("mParticle APV: ".concat(message));
-      };
-      return PageViewTracker;
-    }();
-
     // The one rule for a URL that leaves the SDK, shared with kits through
     // `mParticle._cleanUrl`. `path` keeps scheme, host and path, with any path
     // segment that can single out one shopper as `*` (see pageUrlPath). `full` adds the
@@ -3653,10 +3186,15 @@ var mParticle = (function () {
     // DisabledVault is used when persistence is disabled by privacy flags.
     var DisabledVault = /** @class */function (_super) {
       __extends(DisabledVault, _super);
-      function DisabledVault(storageKey) {
-        var _this = _super.call(this, storageKey, window.localStorage) || this;
+      function DisabledVault(storageKey, removeStored) {
+        if (removeStored === void 0) {
+          removeStored = true;
+        }
+        var _this = _super.call(this, storageKey, removeStored ? window.localStorage : null) || this;
         _this.contents = null;
-        _this.storageObject.removeItem(_this._storageKey);
+        if (removeStored) {
+          _this.storageObject.removeItem(_this._storageKey);
+        }
         return _this;
       }
       DisabledVault.prototype.store = function (_item) {
@@ -3809,523 +3347,6 @@ var mParticle = (function () {
       }
       event.UserIdentities = validUserIdentities;
     }
-
-    /**
-     * BatchUploader contains all the logic to store/retrieve events and batches
-     * to/from persistence, and upload batches to mParticle.
-     * It queues events as they come in, storing them in persistence, then at set
-     * intervals turns them into batches and transfers between event and batch
-     * persistence.
-     * It then attempts to upload them to mParticle, purging batch persistence if
-     * the upload is successful
-     *
-     * These uploads happen on an interval basis using window.fetch or XHR
-     * requests, depending on what is available in the browser.
-     *
-     * Uploads can also be triggered on browser visibility/focus changes via an
-     * event listener, which then uploads to mPartice via the browser's Beacon API.
-     */
-    var BatchUploader = /** @class */function () {
-      /**
-       * Creates an instance of a BatchUploader
-       * @param {IMParticleWebSDKInstance} mpInstance - the mParticle SDK instance
-       * @param {number} uploadInterval - the desired upload interval in milliseconds
-       */
-      function BatchUploader(mpInstance, uploadInterval) {
-        var _a;
-        var _b, _c;
-        this.offlineStorageEnabled = false;
-        this.lastASTEventTime = 0;
-        this.AST_DEBOUNCE_MS = 1000; // 1 second debounce
-        this.uploadIntervalTimerId = null;
-        this.exitHandler = null;
-        this.visibilityChangeHandler = null;
-        this.destroyed = false;
-        // The order this page's uploads first picked each batch up in, by request
-        // id. Batches enter uploads in creation order, so this keeps that order for
-        // batches that share a millisecond.
-        this.batchOrder = new Map();
-        this.nextBatchOrder = 0;
-        this.mpInstance = mpInstance;
-        this.uploadIntervalMillis = uploadInterval;
-        this.batchingEnabled = uploadInterval >= BatchUploader.MINIMUM_INTERVAL_MILLIS;
-        if (this.uploadIntervalMillis < BatchUploader.MINIMUM_INTERVAL_MILLIS) {
-          this.uploadIntervalMillis = BatchUploader.MINIMUM_INTERVAL_MILLIS;
-        }
-        // Events will be queued during `queueEvents` method
-        this.eventsQueuedForProcessing = [];
-        // Batch queue should start empty and will be populated during
-        // `prepareAndUpload` method, either via Local Storage or after
-        // new batches are created.
-        this.batchesQueuedForProcessing = [];
-        // Cache Offline Storage Availability boolean
-        // so that we don't have to check it every time
-        this.offlineStorageEnabled = this.isOfflineStorageAvailable();
-        // When noFunctional is true, prevent events/batches storage
-        var noFunctional = (_b = mpInstance._CookieConsentManager) === null || _b === void 0 ? void 0 : _b.getNoFunctional();
-        if (this.offlineStorageEnabled && !noFunctional) {
-          this.eventVault = new SessionStorageVault("".concat(mpInstance._Store.storageName, "-events"));
-          this.batchVault = new LocalStorageVault("".concat(mpInstance._Store.storageName, "-batches"));
-          // Load Events from Session Storage in case we have any in storage.
-          // retrieve() returns null for empty/corrupt storage, so default to
-          // an empty array to keep the spread safe.
-          (_a = this.eventsQueuedForProcessing).push.apply(_a, (_c = this.eventVault.retrieve()) !== null && _c !== void 0 ? _c : []);
-        }
-        var _d = this.mpInstance._Store,
-          SDKConfig = _d.SDKConfig,
-          devToken = _d.devToken;
-        var baseUrl = this.mpInstance._Helpers.createServiceUrl(SDKConfig.v3SecureServiceUrl, devToken);
-        this.uploadUrl = "".concat(baseUrl, "/events");
-        this.uploader = window.fetch ? new FetchUploader(this.uploadUrl) : new XHRUploader(this.uploadUrl);
-        this.triggerUploadInterval(true, false);
-        this.addEventListeners();
-      }
-      /**
-       * Cleans up timers and event listeners to prevent leaks when the SDK
-       * is re-initialized (e.g. between tests or on repeated init calls).
-       */
-      BatchUploader.prototype.destroy = function () {
-        this.destroyed = true;
-        if (this.uploadIntervalTimerId !== null) {
-          clearTimeout(this.uploadIntervalTimerId);
-          this.uploadIntervalTimerId = null;
-        }
-        if (this.visibilityChangeHandler) {
-          document.removeEventListener('visibilitychange', this.visibilityChangeHandler);
-        }
-        if (this.exitHandler) {
-          window.removeEventListener('beforeunload', this.exitHandler);
-          window.removeEventListener('pagehide', this.exitHandler);
-        }
-        this.exitHandler = null;
-        this.visibilityChangeHandler = null;
-      };
-      BatchUploader.prototype.isOfflineStorageAvailable = function () {
-        var _a = this.mpInstance,
-          getFeatureFlag = _a._Helpers.getFeatureFlag,
-          deviceId = _a._Store.deviceId;
-        // https://go.mparticle.com/work/SQDSDKS-6317
-        var offlineStorageFeatureFlagValue = getFeatureFlag(Constants.FeatureFlags.OfflineStorage);
-        var offlineStoragePercentage = parseInt(offlineStorageFeatureFlagValue, 10);
-        var rampNumber = getRampNumber(deviceId);
-        // TODO: Handle cases where Local Storage is unavailable
-        //       Potentially shared between Vault and Persistence as well
-        //       https://go.mparticle.com/work/SQDSDKS-5022
-        return offlineStoragePercentage >= rampNumber;
-      };
-      // debounce AST just in case multiple events are fired in a short period of time due to browser differences
-      BatchUploader.prototype.shouldDebounceAndUpdateLastASTTime = function () {
-        var now = Date.now();
-        if (now - this.lastASTEventTime < this.AST_DEBOUNCE_MS) {
-          return true;
-        }
-        this.lastASTEventTime = now;
-        return false;
-      };
-      // https://go.mparticle.com/work/SQDSDKS-7133
-      BatchUploader.prototype.createBackgroundASTEvent = function () {
-        var _a;
-        var now = Date.now();
-        var _b = this.mpInstance,
-          _Store = _b._Store,
-          Identity = _b.Identity,
-          _timeOnSiteTimer = _b._timeOnSiteTimer,
-          _Helpers = _b._Helpers;
-        var sessionId = _Store.sessionId,
-          deviceId = _Store.deviceId,
-          sessionStartDate = _Store.sessionStartDate,
-          SDKConfig = _Store.SDKConfig;
-        var getFeatureFlag = _Helpers.getFeatureFlag;
-        var getCurrentUser = Identity.getCurrentUser;
-        var event = {
-          AppName: SDKConfig.appName,
-          AppVersion: SDKConfig.appVersion,
-          Package: SDKConfig.package,
-          EventDataType: MessageType$1.AppStateTransition,
-          Timestamp: now,
-          SessionId: sessionId,
-          DeviceId: deviceId,
-          IsFirstRun: false,
-          SourceMessageId: _generateUniqueId(),
-          SDKVersion: Constants.sdkVersion,
-          CustomFlags: {},
-          EventAttributes: {},
-          SessionStartDate: (sessionStartDate === null || sessionStartDate === void 0 ? void 0 : sessionStartDate.getTime()) || now,
-          Debug: SDKConfig.isDevelopmentMode,
-          ActiveTimeOnSite: (_timeOnSiteTimer === null || _timeOnSiteTimer === void 0 ? void 0 : _timeOnSiteTimer.getTimeInForeground()) || 0,
-          TotalTimeOnSite: ((_a = _Store.getTotalTimeOnSite) === null || _a === void 0 ? void 0 : _a.call(_Store)) || 0,
-          PageUrl: cleanPageHref() || null,
-          IsBackgroundAST: true
-        };
-        var customFlags = __assign({}, event.CustomFlags);
-        var integrationAttributes = _Store.integrationAttributes;
-        // https://go.mparticle.com/work/SQDSDKS-5053
-        if (isIntegrationCaptureEnabled(getFeatureFlag)) {
-          // Attempt to recapture click IDs in case a third party integration
-          // has added or updated  new click IDs since the last event was sent.
-          this.mpInstance._IntegrationCapture.capture();
-          var transformedClickIDs = this.mpInstance._IntegrationCapture.getClickIdsAsCustomFlags();
-          customFlags = __assign(__assign({}, transformedClickIDs), customFlags);
-          var transformedIntegrationAttributes = this.mpInstance._IntegrationCapture.getClickIdsAsIntegrationAttributes();
-          integrationAttributes = __assign(__assign({}, transformedIntegrationAttributes), integrationAttributes);
-        }
-        event.CustomFlags = customFlags;
-        event.IntegrationAttributes = integrationAttributes;
-        appendUserInfo(getCurrentUser(), event);
-        return event;
-      };
-      // Adds listeners to be used trigger Navigator.sendBeacon if the browser
-      // loses focus for any reason, such as closing browser tab or minimizing window
-      BatchUploader.prototype.addEventListeners = function () {
-        var _this_1 = this;
-        var _this = this;
-        var handleExit = function handleExit() {
-          // Check for debounce before creating and queueing event
-          var getFeatureFlag = _this_1.mpInstance._Helpers.getFeatureFlag;
-          var AstBackgroundEvents = Constants.FeatureFlags.AstBackgroundEvents;
-          if (getFeatureFlag(AstBackgroundEvents)) {
-            if (_this.shouldDebounceAndUpdateLastASTTime()) {
-              return;
-            }
-            // Add application state transition event to queue
-            var event_1 = _this.createBackgroundASTEvent();
-            _this.queueEvent(event_1);
-          }
-          // Then trigger the upload with beacon
-          _this.prepareAndUpload(false, _this.isBeaconAvailable());
-        };
-        this.exitHandler = handleExit;
-        this.visibilityChangeHandler = function () {
-          if (document.visibilityState === 'hidden') {
-            handleExit();
-          }
-        };
-        // visibility change is a document property, not window
-        document.addEventListener('visibilitychange', this.visibilityChangeHandler);
-        window.addEventListener('beforeunload', handleExit);
-        window.addEventListener('pagehide', handleExit);
-      };
-      BatchUploader.prototype.isBeaconAvailable = function () {
-        if (navigator.sendBeacon) {
-          return true;
-        }
-        return false;
-      };
-      // Triggers a setTimeout for prepareAndUpload
-      BatchUploader.prototype.triggerUploadInterval = function (triggerFuture, useBeacon) {
-        var _this_1 = this;
-        if (triggerFuture === void 0) {
-          triggerFuture = false;
-        }
-        if (useBeacon === void 0) {
-          useBeacon = false;
-        }
-        this.uploadIntervalTimerId = setTimeout(function () {
-          _this_1.prepareAndUpload(triggerFuture, useBeacon);
-        }, this.uploadIntervalMillis);
-      };
-      /**
-       * This method will queue a single Event which will eventually be processed into a Batch
-       * @param event event that should be queued
-       */
-      BatchUploader.prototype.queueEvent = function (event) {
-        if (isEmpty(event)) {
-          return;
-        }
-        this.eventsQueuedForProcessing.push(event);
-        if (this.offlineStorageEnabled && this.eventVault) {
-          this.eventVault.store(this.eventsQueuedForProcessing);
-        }
-        if (this.mpInstance.Logger.isVerbose()) {
-          var eventToLog = obfuscateDevData(event, this.mpInstance._Store.SDKConfig.isDevelopmentMode);
-          this.mpInstance.Logger.verbose("Queuing event: ".concat(JSON.stringify(eventToLog)));
-          this.mpInstance.Logger.verbose("Queued event count: ".concat(this.eventsQueuedForProcessing.length));
-        }
-        if (this.shouldTriggerImmediateUpload(event.EventDataType)) {
-          this.prepareAndUpload(false, false);
-        }
-      };
-      // https://go.mparticle.com/work/SQDSDKS-3720
-      BatchUploader.prototype.shouldTriggerImmediateUpload = function (eventDataType) {
-        var priorityEvents = [MessageType$1.Commerce, MessageType$1.UserIdentityChange];
-        return !this.batchingEnabled || priorityEvents.includes(eventDataType);
-      };
-      /**
-       * This implements crucial logic to:
-       * - bucket pending events by MPID, and then by Session, and upload individual batches for each bucket.
-       *
-       * In the future this should enforce other requirements such as maximum batch size.
-       *
-       * @param sdkEvents current pending events
-       * @param defaultUser the user to reference for events that are missing data
-       */
-      BatchUploader.createNewBatches = function (sdkEvents, defaultUser, mpInstance) {
-        if (!defaultUser || !sdkEvents || !sdkEvents.length) {
-          return null;
-        }
-        //bucket by MPID, and then by session, ordered by timestamp
-        var newUploads = [];
-        var eventsByUser = new Map();
-        for (var _i = 0, sdkEvents_1 = sdkEvents; _i < sdkEvents_1.length; _i++) {
-          var sdkEvent = sdkEvents_1[_i];
-          //on initial startup, there may be events logged without an mpid.
-          if (!sdkEvent.MPID) {
-            var mpid = defaultUser.getMPID();
-            sdkEvent.MPID = mpid;
-          }
-          var events = eventsByUser.get(sdkEvent.MPID);
-          if (!events) {
-            events = [];
-          }
-          events.push(sdkEvent);
-          eventsByUser.set(sdkEvent.MPID, events);
-        }
-        for (var _a = 0, _b = Array.from(eventsByUser.entries()); _a < _b.length; _a++) {
-          var entry = _b[_a];
-          var mpid = entry[0];
-          var userEvents = entry[1];
-          var eventsBySession = new Map();
-          for (var _c = 0, userEvents_1 = userEvents; _c < userEvents_1.length; _c++) {
-            var sdkEvent = userEvents_1[_c];
-            var events = eventsBySession.get(sdkEvent.SessionId);
-            if (!events) {
-              events = [];
-            }
-            events.push(sdkEvent);
-            eventsBySession.set(sdkEvent.SessionId, events);
-          }
-          for (var _d = 0, _e = Array.from(eventsBySession.entries()); _d < _e.length; _d++) {
-            var entry_1 = _e[_d];
-            var uploadBatchObject = convertEvents(mpid, entry_1[1], mpInstance);
-            var onCreateBatchCallback = mpInstance._Store.SDKConfig.onCreateBatch;
-            if (onCreateBatchCallback) {
-              uploadBatchObject = onCreateBatchCallback(uploadBatchObject);
-              if (uploadBatchObject) {
-                uploadBatchObject.modified = true;
-              } else {
-                mpInstance.Logger.warning('Skiping batch upload because no batch was returned from onCreateBatch callback');
-              }
-            }
-            if (uploadBatchObject) {
-              newUploads.push(uploadBatchObject);
-            }
-          }
-        }
-        return newUploads;
-      };
-      /**
-       * This is the main loop function:
-       *  - take all pending events and turn them into batches
-       *  - attempt to upload each batch
-       *
-       * @param triggerFuture whether to trigger the loop again - for manual/forced uploads this should be false
-       * @param useBeacon whether to use the beacon API - used when the page is being unloaded
-       */
-      BatchUploader.prototype.prepareAndUpload = function (triggerFuture, useBeacon) {
-        var _a;
-        if (triggerFuture === void 0) {
-          triggerFuture = false;
-        }
-        if (useBeacon === void 0) {
-          useBeacon = false;
-        }
-        return __awaiter(this, void 0, void 0, function () {
-          var currentUser, currentEvents, newBatches, batchesToUpload, batchesThatDidNotUpload, retriedIds;
-          var _b, _c, _d;
-          var _this_1 = this;
-          return __generator(this, function (_e) {
-            switch (_e.label) {
-              case 0:
-                currentUser = this.mpInstance.Identity.getCurrentUser();
-                currentEvents = this.eventsQueuedForProcessing;
-                this.eventsQueuedForProcessing = [];
-                if (this.offlineStorageEnabled && this.eventVault) {
-                  this.eventVault.store([]);
-                }
-                newBatches = [];
-                if (!isEmpty(currentEvents)) {
-                  newBatches = BatchUploader.createNewBatches(currentEvents, currentUser, this.mpInstance);
-                }
-                // Top Load any older Batches from Offline Storage so they go out first
-                if (this.offlineStorageEnabled && this.batchVault) {
-                  (_b = this.batchesQueuedForProcessing).unshift.apply(_b, (_a = this.batchVault.retrieve()) !== null && _a !== void 0 ? _a : []);
-                  // Remove batches from local storage before transmit to
-                  // prevent duplication
-                  this.batchVault.purge();
-                }
-                if (!isEmpty(newBatches)) {
-                  (_c = this.batchesQueuedForProcessing).push.apply(_c, newBatches);
-                }
-                batchesToUpload = this.batchesQueuedForProcessing;
-                this.batchesQueuedForProcessing = [];
-                batchesToUpload.forEach(function (batch) {
-                  if (!_this_1.batchOrder.has(batch.source_request_id)) {
-                    _this_1.batchOrder.set(batch.source_request_id, _this_1.nextBatchOrder++);
-                  }
-                });
-                return [4 /*yield*/, this.uploadBatches(batchesToUpload, useBeacon)];
-              case 1:
-                batchesThatDidNotUpload = _e.sent();
-                retriedIds = (batchesThatDidNotUpload || []).map(function (batch) {
-                  return batch.source_request_id;
-                });
-                batchesToUpload.forEach(function (batch) {
-                  if (retriedIds.indexOf(batch.source_request_id) === -1) {
-                    _this_1.batchOrder.delete(batch.source_request_id);
-                  }
-                });
-                // Batches that do not successfully upload are added back to the process queue
-                // in the order they were created so that we can attempt re-transmission in
-                // the same sequence. This is to prevent any potential data corruption.
-                if (!isEmpty(batchesThatDidNotUpload)) {
-                  // TODO: https://go.mparticle.com/work/SQDSDKS-5165
-                  (_d = this.batchesQueuedForProcessing).unshift.apply(_d, batchesThatDidNotUpload);
-                }
-                // Update Offline Storage with current state of batch queue. Storage was
-                // purged before sending. A beacon the browser accepted counts as sent, so
-                // the beacon path writes nothing unless the browser refused a batch: then
-                // `batchesThatDidNotUpload` holds it, and it is stored since the page may
-                // be going away.
-                if (this.offlineStorageEnabled && this.batchVault && (!useBeacon || !isEmpty(batchesThatDidNotUpload))) {
-                  this.storeBatchesQueuedForProcessing();
-                }
-                if (triggerFuture && !this.destroyed) {
-                  this.triggerUploadInterval(triggerFuture, false);
-                }
-                return [2 /*return*/];
-            }
-          });
-        });
-      };
-      BatchUploader.prototype.storeBatchesQueuedForProcessing = function () {
-        var _this_1 = this;
-        var _a;
-        // Another upload may have stored its failed batches while this one was
-        // in flight. Merge them in creation order, whichever upload finished
-        // first, so they are not overwritten and quota trimming drops the oldest.
-        var orderOf = function orderOf(batch) {
-          var _a;
-          return (_a = _this_1.batchOrder.get(batch.source_request_id)) !== null && _a !== void 0 ? _a : -1;
-        };
-        var batches = __spreadArray(__spreadArray([], this.batchesQueuedForProcessing, true), (_a = this.batchVault.retrieve()) !== null && _a !== void 0 ? _a : [], true).sort(function (a, b) {
-          var _a, _b;
-          return orderOf(a) - orderOf(b) || ((_a = a.timestamp_unixtime_ms) !== null && _a !== void 0 ? _a : 0) - ((_b = b.timestamp_unixtime_ms) !== null && _b !== void 0 ? _b : 0);
-        });
-        // Nothing to persist: reset offline storage to an empty state.
-        if (isEmpty(batches)) {
-          this.batchVault.store([]);
-          this.batchesQueuedForProcessing = [];
-          return;
-        }
-        // Drop oldest batches until storage accepts the payload. Only quota
-        // failures are recoverable by trimming; if storage is unavailable,
-        // dropping batches won't help, so retain them in memory.
-        for (var dropped = 0; dropped < batches.length; dropped++) {
-          var result = this.batchVault.store(batches.slice(dropped));
-          if (result === StorageResult.Success) {
-            this.logDroppedOfflineBatches(dropped);
-            this.batchesQueuedForProcessing = [];
-            return;
-          }
-          if (result === StorageResult.Unavailable) {
-            this.mpInstance.Logger.warning('Offline batch storage is unavailable. Retaining batches in memory.');
-            return;
-          }
-        }
-        // Every attempt stayed over quota, even down to the newest batch.
-        // Retain them in memory rather than dropping everything.
-        this.mpInstance.Logger.warning('Offline batch storage is over quota. Retaining batches in memory.');
-      };
-      BatchUploader.prototype.logDroppedOfflineBatches = function (droppedBatchCount) {
-        if (droppedBatchCount > 0) {
-          this.mpInstance.Logger.warning('Offline batch storage is over quota. Dropped ' + "".concat(droppedBatchCount, " oldest batch(es)."));
-        }
-      };
-      BatchUploader.prototype.uploadBatches = function (batches, useBeacon) {
-        return __awaiter(this, void 0, void 0, function () {
-          var uploads, uploadsToLog, refused, i, fetchPayload, blob, response, e_1;
-          return __generator(this, function (_a) {
-            switch (_a.label) {
-              case 0:
-                uploads = batches.filter(function (batch) {
-                  return !isEmpty(batch.events);
-                });
-                if (isEmpty(uploads)) {
-                  return [2 /*return*/, null];
-                }
-                if (this.mpInstance.Logger.isVerbose()) {
-                  uploadsToLog = obfuscateDevData(uploads, this.mpInstance._Store.SDKConfig.isDevelopmentMode);
-                  this.mpInstance.Logger.verbose("Uploading batches: ".concat(JSON.stringify(uploadsToLog)));
-                  this.mpInstance.Logger.verbose("Batch count: ".concat(uploads.length));
-                }
-                refused = [];
-                i = 0;
-                _a.label = 1;
-              case 1:
-                if (!(i < uploads.length)) return [3 /*break*/, 6];
-                fetchPayload = {
-                  method: 'POST',
-                  headers: {
-                    Accept: BatchUploader.CONTENT_TYPE,
-                    'Content-Type': 'text/plain;charset=UTF-8'
-                  },
-                  body: JSON.stringify(uploads[i])
-                };
-                if (!(useBeacon && this.isBeaconAvailable())) return [3 /*break*/, 2];
-                blob = new Blob([fetchPayload.body], {
-                  type: 'text/plain;charset=UTF-8'
-                });
-                // The browser refuses a beacon it won't send, such as one over its
-                // size limit, which says nothing about the next batch. Keep it and
-                // try the rest. Only false is a refusal: a wrapper that returns
-                // nothing has still sent it.
-                if (navigator.sendBeacon(this.uploadUrl, blob) === false) {
-                  refused.push(uploads[i]);
-                }
-                return [3 /*break*/, 5];
-              case 2:
-                _a.trys.push([2, 4,, 5]);
-                return [4 /*yield*/, this.uploader.upload(fetchPayload)];
-              case 3:
-                response = _a.sent();
-                if (response.status >= 200 && response.status < 300) {
-                  this.mpInstance.Logger.verbose("Upload success for request ID: ".concat(uploads[i].source_request_id));
-                } else if (response.status >= 500 || response.status === 429) {
-                  this.mpInstance.Logger.error("HTTP error status ".concat(response.status, " received"));
-                  // Server error, add back current batches and try again later
-                  return [2 /*return*/, uploads.slice(i, uploads.length)];
-                } else if (response.status >= 401) {
-                  this.mpInstance.Logger.error("HTTP error status ".concat(response.status, " while uploading - please verify your API key."));
-                  //if we're getting a 401, assume we'll keep getting a 401 and clear the uploads.
-                  return [2 /*return*/, null];
-                } else {
-                  // In case there is an HTTP error we did not anticipate.
-                  console.error("HTTP error status ".concat(response.status, " while uploading events."), response);
-                  throw new Error("Uncaught HTTP Error ".concat(response.status, ".  Batch upload will be re-attempted."));
-                }
-                return [3 /*break*/, 5];
-              case 4:
-                e_1 = _a.sent();
-                this.mpInstance.Logger.error("Error sending event to mParticle servers. ".concat(e_1));
-                return [2 /*return*/, uploads.slice(i, uploads.length)];
-              case 5:
-                i++;
-                return [3 /*break*/, 1];
-              case 6:
-                if (!isEmpty(refused)) {
-                  this.mpInstance.Logger.warning("The browser refused the exit upload of ".concat(refused.length, " batch(es). Keeping them for the next upload."));
-                  return [2 /*return*/, refused];
-                }
-                return [2 /*return*/, null];
-            }
-          });
-        });
-      };
-      // We upload JSON, but this content type is required to avoid a CORS preflight request
-      BatchUploader.CONTENT_TYPE = 'text/plain;charset=UTF-8';
-      BatchUploader.MINIMUM_INTERVAL_MILLIS = 500;
-      return BatchUploader;
-    }();
 
     var ErrorCodes = {
       UNKNOWN_ERROR: 'UNKNOWN_ERROR',
@@ -4854,6 +3875,938 @@ var mParticle = (function () {
         return buildIdentitySearchEnvelope(environment);
       }, searchUrl, callback, Logger, undefined, _ErrorReportingDispatcher);
     };
+
+    // Stores whose suppressed initial identify waits for another identity request
+    // to finish. Keyed by Store so a re-initialization drops the pending retry.
+    var pendingIdentifyStores = new WeakMap();
+    // Stores whose functional storage a page or derived flag switched off. An
+    // initialization restriction never adds a Store here.
+    var revokedStores = new WeakSet();
+    // Stores whose stored record was replaced by the retained privacy choices.
+    // Until the restriction is lifted, memory is the only full copy, so storage is
+    // not read back into it.
+    var purgedStores = new WeakSet();
+    // Stores whose full record is being written back, so the write it makes is
+    // not taken for another retry.
+    var restoringStores = new WeakSet();
+    /** True while the stored record holds only the retained privacy choices. */
+    function isStoredRecordPurged(mpInstance) {
+      return !!mpInstance._Store && purgedStores.has(mpInstance._Store);
+    }
+    /**
+     * True while a page or derived flag, not initialization alone, keeps
+     * functional storage switched off for the current Store.
+     */
+    function isFunctionalStorageRevoked(mpInstance) {
+      return !!mpInstance._Store && revokedStores.has(mpInstance._Store);
+    }
+    // Each step is best effort: browser storage can be denied, and one failure
+    // must not leave the remaining consumers writing.
+    function attempt(step) {
+      try {
+        step();
+      } catch (e) {
+        // Storage access is best effort.
+      }
+    }
+    /**
+     * Applies a change of the combined privacy flags (initialization OR page OR
+     * derived) made after initialization. Flags known before the workspace
+     * configuration loads are read by each storage consumer when it is created,
+     * exactly like initialization flags, so only later changes switch storage here.
+     *
+     * @param previous combined flag values before the change
+     */
+    function applyPrivacyFlagChange(mpInstance, previous) {
+      var manager = mpInstance._CookieConsentManager;
+      var store = mpInstance._Store;
+      if (!manager || !store) {
+        return;
+      }
+      var noFunctional = manager.getNoFunctional();
+      if (noFunctional !== previous.noFunctional) {
+        if (noFunctional) {
+          // Keep a full copy in memory so it can be written back if the
+          // restriction is lifted on this page. While revoked, storage holds
+          // only the retained privacy choices and memory stays authoritative.
+          if (store.configurationLoaded) {
+            attempt(function () {
+              return store.syncPersistenceData();
+            });
+          }
+          revokedStores.add(store);
+        } else {
+          revokedStores.delete(store);
+        }
+        if (store.configurationLoaded) {
+          if (noFunctional) {
+            disableFunctionalStorage(mpInstance);
+          } else {
+            enableFunctionalStorage(mpInstance);
+          }
+        } else if (noFunctional) {
+          // A re-initialization is loading its configuration, and the
+          // consumers it replaces keep running until it finishes. Stop them
+          // now, under the storage keys they were created with.
+          suppressConsumers(mpInstance);
+        } else {
+          switchUploader(mpInstance, true);
+        }
+      }
+      // Forwarder and identity code runs here; a failure in one must not reach
+      // the setter's caller or skip the other.
+      if (manager.getNoTargeting() !== previous.noTargeting) {
+        attempt(function () {
+          return syncNoTargetingAttribute(mpInstance);
+        });
+      }
+      if (previous.noFunctional && !noFunctional) {
+        attempt(function () {
+          return resumeSuppressedIdentify(mpInstance);
+        });
+      }
+    }
+    /**
+     * Called once the configuration has loaded and storage has been read into
+     * memory. A page or derived restriction set while it loaded only stopped the
+     * consumers; remove what earlier pages stored, as a later restriction would.
+     */
+    function applyRestrictionAfterConfiguration(mpInstance) {
+      var manager = mpInstance._CookieConsentManager;
+      if (manager && manager.getNoFunctional() && isFunctionalStorageRevoked(mpInstance) && !isStoredRecordPurged(mpInstance)) {
+        disableFunctionalStorage(mpInstance);
+      }
+    }
+    function disableFunctionalStorage(mpInstance) {
+      var store = mpInstance._Store,
+        persistence = mpInstance._Persistence;
+      var storageName = store.storageName;
+      // Main persistence: writes already stop through the live flag. Remove what
+      // was stored before the change, keeping only the privacy choices: a
+      // logging opt-out and the current user's consent state, so a restriction
+      // derived from consent is derived again on the next page load.
+      purgedStores.add(store);
+      attempt(function () {
+        return new LocalStorageVault(storageName).purge();
+      });
+      attempt(function () {
+        return persistence.expireCookies(storageName);
+      });
+      attempt(function () {
+        return persistence.storePrivacyChoices();
+      });
+      suppressConsumers(mpInstance);
+      // The uploader has taken what it needs into memory; remove any queue a
+      // page stored, including one this uploader never reads.
+      attempt(function () {
+        return new SessionStorageVault("".concat(storageName, "-events")).purge();
+      });
+      attempt(function () {
+        return new LocalStorageVault("".concat(storageName, "-batches")).purge();
+      });
+    }
+    // Stops the identity cache, uploader and time-on-site timer from writing, and
+    // removes what each stored under its own key.
+    function suppressConsumers(mpInstance) {
+      var identity = mpInstance._Identity;
+      var cache = identity.idCache;
+      // Install the disabled cache before touching storage, so a storage
+      // failure cannot leave the writable cache in place.
+      identity.idCache = new DisabledVault("".concat(mpInstance._Store.storageName, "-id-cache"), false);
+      attempt(function () {
+        return cache === null || cache === void 0 ? void 0 : cache.purge();
+      });
+      switchUploader(mpInstance, false);
+      attempt(function () {
+        var _a;
+        return (_a = mpInstance._timeOnSiteTimer) === null || _a === void 0 ? void 0 : _a.clearStoredTime();
+      });
+    }
+    function switchUploader(mpInstance, allowed) {
+      var _a;
+      var uploader = (_a = mpInstance._APIClient) === null || _a === void 0 ? void 0 : _a.uploader;
+      if (uploader) {
+        attempt(function () {
+          return uploader.setFunctionalStorageAllowed(allowed);
+        });
+      }
+    }
+    function enableFunctionalStorage(mpInstance) {
+      var store = mpInstance._Store,
+        persistence = mpInstance._Persistence;
+      var storageName = store.storageName;
+      // The stored record was removed, and later writes only refresh the global
+      // and current user fields. Write the in-memory users back once, then
+      // refresh the global fields, including the logging choice.
+      attempt(function () {
+        return restoreStoredRecord(mpInstance);
+      });
+      attempt(function () {
+        return persistence.update();
+      });
+      // Time-on-site writes resume through the live flag. The identity cache
+      // and the uploader are switched back here.
+      attempt(function () {
+        mpInstance._Identity.idCache = new LocalStorageVault("".concat(storageName, "-id-cache"));
+      });
+      switchUploader(mpInstance, true);
+    }
+    /**
+     * Writes the in-memory record back over the retained privacy choices. Memory
+     * stays the full copy until storage holds that record, so a failed write
+     * cannot load the privacy choices over it; a later write retries.
+     */
+    function restoreStoredRecord(mpInstance) {
+      var store = mpInstance._Store;
+      if (!store || restoringStores.has(store)) {
+        return;
+      }
+      restoringStores.add(store);
+      try {
+        attempt(function () {
+          return mpInstance._Persistence.savePersistence(store.persistenceData);
+        });
+        if (isFullRecordStored(mpInstance)) {
+          purgedStores.delete(store);
+        }
+      } finally {
+        restoringStores.delete(store);
+      }
+    }
+    // True when storage holds every field memory has for the current user and
+    // the global fields, which the retained privacy choices never do.
+    function isFullRecordStored(mpInstance) {
+      var persistence = mpInstance._Persistence;
+      var memory = mpInstance._Store.persistenceData || {};
+      var stored = null;
+      attempt(function () {
+        stored = persistence.useLocalStorage() ? persistence.getLocalStorage() : persistence.getCookie();
+      });
+      if (!stored) {
+        return false;
+      }
+      var mpid = mpInstance._Store.mpid;
+      return holdsFields(stored.gs, memory.gs) && (!mpid || holdsFields(stored[mpid], memory[mpid]));
+    }
+    // Storage omits empty fields (no attributes left, consent cleared), so only
+    // fields that hold a value must be present in the stored record.
+    function holdsFields(stored, expected) {
+      return Object.keys(expected || {}).every(function (field) {
+        return isEmptyField(expected[field]) || !!stored && hasOwnProp(stored, field);
+      });
+    }
+    function isEmptyField(value) {
+      return value === undefined || value === null || _typeof(value) === 'object' && Object.keys(value).length === 0;
+    }
+    function syncNoTargetingAttribute(mpInstance) {
+      var manager = mpInstance._CookieConsentManager;
+      var user = mpInstance.Identity.getCurrentUser();
+      if (!user) {
+        // Login, logout and identify set it from the combined value.
+        return;
+      }
+      manager.syncNoTargetingAttribute(user);
+      // removeUserAttribute changes only a stored user record, which may not
+      // exist after functional storage was off. Remove it from memory as well.
+      if (!manager.getNoTargeting()) {
+        var mpid = user.getMPID();
+        var attributes = mpInstance._Store.getUserAttributes(mpid);
+        if (hasOwnProp(attributes, NO_TARGETING_ATTRIBUTE)) {
+          var remaining = __assign({}, attributes);
+          delete remaining[NO_TARGETING_ATTRIBUTE];
+          mpInstance._Store.setUserAttributes(mpid, remaining);
+        }
+      }
+    }
+    /**
+     * Runs the initial identify that was skipped because noFunctional applied
+     * without an explicit identifier, once that restriction has been lifted.
+     * If another identity request is in flight, waits for it to finish.
+     */
+    function resumeSuppressedIdentify(mpInstance) {
+      var store = mpInstance._Store;
+      if (!store) {
+        return;
+      }
+      pendingIdentifyStores.delete(store);
+      if (!store.configurationLoaded || store.webviewBridgeEnabled || store.identifyCalled || store.mpid || !mpInstance._Helpers.canLog() || isNoFunctionalWithoutId(mpInstance)) {
+        return;
+      }
+      if (store.identityCallInFlight) {
+        pendingIdentifyStores.set(store, true);
+        return;
+      }
+      var SDKConfig = store.SDKConfig;
+      mpInstance.Identity.identify(SDKConfig.identifyRequest, SDKConfig.identityCallback);
+      store.identifyCalled = true;
+      SDKConfig.identityCallback = null;
+    }
+    /** Called after each identity request finishes, successfully or not. */
+    function onIdentityRequestSettled(mpInstance) {
+      var store = mpInstance._Store;
+      if (store && pendingIdentifyStores.has(store)) {
+        resumeSuppressedIdentify(mpInstance);
+      }
+    }
+
+    // Retired uploaders whose failed batches wait, by SDK instance, for an
+    // uploader of the same endpoint. Only privacy changes add to it.
+    var retiredUploaders = new WeakMap();
+    /**
+     * BatchUploader contains all the logic to store/retrieve events and batches
+     * to/from persistence, and upload batches to mParticle.
+     * It queues events as they come in, storing them in persistence, then at set
+     * intervals turns them into batches and transfers between event and batch
+     * persistence.
+     * It then attempts to upload them to mParticle, purging batch persistence if
+     * the upload is successful
+     *
+     * These uploads happen on an interval basis using window.fetch or XHR
+     * requests, depending on what is available in the browser.
+     *
+     * Uploads can also be triggered on browser visibility/focus changes via an
+     * event listener, which then uploads to mPartice via the browser's Beacon API.
+     */
+    var BatchUploader = /** @class */function () {
+      /**
+       * Creates an instance of a BatchUploader
+       * @param {IMParticleWebSDKInstance} mpInstance - the mParticle SDK instance
+       * @param {number} uploadInterval - the desired upload interval in milliseconds
+       */
+      function BatchUploader(mpInstance, uploadInterval) {
+        var _a;
+        var _b, _c;
+        this.offlineStorageEnabled = false;
+        this.lastASTEventTime = 0;
+        this.AST_DEBOUNCE_MS = 1000; // 1 second debounce
+        this.uploadIntervalTimerId = null;
+        this.exitHandler = null;
+        this.visibilityChangeHandler = null;
+        this.destroyed = false;
+        /** @internal True while a page or derived flag withholds offline storage. */
+        this.storageSwitchedOff = false;
+        /** @internal Batches and events a privacy restriction kept out of storage. */
+        this.withheld = new WeakSet();
+        // The order this page's uploads first picked each batch up in, by request
+        // id. Batches enter uploads in creation order, so this keeps that order for
+        // batches that share a millisecond.
+        this.batchOrder = new Map();
+        this.nextBatchOrder = 0;
+        this.mpInstance = mpInstance;
+        this.uploadIntervalMillis = uploadInterval;
+        this.batchingEnabled = uploadInterval >= BatchUploader.MINIMUM_INTERVAL_MILLIS;
+        if (this.uploadIntervalMillis < BatchUploader.MINIMUM_INTERVAL_MILLIS) {
+          this.uploadIntervalMillis = BatchUploader.MINIMUM_INTERVAL_MILLIS;
+        }
+        // Events will be queued during `queueEvents` method
+        this.eventsQueuedForProcessing = [];
+        // Batch queue should start empty and will be populated during
+        // `prepareAndUpload` method, either via Local Storage or after
+        // new batches are created.
+        this.batchesQueuedForProcessing = [];
+        // Cache Offline Storage Availability boolean
+        // so that we don't have to check it every time
+        this.offlineStorageEnabled = this.isOfflineStorageAvailable();
+        this.offlineStorageAvailableAtCreation = this.offlineStorageEnabled;
+        this.creationStore = mpInstance._Store;
+        // When noFunctional is true, prevent events/batches storage
+        var noFunctional = (_b = mpInstance._CookieConsentManager) === null || _b === void 0 ? void 0 : _b.getNoFunctional();
+        this.storageName = mpInstance._Store.storageName;
+        this.storageSwitchedOff = !!noFunctional && isFunctionalStorageRevoked(mpInstance);
+        if (this.offlineStorageEnabled && !noFunctional) {
+          this.eventVault = new SessionStorageVault("".concat(mpInstance._Store.storageName, "-events"));
+          this.batchVault = new LocalStorageVault("".concat(mpInstance._Store.storageName, "-batches"));
+          // Load Events from Session Storage in case we have any in storage.
+          // retrieve() returns null for empty/corrupt storage, so default to
+          // an empty array to keep the spread safe.
+          (_a = this.eventsQueuedForProcessing).push.apply(_a, (_c = this.eventVault.retrieve()) !== null && _c !== void 0 ? _c : []);
+        }
+        var _d = this.mpInstance._Store,
+          SDKConfig = _d.SDKConfig,
+          devToken = _d.devToken;
+        var baseUrl = this.mpInstance._Helpers.createServiceUrl(SDKConfig.v3SecureServiceUrl, devToken);
+        this.uploadUrl = "".concat(baseUrl, "/events");
+        this.uploader = window.fetch ? new FetchUploader(this.uploadUrl) : new XHRUploader(this.uploadUrl);
+        this.adoptRetiredBatches();
+        this.triggerUploadInterval(true, false);
+        this.addEventListeners();
+      }
+      /**
+       * Cleans up timers and event listeners to prevent leaks when the SDK
+       * is re-initialized (e.g. between tests or on repeated init calls).
+       */
+      BatchUploader.prototype.destroy = function () {
+        this.destroyed = true;
+        // While a page or derived flag withholds storage, pending batches and
+        // events exist only in memory. Keep them for the next uploader, even
+        // when no upload is in flight.
+        if (this.isStorageWithheld()) {
+          this.retire();
+        }
+        if (this.uploadIntervalTimerId !== null) {
+          clearTimeout(this.uploadIntervalTimerId);
+          this.uploadIntervalTimerId = null;
+        }
+        if (this.visibilityChangeHandler) {
+          document.removeEventListener('visibilitychange', this.visibilityChangeHandler);
+        }
+        if (this.exitHandler) {
+          window.removeEventListener('beforeunload', this.exitHandler);
+          window.removeEventListener('pagehide', this.exitHandler);
+        }
+        this.exitHandler = null;
+        this.visibilityChangeHandler = null;
+      };
+      /**
+       * @internal Switches offline storage off or back on when functional
+       * storage is restricted or allowed again after this uploader was created.
+       */
+      BatchUploader.prototype.setFunctionalStorageAllowed = function (allowed) {
+        var _a;
+        var _b, _c;
+        if (!allowed) {
+          if (this.batchVault) {
+            // Failed batches are kept only in storage between attempts.
+            // Keep them in memory so this page can still retry them.
+            (_a = this.batchesQueuedForProcessing).unshift.apply(_a, (_b = this.batchVault.retrieve()) !== null && _b !== void 0 ? _b : []);
+            this.batchVault.purge();
+            this.storageSwitchedOff = true;
+          }
+          // The event vault only mirrors eventsQueuedForProcessing.
+          (_c = this.eventVault) === null || _c === void 0 ? void 0 : _c.purge();
+          this.eventVault = null;
+          this.batchVault = null;
+          this.offlineStorageEnabled = false;
+          return;
+        }
+        // Only storage a privacy flag withheld is switched back on.
+        if (!this.storageSwitchedOff) {
+          return;
+        }
+        // A re-initialization replaces the Store before its configuration
+        // and feature flags load, so a retiring uploader keeps the
+        // availability it was created with. While storage stays unavailable,
+        // the uploader keeps counting as withheld so destroy() hands its
+        // in-memory batches on.
+        var isAvailable = this.mpInstance._Store === this.creationStore ? this.isOfflineStorageAvailable() : this.offlineStorageAvailableAtCreation;
+        if (!isAvailable) {
+          return;
+        }
+        this.storageSwitchedOff = false;
+        this.offlineStorageEnabled = true;
+        this.withheld = new WeakSet();
+        var storageName = this.storageName;
+        this.eventVault = new SessionStorageVault("".concat(storageName, "-events"));
+        this.batchVault = new LocalStorageVault("".concat(storageName, "-batches"));
+        // Batches and events kept only in memory while storage was off go
+        // back to storage, so a re-initialization before the next upload
+        // still finds them, as it would had storage never been switched off.
+        if (!isEmpty(this.eventsQueuedForProcessing)) {
+          this.eventVault.store(this.eventsQueuedForProcessing);
+        }
+        if (!isEmpty(this.batchesQueuedForProcessing)) {
+          this.storeBatchesQueuedForProcessing();
+        }
+      };
+      BatchUploader.prototype.isOfflineStorageAvailable = function () {
+        var _a = this.mpInstance,
+          getFeatureFlag = _a._Helpers.getFeatureFlag,
+          deviceId = _a._Store.deviceId;
+        // https://go.mparticle.com/work/SQDSDKS-6317
+        var offlineStorageFeatureFlagValue = getFeatureFlag(Constants.FeatureFlags.OfflineStorage);
+        var offlineStoragePercentage = parseInt(offlineStorageFeatureFlagValue, 10);
+        var rampNumber = getRampNumber(deviceId);
+        // TODO: Handle cases where Local Storage is unavailable
+        //       Potentially shared between Vault and Persistence as well
+        //       https://go.mparticle.com/work/SQDSDKS-5022
+        return offlineStoragePercentage >= rampNumber;
+      };
+      // debounce AST just in case multiple events are fired in a short period of time due to browser differences
+      BatchUploader.prototype.shouldDebounceAndUpdateLastASTTime = function () {
+        var now = Date.now();
+        if (now - this.lastASTEventTime < this.AST_DEBOUNCE_MS) {
+          return true;
+        }
+        this.lastASTEventTime = now;
+        return false;
+      };
+      // https://go.mparticle.com/work/SQDSDKS-7133
+      BatchUploader.prototype.createBackgroundASTEvent = function () {
+        var _a;
+        var now = Date.now();
+        var _b = this.mpInstance,
+          _Store = _b._Store,
+          Identity = _b.Identity,
+          _timeOnSiteTimer = _b._timeOnSiteTimer,
+          _Helpers = _b._Helpers;
+        var sessionId = _Store.sessionId,
+          deviceId = _Store.deviceId,
+          sessionStartDate = _Store.sessionStartDate,
+          SDKConfig = _Store.SDKConfig;
+        var getFeatureFlag = _Helpers.getFeatureFlag;
+        var getCurrentUser = Identity.getCurrentUser;
+        var event = {
+          AppName: SDKConfig.appName,
+          AppVersion: SDKConfig.appVersion,
+          Package: SDKConfig.package,
+          EventDataType: MessageType$1.AppStateTransition,
+          Timestamp: now,
+          SessionId: sessionId,
+          DeviceId: deviceId,
+          IsFirstRun: false,
+          SourceMessageId: _generateUniqueId(),
+          SDKVersion: Constants.sdkVersion,
+          CustomFlags: {},
+          EventAttributes: {},
+          SessionStartDate: (sessionStartDate === null || sessionStartDate === void 0 ? void 0 : sessionStartDate.getTime()) || now,
+          Debug: SDKConfig.isDevelopmentMode,
+          ActiveTimeOnSite: (_timeOnSiteTimer === null || _timeOnSiteTimer === void 0 ? void 0 : _timeOnSiteTimer.getTimeInForeground()) || 0,
+          TotalTimeOnSite: ((_a = _Store.getTotalTimeOnSite) === null || _a === void 0 ? void 0 : _a.call(_Store)) || 0,
+          PageUrl: cleanPageHref() || null,
+          IsBackgroundAST: true
+        };
+        var customFlags = __assign({}, event.CustomFlags);
+        var integrationAttributes = _Store.integrationAttributes;
+        // https://go.mparticle.com/work/SQDSDKS-5053
+        if (isIntegrationCaptureEnabled(getFeatureFlag)) {
+          // Attempt to recapture click IDs in case a third party integration
+          // has added or updated  new click IDs since the last event was sent.
+          this.mpInstance._IntegrationCapture.capture();
+          var transformedClickIDs = this.mpInstance._IntegrationCapture.getClickIdsAsCustomFlags();
+          customFlags = __assign(__assign({}, transformedClickIDs), customFlags);
+          var transformedIntegrationAttributes = this.mpInstance._IntegrationCapture.getClickIdsAsIntegrationAttributes();
+          integrationAttributes = __assign(__assign({}, transformedIntegrationAttributes), integrationAttributes);
+        }
+        event.CustomFlags = customFlags;
+        event.IntegrationAttributes = integrationAttributes;
+        appendUserInfo(getCurrentUser(), event);
+        return event;
+      };
+      // Adds listeners to be used trigger Navigator.sendBeacon if the browser
+      // loses focus for any reason, such as closing browser tab or minimizing window
+      BatchUploader.prototype.addEventListeners = function () {
+        var _this_1 = this;
+        var _this = this;
+        var handleExit = function handleExit() {
+          // Check for debounce before creating and queueing event
+          var getFeatureFlag = _this_1.mpInstance._Helpers.getFeatureFlag;
+          var AstBackgroundEvents = Constants.FeatureFlags.AstBackgroundEvents;
+          if (getFeatureFlag(AstBackgroundEvents)) {
+            if (_this.shouldDebounceAndUpdateLastASTTime()) {
+              return;
+            }
+            // Add application state transition event to queue
+            var event_1 = _this.createBackgroundASTEvent();
+            _this.queueEvent(event_1);
+          }
+          // Then trigger the upload with beacon
+          _this.prepareAndUpload(false, _this.isBeaconAvailable());
+        };
+        this.exitHandler = handleExit;
+        this.visibilityChangeHandler = function () {
+          if (document.visibilityState === 'hidden') {
+            handleExit();
+          }
+        };
+        // visibility change is a document property, not window
+        document.addEventListener('visibilitychange', this.visibilityChangeHandler);
+        window.addEventListener('beforeunload', handleExit);
+        window.addEventListener('pagehide', handleExit);
+      };
+      BatchUploader.prototype.isBeaconAvailable = function () {
+        if (navigator.sendBeacon) {
+          return true;
+        }
+        return false;
+      };
+      // Triggers a setTimeout for prepareAndUpload
+      BatchUploader.prototype.triggerUploadInterval = function (triggerFuture, useBeacon) {
+        var _this_1 = this;
+        if (triggerFuture === void 0) {
+          triggerFuture = false;
+        }
+        if (useBeacon === void 0) {
+          useBeacon = false;
+        }
+        this.uploadIntervalTimerId = setTimeout(function () {
+          _this_1.prepareAndUpload(triggerFuture, useBeacon);
+        }, this.uploadIntervalMillis);
+      };
+      /**
+       * This method will queue a single Event which will eventually be processed into a Batch
+       * @param event event that should be queued
+       */
+      BatchUploader.prototype.queueEvent = function (event) {
+        if (isEmpty(event)) {
+          return;
+        }
+        this.eventsQueuedForProcessing.push(event);
+        if (this.offlineStorageEnabled && this.eventVault) {
+          this.eventVault.store(this.storable(this.eventsQueuedForProcessing));
+        }
+        if (this.mpInstance.Logger.isVerbose()) {
+          var eventToLog = obfuscateDevData(event, this.mpInstance._Store.SDKConfig.isDevelopmentMode);
+          this.mpInstance.Logger.verbose("Queuing event: ".concat(JSON.stringify(eventToLog)));
+          this.mpInstance.Logger.verbose("Queued event count: ".concat(this.eventsQueuedForProcessing.length));
+        }
+        if (this.shouldTriggerImmediateUpload(event.EventDataType)) {
+          this.prepareAndUpload(false, false);
+        }
+      };
+      // https://go.mparticle.com/work/SQDSDKS-3720
+      BatchUploader.prototype.shouldTriggerImmediateUpload = function (eventDataType) {
+        var priorityEvents = [MessageType$1.Commerce, MessageType$1.UserIdentityChange];
+        return !this.batchingEnabled || priorityEvents.includes(eventDataType);
+      };
+      /**
+       * This implements crucial logic to:
+       * - bucket pending events by MPID, and then by Session, and upload individual batches for each bucket.
+       *
+       * In the future this should enforce other requirements such as maximum batch size.
+       *
+       * @param sdkEvents current pending events
+       * @param defaultUser the user to reference for events that are missing data
+       */
+      BatchUploader.createNewBatches = function (sdkEvents, defaultUser, mpInstance) {
+        if (!defaultUser || !sdkEvents || !sdkEvents.length) {
+          return null;
+        }
+        //bucket by MPID, and then by session, ordered by timestamp
+        var newUploads = [];
+        var eventsByUser = new Map();
+        for (var _i = 0, sdkEvents_1 = sdkEvents; _i < sdkEvents_1.length; _i++) {
+          var sdkEvent = sdkEvents_1[_i];
+          //on initial startup, there may be events logged without an mpid.
+          if (!sdkEvent.MPID) {
+            var mpid = defaultUser.getMPID();
+            sdkEvent.MPID = mpid;
+          }
+          var events = eventsByUser.get(sdkEvent.MPID);
+          if (!events) {
+            events = [];
+          }
+          events.push(sdkEvent);
+          eventsByUser.set(sdkEvent.MPID, events);
+        }
+        for (var _a = 0, _b = Array.from(eventsByUser.entries()); _a < _b.length; _a++) {
+          var entry = _b[_a];
+          var mpid = entry[0];
+          var userEvents = entry[1];
+          var eventsBySession = new Map();
+          for (var _c = 0, userEvents_1 = userEvents; _c < userEvents_1.length; _c++) {
+            var sdkEvent = userEvents_1[_c];
+            var events = eventsBySession.get(sdkEvent.SessionId);
+            if (!events) {
+              events = [];
+            }
+            events.push(sdkEvent);
+            eventsBySession.set(sdkEvent.SessionId, events);
+          }
+          for (var _d = 0, _e = Array.from(eventsBySession.entries()); _d < _e.length; _d++) {
+            var entry_1 = _e[_d];
+            var uploadBatchObject = convertEvents(mpid, entry_1[1], mpInstance);
+            var onCreateBatchCallback = mpInstance._Store.SDKConfig.onCreateBatch;
+            if (onCreateBatchCallback) {
+              uploadBatchObject = onCreateBatchCallback(uploadBatchObject);
+              if (uploadBatchObject) {
+                uploadBatchObject.modified = true;
+              } else {
+                mpInstance.Logger.warning('Skiping batch upload because no batch was returned from onCreateBatch callback');
+              }
+            }
+            if (uploadBatchObject) {
+              newUploads.push(uploadBatchObject);
+            }
+          }
+        }
+        return newUploads;
+      };
+      /**
+       * This is the main loop function:
+       *  - take all pending events and turn them into batches
+       *  - attempt to upload each batch
+       *
+       * @param triggerFuture whether to trigger the loop again - for manual/forced uploads this should be false
+       * @param useBeacon whether to use the beacon API - used when the page is being unloaded
+       */
+      BatchUploader.prototype.prepareAndUpload = function (triggerFuture, useBeacon) {
+        var _a, _b;
+        if (triggerFuture === void 0) {
+          triggerFuture = false;
+        }
+        if (useBeacon === void 0) {
+          useBeacon = false;
+        }
+        return __awaiter(this, void 0, void 0, function () {
+          var currentUser, currentEvents, newBatches, withheldBatches, batchesToUpload, batchesThatDidNotUpload, retriedIds, current;
+          var _c, _d, _e;
+          var _this_1 = this;
+          return __generator(this, function (_f) {
+            switch (_f.label) {
+              case 0:
+                currentUser = this.mpInstance.Identity.getCurrentUser();
+                currentEvents = this.eventsQueuedForProcessing;
+                this.eventsQueuedForProcessing = [];
+                if (this.offlineStorageEnabled && this.eventVault) {
+                  this.eventVault.store([]);
+                }
+                newBatches = [];
+                if (!isEmpty(currentEvents)) {
+                  newBatches = BatchUploader.createNewBatches(this.storable(currentEvents), currentUser, this.mpInstance) || [];
+                  withheldBatches = BatchUploader.createNewBatches(currentEvents.filter(function (event) {
+                    return _this_1.withheld.has(event);
+                  }), currentUser, this.mpInstance) || [];
+                  withheldBatches.forEach(function (batch) {
+                    return _this_1.withheld.add(batch);
+                  });
+                  newBatches.unshift.apply(newBatches, withheldBatches);
+                }
+                // Top Load any older Batches from Offline Storage so they go out first
+                if (this.offlineStorageEnabled && this.batchVault) {
+                  (_c = this.batchesQueuedForProcessing).unshift.apply(_c, (_a = this.batchVault.retrieve()) !== null && _a !== void 0 ? _a : []);
+                  // Remove batches from local storage before transmit to
+                  // prevent duplication
+                  this.batchVault.purge();
+                }
+                if (!isEmpty(newBatches)) {
+                  (_d = this.batchesQueuedForProcessing).push.apply(_d, newBatches);
+                }
+                batchesToUpload = this.batchesQueuedForProcessing;
+                this.batchesQueuedForProcessing = [];
+                batchesToUpload.forEach(function (batch) {
+                  if (!_this_1.batchOrder.has(batch.source_request_id)) {
+                    _this_1.batchOrder.set(batch.source_request_id, _this_1.nextBatchOrder++);
+                  }
+                });
+                return [4 /*yield*/, this.uploadBatches(batchesToUpload, useBeacon)];
+              case 1:
+                batchesThatDidNotUpload = _f.sent();
+                retriedIds = (batchesThatDidNotUpload || []).map(function (batch) {
+                  return batch.source_request_id;
+                });
+                batchesToUpload.forEach(function (batch) {
+                  if (retriedIds.indexOf(batch.source_request_id) === -1) {
+                    _this_1.batchOrder.delete(batch.source_request_id);
+                  }
+                });
+                // Batches that do not successfully upload are added back to the process queue
+                // in the order they were created so that we can attempt re-transmission in
+                // the same sequence. This is to prevent any potential data corruption.
+                if (!isEmpty(batchesThatDidNotUpload)) {
+                  // TODO: https://go.mparticle.com/work/SQDSDKS-5165
+                  (_e = this.batchesQueuedForProcessing).unshift.apply(_e, batchesThatDidNotUpload);
+                }
+                // Update Offline Storage with current state of batch queue. Storage was
+                // purged before sending. A beacon the browser accepted counts as sent, so
+                // the beacon path writes nothing unless the browser refused a batch: then
+                // `batchesThatDidNotUpload` holds it, and it is stored since the page may
+                // be going away.
+                if (this.destroyed && this.isStorageWithheld()) {
+                  // A page or derived flag keeps this retired uploader from storing
+                  // its batches. Hand them to the current uploader for the same
+                  // endpoint, or keep them until one exists.
+                  this.retire();
+                  current = (_b = this.mpInstance._APIClient) === null || _b === void 0 ? void 0 : _b.uploader;
+                  if (current && current !== this) {
+                    current.adoptRetiredBatches();
+                  }
+                } else if (this.offlineStorageEnabled && this.batchVault && !isFunctionalStorageRevoked(this.mpInstance) && (!useBeacon || !isEmpty(batchesThatDidNotUpload))) {
+                  this.storeBatchesQueuedForProcessing();
+                }
+                if (triggerFuture && !this.destroyed) {
+                  this.triggerUploadInterval(triggerFuture, false);
+                }
+                return [2 /*return*/];
+            }
+          });
+        });
+      };
+      /**
+       * @internal True while a page or derived flag keeps this uploader from
+       * storing, or while it holds batches or events withheld under one.
+       */
+      BatchUploader.prototype.isStorageWithheld = function () {
+        var _this_1 = this;
+        return this.storageSwitchedOff || this.offlineStorageEnabled && !!this.batchVault && isFunctionalStorageRevoked(this.mpInstance) || __spreadArray(__spreadArray([], this.batchesQueuedForProcessing, true), this.eventsQueuedForProcessing, true).some(function (item) {
+          return _this_1.withheld.has(item);
+        });
+      };
+      /** @internal The items that may be written to storage. */
+      BatchUploader.prototype.storable = function (items) {
+        var _this_1 = this;
+        return items.filter(function (item) {
+          return !_this_1.withheld.has(item);
+        });
+      };
+      /** @internal Lists this uploader for the next uploader of its endpoint to adopt. */
+      BatchUploader.prototype.retire = function () {
+        var pending = retiredUploaders.get(this.mpInstance) || [];
+        if (pending.indexOf(this) === -1) {
+          pending.push(this);
+        }
+        retiredUploaders.set(this.mpInstance, pending);
+      };
+      /** @internal */
+      BatchUploader.prototype.adoptRetiredBatches = function () {
+        var _a, _b;
+        var _this_1 = this;
+        var retiredList = retiredUploaders.get(this.mpInstance);
+        if (!retiredList) {
+          return;
+        }
+        var adopted = [];
+        var adoptedEvents = [];
+        var pending = retiredList.filter(function (retired) {
+          if (retired.uploadUrl !== _this_1.uploadUrl) {
+            return true;
+          }
+          adopted.push.apply(adopted, retired.batchesQueuedForProcessing);
+          adoptedEvents.push.apply(adoptedEvents, retired.eventsQueuedForProcessing);
+          retired.batchesQueuedForProcessing = [];
+          retired.eventsQueuedForProcessing = [];
+          return false;
+        });
+        retiredUploaders.set(this.mpInstance, pending);
+        // A retired uploader is listed only while a restriction withholds its
+        // storage, so what it hands over stays out of storage here as well.
+        __spreadArray(__spreadArray([], adopted, true), adoptedEvents, true).forEach(function (item) {
+          return _this_1.withheld.add(item);
+        });
+        (_a = this.batchesQueuedForProcessing).unshift.apply(_a, adopted);
+        (_b = this.eventsQueuedForProcessing).unshift.apply(_b, adoptedEvents);
+      };
+      BatchUploader.prototype.storeBatchesQueuedForProcessing = function () {
+        var _this_1 = this;
+        var _a;
+        // Another upload may have stored its failed batches while this one was
+        // in flight. Merge them in creation order, whichever upload finished
+        // first, so they are not overwritten and quota trimming drops the oldest.
+        var orderOf = function orderOf(batch) {
+          var _a;
+          return (_a = _this_1.batchOrder.get(batch.source_request_id)) !== null && _a !== void 0 ? _a : -1;
+        };
+        var withheldBatches = this.batchesQueuedForProcessing.filter(function (batch) {
+          return _this_1.withheld.has(batch);
+        });
+        var batches = __spreadArray(__spreadArray([], this.storable(this.batchesQueuedForProcessing), true), (_a = this.batchVault.retrieve()) !== null && _a !== void 0 ? _a : [], true).sort(function (a, b) {
+          var _a, _b;
+          return orderOf(a) - orderOf(b) || ((_a = a.timestamp_unixtime_ms) !== null && _a !== void 0 ? _a : 0) - ((_b = b.timestamp_unixtime_ms) !== null && _b !== void 0 ? _b : 0);
+        });
+        // Nothing to persist: reset offline storage to an empty state.
+        if (isEmpty(batches)) {
+          this.batchVault.store([]);
+          this.batchesQueuedForProcessing = withheldBatches;
+          return;
+        }
+        // Drop oldest batches until storage accepts the payload. Only quota
+        // failures are recoverable by trimming; if storage is unavailable,
+        // dropping batches won't help, so retain them in memory.
+        for (var dropped = 0; dropped < batches.length; dropped++) {
+          var result = this.batchVault.store(batches.slice(dropped));
+          if (result === StorageResult.Success) {
+            this.logDroppedOfflineBatches(dropped);
+            this.batchesQueuedForProcessing = withheldBatches;
+            return;
+          }
+          if (result === StorageResult.Unavailable) {
+            this.mpInstance.Logger.warning('Offline batch storage is unavailable. Retaining batches in memory.');
+            return;
+          }
+        }
+        // Every attempt stayed over quota, even down to the newest batch.
+        // Retain them in memory rather than dropping everything.
+        this.mpInstance.Logger.warning('Offline batch storage is over quota. Retaining batches in memory.');
+      };
+      BatchUploader.prototype.logDroppedOfflineBatches = function (droppedBatchCount) {
+        if (droppedBatchCount > 0) {
+          this.mpInstance.Logger.warning('Offline batch storage is over quota. Dropped ' + "".concat(droppedBatchCount, " oldest batch(es)."));
+        }
+      };
+      BatchUploader.prototype.uploadBatches = function (batches, useBeacon) {
+        return __awaiter(this, void 0, void 0, function () {
+          var uploads, uploadsToLog, refused, i, fetchPayload, blob, response, e_1;
+          return __generator(this, function (_a) {
+            switch (_a.label) {
+              case 0:
+                uploads = batches.filter(function (batch) {
+                  return !isEmpty(batch.events);
+                });
+                if (isEmpty(uploads)) {
+                  return [2 /*return*/, null];
+                }
+                if (this.mpInstance.Logger.isVerbose()) {
+                  uploadsToLog = obfuscateDevData(uploads, this.mpInstance._Store.SDKConfig.isDevelopmentMode);
+                  this.mpInstance.Logger.verbose("Uploading batches: ".concat(JSON.stringify(uploadsToLog)));
+                  this.mpInstance.Logger.verbose("Batch count: ".concat(uploads.length));
+                }
+                refused = [];
+                i = 0;
+                _a.label = 1;
+              case 1:
+                if (!(i < uploads.length)) return [3 /*break*/, 6];
+                fetchPayload = {
+                  method: 'POST',
+                  headers: {
+                    Accept: BatchUploader.CONTENT_TYPE,
+                    'Content-Type': 'text/plain;charset=UTF-8'
+                  },
+                  body: JSON.stringify(uploads[i])
+                };
+                if (!(useBeacon && this.isBeaconAvailable())) return [3 /*break*/, 2];
+                blob = new Blob([fetchPayload.body], {
+                  type: 'text/plain;charset=UTF-8'
+                });
+                // The browser refuses a beacon it won't send, such as one over its
+                // size limit, which says nothing about the next batch. Keep it and
+                // try the rest. Only false is a refusal: a wrapper that returns
+                // nothing has still sent it.
+                if (navigator.sendBeacon(this.uploadUrl, blob) === false) {
+                  refused.push(uploads[i]);
+                }
+                return [3 /*break*/, 5];
+              case 2:
+                _a.trys.push([2, 4,, 5]);
+                return [4 /*yield*/, this.uploader.upload(fetchPayload)];
+              case 3:
+                response = _a.sent();
+                if (response.status >= 200 && response.status < 300) {
+                  this.mpInstance.Logger.verbose("Upload success for request ID: ".concat(uploads[i].source_request_id));
+                } else if (response.status >= 500 || response.status === 429) {
+                  this.mpInstance.Logger.error("HTTP error status ".concat(response.status, " received"));
+                  // Server error, add back current batches and try again later
+                  return [2 /*return*/, uploads.slice(i, uploads.length)];
+                } else if (response.status >= 401) {
+                  this.mpInstance.Logger.error("HTTP error status ".concat(response.status, " while uploading - please verify your API key."));
+                  //if we're getting a 401, assume we'll keep getting a 401 and clear the uploads.
+                  return [2 /*return*/, null];
+                } else {
+                  // In case there is an HTTP error we did not anticipate.
+                  console.error("HTTP error status ".concat(response.status, " while uploading events."), response);
+                  throw new Error("Uncaught HTTP Error ".concat(response.status, ".  Batch upload will be re-attempted."));
+                }
+                return [3 /*break*/, 5];
+              case 4:
+                e_1 = _a.sent();
+                this.mpInstance.Logger.error("Error sending event to mParticle servers. ".concat(e_1));
+                return [2 /*return*/, uploads.slice(i, uploads.length)];
+              case 5:
+                i++;
+                return [3 /*break*/, 1];
+              case 6:
+                if (!isEmpty(refused)) {
+                  this.mpInstance.Logger.warning("The browser refused the exit upload of ".concat(refused.length, " batch(es). Keeping them for the next upload."));
+                  return [2 /*return*/, refused];
+                }
+                return [2 /*return*/, null];
+            }
+          });
+        });
+      };
+      // We upload JSON, but this content type is required to avoid a CORS preflight request
+      BatchUploader.CONTENT_TYPE = 'text/plain;charset=UTF-8';
+      BatchUploader.MINIMUM_INTERVAL_MILLIS = 500;
+      return BatchUploader;
+    }();
 
     function APIClient(mpInstance, kitBlocker) {
       this.uploader = null;
@@ -5604,7 +5557,7 @@ var mParticle = (function () {
         }
       };
       this.endSession = function (override) {
-        var _a, _b, _c, _d;
+        var _a, _b, _c, _d, _e;
         mpInstance.Logger.verbose(Messages$6.InformationMessages.StartingEndSession);
         if (override) {
           performSessionEnd();
@@ -5620,22 +5573,37 @@ var mParticle = (function () {
           return;
         }
         var cookies = mpInstance._Persistence.getPersistence();
+        // A page or derived restriction removes the stored session (keeping
+        // only the privacy choices) and blocks writes, so decide from the
+        // session held in memory instead, timing it from now when no event
+        // was sent yet.
+        var _f = mpInstance._Store,
+          sessionId = _f.sessionId,
+          dateLastEventSent = _f.dateLastEventSent;
+        if (!((_b = cookies === null || cookies === void 0 ? void 0 : cookies.gs) === null || _b === void 0 ? void 0 : _b.sid) && sessionId && (isFunctionalStorageRevoked(mpInstance) || isStoredRecordPurged(mpInstance))) {
+          cookies = {
+            gs: {
+              sid: sessionId,
+              les: dateLastEventSent ? dateLastEventSent.getTime() : Date.now()
+            }
+          };
+        }
         if (!cookies || cookies.gs && !cookies.gs.sid) {
           mpInstance.Logger.verbose(Messages$6.InformationMessages.NoSessionToEnd);
-          (_b = mpInstance._timeOnSiteTimer) === null || _b === void 0 ? void 0 : _b.resetTimer();
+          (_c = mpInstance._timeOnSiteTimer) === null || _c === void 0 ? void 0 : _c.resetTimer();
           return;
         }
         // sessionId is not equal to cookies.sid if cookies.sid is changed in another tab
         if (cookies.gs.sid && mpInstance._Store.sessionId !== cookies.gs.sid) {
           mpInstance._Store.sessionId = cookies.gs.sid;
         }
-        if ((_c = cookies === null || cookies === void 0 ? void 0 : cookies.gs) === null || _c === void 0 ? void 0 : _c.les) {
+        if ((_d = cookies === null || cookies === void 0 ? void 0 : cookies.gs) === null || _d === void 0 ? void 0 : _d.les) {
           var sessionTimeout = mpInstance._Store.SDKConfig.sessionTimeout;
           if (hasSessionTimedOut(cookies.gs.les, sessionTimeout)) {
             performSessionEnd();
           } else {
             self.setSessionTimer();
-            (_d = mpInstance._timeOnSiteTimer) === null || _d === void 0 ? void 0 : _d.resetTimer();
+            (_e = mpInstance._timeOnSiteTimer) === null || _e === void 0 ? void 0 : _e.resetTimer();
           }
         }
       };
@@ -6143,18 +6111,24 @@ var mParticle = (function () {
     }
 
     var ForegroundTimeTracker = /** @class */function () {
-      function ForegroundTimeTracker(timerKey, noFunctional) {
+      function ForegroundTimeTracker(timerKey, noFunctional, isNoFunctional) {
         if (noFunctional === void 0) {
           noFunctional = false;
+        }
+        if (isNoFunctional === void 0) {
+          isNoFunctional = function isNoFunctional() {
+            return false;
+          };
         }
         this.noFunctional = noFunctional;
         this.isTrackerActive = false;
         this.localStorageName = '';
         this.startTime = 0;
         this.totalTime = 0;
+        this.isNoFunctional = isNoFunctional;
         this.localStorageName = "mprtcl-tos-".concat(timerKey);
         this.timerVault = new LocalStorageVault(this.localStorageName);
-        if (!this.noFunctional) {
+        if (!this.noFunctional && !this.isNoFunctional()) {
           this.loadTimeFromStorage();
         }
         this.addHandlers();
@@ -6209,9 +6183,13 @@ var mParticle = (function () {
         }
       };
       ForegroundTimeTracker.prototype.updateTimeInPersistence = function () {
-        if (this.isTrackerActive && !this.noFunctional) {
+        if (this.isTrackerActive && !this.noFunctional && !this.isNoFunctional()) {
           this.timerVault.store(Math.round(this.totalTime));
         }
+      };
+      /** @internal Removes stored time when functional storage is switched off. */
+      ForegroundTimeTracker.prototype.clearStoredTime = function () {
+        this.timerVault.purge();
       };
       ForegroundTimeTracker.prototype.loadTimeFromStorage = function () {
         var storedTime = this.timerVault.retrieve();
@@ -6641,7 +6619,13 @@ var mParticle = (function () {
         if (workspaceToken) {
           _this.SDKConfig.workspaceToken = workspaceToken;
           var noFunctional = normalizeRoktLauncherOptions(config === null || config === void 0 ? void 0 : config.launcherOptions).noFunctional;
-          mpInstance._timeOnSiteTimer = new ForegroundTimeTracker(workspaceToken, noFunctional);
+          // This config's own restriction always applies. The live reader
+          // adds page and derived restrictions without changing it.
+          var isNoFunctional = function isNoFunctional() {
+            var _a;
+            return !!((_a = mpInstance._CookieConsentManager) === null || _a === void 0 ? void 0 : _a.getNoFunctional());
+          };
+          mpInstance._timeOnSiteTimer = new ForegroundTimeTracker(workspaceToken, noFunctional, isNoFunctional);
         } else {
           mpInstance.Logger.warning('You should have a workspaceToken on your config object for security purposes.');
         }
@@ -7114,14 +7098,77 @@ var mParticle = (function () {
           return false;
         }
       };
+      // The retained privacy choices last written, so a blocked write rewrites
+      // them only when a consent change or user switch changed them.
+      var writtenPrivacyChoices = null;
+      // Blocks mprtcl-v4 writes while noFunctional is true. Once the stored
+      // record holds only the privacy choices, each blocked write refreshes
+      // them from memory, so a later consent change or user switch is kept.
+      // After the restriction is lifted, a write first retries putting the
+      // full record back if that has not succeeded yet.
+      function isWriteBlocked() {
+        var _a;
+        var purged = isStoredRecordPurged(mpInstance);
+        if (!((_a = mpInstance._CookieConsentManager) === null || _a === void 0 ? void 0 : _a.getNoFunctional())) {
+          if (purged) {
+            restoreStoredRecord(mpInstance);
+          }
+          return false;
+        }
+        if (purged && JSON.stringify(buildPrivacyChoices()) !== writtenPrivacyChoices) {
+          self.storePrivacyChoices();
+        }
+        return true;
+      }
+      // Only the decisions are kept: the optional document, location and
+      // hardware id fields of each consent are left out.
+      function minimizeConsent(consentState) {
+        var minimized = {};
+        for (var regulation in consentState) {
+          if (!isObject(consentState[regulation])) {
+            continue;
+          }
+          minimized[regulation] = {};
+          for (var purpose in consentState[regulation]) {
+            var consent = consentState[regulation][purpose] || {};
+            minimized[regulation][purpose] = {
+              c: consent.c,
+              ts: consent.ts
+            };
+          }
+        }
+        return minimized;
+      }
+      function buildPrivacyChoices() {
+        var store = mpInstance._Store;
+        var record = {
+          gs: {}
+        };
+        var mpid = store.mpid;
+        var userRecord = mpid && store.persistenceData[mpid];
+        var consentState = userRecord && userRecord.con;
+        if (store.isEnabled === false) {
+          record.gs.ie = false;
+        }
+        if (consentState) {
+          record.cu = mpid;
+          record[mpid] = {
+            con: minimizeConsent(consentState)
+          };
+          // Identify resolves an anonymous user by device ID, so the next
+          // page must reuse it to stay on the user whose consent is kept.
+          if (store.deviceId) {
+            record.gs.das = store.deviceId;
+          }
+        }
+        return consentState || store.isEnabled === false ? record : null;
+      }
       // https://go.mparticle.com/work/SQDSDKS-6021
       this.setLocalStorage = function () {
-        var _a;
         if (!mpInstance._Store.isLocalStorageAvailable) {
           return;
         }
-        // Block mprtcl-v4 localStorage when noFunctional is true
-        if ((_a = mpInstance._CookieConsentManager) === null || _a === void 0 ? void 0 : _a.getNoFunctional()) {
+        if (isWriteBlocked()) {
           return;
         }
         var key = mpInstance._Store.storageName,
@@ -7148,6 +7195,53 @@ var mParticle = (function () {
           } catch (e) {
             mpInstance.Logger.error('Error with setting localStorage item.');
           }
+        }
+      };
+      // Writes a record holding only the privacy choices: the logging opt-out
+      // (gs.ie = false) and the current user's consent state. It is used after
+      // functional data is removed so that both are still honoured on the next
+      // page load. It carries no other identity or session data.
+      this.storePrivacyChoices = function () {
+        var key = mpInstance._Store.storageName;
+        var record = buildPrivacyChoices();
+        var hasChoices = !!record;
+        var serialized = JSON.stringify(record);
+        // Only a confirmed write is cached, so a failed one is retried.
+        writtenPrivacyChoices = null;
+        try {
+          if (self.useLocalStorage()) {
+            if (!hasChoices) {
+              window.localStorage.removeItem(encodeURIComponent(key));
+            } else {
+              window.localStorage.setItem(encodeURIComponent(key), self.encodePersistence(serialized));
+            }
+            writtenPrivacyChoices = serialized;
+            return;
+          }
+          if (!hasChoices) {
+            self.expireCookies(key);
+            // A refused expiry is silent too, so only a confirmed removal
+            // counts as stored.
+            if (!self.getCookie()) {
+              writtenPrivacyChoices = serialized;
+            }
+            return;
+          }
+          var expires = new Date(Date.now() + mpInstance._Store.SDKConfig.cookieExpiration * 24 * 60 * 60 * 1000).toUTCString();
+          var cookieDomain = self.getCookieDomain();
+          var domain = cookieDomain === '' ? '' : ';domain=' + cookieDomain;
+          writeCookie(encodeURIComponent(key) + '=' + createFullEncodedCookie(record, expires, domain));
+          // A rejected cookie write is silent, so only a read-back that
+          // matches what was written counts as stored.
+          var stored_1 = self.getCookie();
+          var isStored = !!stored_1 && Object.keys(record).every(function (field) {
+            return JSON.stringify(stored_1[field]) === JSON.stringify(record[field]);
+          });
+          if (isStored) {
+            writtenPrivacyChoices = serialized;
+          }
+        } catch (e) {
+          mpInstance.Logger.error('Error storing privacy choices.');
         }
       };
       function setGlobalStorageAttributes(data) {
@@ -7234,9 +7328,7 @@ var mParticle = (function () {
       // https://go.mparticle.com/work/SQDSDKS-5022
       // https://go.mparticle.com/work/SQDSDKS-6021
       this.setCookie = function () {
-        var _a;
-        // Block mprtcl-v4 cookies when noFunctional is true
-        if ((_a = mpInstance._CookieConsentManager) === null || _a === void 0 ? void 0 : _a.getNoFunctional()) {
+        if (isWriteBlocked()) {
           return;
         }
         var mpid,
@@ -7566,9 +7658,7 @@ var mParticle = (function () {
       };
       // https://go.mparticle.com/work/SQDSDKS-6021
       this.savePersistence = function (persistence) {
-        var _a;
-        // Block mprtcl-v4 persistence when noFunctional is true
-        if ((_a = mpInstance._CookieConsentManager) === null || _a === void 0 ? void 0 : _a.getNoFunctional()) {
+        if (isWriteBlocked()) {
           return;
         }
         var encodedPersistence = self.encodePersistence(JSON.stringify(persistence)),
@@ -7596,14 +7686,22 @@ var mParticle = (function () {
         }
       };
       this.getPersistence = function () {
+        if (isStoredRecordPurged(mpInstance)) {
+          return null;
+        }
         var persistence = this.useLocalStorage() ? this.getLocalStorage() : this.getCookie();
         return persistence;
       };
+      // User records for reads and writes of one user's fields. While the stored
+      // record holds only the privacy choices, memory is the full copy.
+      function readUserRecords() {
+        return isStoredRecordPurged(mpInstance) ? mpInstance._Store.persistenceData : self.getPersistence();
+      }
       this.getFirstSeenTime = function (mpid) {
         if (!mpid) {
           return null;
         }
-        var persistence = self.getPersistence();
+        var persistence = readUserRecords();
         if (persistence && persistence[mpid] && persistence[mpid].fst) {
           return persistence[mpid].fst;
         } else {
@@ -7622,7 +7720,7 @@ var mParticle = (function () {
         if (!time) {
           time = new Date().getTime();
         }
-        var persistence = self.getPersistence();
+        var persistence = readUserRecords();
         if (persistence) {
           if (!isObject(persistence[mpid])) {
             persistence[mpid] = {};
@@ -7646,7 +7744,7 @@ var mParticle = (function () {
           //if the mpid is the current user, its last seen time is the current time
           return new Date().getTime();
         } else {
-          var persistence = self.getPersistence();
+          var persistence = readUserRecords();
           if (persistence && persistence[mpid] && persistence[mpid].lst) {
             return persistence[mpid].lst;
           }
@@ -7661,7 +7759,7 @@ var mParticle = (function () {
         if (!time) {
           time = new Date().getTime();
         }
-        var persistence = self.getPersistence();
+        var persistence = readUserRecords();
         if (persistence && isObject(persistence[mpid])) {
           persistence[mpid].lst = time;
           self.savePersistence(persistence);
@@ -8823,6 +8921,11 @@ var mParticle = (function () {
         extend = _a.extend;
       var self = this;
       this.idCache = null;
+      // Users known to this page. Once the stored record holds only the privacy
+      // choices, memory is the only full copy.
+      function readStoredUsers() {
+        return isStoredRecordPurged(mpInstance) ? mpInstance._Store.persistenceData : mpInstance._Persistence.getPersistence();
+      }
       this.audienceManager = null;
       // https://go.mparticle.com/work/SQDSDKS-6353
       this.IdentityRequest = {
@@ -9144,7 +9247,7 @@ var mParticle = (function () {
          * @return {Object} the user for  mpid
          */
         getUser: function getUser(mpid) {
-          var persistence = mpInstance._Persistence.getPersistence();
+          var persistence = readStoredUsers();
           if (persistence) {
             if (persistence[mpid] && !Constants.SDKv2NonMPIDCookieKeys.hasOwnProperty(mpid)) {
               return self.mParticleUser(mpid);
@@ -9161,7 +9264,7 @@ var mParticle = (function () {
          * @return {Array} array of users
          */
         getUsers: function getUsers() {
-          var persistence = mpInstance._Persistence.getPersistence();
+          var persistence = readStoredUsers();
           var users = [];
           if (persistence) {
             for (var key in persistence) {
@@ -9440,7 +9543,7 @@ var mParticle = (function () {
                 }));
               }
             } else {
-              cookies = mpInstance._Persistence.getPersistence();
+              cookies = readStoredUsers();
               userAttributes = this.getAllUserAttributes();
               var existingProp = findKeyInObject(userAttributes, key);
               if (existingProp) {
@@ -10843,7 +10946,7 @@ var mParticle = (function () {
                 mpInstance._Store.identityCallInFlight = true;
                 _h.label = 1;
               case 1:
-                _h.trys.push([1, 9,, 10]);
+                _h.trys.push([1, 9, 10, 11]);
                 return [4 /*yield*/, uploader.upload(fetchPayload)];
               case 2:
                 response = _h.sent();
@@ -10917,7 +11020,7 @@ var mParticle = (function () {
                   mpInstance.captureTiming("".concat(requestCount, "-identityRequestEnd"));
                 }
                 parseIdentityResponse(identityResponse, previousMPID, callback, originalIdentityApiData, method, knownIdentities, false);
-                return [3 /*break*/, 10];
+                return [3 /*break*/, 11];
               case 9:
                 err_1 = _h.sent();
                 mpInstance._Store.identityCallInFlight = false;
@@ -10939,8 +11042,12 @@ var mParticle = (function () {
                 // selectPlacements call with no MPID can still be waiting for this request.
                 (_f = mpInstance._RoktManager) === null || _f === void 0 ? void 0 : _f.processMessageQueue();
                 invokeCallback(callback, HTTPCodes$1.noHttpCoverage, errorMessage);
-                return [3 /*break*/, 10];
+                return [3 /*break*/, 11];
               case 10:
+                // An initial identify deferred behind this request can run now.
+                onIdentityRequestSettled(mpInstance);
+                return [7 /*endfinally*/];
+              case 11:
                 return [2 /*return*/];
             }
           });
@@ -10968,6 +11075,146 @@ var mParticle = (function () {
         };
       };
     }
+
+    var HISTORY_METHODS = ['pushState', 'replaceState'];
+    var WRAPPED_MARKER = '__mpApvWrapped__';
+    var supportsHistoryTracking = function supportsHistoryTracking(win) {
+      return !!win && win.history !== undefined && typeof win.history.pushState === 'function' && typeof win.addEventListener === 'function';
+    };
+    // Wraps pushState/replaceState so `onNavigate` runs after the real method, and
+    // returns the single function that undoes it \u2014 or null when nothing was
+    // installed (history is already wrapped, or a frozen/sealed History rejected the
+    // assignment). Handing back one undo closure keeps the wrapper and original
+    // references out of the tracker entirely: there is no half-patched state for a
+    // caller to inspect, and no way to restore the wrong pair.
+    var patchHistory = function patchHistory(onNavigate, log) {
+      if (window.history.pushState[WRAPPED_MARKER]) {
+        log('[patch] history already wrapped, skipping to avoid double-wrap - STACKED WRAPPER DETECTED');
+        return null;
+      }
+      var originals = {};
+      var wrappers = {};
+      HISTORY_METHODS.forEach(function (name) {
+        var original = window.history[name];
+        originals[name] = original;
+        var wrapper = function wrapper() {
+          var args = [];
+          for (var _i = 0; _i < arguments.length; _i++) {
+            args[_i] = arguments[_i];
+          }
+          var result = original.apply(this, args);
+          onNavigate(name);
+          return result;
+        };
+        Object.defineProperty(wrapper, WRAPPED_MARKER, {
+          value: true,
+          enumerable: false
+        });
+        wrappers[name] = wrapper;
+      });
+      // Restore per method: a third party may have patched one of the two on top of
+      // ours after we installed. Clobbering theirs would break their tracking, so
+      // leave anything that is no longer ours in place.
+      var restore = function restore() {
+        return HISTORY_METHODS.forEach(function (name) {
+          if (window.history[name] === wrappers[name]) {
+            window.history[name] = originals[name];
+            log("[teardown] restored original ".concat(name));
+          } else {
+            log("[teardown] ".concat(name, " no longer ours; leaving in place, gating callback to no-op"));
+          }
+        });
+      };
+      try {
+        HISTORY_METHODS.forEach(function (name) {
+          window.history[name] = wrappers[name];
+        });
+      } catch (e) {
+        log("[error] failed to patch history methods (frozen/sealed), rolling back: ".concat(e));
+        try {
+          restore();
+        } catch (restoreError) {
+          log("[error] failed to restore history methods after patch failure: ".concat(restoreError));
+        }
+        return null;
+      }
+      return restore;
+    };
+    // One History patch for the whole SDK, so page-view tracking and preselection do not
+    // stack two wrappers.
+    //
+    // State lives on `window`, not module scope, because Next.js re-executes the bundle per
+    // SPA navigation while the patch from the previous execution stays installed.
+    var WIN_ROUTE_MONITOR_KEY = '__mpRouteMonitor__';
+    var monitorState = function monitorState() {
+      var win = window;
+      if (!win[WIN_ROUTE_MONITOR_KEY]) {
+        win[WIN_ROUTE_MONITOR_KEY] = {
+          listeners: {},
+          undoHistoryPatch: null,
+          popStateListener: null
+        };
+      }
+      return win[WIN_ROUTE_MONITOR_KEY];
+    };
+    // Reads the shared state at call time, so a wrapper installed by a previous bundle
+    // execution still reaches the current listeners.
+    var emit = function emit(source) {
+      Object.values(monitorState().listeners).forEach(function (listener) {
+        try {
+          listener(source);
+        } catch (e) {
+          // One subscriber must not stop the others, and must never break navigation.
+        }
+      });
+    };
+    var install = function install(state, log) {
+      if (state.undoHistoryPatch || state.popStateListener) {
+        return;
+      }
+      state.undoHistoryPatch = patchHistory(emit, log);
+      state.popStateListener = function () {
+        return emit('popstate');
+      };
+      window.addEventListener('popstate', state.popStateListener);
+    };
+    var uninstall = function uninstall(state) {
+      if (state.popStateListener) {
+        window.removeEventListener('popstate', state.popStateListener);
+        state.popStateListener = null;
+      }
+      if (state.undoHistoryPatch) {
+        state.undoHistoryPatch();
+        state.undoHistoryPatch = null;
+      }
+    };
+    // Installs on the first subscriber and tears down after the last leaves, so a workspace
+    // that needs neither is never patched. Unsubscribing only removes the listener while it
+    // still owns its key, so an outgoing instance cannot remove its replacement.
+    var subscribeToRouteChange = function subscribeToRouteChange(key, listener, log) {
+      if (log === void 0) {
+        log = function log() {
+          return undefined;
+        };
+      }
+      if (!supportsHistoryTracking(typeof window === 'undefined' ? null : window)) {
+        return function () {
+          return undefined;
+        };
+      }
+      var state = monitorState();
+      state.listeners[key] = listener;
+      install(state, log);
+      return function () {
+        if (state.listeners[key] !== listener) {
+          return;
+        }
+        delete state.listeners[key];
+        if (Object.keys(state.listeners).length === 0) {
+          uninstall(state);
+        }
+      };
+    };
 
     var PASSBACK_CONVERSION_TRACKING_ID = 'passbackconversiontrackingid';
     // selectPlacements attributes that go to Rokt but are never saved to the user's profile, so they
@@ -11805,6 +12052,8 @@ var mParticle = (function () {
         this.pageFlags = {};
         /** @internal */
         this.derivedFlags = {};
+        /** @internal */
+        this.changeListener = null;
         this.flags = {
           noFunctional: flags.noFunctional === true,
           noTargeting: flags.noTargeting === true,
@@ -11812,20 +12061,46 @@ var mParticle = (function () {
         };
       }
       /** @internal */
+      CookieConsentManager.prototype.setChangeListener = function (listener) {
+        this.changeListener = listener;
+      };
+      /** @internal */
       CookieConsentManager.prototype.setPageFlags = function (flags) {
+        var previous = this.getCombinedFlags();
         this.pageFlags = {
           noFunctional: flags.noFunctional === true,
           noTargeting: flags.noTargeting === true,
           doNotShareOrSell: flags.doNotShareOrSell === true
         };
+        this.notifyIfChanged(previous);
       };
       /** @internal */
       CookieConsentManager.prototype.replaceDerivedFlags = function (flags) {
+        var previous = this.getCombinedFlags();
         this.derivedFlags = {
           noFunctional: flags.noFunctional === true,
           noTargeting: flags.noTargeting === true,
           doNotShareOrSell: flags.doNotShareOrSell === true
         };
+        this.notifyIfChanged(previous);
+      };
+      /** @internal */
+      CookieConsentManager.prototype.getCombinedFlags = function () {
+        return {
+          noFunctional: this.getNoFunctional(),
+          noTargeting: this.getNoTargeting(),
+          doNotShareOrSell: this.getDoNotShareOrSell()
+        };
+      };
+      /** @internal */
+      CookieConsentManager.prototype.notifyIfChanged = function (previous) {
+        if (!this.changeListener) {
+          return;
+        }
+        var current = this.getCombinedFlags();
+        if (current.noFunctional !== previous.noFunctional || current.noTargeting !== previous.noTargeting || current.doNotShareOrSell !== previous.doNotShareOrSell) {
+          this.changeListener(previous);
+        }
       };
       /**
        * Returns true if third-party targeting is disabled.
@@ -11901,6 +12176,342 @@ var mParticle = (function () {
       return LoggingDispatcher;
     }();
 
+    // All APV state hangs off one window key, and it is the public debugging
+    // contract: `window.__mpApv__` is what you inspect in a console to see whether
+    // tracking is live.
+    //
+    // It lives on `window` rather than in module scope because Next.js re-executes
+    // the SDK bundle on every SPA navigation: module-level state is reset each time,
+    // but `window` persists for the lifetime of the tab.
+    //
+    // One object rather than a key per flag, so resetting is a single reassignment.
+    // Nothing has to be deleted, and there is no ordering in which half the state
+    // survives the reset.
+    var WIN_APV_KEY = '__mpApv__';
+    // ---------------------------------------------------------------------------
+    // Pure helpers. No `this`, no globals, no side effects \u2014 callable and assertable
+    // on their own, which is where the interesting rules live.
+    // ---------------------------------------------------------------------------
+    // Values are re-encoded because they arrive decoded: `{q: 'a&search=b'}` would otherwise
+    // key the same as `{q: 'a', search: 'b'}` and dedup a real navigation away.
+    var pageKey = function pageKey(page) {
+      var query = page.params.map(function (_a) {
+        var name = _a.name,
+          value = _a.value;
+        return "".concat(name, "=").concat(encodeURIComponent(value));
+      }).join('&');
+      return query ? "".concat(page.path, "?").concat(query) : page.path;
+    };
+    // Dedup keys on the pageKey above: a change to any captured param is a new page
+    // (`?page=2` is a distinct pagination view), while a hash-only change, or a
+    // change confined to params we do not capture, is the same page.
+    var isNewPage = function isNewPage(lastKey, candidateKey) {
+      return candidateKey !== lastKey;
+    };
+    // Mirrors the event shape of the public mParticle.logPageView(), but carries the
+    // path and query params captured when the navigation was accepted rather than the
+    // live location.
+    var buildPageViewEvent = function buildPageViewEvent(_a) {
+      var params = _a.params,
+        hostname = _a.hostname,
+        title = _a.title,
+        path = _a.path,
+        isAutoPageView = _a.isAutoPageView;
+      return {
+        messageType: MessageType$1.PageView,
+        name: 'PageView',
+        // Params spread first, then the core fields by name, so a core field always
+        // wins. No allowlist entry collides with hostname/title/path today; naming
+        // them here is what keeps a later addition from silently overwriting one.
+        data: __assign(__assign(__assign({}, paramsToAttributes(params)), {
+          hostname: hostname,
+          title: title,
+          // Masked here, not in the page snapshot, whose raw path tells one page from the next.
+          path: pageUrlPath(path)
+        }), autoPageViewAttribute(isAutoPageView)),
+        eventType: EventType.Unknown
+      };
+    };
+    // ---------------------------------------------------------------------------
+    // Window-scoped APV state. Every read and write goes through these helpers, so
+    // neither the tracker nor mp-instance touches `window` directly and
+    // `typeof window` is checked in exactly one place.
+    // ---------------------------------------------------------------------------
+    var apvWindow = function apvWindow() {
+      return typeof window === 'undefined' ? null : window;
+    };
+    var freshState = function freshState() {
+      return {
+        initialPageViewFired: false
+      };
+    };
+    // Reads tolerate absent state, so a read never mutates `window`. Only the
+    // writers below create it.
+    var readState = function readState() {
+      var win = apvWindow();
+      return win ? win[WIN_APV_KEY] : undefined;
+    };
+    var writeState = function writeState() {
+      var win = apvWindow();
+      if (!win) {
+        return null;
+      }
+      if (!win[WIN_APV_KEY]) {
+        win[WIN_APV_KEY] = freshState();
+      }
+      return win[WIN_APV_KEY];
+    };
+    var getActiveTracker = function getActiveTracker() {
+      var state = readState();
+      return state ? state.tracker : undefined;
+    };
+    var hasInitialPageViewFired = function hasInitialPageViewFired() {
+      var state = readState();
+      return !!(state && state.initialPageViewFired);
+    };
+    var markInitialPageViewFired = function markInitialPageViewFired() {
+      var state = writeState();
+      if (state) {
+        state.initialPageViewFired = true;
+      }
+    };
+    // Returns the page to its pre-APV state: stops the active tracker (restoring the
+    // history methods it patched), then swaps in fresh state. The state object is the
+    // authoritative handle, so this reaches trackers whose owning module is gone.
+    var resetPageViewTracking = function resetPageViewTracking() {
+      var win = apvWindow();
+      if (!win) {
+        return;
+      }
+      var active = getActiveTracker();
+      if (active) {
+        active.teardown();
+      }
+      // One reassignment replaces every flag at once, so nothing can be left behind
+      // whatever shape the previous state was in.
+      win[WIN_APV_KEY] = freshState();
+    };
+    var setActiveTracker = function setActiveTracker(tracker) {
+      var state = writeState();
+      if (state) {
+        state.tracker = tracker;
+      }
+    };
+    var clearActiveTracker = function clearActiveTracker(tracker) {
+      var state = readState();
+      if (state && state.tracker === tracker) {
+        state.tracker = undefined;
+      }
+    };
+    var currentPage = function currentPage(extras) {
+      return {
+        path: window.location.pathname,
+        params: allowedQueryParams(getHref(), extras)
+      };
+    };
+    // Log-safe description of a page: the path, plus the NAMES of the captured
+    // params. Values are deliberately omitted \u2014 verbose logging goes to the console,
+    // and session-replay tooling ships console output off-domain, which is not a
+    // place for an OAuth code or a consumer's search terms.
+    // Only reachable before init() assigns lastPage, which is ahead of any navigation
+    // handler being able to run, so this returns nothing rather than a sentinel.
+    var describePage = function describePage(page) {
+      if (!page) {
+        return '';
+      }
+      var names = page.params.map(function (_a) {
+        var name = _a.name;
+        return name;
+      });
+      // A log line is read by no output, so it takes the click path's fuller rules.
+      var path = pagePath(page.path);
+      return names.length ? "".concat(path, " (params: ").concat(names.join(), ")") : path;
+    };
+    // ---------------------------------------------------------------------------
+    // History patching
+    // ---------------------------------------------------------------------------
+    // ---------------------------------------------------------------------------
+    // Tracker
+    // ---------------------------------------------------------------------------
+    var PageViewTracker = /** @class */function () {
+      function PageViewTracker(mpInstance, options) {
+        this.lastPage = null;
+        this.active = false;
+        this.customQueryParams = [];
+        this.pendingNavigations = [];
+        this.undoHistoryPatch = null;
+        this.mpInstance = mpInstance;
+        this.isAutoPageView = !!(options && options.isAutoPageView);
+      }
+      Object.defineProperty(PageViewTracker.prototype, "isActive", {
+        // True while this tracker owns the history patch and is listening for
+        // navigations. Flips to false on teardown, including the teardown a
+        // successor tracker performs during a handoff. Read-only, and the one thing
+        // worth checking on `window.__mpApv__.tracker` from a console.
+        get: function get() {
+          return this.active;
+        },
+        enumerable: false,
+        configurable: true
+      });
+      PageViewTracker.prototype.init = function () {
+        var _this = this;
+        this.log('[init] PageViewTracker Init');
+        if (!supportsHistoryTracking(apvWindow())) {
+          this.log('[init] unsupported environment (no History API), not starting');
+          return;
+        }
+        // Take over from whichever tracker is currently active: one left behind by
+        // a previous module load, or this same tracker on a repeat
+        // mParticle.init(). Their pending navigations are transferred rather than
+        // dropped \u2014 a route change may have queued a deferred fire that has not
+        // flushed yet, and dropping it loses a page view entirely.
+        var active = getActiveTracker();
+        var inheritedPages = this.retire(active);
+        if (this.active && active !== this) {
+          inheritedPages = inheritedPages.concat(this.retire(this));
+        }
+        this.active = true;
+        this.customQueryParams = this.readCustomQueryParams();
+        this.lastPage = currentPage(this.customQueryParams);
+        this.log("[init] seeded lastPage: ".concat(describePage(this.lastPage)));
+        this.undoHistoryPatch = subscribeToRouteChange('pageView', function (source) {
+          return _this.safeHandleNavigation(source);
+        }, function (message) {
+          return _this.log(message);
+        });
+        setActiveTracker(this);
+        this.log('[init] patched pushState/replaceState + listening for popstate');
+        inheritedPages.forEach(function (page) {
+          return _this.scheduleFire(page);
+        });
+      };
+      PageViewTracker.prototype.teardown = function () {
+        // Discard pending deferred fires (e.g. AutoLogPageView switched off on
+        // re-init). A handoff calls takePendingNavigations() first, so by this
+        // point those paths are already transferred rather than dropped.
+        this.takePendingNavigations();
+        if (this.undoHistoryPatch) {
+          this.undoHistoryPatch();
+          this.undoHistoryPatch = null;
+        }
+        this.active = false;
+        clearActiveTracker(this);
+      };
+      PageViewTracker.prototype.readCustomQueryParams = function () {
+        var _a = this.mpInstance._Store.SDKConfig.autoLogPageViewQueryParams || {},
+          _b = _a.allowed,
+          allowed = _b === void 0 ? [] : _b,
+          _c = _a.rejectedPositions,
+          rejectedPositions = _c === void 0 ? [] : _c,
+          _d = _a.overLimit,
+          overLimit = _d === void 0 ? 0 : _d;
+        if (rejectedPositions.length) {
+          this.mpInstance.Logger.warning('mParticle APV: ignoring invalid additional page view query ' + "parameters at positions ".concat(rejectedPositions.join(', ')));
+        }
+        if (overLimit) {
+          this.mpInstance.Logger.warning("mParticle APV: ignoring ".concat(overLimit, " additional page view ") + "query parameters beyond the limit of " + "".concat(MAX_CUSTOM_QUERY_PARAMS));
+        }
+        if (allowed.length) {
+          this.log("[init] additional query params: ".concat(allowed.join()));
+        }
+        return allowed;
+      };
+      // Stops the outgoing tracker and returns the pages it had queued so this
+      // tracker can re-schedule them once it is active. Private, but reachable
+      // across instances: the handoff protocol stays internal to the class.
+      PageViewTracker.prototype.retire = function (outgoing) {
+        if (!outgoing) {
+          return [];
+        }
+        this.log(outgoing === this ? '[init] retiring this tracker for a repeat mParticle.init() - transferring pending navigations and tearing down' : '[init] retiring a tracker from a previous module load - transferring pending navigations and tearing down');
+        var pages = outgoing.takePendingNavigations();
+        outgoing.teardown();
+        return pages;
+      };
+      // Cancels this tracker's deferred fires and hands back their captured pages.
+      PageViewTracker.prototype.takePendingNavigations = function () {
+        var pending = this.pendingNavigations;
+        this.pendingNavigations = [];
+        pending.forEach(function (_a) {
+          var timeoutId = _a.timeoutId;
+          return clearTimeout(timeoutId);
+        });
+        return pending.map(function (_a) {
+          var page = _a.page;
+          return page;
+        });
+      };
+      PageViewTracker.prototype.safeHandleNavigation = function (source) {
+        // An orphaned wrapper still calls in: teardown can only restore a history
+        // method that is still ours, so one a third party patched over stays
+        // installed and keeps firing at a dead tracker. Bail before touching
+        // lastPath or queueing a fire the flush would just abort. Guarding here
+        // rather than at each wrapper also covers the popstate path.
+        if (!this.active) {
+          return;
+        }
+        try {
+          this.handleNavigation(source);
+        } catch (e) {
+          this.log("[error] navigation handler threw (".concat(source, "), page view skipped: ").concat(e));
+        }
+      };
+      PageViewTracker.prototype.handleNavigation = function (source) {
+        var candidate = currentPage(this.customQueryParams);
+        var lastKey = this.lastPage ? pageKey(this.lastPage) : null;
+        this.log("[detect] navigation signal (source: ".concat(source, ", candidate: ").concat(describePage(candidate), ", last: ").concat(describePage(this.lastPage), ")"));
+        if (!isNewPage(lastKey, pageKey(candidate))) {
+          this.log("[dedupe] page unchanged, skipping (source: ".concat(source, ", page: ").concat(describePage(candidate), ")"));
+          return;
+        }
+        this.log("[accept] page changed, scheduling fire (source: ".concat(source, ", from: ").concat(describePage(this.lastPage), ", to: ").concat(describePage(candidate), ")"));
+        this.lastPage = candidate;
+        this.scheduleFire(candidate);
+      };
+      // Deferred by a macrotask so the router's post-navigation render commit has a
+      // chance to update document.title before the event is built. The path and
+      // query params are snapshotted now because they are already settled, whereas a
+      // same-tick navigation would overwrite window.location before the flush reads
+      // it.
+      PageViewTracker.prototype.scheduleFire = function (page) {
+        var _this = this;
+        var timeoutId = setTimeout(function () {
+          _this.pendingNavigations = _this.pendingNavigations.filter(function (p) {
+            return p.timeoutId !== timeoutId;
+          });
+          if (!_this.active) {
+            _this.log('[defer] fire aborted, tracker inactive (torn down before flush)');
+            return;
+          }
+          _this.mpInstance._SessionManager.resetSessionTimer();
+          _this.firePageView(page);
+        }, 0);
+        this.pendingNavigations.push({
+          page: page,
+          timeoutId: timeoutId
+        });
+      };
+      PageViewTracker.prototype.firePageView = function (page) {
+        var title = window.document.title;
+        var event = buildPageViewEvent(__assign(__assign({}, page), {
+          hostname: window.location.hostname,
+          title: title,
+          isAutoPageView: this.isAutoPageView
+        }));
+        // A title can name the shopper or an order, so it stays out of the log
+        // line, for the same reason describePage omits param values.
+        this.log("[fire] deferred flush -> _Events.logEvent(PageView) (page: ".concat(describePage(page), ")"));
+        this.mpInstance._Events.logEvent(event);
+      };
+      PageViewTracker.prototype.log = function (message) {
+        this.mpInstance.Logger.verbose("mParticle APV: ".concat(message));
+      };
+      return PageViewTracker;
+    }();
+
+    // The names auto click events go by. The click tracker sets them and core's
+    // forwarding check reads them, so they sit in core.
     // Marks an automatically logged button click, like `is_auto_page_view`.
     var AUTO_BUTTON_ATTRIBUTE = 'is_auto_button_click';
     // Specific enough not to merge with a customer's own 'Button Click' event.
@@ -11908,6 +12519,7 @@ var mParticle = (function () {
     // Marks an automatically logged click on a link that leaves the page.
     var AUTO_LINK_ATTRIBUTE = 'is_auto_link_click';
     var LINK_CLICK_EVENT_NAME = 'Auto Link Click';
+
     // The attributes both click events carry, with the page fields that auto page
     // views carry. No intent: classifying clicks is left to whoever reads the data.
     var clickAttributes = function clickAttributes(click, pathname) {
@@ -11950,10 +12562,10 @@ var mParticle = (function () {
       var data = clickAttributes(click, pathname);
       data[AUTO_BUTTON_ATTRIBUTE] = true;
       return {
-        messageType: MessageType$1.PageEvent,
+        messageType: MESSAGE_TYPE_PAGE_EVENT,
         name: BUTTON_CLICK_EVENT_NAME,
         data: data,
-        eventType: EventType.Other
+        eventType: EVENT_TYPE_OTHER
       };
     };
     // One custom event per click on a link that leaves the page. Typed Other, not
@@ -11969,53 +12581,11 @@ var mParticle = (function () {
       }) : click, pathname);
       data[AUTO_LINK_ATTRIBUTE] = true;
       return {
-        messageType: MessageType$1.PageEvent,
+        messageType: MESSAGE_TYPE_PAGE_EVENT,
         name: LINK_CLICK_EVENT_NAME,
         data: data,
-        eventType: EventType.Other
+        eventType: EVENT_TYPE_OTHER
       };
-    };
-    // Every attribute buildButtonClickEvent can set apart from the marker and the
-    // hostname, which is the same on every click on this page. A spec checks the
-    // two stay in step.
-    var CLICK_ATTRIBUTES = ['label_source', 'element', 'type', 'path', 'label', 'aria_label', 'icon', 'element_id', 'element_name', 'test_id', 'controls', 'form', 'group', 'link_type', 'link_domain', 'link_path', 'file_extension', 'checked'];
-    // Which check keeps some or all auto button clicks, or auto link clicks with
-    // `link`, from a kit, or undefined when the kit receives every one. A forwarding
-    // rule on an attribute whose value differs between clicks lets some through and
-    // not others. Each other check goes through isEventForwarded on its own, so
-    // together they decide as it does for each click.
-    var getButtonClickBlocker = function getButtonClickBlocker(forwarder, kitBlocker, link) {
-      if (link === void 0) {
-        link = false;
-      }
-      var rule = forwarder.filteringEventAttributeValue;
-      if (rule && rule.eventAttributeValue && CLICK_ATTRIBUTES.some(function (name) {
-        return KitFilterHelper.hashAttributeConditionalForwarding(name) === rule.eventAttributeName;
-      })) {
-        return 'forwarding rule';
-      }
-      var attributes = {
-        hostname: window.location.hostname
-      };
-      attributes[link ? AUTO_LINK_ATTRIBUTE : AUTO_BUTTON_ATTRIBUTE] = true;
-      var click = {
-        EventName: link ? LINK_CLICK_EVENT_NAME : BUTTON_CLICK_EVENT_NAME,
-        EventCategory: EventType.Other,
-        EventDataType: MessageType$1.PageEvent,
-        EventAttributes: attributes
-      };
-      var checks = [['data plan', {}], ['forwarding rule', {
-        filteringEventAttributeValue: rule
-      }], ['event name filter', {
-        eventNameFilters: forwarder.eventNameFilters
-      }], ['event type filter', {
-        eventTypeFilters: forwarder.eventTypeFilters
-      }]];
-      var failed = checks.find(function (_a) {
-        var filters = _a[1];
-        return !isEventForwarded(click, filters, kitBlocker);
-      });
-      return failed ? failed[0] : undefined;
     };
 
     // Finds the control a click landed on, for both checkout intent and button
@@ -14124,6 +14694,49 @@ var mParticle = (function () {
       return ButtonTracker;
     }();
 
+    // Every attribute buildButtonClickEvent (in buttonTracking/buttonClickEvent.ts)
+    // can set apart from the marker and the hostname, which is the same on every
+    // click on this page. A spec checks the two stay in step.
+    var CLICK_ATTRIBUTES = ['label_source', 'element', 'type', 'path', 'label', 'aria_label', 'icon', 'element_id', 'element_name', 'test_id', 'controls', 'form', 'group', 'link_type', 'link_domain', 'link_path', 'file_extension', 'checked'];
+    // Which check keeps some or all auto button clicks, or auto link clicks with
+    // `link`, from a kit, or undefined when the kit receives every one. A forwarding
+    // rule on an attribute whose value differs between clicks lets some through and
+    // not others. Each other check goes through isEventForwarded on its own, so
+    // together they decide as it does for each click.
+    var getButtonClickBlocker = function getButtonClickBlocker(forwarder, kitBlocker, link) {
+      if (link === void 0) {
+        link = false;
+      }
+      var rule = forwarder.filteringEventAttributeValue;
+      if (rule && rule.eventAttributeValue && CLICK_ATTRIBUTES.some(function (name) {
+        return KitFilterHelper.hashAttributeConditionalForwarding(name) === rule.eventAttributeName;
+      })) {
+        return 'forwarding rule';
+      }
+      var attributes = {
+        hostname: window.location.hostname
+      };
+      attributes[link ? AUTO_LINK_ATTRIBUTE : AUTO_BUTTON_ATTRIBUTE] = true;
+      var click = {
+        EventName: link ? LINK_CLICK_EVENT_NAME : BUTTON_CLICK_EVENT_NAME,
+        EventCategory: EVENT_TYPE_OTHER,
+        EventDataType: MESSAGE_TYPE_PAGE_EVENT,
+        EventAttributes: attributes
+      };
+      var checks = [['data plan', {}], ['forwarding rule', {
+        filteringEventAttributeValue: rule
+      }], ['event name filter', {
+        eventNameFilters: forwarder.eventNameFilters
+      }], ['event type filter', {
+        eventTypeFilters: forwarder.eventTypeFilters
+      }]];
+      var failed = checks.find(function (_a) {
+        var filters = _a[1];
+        return !isEventForwarded(click, filters, kitBlocker);
+      });
+      return failed ? failed[0] : undefined;
+    };
+
     var Messages = Constants.Messages,
       HTTPCodes = Constants.HTTPCodes,
       FeatureFlags = Constants.FeatureFlags,
@@ -15088,6 +15701,7 @@ var mParticle = (function () {
         // Load any settings/identities/attributes from cookie or localStorage
         mpInstance._Persistence.initializeStorage();
         mpInstance._Store.syncPersistenceData();
+        applyRestrictionAfterConfiguration(mpInstance);
         // Set up user identitiy variables for later use
         var currentUser = mpInstance.Identity.getCurrentUser();
         var currentUserMPID = currentUser ? currentUser.getMPID() : null;
@@ -15295,6 +15909,10 @@ var mParticle = (function () {
         noFunctional: noFunctional,
         noTargeting: noTargeting,
         doNotShareOrSell: doNotShareOrSell
+      });
+      // Page and derived flag changes after initialization reach storage and identity.
+      mpInstance._CookieConsentManager.setChangeListener(function (previous) {
+        return applyPrivacyFlagChange(mpInstance, previous);
       });
       // Check to see if localStorage is available before main configuration runs
       // since we will need this for the current implementation of user persistence
