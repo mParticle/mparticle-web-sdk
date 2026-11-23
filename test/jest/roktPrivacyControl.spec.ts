@@ -29,7 +29,10 @@ describe('Rokt Ads page privacy control', () => {
         expect(consent.getNoFunctional()).toBe(true);
         expect(consent.getNoTargeting()).toBe(true);
         expect(consent.getDoNotShareOrSell()).toBe(true);
-        expect(manager.hasTargetingOptOut()).toBe(true);
+        // The click gates read the launcher options, as before, and only the
+        // setter's flags from core.
+        expect(manager.hasTargetingOptOut()).toBe(false);
+        expect(manager.hasPageTargetingOptOut()).toBe(false);
     });
 
     it('updates only the supplied page flags before kit init', () => {

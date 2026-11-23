@@ -13,6 +13,7 @@ import Events from '../../../src/events';
 import { IMParticleWebSDKInstance } from '../../../src/mp-instance';
 import RoktManager, { IRoktKit } from '../../../src/roktManager';
 import CookieConsentManager from '../../../src/cookieConsentManager';
+import { WIN_PAGE_PRIVACY_KEY } from '../../../src/roktManager';
 import { IKitConfigs } from '../../../src/configAPIClient';
 import { IMParticleUser } from '../../../src/identity-user-interfaces';
 import { SDKIdentityApi } from '../../../src/identity.interfaces';
@@ -120,6 +121,7 @@ describe('ButtonTracker', () => {
     };
 
     beforeEach(() => {
+        delete (window as any)[WIN_PAGE_PRIVACY_KEY];
         cookieConsent = undefined;
         jest.useFakeTimers();
         jest.setSystemTime(1000000);
@@ -1305,16 +1307,29 @@ describe('ButtonTracker', () => {
         });
 
         it.each(['noTargeting', 'doNotShareOrSell'])(
-            'stops logging clicks without a Rokt kit when core sets %s',
+            'stops logging clicks without a Rokt kit when the page setter sets %s',
+            flag => {
+                startTracker(false, bothOn);
+                clickButtonAndLink();
+
+                roktManager.setPrivacyControl({ [flag]: true });
+                clickButtonAndLink();
+
+                expect(logEvent).toHaveBeenCalledTimes(2);
+            }
+        );
+
+        it.each(['noTargeting', 'doNotShareOrSell'])(
+            'keeps logging clicks without a Rokt kit when only initialization or consent sets %s',
             flag => {
                 cookieConsent = new CookieConsentManager({
                     noFunctional: false,
                     noTargeting: false,
+                    [flag]: true,
                 });
+                cookieConsent.replaceDerivedFlags({ [flag]: true });
                 startTracker(false, bothOn);
-                clickButtonAndLink();
 
-                cookieConsent.setPageFlags({ [flag]: true });
                 clickButtonAndLink();
 
                 expect(logEvent).toHaveBeenCalledTimes(2);

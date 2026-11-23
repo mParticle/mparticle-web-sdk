@@ -447,13 +447,11 @@ export default class RoktManager {
     // Control. Unlike noFunctional, these also stop auto button and link clicks
     // from being logged.
     public hasTargetingOptOut(): boolean {
-        // Preserve the launcher options' legacy truthiness alongside strict core flags.
         const options = this.launcherOptions || {};
         if (
             options.noTargeting ||
             options.doNotShareOrSell ||
-            this.cookieConsentManager?.getNoTargeting() ||
-            this.cookieConsentManager?.getDoNotShareOrSell()
+            this.hasPageTargetingOptOut()
         ) {
             return true;
         }
@@ -474,9 +472,21 @@ export default class RoktManager {
         ) {
             return true;
         }
+        const pageFlags = pagePrivacyFlags(this.instanceName, false);
         return !!this.launcherOptions?.noFunctional ||
-            !!this.cookieConsentManager?.getNoFunctional() ||
+            pageFlags?.noFunctional === true ||
             this.hasTargetingOptOut();
+    }
+
+    /**
+     * @internal True when the page setter opted out of targeting. Only the
+     * setter's flags count, so pages that never call it keep their existing
+     * click logging.
+     */
+    public hasPageTargetingOptOut(): boolean {
+        const pageFlags = pagePrivacyFlags(this.instanceName, false);
+        return !!pageFlags &&
+            (pageFlags.noTargeting === true || pageFlags.doNotShareOrSell === true);
     }
 
     // True when the kit can wait for the shopper's confirm click: signals are not

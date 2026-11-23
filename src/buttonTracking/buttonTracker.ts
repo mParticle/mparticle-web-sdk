@@ -678,24 +678,18 @@ export class ButtonTracker {
     }
 
     // Read per click, since the flags can change after the tracker starts. The
-    // core privacy flags (initialization, page setter and consent) apply with
-    // or without a Rokt kit. The kit's own gates, including Global Privacy
-    // Control, apply only where this init configures a Rokt kit, so Global
-    // Privacy Control alone doesn't stop click logging elsewhere.
+    // page setter's opt-outs apply with or without a Rokt kit. The kit's own
+    // gates, including the launcher options and Global Privacy Control, apply
+    // only where this init configures a Rokt kit, so they don't stop click
+    // logging elsewhere.
     private hasTargetingOptOut(): boolean {
-        const consent = this.mpInstance._CookieConsentManager;
-        if (
-            consent &&
-            (consent.getNoTargeting() || consent.getDoNotShareOrSell())
-        ) {
-            return true;
-        }
         const roktManager = this.mpInstance._RoktManager;
-        return (
-            this.hasRoktKit &&
-            !!roktManager &&
-            roktManager.hasTargetingOptOut()
-        );
+        if (!roktManager) {
+            return false;
+        }
+        return this.hasRoktKit
+            ? roktManager.hasTargetingOptOut()
+            : roktManager.hasPageTargetingOptOut();
     }
 
     // The Rokt manager owns the kit's privacy gates: flag, opt-out, launcher
