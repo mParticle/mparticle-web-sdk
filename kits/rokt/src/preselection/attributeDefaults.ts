@@ -13,6 +13,7 @@ import { isEmpty, isObject, isString, readOwnValue } from '../utils';
 import { type PreselectHost } from './hostChecks';
 import { getPreselectionEntries } from './entries';
 import { isPreselectEmailKey } from './emailKeys';
+import { readPageValueFill } from './pageValue';
 
 // Names, comma-joined, the keys a speculative call sent with the entry's default. A name goes out only when it matches
 // PRESELECT_DEFAULTED_NAME_PATTERN, and at most PRESELECT_DEFAULTED_MAX_NAMES of them. The persistence deny list keeps
@@ -162,8 +163,8 @@ export function getPreselectClientType(userAgent: string): PreselectClientType |
   return DESKTOP_OS_PATTERN.test(userAgent) ? 'DesktopWeb' : undefined;
 }
 
-// A device's skip wins over everything; otherwise the shopper's payment pick, then the page's host, then the device,
-// then the plain value.
+// A device's skip wins over everything; otherwise the page's mapped value, then the shopper's payment pick, then the
+// page's host, then the device, then the plain value.
 export function resolvePreselectAttributeDefault(
   attributeDefault: string | PreselectAttributeDefault,
   paymentPick: PaymentFamily | undefined,
@@ -184,7 +185,8 @@ export function resolvePreselectAttributeDefault(
   const byHostname = attributeDefault.byHostname
     ? (readOwnValue(attributeDefault.byHostname, window.location.hostname) as string | undefined)
     : undefined;
-  return byPaymentPick ?? byHostname ?? byClientType ?? attributeDefault.value;
+  const byPageValue = attributeDefault.byPageValue ? readPageValueFill(attributeDefault.byPageValue) : undefined;
+  return byPageValue ?? byPaymentPick ?? byHostname ?? byClientType ?? attributeDefault.value;
 }
 
 // Read only for an entry with a default that names payment picks, so no other entry touches the tab's record.

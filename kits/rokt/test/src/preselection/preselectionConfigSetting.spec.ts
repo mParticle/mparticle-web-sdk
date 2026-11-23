@@ -612,6 +612,23 @@ describe('parsePreselectionConfigSetting', () => {
       ).toEqual({ entries: [{ accountId: ACCOUNT_ID, ...DEFAULTS_ENTRY, preselectAttributeDefaults }] });
     });
 
+    const pageDefault = (byPageValue: unknown, skipValues?: string[]) => ({
+      segment: { value: 'r', byPageValue, ...(skipValues ? { skipValues } : {}) },
+    });
+
+    it('parses a value mapped from the page beside the value it falls back to', () => {
+      const preselectAttributeDefaults = {
+        segment: {
+          value: 'registered',
+          byPageValue: { path: 'siteData.visitor.status', values: { guest: 'guest', 'not signed in': 'guest' } },
+        },
+      };
+
+      expect(
+        parsePreselectionConfigSetting(ACCOUNT_ID, buildSetting([{ ...DEFAULTS_ENTRY, preselectAttributeDefaults }])),
+      ).toEqual({ entries: [{ accountId: ACCOUNT_ID, ...DEFAULTS_ENTRY, preselectAttributeDefaults }] });
+    });
+
     it('accepts a field it does not know inside a default, so a later kit can add one', () => {
       const preselectAttributeDefaults = { placementType: { value: 'overlay', byPathname: { '/a': 'embed' } } };
 
@@ -689,6 +706,22 @@ describe('parsePreselectionConfigSetting', () => {
           },
         },
       ],
+      ['a page value with nothing else to fill', { segment: { byPageValue: { path: 'a.b', values: { guest: 'g' } } } }],
+      ['a page value that is not an object', pageDefault('a.b')],
+      ['a page path that is not a string', pageDefault({ path: 1, values: { guest: 'g' } })],
+      ['a __proto__ page path', pageDefault({ path: 'a.__proto__.b', values: { guest: 'g' } })],
+      ['a constructor page path', pageDefault({ path: 'a.constructor', values: { guest: 'g' } })],
+      ['a prototype page path', pageDefault({ path: 'a.prototype.b', values: { guest: 'g' } })],
+      ['a page path with an empty segment', pageDefault({ path: 'a..b', values: { guest: 'g' } })],
+      ['a page path over eight segments', pageDefault({ path: 'a.b.c.d.e.f.g.h.i', values: { guest: 'g' } })],
+      ['page values that are not an object', pageDefault({ path: 'a.b', values: ['guest'] })],
+      ['empty page values', pageDefault({ path: 'a.b', values: {} })],
+      ['a page value key in upper case', pageDefault({ path: 'a.b', values: { Guest: 'g' } })],
+      ['a page value key with spaces around it', pageDefault({ path: 'a.b', values: { ' guest': 'g' } })],
+      ['an empty page value key', pageDefault({ path: 'a.b', values: { '': 'g' } })],
+      ['an empty page fill', pageDefault({ path: 'a.b', values: { guest: '' } })],
+      ['a non-string page fill', pageDefault({ path: 'a.b', values: { guest: 1 } })],
+      ['a skip value the default fills from the page', pageDefault({ path: 'a.b', values: { guest: 'g' } }, ['G'])],
       ['a default on email', { email: 'x' }],
       ['a default on email in another casing', { EMAIL: 'x' }, ['EMAIL']],
       ['a default on a hashed email', { emailSha256: 'x' }, ['emailSha256']],
