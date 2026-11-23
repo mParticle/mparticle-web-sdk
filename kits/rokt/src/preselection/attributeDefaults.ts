@@ -11,7 +11,7 @@ import { type PreselectDiagnosticDetails } from './diagnosticTiming';
 import { classifyPaymentFamily, type PaymentFamily } from '../paymentFamily';
 import { isEmpty, isObject, isString, readOwnValue } from '../utils';
 import { type PreselectHost } from './hostChecks';
-import { getPreselectionEntries } from './entries';
+import { getPreselectionEntries, usesTargetPageIdentifierAttribute } from './entries';
 import { isPreselectEmailKey } from './emailKeys';
 
 // Names, comma-joined, the keys a speculative call sent with the entry's default. A name goes out only when it matches
@@ -300,19 +300,29 @@ export function preselectVariantDetail(host: PreselectHost): PreselectDiagnostic
 // the launcher treats a call that sent every strict key as identified and then forgives keys that call never sent,
 // which a defaulted key alone would switch on. A key matched by payment family whose value names a family stays out,
 // because the launcher never reads a match token on an identity key; its token keeps it strict instead (see
-// getPreselectCacheMatchTokens).
+// getPreselectCacheMatchTokens). That holds only while the target page's call under this identifier is sure to find
+// the entry, since a call that finds none sends no token.
 export function getPreselectCacheIdentityKeys(
   configEntry: PreselectionConfigEntry | undefined,
   fills: Record<string, string> | undefined,
   outgoing: Record<string, unknown>,
+  identifier?: string,
 ): string[] | undefined {
   const identityKeys = configEntry?.identityKeys;
-  if (!identityKeys?.length || !fills) {
+  if (!configEntry || !identityKeys?.length || !fills) {
     return identityKeys;
   }
-  const defaults = configEntry?.preselectAttributeDefaults;
+  const defaults = configEntry.preselectAttributeDefaults;
+  const targetPageCallFindsEntry =
+    !usesTargetPageIdentifierAttribute(configEntry.accountId) &&
+    findPreselectionConfigByIdentifier(configEntry.accountId, identifier) === configEntry;
   const defaultedKeys = getSentPreselectDefaults(fills, outgoing).filter(
-    (key) => !(matchesByPaymentFamily(defaults?.[key]) && classifyPaymentFamily(fills[key]) !== undefined),
+    (key) =>
+      !(
+        targetPageCallFindsEntry &&
+        matchesByPaymentFamily(defaults?.[key]) &&
+        classifyPaymentFamily(fills[key]) !== undefined
+      ),
   );
   return defaultedKeys.length > 0 ? [...identityKeys, ...defaultedKeys] : identityKeys;
 }
