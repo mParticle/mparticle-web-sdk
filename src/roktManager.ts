@@ -173,8 +173,12 @@ export default class RoktManager {
     private identityService: SDKIdentityApi;
     private store: IStore;
     private launcherOptions?: IRoktLauncherOptions;
+    /** @internal */
     private cookieConsentManager?: ICookieConsentManager;
-    private pagePrivacyControl: IRoktPrivacyControl = {};
+    // Created on the first setter call, so the mParticle global gains no
+    // property until a page uses it.
+    /** @internal */
+    private pagePrivacyControl?: IRoktPrivacyControl;
     private logger: SDKLoggerApi;
     private errorReporter: IErrorReportingService;
     private loggingService: ILoggingService;
@@ -213,6 +217,7 @@ export default class RoktManager {
             if (hasOwnProp(control, key)) {
                 const value = control[key];
                 if (typeof value === 'boolean') {
+                    this.pagePrivacyControl = this.pagePrivacyControl || {};
                     this.pagePrivacyControl[key] = value;
                     hasUpdate = true;
                 }
@@ -245,7 +250,9 @@ export default class RoktManager {
             }
         }
         // Page flags set earlier on this page carry over a re-initialization.
-        manager.setPageFlags(this.pagePrivacyControl);
+        if (this.pagePrivacyControl) {
+            manager.setPageFlags(this.pagePrivacyControl);
+        }
     }
 
     /**
