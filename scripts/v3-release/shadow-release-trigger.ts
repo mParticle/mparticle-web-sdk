@@ -16,6 +16,16 @@
 // branches and main can already be past the tag, so a Step 3 move checks only
 // those three branches.
 //
+// When the release-order branches are retired
+// (--release-order-branches-retired true, from the
+// V3_RELEASE_ORDER_BRANCHES_RETIRED repository variable that V3 Step 3 reads),
+// Step 3 pushes no branch, so there is no release-order branch to check. A
+// Step 3 move then checks v3-staging, the branch Step 1 leaves at the newest
+// release tag and Step 3's own preflight requires at the tag: once a newer
+// release is staged it moves on, and an older Step 3 run no longer moves a
+// pointer. A Step 2 run is skipped, because the branch it pushes is retired.
+// The flag needs Release Please mode.
+//
 // Real Step 2 runs have already put the three release-order branches at the
 // tag, so in Release Please mode the branch check alone cannot tell a Step 3
 // dry run from a real one. A Step 3 move therefore also needs the run
@@ -48,7 +58,8 @@
 //     [--jobs <jobs.json>] [--artifacts <artifacts.json>]
 // ... release-step --run <run.json> --repository <owner/name> \
 //     --v3-step2-workflow-id <id> --v3-step3-workflow-id <id> \
-//     [--release-please-mode true|false] [--jobs <jobs.json>]
+//     [--release-please-mode true|false] \
+//     [--release-order-branches-retired true|false] [--jobs <jobs.json>]
 // ... branches --tag <vX.Y.Z> --branch <name> [--branch <name> ...]
 // ... pods --list <comma-separated pods> [--release-gate true|false]
 //
@@ -644,8 +655,14 @@ function planReleaseStep(
     repository: string,
     workflowIds: ReleaseStepWorkflowIds,
     releasePleaseMode = false,
-    jobs?: WorkflowJob[]
+    jobs?: WorkflowJob[],
+    releaseOrderBranchesRetired = false
 ): ReleaseStepPlan {
+    if (releaseOrderBranchesRetired && !releasePleaseMode) {
+        fail(
+            '--release-order-branches-retired true needs --release-please-mode true'
+        );
+    }
     validateRepository(repository);
     validateRunId(workflowIds.v3Step2, 'The V3 Step 2 workflow ID');
     validateRunId(workflowIds.v3Step3, 'The V3 Step 3 workflow ID');
@@ -702,6 +719,13 @@ function planReleaseStep(
     }
     contract.validateVersion(releaseVersion);
     if (step === 2) {
+        if (releaseOrderBranchesRetired) {
+            return {
+                ...empty,
+                skip: true,
+                reason: 'The release-order branches are retired, so a Step 2 run moves no pointer',
+            };
+        }
         const branch = `v3-${match[2]}`;
         return {
             step,
@@ -731,10 +755,14 @@ function planReleaseStep(
         releaseVersion,
         channels: [...contract.RELEASE_ORDER_CHANNELS, contract.GA_CHANNEL],
         // In Release Please mode, Step 3 leaves main alone: main already holds
-        // the release and can move past the tag before Step 3 runs.
-        branches: releasePleaseMode
-            ? [...RELEASE_ORDER_BRANCHES]
-            : [V3_TRUNK_BRANCH, ...RELEASE_ORDER_BRANCHES],
+        // the release and can move past the tag before Step 3 runs. With the
+        // release-order branches retired Step 3 pushes nothing, and
+        // v3-staging shows that no newer release has been staged since.
+        branches: releaseOrderBranchesRetired
+            ? [STEP1_BRANCH]
+            : releasePleaseMode
+              ? [...RELEASE_ORDER_BRANCHES]
+              : [V3_TRUNK_BRANCH, ...RELEASE_ORDER_BRANCHES],
     };
 }
 
@@ -949,6 +977,7 @@ function main(args: string[], git: GitRunner = defaultGit): string[] {
             '--v3-step2-workflow-id',
             '--v3-step3-workflow-id',
             '--release-please-mode',
+            '--release-order-branches-retired',
             '--jobs',
         ]);
         const releasePleaseMode = flags.has('--release-please-mode')
@@ -957,6 +986,14 @@ function main(args: string[], git: GitRunner = defaultGit): string[] {
         if (releasePleaseMode !== 'true' && releasePleaseMode !== 'false') {
             fail('--release-please-mode must be true or false');
         }
+        const releaseOrderBranchesRetired = flags.has(
+            '--release-order-branches-retired'
+        )
+            ? validateBoolean(
+                  single(flags, '--release-order-branches-retired'),
+                  '--release-order-branches-retired'
+              )
+            : false;
         const plan = planReleaseStep(
             readRun(single(flags, '--run')),
             single(flags, '--repository'),
@@ -970,7 +1007,8 @@ function main(args: string[], git: GitRunner = defaultGit): string[] {
                       single(flags, '--jobs'),
                       'jobs'
                   ) as WorkflowJob[])
-                : undefined
+                : undefined,
+            releaseOrderBranchesRetired
         );
         if (plan.skip) {
             return [`step=${plan.step}`, 'skip=true', `reason=${plan.reason}`];

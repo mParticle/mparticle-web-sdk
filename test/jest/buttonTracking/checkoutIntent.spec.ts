@@ -239,6 +239,14 @@ describe('checkoutIntent', () => {
             ['Pay with PayPal', null, 'wallet'],
             ['Buy with Apple Pay', null, 'wallet'],
             ['Check out with Afterpay', null, 'wallet'],
+            ['Checkout with Cash App Afterpay', null, 'wallet'],
+            ['Pay with Cash App Afterpay', null, 'wallet'],
+            ['Cash App Afterpay', null, 'wallet'],
+            ['Pay with Cash App Pay', null, 'wallet'],
+            ['Cash App Pay', null, 'wallet'],
+            ['Cash App', null, 'wallet'],
+            ['Learn more about Cash App Afterpay', null, undefined],
+            ['Cash App Afterpay available', null, undefined],
             ['Continue to PayPal', null, 'wallet'],
             ['applepay', null, 'wallet'],
             ['googlepay checkout', null, 'wallet'],
@@ -301,6 +309,25 @@ describe('checkoutIntent', () => {
             expect(classify([control('<a href="/paypal-info">PayPal</a>')], '/checkout')).toBeUndefined();
             expect(classify([control('<a href="#" role="button">PayPal</a>')], '/checkout')).toBe('wallet');
         });
+        it('reads a Cash App Afterpay button as a wallet tap, by its phrase or its bare name', () => {
+            // An icon-only button carries the phrase in its aria-label.
+            const icon = control('<button aria-label="Checkout with Cash App Afterpay"><img alt=""></button>');
+            expect(classifyIntent(icon, '/cart')).toEqual({ kind: 'wallet', source: 'label' });
+            expect(classifyIntent(control('<button>Pay with Cash App Afterpay</button>'), '/checkout')).toEqual({
+                kind: 'wallet',
+                source: 'label',
+            });
+            expect(classifyIntent(control('<button>Cash App Afterpay</button>'), '/checkout')).toEqual({
+                kind: 'wallet',
+                source: 'brand',
+            });
+        });
+        it('does not read Cash App Afterpay on a plain link as a wallet tap', () => {
+            expect(classify([control('<a href="/pay-later">Cash App Afterpay</a>')], '/checkout')).toBeUndefined();
+            expect(
+                classify([control('<a href="/pay-later">Learn more about Cash App Afterpay</a>')], '/checkout')
+            ).toBeUndefined();
+        });
         it('reads save and continue as a checkout step only on a checkout route', () => {
             expect(classify([control('<button type="submit">Save &amp; Continue</button>')], '/checkout/billing')).toBe(
                 'checkout_step'
@@ -353,6 +380,7 @@ describe('checkoutIntent', () => {
         });
         it.each([
             ['<afterpay-placement><button>Afterpay</button></afterpay-placement>'],
+            ['<afterpay-placement><button>Cash App Afterpay</button></afterpay-placement>'],
             ['<div data-pp-message><button>PayPal</button></div>'],
             ['<div class="affirm-as-low-as"><button>Affirm</button></div>'],
         ])('gives no intent for a button inside pay-later messaging: %s', html => {
@@ -629,6 +657,15 @@ describe('checkoutIntent', () => {
         it('skips a wallet-named button that marks itself disabled', () => {
             const path = pathFrom('<div data-testid="applepay-checkout-button" class="disabled"><span>Checkout with</span></div>', 'span');
             expect(findControl(path)).toBeUndefined();
+        });
+        it('reads a wallet-named button inside a wallet-named wrapper by its label', () => {
+            // The wrapper's name keeps the button's id from counting, so only the label can make it a wallet tap.
+            const path = pathFrom(
+                '<div data-testid="afterpay-checkout-button"><button id="afterpay-button" aria-label="Checkout with Cash App Afterpay"><img alt=""></button></div>',
+                'button'
+            );
+            expect(findControl(path)).toBe(path[0]);
+            expect(classifyIntent(path[0], '/checkout')).toEqual({ kind: 'wallet', source: 'label' });
         });
         it('keeps the look-alike exclusions ahead of the name', () => {
             expect(classify(pathFrom('<div id="paypal-pay-btn"><span>Learn more</span></div>', 'span'), '/checkout')).toBeUndefined();

@@ -12,7 +12,8 @@ const FAMILY_PATTERNS = {
   klarna: /\bklarna\b/,
   afterpay: /\b(?:after ?pay|clear ?pay)\b/,
   affirm: /\baffirm\b/,
-  cash_app: /\bcash ?app\b/,
+  // "Cash App Afterpay" is Afterpay under its newer name, so Cash App ahead of Afterpay is not a second wallet.
+  cash_app: /\bcash ?app\b(?! after ?pay\b)/,
   sezzle: /\bsezzle\b/,
   samsung_pay: /\bsamsung ?pay\b/,
   card: /\b(?:credit ?card|debit ?card|credit|debit|cards?|visa|master ?card|mc|am ?ex|american ?express|discover)\b/,

@@ -22,6 +22,11 @@ describe('paymentFamily', () => {
       ['Klarna', 'klarna'],
       ['Clearpay', 'afterpay'],
       ['Cash App Pay', 'cash_app'],
+      ['Cash App', 'cash_app'],
+      ['Afterpay', 'afterpay'],
+      ['Cash App Afterpay', 'afterpay'],
+      ['Checkout with Cash App Afterpay', 'afterpay'],
+      ['cashAppAfterpayButton', 'afterpay'],
       ['CreditCard', 'card'],
       ['Credit or debit card', 'card'],
       ['Visa', 'card'],
@@ -46,6 +51,8 @@ describe('paymentFamily', () => {
 
     it.each([
       ['two wallets', 'PayPal or Venmo'],
+      ['Cash App and Afterpay as separate methods', 'Cash App Pay or Afterpay'],
+      ['Afterpay ahead of Cash App', 'Afterpay or Cash App'],
       ['a gift card', 'Gift card'],
       ['store credit', 'Use store credit'],
       ['reward points', 'Pay with points'],
@@ -120,6 +127,17 @@ describe('paymentFamily', () => {
       expect(paymentFamilyFromClick({ type: 'button', label: 'Pay with PayPal', element_id: 'express-btn' })).toBe(
         'paypal',
       );
+    });
+
+    it('reads a Cash App Afterpay button as Afterpay', () => {
+      expect(
+        paymentFamilyFromClick({
+          type: 'button',
+          element: 'button',
+          aria_label: 'Checkout with Cash App Afterpay',
+          element_id: 'afterpay-button',
+        }),
+      ).toBe('afterpay');
     });
 
     it('reads ids past a label borrowed from a nearby heading', () => {

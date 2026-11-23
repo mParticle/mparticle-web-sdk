@@ -1710,6 +1710,76 @@ describe('Rokt Forwarder', () => {
       });
     });
 
+    describe('a call missing an option', () => {
+      const diagnostic = (reason: string) =>
+        expect.objectContaining({ message: `Rokt Kit: preselect missed [reason=${reason}]` });
+
+      beforeEach(async () => {
+        await (window as any).mParticle.forwarder.init({ accountId: '123456' }, reportService.cb, true, null, {
+          favoriteStore: 'test-store',
+        });
+      });
+
+      it('goes out with the kit\'s own attributes when the call has no options', async () => {
+        await (window as any).mParticle.forwarder.selectPlacements(undefined);
+
+        expect((window as any).Rokt.selectPlacementsOptions).toEqual({
+          attributes: {
+            favoriteStore: 'test-store',
+            mparticle_session_id: 'test-mp-session-id',
+            mparticle_device_id: 'test-mp-device-id',
+            mpid: '123',
+          },
+        });
+      });
+
+      it('goes out with the saved attributes when the call has no attributes', async () => {
+        await (window as any).mParticle.forwarder.selectPlacements({ identifier: 'test-placement' });
+
+        expect((window as any).Rokt.selectPlacementsOptions).toEqual({
+          identifier: 'test-placement',
+          attributes: {
+            favoriteStore: 'test-store',
+            mparticle_session_id: 'test-mp-session-id',
+            mparticle_device_id: 'test-mp-device-id',
+            mpid: '123',
+          },
+        });
+      });
+
+      it('drops a call whose bound-user option is not an object, as a logged-in drop', async () => {
+        const kit = (window as any).mParticle.forwarder;
+        const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+
+        const selection = await kit.selectPlacements({
+          identifier: 'test-placement',
+          attributes: { test: 'test' },
+          preselectBoundUser: 'shopper',
+        });
+
+        expect(selection).toBeUndefined();
+        expect((window as any).Rokt.selectPlacementsCalled).toBeFalsy();
+        expect(logSpy).toHaveBeenCalledWith(diagnostic('logged_in_dropped'));
+        logSpy.mockRestore();
+      });
+
+      it('drops a call whose bound user has no id', async () => {
+        const kit = (window as any).mParticle.forwarder;
+        const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+
+        const selection = await kit.selectPlacements({
+          identifier: 'test-placement',
+          attributes: { test: 'test' },
+          preselectBoundUser: { requireLogin: false },
+        });
+
+        expect(selection).toBeUndefined();
+        expect((window as any).Rokt.selectPlacementsCalled).toBeFalsy();
+        expect(logSpy).toHaveBeenCalledWith(diagnostic('user_changed_dropped'));
+        logSpy.mockRestore();
+      });
+    });
+
     describe('a user identified while the call waits', () => {
       const makeUser = (
         mpid: string,
@@ -1807,6 +1877,58 @@ describe('Rokt Forwarder', () => {
         expect((window as any).Rokt.selectPlacementsCalled).toBeFalsy();
         expect((window as any).mParticle.loggedEvents).toEqual([]);
         expect(kit.userAttributes).toEqual({ tier: 'gold-B' });
+        expect(logSpy).toHaveBeenCalledWith(expect.objectContaining({ code: 'SELECT_PLACEMENTS_USER_CHANGED' }));
+        logSpy.mockRestore();
+      });
+
+      it("drops a logged-in shopper's pre-selection call when another user is identified mid-search", async () => {
+        const kit = (window as any).mParticle.forwarder;
+        const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+        const selection = kit.selectPlacements({
+          identifier: 'test-placement',
+          attributes: { email: 'a@example.com' },
+          preselect: true,
+        });
+        identify('B', true, { email: 'b@example.com', customerid: 'cust-B' }, { tier: 'gold-B' });
+        finishSearch();
+
+        expect(await selection).toBeUndefined();
+        expect((window as any).Rokt.selectPlacementsCalled).toBeFalsy();
+        expect(logSpy).toHaveBeenCalledWith(
+          expect.objectContaining({ message: 'Rokt Kit: preselect missed [reason=logged_in_dropped]' }),
+        );
+        logSpy.mockRestore();
+      });
+
+      it('drops a pre-selection call for a guest when another user is identified during the search', async () => {
+        const kit = (window as any).mParticle.forwarder;
+        const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+        coreUser = { ...coreUser, loggedIn: false };
+        const selection = kit.selectPlacements({
+          identifier: 'test-placement',
+          attributes: { email: 'a@example.com' },
+          preselect: true,
+        });
+        identify('B', false, { email: 'b@example.com' });
+        finishSearch();
+
+        expect(await selection).toBeUndefined();
+        expect((window as any).Rokt.selectPlacementsCalled).toBeFalsy();
+        expect(logSpy).toHaveBeenCalledWith(
+          expect.objectContaining({ message: 'Rokt Kit: preselect missed [reason=user_changed_dropped]' }),
+        );
+        logSpy.mockRestore();
+      });
+
+      it('drops a call with no attributes when another user is identified during the search', async () => {
+        const kit = (window as any).mParticle.forwarder;
+        const logSpy = vi.spyOn(kit.loggingService, 'log');
+        const selection = kit.selectPlacements({ identifier: 'test-placement' });
+        identify('B', true, { email: 'b@example.com', customerid: 'cust-B' });
+        finishSearch();
+
+        expect(await selection).toBeUndefined();
+        expect((window as any).Rokt.selectPlacementsCalled).toBeFalsy();
         expect(logSpy).toHaveBeenCalledWith(expect.objectContaining({ code: 'SELECT_PLACEMENTS_USER_CHANGED' }));
         logSpy.mockRestore();
       });
@@ -6690,6 +6812,272 @@ describe('Rokt Forwarder', () => {
       await vi.advanceTimersByTimeAsync(1);
       expect(placements).not.toHaveBeenCalled();
       expect(diagnosticLines(logSpy, 'intent_observed')).toEqual([]);
+    });
+    describe('a payment pick just after the confirm tap', () => {
+      const preselectCalls = () =>
+        placements.mock.calls.map(([options]) => options).filter((options) => options.preselect === true);
+      const pick = (family: string) =>
+        kit.onPaymentPick(Object.freeze({ t: Date.now(), pathname: '/intent-checkout', family }));
+      beforeEach(async () => {
+        await reinit(
+          buildSettings({
+            attributeKeys: ['tier', 'paymenttype'],
+            preselectAttributeDefaults: {
+              paymenttype: { value: 'credit_card', byPaymentPick: { card: 'credit_card', apple_pay: 'apple_pay' } },
+            },
+          }),
+        );
+      });
+      it('fires the tap again with an Apple Pay session the page began after the call went out', async () => {
+        const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+        emit('commit');
+        await vi.advanceTimersByTimeAsync(1);
+        expect(preselectCalls()).toHaveLength(1);
+        expect(preselectCalls()[0].attributes.paymenttype).toBe('credit_card');
+
+        await vi.advanceTimersByTimeAsync(300);
+        pick('apple_pay');
+        await vi.advanceTimersByTimeAsync(1);
+        expect(preselectCalls()).toHaveLength(2);
+        expect(preselectCalls()[1]).toEqual({
+          ...preselectCalls()[0],
+          attributes: { ...preselectCalls()[0].attributes, paymenttype: 'apple_pay' },
+        });
+        // The re-send logs under its own reason, so fires counted by reason stay one per tap.
+        expect(diagnosticLines(logSpy, 'intent')).toEqual([expect.stringContaining('[intent_kind=commit]')]);
+        expect(diagnosticLines(logSpy, 'intent_refire')).toEqual([
+          expect.stringMatching(/^Rokt Kit: preselect fired \[reason=intent_refire\].*\[intent_kind=commit\]/),
+        ]);
+      });
+      it('sends one more call per tap, however many picks follow', async () => {
+        const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+        emit('commit');
+        await vi.advanceTimersByTimeAsync(1);
+        pick('apple_pay');
+        await vi.advanceTimersByTimeAsync(100);
+        pick('card');
+        await vi.advanceTimersByTimeAsync(1);
+        expect(preselectCalls().map((options) => options.attributes.paymenttype)).toEqual(['credit_card', 'apple_pay']);
+        expect(diagnosticLines(logSpy, 'intent')).toHaveLength(1);
+        expect(diagnosticLines(logSpy, 'intent_refire')).toHaveLength(1);
+      });
+      it('tags a re-send that had to wait for an attribute when it goes, and only that one', async () => {
+        await reinit(
+          buildSettings({
+            attributeKeys: ['tier', 'paymenttype', 'boxoffice'],
+            preselectAttributeDefaults: {
+              paymenttype: { value: 'credit_card', byPaymentPick: { card: 'credit_card', apple_pay: 'apple_pay' } },
+            },
+          }),
+        );
+        kit.setUserAttribute('boxoffice', 'north');
+        const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+        emit('commit');
+        await vi.advanceTimersByTimeAsync(1);
+        kit.removeUserAttribute('boxoffice');
+        pick('apple_pay');
+        await vi.advanceTimersByTimeAsync(1);
+        expect(preselectCalls()).toHaveLength(1);
+        kit.setUserAttribute('boxoffice', 'north');
+        await vi.advanceTimersByTimeAsync(1);
+        expect(preselectCalls().map((options) => options.attributes.paymenttype)).toEqual(['credit_card', 'apple_pay']);
+        expect(diagnosticLines(logSpy, 'intent')).toHaveLength(1);
+        expect(diagnosticLines(logSpy, 'intent_refire')).toHaveLength(1);
+        expect(kit._preselectState.lateRefire).toBeFalsy();
+      });
+      it('clears the re-send mark when the re-send throws', async () => {
+        emit('commit');
+        await vi.advanceTimersByTimeAsync(1);
+        kit._preselectState.latestIntentFire.refire = () => {
+          throw new Error('replay failed');
+        };
+        try {
+          pick('apple_pay');
+        } catch {
+          // Either way, the mark must not outlive the re-send.
+        }
+        expect(kit._preselectState.lateRefire).toBeFalsy();
+      });
+      it('logs a waiting re-send as the next tap\'s own call once the shopper taps again', async () => {
+        await reinit(
+          buildSettings({
+            attributeKeys: ['tier', 'paymenttype', 'boxoffice'],
+            preselectAttributeDefaults: {
+              paymenttype: { value: 'credit_card', byPaymentPick: { card: 'credit_card', apple_pay: 'apple_pay' } },
+            },
+          }),
+        );
+        kit.setUserAttribute('boxoffice', 'north');
+        const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+        emit('commit');
+        await vi.advanceTimersByTimeAsync(1);
+        kit.removeUserAttribute('boxoffice');
+        pick('apple_pay');
+        await vi.advanceTimersByTimeAsync(1);
+        emit('commit');
+        await vi.advanceTimersByTimeAsync(1);
+        kit.setUserAttribute('boxoffice', 'north');
+        await vi.advanceTimersByTimeAsync(1);
+        expect(preselectCalls().map((options) => options.attributes.paymenttype)).toEqual(['credit_card', 'apple_pay']);
+        expect(diagnosticLines(logSpy, 'intent')).toHaveLength(2);
+        expect(diagnosticLines(logSpy, 'intent_refire')).toEqual([]);
+      });
+      it('leaves the call alone when the pick comes more than a second after the tap', async () => {
+        emit('commit');
+        await vi.advanceTimersByTimeAsync(1_001);
+        pick('apple_pay');
+        await vi.advanceTimersByTimeAsync(1);
+        expect(preselectCalls()).toHaveLength(1);
+      });
+      it('leaves the call alone, logging nothing, when the pick sends the value it already sent', async () => {
+        const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+        emit('commit');
+        await vi.advanceTimersByTimeAsync(1);
+        pick('card');
+        await vi.advanceTimersByTimeAsync(1);
+        expect(preselectCalls()).toHaveLength(1);
+        expect(diagnosticLines(logSpy, 'active_preselection')).toEqual([]);
+      });
+      it('leaves the call alone once the shopper left the route', async () => {
+        emit('commit');
+        await vi.advanceTimersByTimeAsync(1);
+        window.history.replaceState({}, '', '/intent-elsewhere');
+        pick('apple_pay');
+        await vi.advanceTimersByTimeAsync(1);
+        expect(preselectCalls()).toHaveLength(1);
+      });
+      it('leaves an entry whose call reads no pick alone', async () => {
+        await reinit(
+          buildSettings({ attributeKeys: ['tier', 'paymenttype'], preselectAttributeDefaults: { paymenttype: 'credit_card' } }),
+        );
+        emit('commit');
+        await vi.advanceTimersByTimeAsync(1);
+        pick('apple_pay');
+        await vi.advanceTimersByTimeAsync(1);
+        expect(preselectCalls()).toHaveLength(1);
+      });
+      it('still fires the tap again for a pick exactly a second after it', async () => {
+        emit('commit');
+        await vi.advanceTimersByTimeAsync(1_000);
+        pick('apple_pay');
+        await vi.advanceTimersByTimeAsync(1);
+        expect(preselectCalls().map((options) => options.attributes.paymenttype)).toEqual(['credit_card', 'apple_pay']);
+      });
+      it('fires a wallet tap on the entry route again too', async () => {
+        emit('wallet');
+        await vi.advanceTimersByTimeAsync(1);
+        pick('apple_pay');
+        await vi.advanceTimersByTimeAsync(1);
+        expect(preselectCalls().map((options) => options.attributes.paymenttype)).toEqual(['credit_card', 'apple_pay']);
+      });
+      it('sends the page view the tap released again, keeping the attributes only its event carried', async () => {
+        await reinit(
+          buildSettings({
+            attributeKeys: ['tier', 'paymenttype', 'currency'],
+            preselectAttributeDefaults: {
+              paymenttype: { value: 'credit_card', byPaymentPick: { card: 'credit_card', apple_pay: 'apple_pay' } },
+            },
+          }),
+        );
+        kit.process({ EventDataType: 3, EventName: 'page view', EventAttributes: { currency: 'usd' } });
+        await vi.advanceTimersByTimeAsync(1);
+        expect(preselectCalls()).toHaveLength(0);
+        const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+        emit('commit');
+        await vi.advanceTimersByTimeAsync(1);
+        pick('apple_pay');
+        await vi.advanceTimersByTimeAsync(1);
+        expect(preselectCalls().map(({ attributes }) => [attributes.currency, attributes.paymenttype])).toEqual([
+          ['usd', 'credit_card'],
+          ['usd', 'apple_pay'],
+        ]);
+        expect(diagnosticLines(logSpy, 'intent')).toHaveLength(1);
+        expect(diagnosticLines(logSpy, 'intent_refire')).toHaveLength(1);
+      });
+      it('sets the pick against the one the call went out with, when an auto click records it first', async () => {
+        emit('commit');
+        await vi.advanceTimersByTimeAsync(1);
+        kit.process({
+          EventDataType: 4,
+          EventName: 'Auto Button Click',
+          EventAttributes: { type: 'radio', checked: true, label: 'apple pay', is_auto_button_click: true },
+        } as any);
+        pick('apple_pay');
+        await vi.advanceTimersByTimeAsync(1);
+        expect(preselectCalls().map((options) => options.attributes.paymenttype)).toEqual(['credit_card', 'apple_pay']);
+      });
+      it('lets a call still waiting for an attribute read the pick when it goes, with no extra call', async () => {
+        await reinit(
+          buildSettings({
+            attributeKeys: ['tier', 'paymenttype', 'boxoffice'],
+            preselectAttributeDefaults: {
+              paymenttype: { value: 'credit_card', byPaymentPick: { card: 'credit_card', apple_pay: 'apple_pay' } },
+            },
+          }),
+        );
+        emit('commit');
+        await vi.advanceTimersByTimeAsync(1);
+        pick('apple_pay');
+        await vi.advanceTimersByTimeAsync(1);
+        expect(preselectCalls()).toHaveLength(0);
+        const logSpy = vi.spyOn(kit.loggingService, 'logPlacementDiagnostic');
+        kit.setUserAttribute('boxoffice', 'north');
+        await vi.advanceTimersByTimeAsync(1);
+        expect(preselectCalls().map((options) => options.attributes.paymenttype)).toEqual(['apple_pay']);
+        expect(diagnosticLines(logSpy, 'intent')).toHaveLength(1);
+        expect(diagnosticLines(logSpy, 'intent_refire')).toEqual([]);
+      });
+      it('sends nothing more once another shopper is signed in', async () => {
+        emit('commit');
+        await vi.advanceTimersByTimeAsync(1);
+        const user = kit.filters.filteredUser;
+        kit.filters.filteredUser = { ...user, getMPID: () => 'other-user' };
+        try {
+          pick('apple_pay');
+          await vi.advanceTimersByTimeAsync(1);
+        } finally {
+          kit.filters.filteredUser = user;
+        }
+        expect(preselectCalls()).toHaveLength(1);
+      });
+      describe('for an entry with alternate target pages', () => {
+        const preselectIdentifiers = () => preselectCalls().map((options) => options.identifier);
+        it('sets the pick against the one the call used, not one left from before the page view', async () => {
+          await reinit(buildSettings({ alternateTargetPageIdentifiers: { byPaymentPick: { apple_pay: 'ap-page' } } }));
+          pick('apple_pay');
+          await vi.advanceTimersByTimeAsync(10);
+          kit.process({ EventDataType: 3, EventName: 'page view', EventAttributes: {} });
+          await vi.advanceTimersByTimeAsync(1);
+          emit('commit');
+          await vi.advanceTimersByTimeAsync(1);
+          pick('apple_pay');
+          await vi.advanceTimersByTimeAsync(1);
+          expect(preselectIdentifiers()).toEqual(['confirmation', 'ap-page']);
+        });
+        it('keeps the tap for a later pick when one maps to the page the call already went to', async () => {
+          await reinit(
+            buildSettings({
+              alternateTargetPageIdentifiers: { byPaymentPick: { card: 'confirmation', apple_pay: 'ap-page' } },
+            }),
+          );
+          emit('commit');
+          await vi.advanceTimersByTimeAsync(1);
+          pick('card');
+          await vi.advanceTimersByTimeAsync(100);
+          pick('apple_pay');
+          await vi.advanceTimersByTimeAsync(1);
+          expect(preselectIdentifiers()).toEqual(['confirmation', 'ap-page']);
+        });
+      });
+      it('leaves the pick alone after a tap checkout intent dropped', async () => {
+        (window as any).mParticle.Rokt.isCheckoutIntentLive = () => false;
+        emit('commit');
+        await vi.advanceTimersByTimeAsync(1);
+        (window as any).mParticle.Rokt.isCheckoutIntentLive = () => true;
+        pick('apple_pay');
+        await vi.advanceTimersByTimeAsync(1);
+        expect(preselectCalls()).toHaveLength(0);
+      });
     });
     describe('a cart click', () => {
       let originalGetCurrentUser: unknown;
@@ -13091,7 +13479,7 @@ describe('Rokt Forwarder', () => {
           expect(selectPlacementsCalls[0].cacheMatchTokens).toEqual({ placementType: 'apple_pay' });
         });
 
-        it('sends no cacheMatchTokens for a value with no payment family', async () => {
+        it('sends no cacheMatchTokens for a target page value with no payment family', async () => {
           pushDefaultsConfig({ preselectAttributeDefaults: { placementType: familyDefault('Credit Card') } });
 
           await (window as any).mParticle.forwarder.selectPlacements({
@@ -13102,15 +13490,64 @@ describe('Rokt Forwarder', () => {
           expect(selectPlacementsCalls[0]).not.toHaveProperty('cacheMatchTokens');
         });
 
-        it('sends no cacheMatchTokens when the call also sends the key under another spelling', async () => {
+        it('sends the no-value token when the target page sends no value for the key', async () => {
+          pushDefaultsConfig({ preselectAttributeDefaults: { placementType: familyDefault('Credit Card') } });
+
+          await (window as any).mParticle.forwarder.selectPlacements({
+            attributes: { placementType: '' },
+            identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+          });
+          await (window as any).mParticle.forwarder.selectPlacements({
+            attributes: {},
+            identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+          });
+
+          expect(selectPlacementsCalls[0].cacheMatchTokens).toEqual({ placementType: 'none' });
+          expect(selectPlacementsCalls[1].cacheMatchTokens).toEqual({ placementType: 'none' });
+        });
+
+        it("sends no cacheMatchTokens for the trigger page's own value with no payment family", async () => {
+          pushDefaultsConfig({ preselectAttributeDefaults: { placementType: familyDefault('Credit Card') } });
+
+          firePreselectPageview({ placementType: 'Gift Card' });
+          await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+          expect(selectPlacementsCalls[0].attributes.placementType).toBe('Gift Card');
+          expect(selectPlacementsCalls[0]).not.toHaveProperty('cacheMatchTokens');
+        });
+
+        it('sends no cacheMatchTokens when the speculative call sends no value for the key', async () => {
+          pushDefaultsConfig({
+            optionalAttributeKeys: ['placementType'],
+            preselectAttributeDefaults: { placementType: familyDefault('Credit Card') },
+          });
+          (window as any).mParticle.forwarder.filters.filterUserAttributes = (attributes: Record<string, unknown>) => {
+            const kept = { ...attributes };
+            delete kept.placementType;
+            return kept;
+          };
+
+          firePreselectPageview();
+          await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+          expect(selectPlacementsCalls[0].attributes).not.toHaveProperty('placementType');
+          expect(selectPlacementsCalls[0]).not.toHaveProperty('cacheMatchTokens');
+        });
+
+        it('sends the no-value token when the target page also sends the key under another spelling', async () => {
           pushDefaultsConfig({ preselectAttributeDefaults: { placementType: familyDefault('Credit Card') } });
 
           await (window as any).mParticle.forwarder.selectPlacements({
             attributes: { placementType: 'Credit Card', PlacementType: 'apple pay' },
             identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
           });
+          await (window as any).mParticle.forwarder.selectPlacements({
+            attributes: { PlacementType: 'PayPal' },
+            identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+          });
 
-          expect(selectPlacementsCalls[0]).not.toHaveProperty('cacheMatchTokens');
+          expect(selectPlacementsCalls[0].cacheMatchTokens).toEqual({ placementType: 'none' });
+          expect(selectPlacementsCalls[1].cacheMatchTokens).toEqual({ placementType: 'none' });
         });
 
         it('sends no cacheMatchTokens for a default that does not opt in', async () => {
@@ -13383,6 +13820,72 @@ describe('Rokt Forwarder', () => {
           expect(selectPlacementsCalls[0].attributes.placementType).toBe('overlay');
           expect(selectPlacementsCalls[0].cacheIdentityKeys).toEqual(['customerid', 'placementType']);
           expect(selectPlacementsCalls[1].cacheIdentityKeys).toEqual(['customerid']);
+        });
+
+        it('leaves a default matched by payment family out of the strict keys and sends its family on both calls', async () => {
+          pushIdentityDefaultsConfig({
+            preselectAttributeDefaults: { placementType: { value: 'Credit Card', matchPaymentFamily: true } },
+          });
+
+          firePreselectPageview();
+          await waitForCondition(() => selectPlacementsCalls.length > 0);
+          await (window as any).mParticle.forwarder.selectPlacements({
+            attributes: { placementType: 'Credit Card, VISA' },
+            identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+          });
+
+          expect(selectPlacementsCalls[0].attributes.placementType).toBe('Credit Card');
+          expect(selectPlacementsCalls[0].cacheIdentityKeys).toEqual(['customerid']);
+          expect(selectPlacementsCalls[0].cacheMatchTokens).toEqual({ placementType: 'card' });
+          expect(selectPlacementsCalls[1].cacheIdentityKeys).toEqual(['customerid']);
+          expect(selectPlacementsCalls[1].cacheMatchTokens).toEqual({ placementType: 'card' });
+        });
+
+        it('sends the no-value token when the target page names the key only under another spelling', async () => {
+          pushIdentityDefaultsConfig({
+            preselectAttributeDefaults: { placementType: { value: 'Credit Card', matchPaymentFamily: true } },
+          });
+
+          firePreselectPageview();
+          await waitForCondition(() => selectPlacementsCalls.length > 0);
+          await (window as any).mParticle.forwarder.selectPlacements({
+            attributes: { PlacementType: 'PayPal' },
+            identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+          });
+
+          expect(selectPlacementsCalls[0].cacheMatchTokens).toEqual({ placementType: 'card' });
+          expect(selectPlacementsCalls[1].cacheMatchTokens).toEqual({ placementType: 'none' });
+        });
+
+        it('keeps a family default strict when its value names no payment family', async () => {
+          pushIdentityDefaultsConfig({
+            preselectAttributeDefaults: { placementType: { value: 'Gift Card', matchPaymentFamily: true } },
+          });
+
+          firePreselectPageview();
+          await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+          expect(selectPlacementsCalls[0].attributes.placementType).toBe('Gift Card');
+          expect(selectPlacementsCalls[0].cacheIdentityKeys).toEqual(['customerid', 'placementType']);
+          expect(selectPlacementsCalls[0]).not.toHaveProperty('cacheMatchTokens');
+        });
+
+        it('keeps a plain default strict beside a default matched by payment family', async () => {
+          pushIdentityDefaultsConfig({
+            attributeKeys: ['loyaltyTier', 'placementType', 'paymenttype', 'customerid'],
+            preselectAttributeDefaults: {
+              placementType: 'overlay',
+              paymenttype: { value: 'Credit Card', matchPaymentFamily: true },
+            },
+          });
+
+          firePreselectPageview();
+          await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+          expect(selectPlacementsCalls[0].attributes.placementType).toBe('overlay');
+          expect(selectPlacementsCalls[0].attributes.paymenttype).toBe('Credit Card');
+          expect(selectPlacementsCalls[0].cacheIdentityKeys).toEqual(['customerid', 'placementType']);
+          expect(selectPlacementsCalls[0].cacheMatchTokens).toEqual({ paymenttype: 'card' });
         });
 
         it("leaves the trigger page's own value to the usual comparison", async () => {

@@ -1,4 +1,4 @@
-import { isAllowedQueryParam } from './pageViewTracker';
+import { isAllowedQueryParam } from './pageViewAttributes';
 import { pagePath, pageUrlPath } from './pathMasking';
 import { getHref, valueof } from './utils';
 
