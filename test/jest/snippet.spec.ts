@@ -1,13 +1,13 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import RoktManager, { WIN_PAGE_PRIVACY_KEY } from '../../src/roktManager';
+import CookieConsentManager from '../../src/cookieConsentManager';
+import CookieSyncManager, { PARTNER_MODULE_IDS } from '../../src/cookieSyncManager';
+import { IMParticleWebSDKInstance } from '../../src/mp-instance';
 
 afterEach(() => {
     delete (window as any)[WIN_PAGE_PRIVACY_KEY];
 });
-import CookieConsentManager from '../../src/cookieConsentManager';
-import CookieSyncManager, { PARTNER_MODULE_IDS } from '../../src/cookieSyncManager';
-import { IMParticleWebSDKInstance } from '../../src/mp-instance';
 
 const repoRoot = path.resolve(__dirname, '..', '..');
 const read = (file: string): string =>

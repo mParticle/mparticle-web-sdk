@@ -1683,6 +1683,25 @@ describe('mParticle.Rokt.setPrivacyControl', () => {
         expect(instance._Identity.idCache).toBeInstanceOf(LocalStorageVault);
     });
 
+    it('applies every queued setter call before the queued events', async () => {
+        const queued = jest.fn();
+        (window as any).mParticle.config = {
+            rq: [
+                ['Rokt.setPrivacyControl', { noFunctional: true }],
+                queued,
+                ['Rokt.setPrivacyControl', { noFunctional: false }],
+            ],
+        };
+        const instance = init();
+        await settle();
+
+        // The last queued value is in effect before any queued call runs.
+        expect(consent(instance).getNoFunctional()).toBe(false);
+        expect(identityMethods).toContain('identify');
+        expect(queued).toHaveBeenCalledTimes(1);
+        expect(localStorage.getItem(storageName)).not.toBeNull();
+    });
+
     it('runs the skipped identify when a queued noFunctional is lifted', async () => {
         (window as any).mParticle.config = {
             rq: [['Rokt.setPrivacyControl', { noFunctional: true }]],

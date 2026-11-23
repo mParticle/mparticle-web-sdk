@@ -24,31 +24,6 @@ To integrate the SDK add the following snippet to your site after customizing `m
 
 This snippet pre-populates method stubs for much of the public SDK API, allowing immediate reference to these APIs as the SDK loads.
 
-### Rokt Ads privacy control
-
-After the SDK loads, `mParticle.Rokt.setPrivacyControl` sets page-scoped privacy
-flags for Rokt Ads, even when no Rokt kit is loaded:
-
-```javascript
-mParticle.Rokt.setPrivacyControl({ noTargeting: true, noFunctional: true });
-```
-
-The object accepts `noTargeting`, `noFunctional` and `doNotShareOrSell` booleans
-(`IRoktPrivacyControl` for TypeScript). Each call updates only the flags passed
-as booleans. Omitted and non-boolean values leave the flag unchanged. Each page
-flag defaults to `false`. Pass `false` to clear that page flag without clearing
-initialization or derived opt-outs. `$NoTargeting` is set to `true` or removed
-from the current user's profile according to the combined targeting flag.
-
-Snippet version 3.1 queues calls before load. It applies the queued privacy
-updates in order before SDK initialization and the other queued calls. With an older
-snippet, call after load or feature-detect the method. A change applies straight
-away, as a consent change does: `noFunctional` stops the SDK's storage and removes
-what it stored, apart from the user and device IDs and consent choices it keeps,
-and a loaded Rokt kit uses the flags on its next call. Pass the same flags in
-`launcherOptions` at initialization on the next page load; they are not saved as
-preferences.
-
 ```javascript
 <script type="text/javascript">
 
@@ -86,6 +61,33 @@ mParticle.logEvent('Play Movie', mParticle.EventType.Navigation, {
     rating: 'PG',
 });
 ```
+
+### Rokt Ads privacy control
+
+`mParticle.Rokt.setPrivacyControl` sets page-scoped privacy flags for Rokt Ads,
+even when no Rokt kit is loaded:
+
+```javascript
+mParticle.Rokt.setPrivacyControl({ noTargeting: true, noFunctional: true });
+```
+
+The object accepts `noTargeting`, `noFunctional` and `doNotShareOrSell` booleans
+(`IRoktPrivacyControl` for TypeScript). Each call updates only the flags passed
+as booleans. Omitted and non-boolean values leave the flag unchanged. Each page
+flag defaults to `false`. Pass `false` to clear that page flag without clearing
+initialization or derived opt-outs. `$NoTargeting` is set to `true` or removed
+from the current user's profile according to the combined targeting flag.
+
+Snippet version 3.1 queues calls before load. It applies the queued privacy
+updates in order before SDK initialization and the other queued calls. A later
+queued call overrides an earlier one before anything else runs, so the last
+queued value applies to every call queued before load. With an older
+snippet, call after load or feature-detect the method. A change applies straight
+away, as a consent change does: `noFunctional` stops the SDK's storage and removes
+what it stored, apart from the user and device IDs and consent choices it keeps,
+and a loaded Rokt kit uses the flags on its next call. Pass the same flags in
+`launcherOptions` at initialization on the next page load; they are not saved as
+preferences.
 
 ### Option 2. Self host mParticle via NPM
 
