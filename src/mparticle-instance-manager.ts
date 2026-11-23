@@ -1,14 +1,27 @@
 import { CommerceEventType, EventType, IdentityType, PerformanceMarkType, ProductActionType, PromotionActionType, RoktEvents } from './types';
 import Constants from './constants';
+import { buttonTrackingModule } from './buttonTracking/buttonTrackingModule';
 import mParticleInstance, { IMParticleWebSDKInstance } from './mp-instance.js';
 import _BatchValidator from './mockBatchCreator';
 import MPSideloadedKit from './sideloadedKit';
 import { IMParticleInstanceManager } from './sdkRuntimeModels';
+import type { ISDKModuleRegistry } from './sdkModuleTypes';
 import { IStore } from './store';
 import { Dictionary } from '@mparticle/web-sdk';
 import { cleanUrl } from './pageUrl';
+import {
+    registerBuiltInSDKModule,
+    registerSDKModule,
+    resetSDKModules,
+    SDKModuleNames,
+} from './sdkModules';
 
-function mParticleInstanceManager(this: IMParticleInstanceManager) {
+// The full SDK carries every optional module and registers it here.
+registerBuiltInSDKModule(SDKModuleNames.ButtonTracking, buttonTrackingModule);
+
+function mParticleInstanceManager(
+    this: IMParticleInstanceManager & ISDKModuleRegistry
+) {
     const self = this;
     // Only leaving this here in case any clients are trying to access mParticle.Store, to prevent from throwing
     this.Store = {} as IStore;
@@ -400,6 +413,7 @@ function mParticleInstanceManager(this: IMParticleInstanceManager) {
     };
 
     this._resetForTests = function(MPConfig, keepPersistence) {
+        resetSDKModules();
         if (typeof keepPersistence === 'boolean') {
             self.getInstance()._resetForTests(
                 MPConfig,
@@ -447,6 +461,11 @@ function mParticleInstanceManager(this: IMParticleInstanceManager) {
     };
     this._registerLoggingService = function(service) {
         self.getInstance()._registerLoggingService(service);
+    };
+    // Optional SDK code registers its module here before init, as kits do
+    // with addForwarder.
+    this._registerModule = function(name, module) {
+        registerSDKModule(name, module, self._isTestEnv === true);
     };
 }
 

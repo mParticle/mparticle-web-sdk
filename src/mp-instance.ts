@@ -39,7 +39,7 @@ import Consent, { IConsent } from './consent';
 import KitBlocker from './kitBlocking';
 import ConfigAPIClient, { IKitConfigs } from './configAPIClient';
 import IdentityAPIClient, { IIdentityApiClient } from './identityApiClient';
-import { isFunction, parseConfig, valueof, generateDeprecationMessage, extend, findKeyInObject, isObject, generateUniqueId } from './utils';
+import { isFunction, parseConfig, valueof, generateDeprecationMessage, extend, findKeyInObject, isObject, generateUniqueId, getErrorMessage } from './utils';
 import { DisabledVault, LocalStorageVault } from './vault';
 import { removeExpiredIdentityCacheDates, isNoFunctionalWithoutId } from './identity-utils';
 import IntegrationCapture, { isIntegrationCaptureEnabled } from './integrationCapture';
@@ -70,8 +70,14 @@ import {
     PageViewTracker,
     resetPageViewTracking,
 } from './pageViewTracker';
-import { ButtonTracker, resetButtonTracking } from './buttonTracking/buttonTracker';
+import { ButtonTracker } from './buttonTracking/buttonTracker';
 import { getButtonClickBlocker } from './autoClickForwarding';
+import {
+    getSDKModule,
+    resetButtonTrackingModule,
+    SDKModuleNames,
+    takeSDKModuleWarnings,
+} from './sdkModules';
 import Validators from './validators';
 
 export interface IErrorLogMessage {
@@ -298,7 +304,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
             instance._Persistence.resetPersistence();
             // The Rokt manager keeps its own store reference, so stop button
             // tracking here rather than relying on the deleted store.
-            resetButtonTracking();
+            resetButtonTrackingModule();
             instance._ButtonTracker = undefined;
             if (instance._Store) {
                 delete instance._Store;
@@ -325,7 +331,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
 
         resetPageViewTracking();
         instance._PageViewTracker = undefined;
-        resetButtonTracking();
+        resetButtonTrackingModule();
         instance._ButtonTracker = undefined;
 
         if (!keepPersistence) {
@@ -1370,6 +1376,43 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
     }
 }
 
+// Builds the button tracker from its registered module when a tracking flag
+// is on. A missing module, or one that throws, turns both flags off.
+function buildButtonTracker(mpInstance: IMParticleWebSDKInstance): void {
+    const { getFeatureFlag } = mpInstance._Helpers;
+    const { AutoButtonTracking, AutoLinkTracking } = Constants.FeatureFlags;
+    if (!(getFeatureFlag(AutoButtonTracking) || getFeatureFlag(AutoLinkTracking))) {
+        return;
+    }
+    try {
+        // Checked before reusing a tracker: a reset that throws removes the
+        // module but leaves the tracker an earlier init built.
+        const buttonTracking = getSDKModule(SDKModuleNames.ButtonTracking);
+        if (!buttonTracking) {
+            throw new Error('no module');
+        }
+        if (!mpInstance._ButtonTracker) {
+            mpInstance._ButtonTracker = buttonTracking.createTracker(mpInstance);
+        }
+    } catch (error) {
+        turnButtonTrackingOff(mpInstance, error);
+    }
+}
+
+// Leaves the page as the full SDK leaves it with both tracking flags off:
+// no tracker, and no checkout intent for the Rokt kit to wait on.
+function turnButtonTrackingOff(
+    mpInstance: IMParticleWebSDKInstance,
+    error: unknown
+): void {
+    const { flags } = mpInstance._Store.SDKConfig;
+    flags[Constants.FeatureFlags.AutoButtonTracking] = false;
+    flags[Constants.FeatureFlags.AutoLinkTracking] = false;
+    mpInstance._ButtonTracker = undefined;
+    mpInstance.Logger.warning('Button tracking off: ' + getErrorMessage(error));
+    resetButtonTrackingModule();
+}
+
 // Some (server) config settings need to be returned before they are set on SDKConfig in a self hosted environment
 function completeSDKInitialization(apiKey, config, mpInstance) {
     const kitBlocker = createKitBlocker(config, mpInstance);
@@ -1389,6 +1432,12 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
     mpInstance._Forwarders = new Forwarders(mpInstance, kitBlocker);
     mpInstance._Store.processConfig(config);
 
+    // Button tracking is a module. Build its tracker before anything reads
+    // the tracking flags, so a missing module turns them off first.
+    if (!mpInstance._Store.webviewBridgeEnabled) {
+        buildButtonTracker(mpInstance);
+    }
+
     mpInstance._Identity.idCache = createIdentityCache(mpInstance);
     removeExpiredIdentityCacheDates(mpInstance._Identity.idCache);
 
@@ -1399,7 +1448,7 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
     if (mpInstance._Store.webviewBridgeEnabled) {
         mpInstance._NativeSdkHelpers.initializeSessionAttributes(apiKey);
         // Button tracking never runs as a native passthrough.
-        resetButtonTracking();
+        resetButtonTrackingModule();
         mpInstance._RoktManager.setAutoButtonClicksForwarded(false);
         mpInstance._RoktManager.setAutoLinkClicksForwarded(false);
     } else {
@@ -1539,19 +1588,20 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
             mpInstance._PageViewTracker.teardown();
         }
 
-        if (logButtons || logLinks) {
-            if (!mpInstance._ButtonTracker) {
-                mpInstance._ButtonTracker = new ButtonTracker(mpInstance);
+        if ((logButtons || logLinks) && mpInstance._ButtonTracker) {
+            try {
+                mpInstance._ButtonTracker.init({
+                    hasRoktKit: !!roktConfig,
+                    logButtons,
+                    logLinks,
+                });
+            } catch (error) {
+                turnButtonTrackingOff(mpInstance, error);
             }
-            mpInstance._ButtonTracker.init({
-                hasRoktKit: !!roktConfig,
-                logButtons,
-                logLinks,
-            });
         } else {
             // Also retires a tracker left by an earlier bundle load. Like APV,
             // this assumes a single active SDK instance.
-            resetButtonTracking();
+            resetButtonTrackingModule();
         }
 
         processIdentityCallback(
@@ -1671,10 +1721,11 @@ function runPreConfigFetchInitialization(mpInstance, apiKey, config) {
     mpInstance.Logger = new Logger(config);
     mpInstance._ErrorReportingDispatcher.logger = mpInstance.Logger;
     mpInstance._LoggingDispatcher.logger = mpInstance.Logger;
+    takeSDKModuleWarnings().forEach(warning => mpInstance.Logger.warning(warning));
     mpInstance._Store = new Store(config, mpInstance, apiKey);
     window.mParticle.Store = mpInstance._Store;
     // Button tracking stops until this init's config decides whether it runs.
-    resetButtonTracking();
+    resetButtonTrackingModule();
     mpInstance.Logger.verbose(StartingInitialization);
 
     // Initialize CookieConsentManager with privacy flags from launcherOptions

@@ -227,6 +227,7 @@ describe('mParticle instance manager', () => {
             '_registerErrorReportingService',
             '_registerLoggingService',
             '_cleanUrl',
+            '_registerModule',
         ]);
     });
 

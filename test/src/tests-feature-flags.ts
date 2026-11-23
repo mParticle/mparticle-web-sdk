@@ -11,6 +11,8 @@ import { IMParticleInstanceManager, SDKInitConfig } from '../../src/sdkRuntimeMo
 import { IKitConfigs } from '../../src/configAPIClient';
 import KitFilterHelper from '../../src/kitFilterHelper';
 import { EventType, MessageType } from '../../src/types';
+import { ButtonTracker, resetButtonTracking } from '../../src/buttonTracking/buttonTracker';
+import type { ISDKModuleRegistry } from '../../src/sdkModuleTypes';
 
 const { waitForCondition, fetchMockSuccess, deleteAllCookies } = Utils;
 
@@ -19,6 +21,9 @@ declare global {
         mParticle: IMParticleInstanceManager;
     }
 }
+
+const registerModule: ISDKModuleRegistry['_registerModule'] = (name, module) =>
+    ((window.mParticle as unknown) as ISDKModuleRegistry)._registerModule(name, module);
 
 const hasIdentifyReturned = () => {
     return window.mParticle.Identity.getCurrentUser()?.getMPID() === testMPID;
@@ -661,6 +666,151 @@ describe('feature-flags', () => {
             expect(
                 window.mParticle.getInstance()._Store.SDKConfig.workspaceToken
             ).to.not.equal('stale-workspace');
+        });
+
+        describe('the button tracking module', () => {
+            const canDetect = typeof Event.prototype.composedPath === 'function';
+            const moduleName = 'buttonTracking';
+            // A working module built from this test bundle's copy of the
+            // tracker, which shares the page's tracker state with the SDK's.
+            const workingModule = {
+                version: Constants.sdkVersion,
+                createTracker: (mpInstance: any) => new ButtonTracker(mpInstance),
+                reset: resetButtonTracking,
+            };
+
+            const initWithTracking = async (config: Partial<SDKInitConfig> = {}) => {
+                window.mParticle.init(apiKey, {
+                    ...window.mParticle.config,
+                    flags: { autoButtonTracking: 'True', autoLinkTracking: 'True' },
+                    kitConfigs: [roktConfig],
+                    ...config,
+                });
+                await waitForCondition(hasIdentifyReturned);
+                return window.mParticle.getInstance();
+            };
+
+            const expectTrackingOff = (instance: any) => {
+                const { flags } = instance._Store.SDKConfig;
+                expect(flags.autoButtonTracking).to.equal(false);
+                expect(flags.autoLinkTracking).to.equal(false);
+                expect(instance._ButtonTracker).to.equal(undefined);
+                expect(activeTracker()).to.equal(undefined);
+                expect(instance._RoktManager.isCheckoutIntentLive()).to.equal(false);
+            };
+
+            afterEach(() => {
+                // Restores the module the full SDK registers.
+                window.mParticle._resetForTests(MPConfig);
+            });
+
+            it('is registered by the full SDK', async () => {
+                const instance = await initWithTracking();
+
+                expect(instance._ButtonTracker).to.not.equal(undefined);
+                expect(activeTracker() && activeTracker().isActive).to.equal(true);
+                expect(instance._RoktManager.isCheckoutIntentLive()).to.equal(canDetect);
+            });
+
+            it('turns both tracking flags off when it is missing', async () => {
+                registerModule(moduleName, undefined);
+
+                expectTrackingOff(await initWithTracking());
+            });
+
+            it('logs a rejected registration once, at the next init', async () => {
+                const warnings: string[] = [];
+                const logger = { warning: (message: string) => warnings.push(message) };
+                registerModule(moduleName, { ...workingModule, version: '0.0.1' });
+
+                // The SDK's default level, which the shared test config turns off.
+                const config = { logLevel: 'warning', logger } as Partial<SDKInitConfig>;
+                const instance = await initWithTracking(config);
+                await initWithTracking(config);
+
+                expect(
+                    warnings.filter(warning => warning.indexOf('Rejected SDK module') === 0)
+                ).to.deep.equal([
+                    'Rejected SDK module buttonTracking 0.0.1, built for another SDK version',
+                ]);
+                expect(instance._ButtonTracker).to.not.equal(undefined);
+            });
+
+            it('turns both tracking flags off when building the tracker throws', async () => {
+                registerModule(moduleName, {
+                    ...workingModule,
+                    createTracker: () => {
+                        throw new Error('module failed');
+                    },
+                });
+
+                expectTrackingOff(await initWithTracking());
+            });
+
+            it('turns both tracking flags off when the tracker init throws', async () => {
+                registerModule(moduleName, {
+                    ...workingModule,
+                    createTracker: () => ({
+                        init: () => {
+                            throw new Error('init failed');
+                        },
+                        teardown: () => undefined,
+                        clearPending: () => undefined,
+                    } as any),
+                });
+
+                expectTrackingOff(await initWithTracking());
+            });
+
+            it('turns both tracking flags off when its reset throws', async () => {
+                registerModule(moduleName, {
+                    ...workingModule,
+                    reset: () => {
+                        resetButtonTracking();
+                        throw new Error('reset failed');
+                    },
+                });
+
+                expectTrackingOff(await initWithTracking());
+            });
+
+            it('turns both tracking flags off when its reset throws on a re-init', async () => {
+                let resetThrows = false;
+                registerModule(moduleName, {
+                    ...workingModule,
+                    reset: () => {
+                        resetButtonTracking();
+                        if (resetThrows) {
+                            throw new Error('reset failed');
+                        }
+                    },
+                });
+                const warnings: string[] = [];
+                const logger = { warning: (message: string) => warnings.push(message) };
+                const config = { logLevel: 'warning', logger } as Partial<SDKInitConfig>;
+                expect((await initWithTracking(config))._ButtonTracker).to.not.equal(undefined);
+                resetThrows = true;
+
+                expectTrackingOff(await initWithTracking(config));
+                expect(
+                    warnings.filter(warning => warning.indexOf('Button tracking off') === 0)
+                ).to.deep.equal(['Button tracking off: no module']);
+            });
+
+            it('leaves tracking off without the module when the flags are off', async () => {
+                registerModule(moduleName, undefined);
+
+                window.mParticle.init(apiKey, {
+                    ...window.mParticle.config,
+                    kitConfigs: [roktConfig],
+                });
+                await waitForCondition(hasIdentifyReturned);
+                const instance = window.mParticle.getInstance();
+
+                expect(instance._ButtonTracker).to.equal(undefined);
+                expect(activeTracker()).to.equal(undefined);
+                expect(instance._RoktManager.isCheckoutIntentLive()).to.equal(false);
+            });
         });
     });
 });
