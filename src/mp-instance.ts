@@ -1688,9 +1688,13 @@ function runPreConfigFetchInitialization(mpInstance, apiKey, config) {
     );
     // Bound after the listener, so page flags queued before load, and page
     // flags kept across a re-initialization, apply like any other page change.
+    // The snippet queue is shared by every instance, but mParticle.Rokt calls
+    // belong to the default instance, so only it takes the queued setter calls.
     mpInstance._RoktManager._bindCookieConsentManager(
         mpInstance._CookieConsentManager,
-        mpInstance._preInit.readyQueue
+        mpInstance._instanceName === Constants.DefaultInstance
+            ? mpInstance._preInit.readyQueue
+            : []
     );
 
     // Check to see if localStorage is available before main configuration runs

@@ -1,7 +1,7 @@
 import mParticle from '../../src/mparticle-instance-manager';
 import CookieConsentManager from '../../src/cookieConsentManager';
 import { NO_TARGETING_ATTRIBUTE } from '../../src/constants';
-import { IMParticleWebSDKInstance } from '../../src/mp-instance';
+import mParticleInstance, { IMParticleWebSDKInstance } from '../../src/mp-instance';
 import {
     onIdentityRequestSettled,
     resumeSuppressedIdentify,
@@ -1646,6 +1646,19 @@ describe('mid-page noTargeting changes', () => {
 });
 
 describe('mParticle.Rokt.setPrivacyControl', () => {
+    // Queued mParticle.Rokt calls belong to the default instance, which takes
+    // the snippet queue when it is created.
+    function initDefaultWithQueue(rq: unknown[]): IMParticleWebSDKInstance {
+        (window as any).mParticle.config = { rq };
+        const instance = new (mParticleInstance as any)('default_instance');
+        instance.init(
+            apiKey,
+            { requestConfig: false, workspaceToken, flags: { offlineStorage: '100' } },
+            'default_instance'
+        );
+        return instance;
+    }
+
     afterEach(() => {
         delete (window as any).mParticle.config;
         delete (window as any).__mpRoktPagePrivacy__;
@@ -1685,14 +1698,11 @@ describe('mParticle.Rokt.setPrivacyControl', () => {
 
     it('applies every queued setter call before the queued events', async () => {
         const queued = jest.fn();
-        (window as any).mParticle.config = {
-            rq: [
-                ['Rokt.setPrivacyControl', { noFunctional: true }],
-                queued,
-                ['Rokt.setPrivacyControl', { noFunctional: false }],
-            ],
-        };
-        const instance = init();
+        const instance = initDefaultWithQueue([
+            ['Rokt.setPrivacyControl', { noFunctional: true }],
+            queued,
+            ['Rokt.setPrivacyControl', { noFunctional: false }],
+        ]);
         await settle();
 
         // The last queued value is in effect before any queued call runs.
@@ -1702,11 +1712,26 @@ describe('mParticle.Rokt.setPrivacyControl', () => {
         expect(localStorage.getItem(storageName)).not.toBeNull();
     });
 
+    it('leaves a queued setter call for the default instance when a named instance starts first', () => {
+        const queue = [['Rokt.setPrivacyControl', { noFunctional: true }]];
+        (window as any).mParticle.config = { rq: queue };
+        // Each instance takes the shared snippet queue when it is created.
+        const named = new (mParticleInstance as any)(instanceName);
+        const defaultInstance = new (mParticleInstance as any)('default_instance');
+        const config = { requestConfig: false, workspaceToken, flags: {} };
+
+        named.init(apiKey, config, instanceName);
+        expect(consent(named).getNoFunctional()).toBe(false);
+        expect(queue).toHaveLength(1);
+
+        defaultInstance.init(apiKey, config, 'default_instance');
+        expect(consent(defaultInstance).getNoFunctional()).toBe(true);
+    });
+
     it('runs the skipped identify when a queued noFunctional is lifted', async () => {
-        (window as any).mParticle.config = {
-            rq: [['Rokt.setPrivacyControl', { noFunctional: true }]],
-        };
-        const instance = init();
+        const instance = initDefaultWithQueue([
+            ['Rokt.setPrivacyControl', { noFunctional: true }],
+        ]);
         await settle();
         expect(consent(instance).getNoFunctional()).toBe(true);
         expect(identityMethods).not.toContain('identify');
