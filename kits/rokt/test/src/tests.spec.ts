@@ -14484,6 +14484,80 @@ describe('Rokt Forwarder', () => {
         expect(forwarder().userAttributes.email).toBe('partner@example.com');
       });
 
+      it('sends a typed email that replaced a cut-short partner email, and keeps the partner one cached', async () => {
+        forwarder().userAttributes = { email: 'guest@example.c' };
+        (window as any).mParticle.forwarder.filters.filteredUser = {
+          getMPID: () => '123',
+          getUserIdentities: () => ({ userIdentities: { email: 'guest@example.c' } }),
+        };
+        await (window as any).mParticle.forwarder.selectPlacements({
+          identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+          preselect: true,
+          attributes: { email: 'guest@example.com' },
+          preselectFormEmail: { key: 'email', mpid: '123', replaced: true },
+        });
+
+        expect(selectPlacementsCalls).toHaveLength(1);
+        expect(selectPlacementsCalls[0].attributes.email).toBe('guest@example.com');
+        expect(forwarder().userAttributes.email).toBe('guest@example.c');
+      });
+
+      it.each([
+        {
+          label: 'an email identity',
+          user: { getUserIdentities: () => ({ userIdentities: { email: 'other@example.org' } }) },
+        },
+        { label: 'a live user attribute', user: { getAllUserAttributes: () => ({ email: 'other@example.org' }) } },
+      ])(
+        'skips a call whose typed email replaced a partner one when a different address arrives as $label for the same user',
+        async ({ user }) => {
+          forwarder().userAttributes = { email: 'guest@example.c' };
+          (window as any).mParticle.forwarder.filters.filteredUser = {
+            getMPID: () => '123',
+            getUserIdentities: () => ({ userIdentities: {} }),
+            ...user,
+          };
+          await (window as any).mParticle.forwarder.selectPlacements({
+            identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+            preselect: true,
+            attributes: { email: 'guest@example.com' },
+            preselectFormEmail: { key: 'email', mpid: '123', replaced: true },
+          });
+
+          expect(selectPlacementsCalls).toHaveLength(0);
+          expect(forwarder().userAttributes.email).toBe('guest@example.c');
+        },
+      );
+
+      it('still sends a call whose typed email replaced a partner one when the full address arrives', async () => {
+        forwarder().userAttributes = { email: 'guest@example.c' };
+        (window as any).mParticle.forwarder.filters.filteredUser = {
+          getMPID: () => '123',
+          getUserIdentities: () => ({ userIdentities: { email: 'Guest@Example.com' } }),
+        };
+        await (window as any).mParticle.forwarder.selectPlacements({
+          identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+          preselect: true,
+          attributes: { email: 'guest@example.com' },
+          preselectFormEmail: { key: 'email', mpid: '123', replaced: true },
+        });
+
+        expect(selectPlacementsCalls).toHaveLength(1);
+        expect(selectPlacementsCalls[0].attributes.email).toBe('guest@example.com');
+      });
+
+      it('skips a call whose typed email replaced a partner one once a hashed partner email arrives', async () => {
+        forwarder().userAttributes = { email: 'guest@example.c', emailsha256: 'abc123' };
+        await (window as any).mParticle.forwarder.selectPlacements({
+          identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+          preselect: true,
+          attributes: { email: 'guest@example.com' },
+          preselectFormEmail: { key: 'email', mpid: '123', replaced: true },
+        });
+
+        expect(selectPlacementsCalls).toHaveLength(0);
+      });
+
       it.each([
         { label: 'for another user', mpid: 'someone-else', active: [(window as any).mParticle.forwarder] },
         { label: 'after consent drops the kit during the wait', mpid: '123', active: [] },

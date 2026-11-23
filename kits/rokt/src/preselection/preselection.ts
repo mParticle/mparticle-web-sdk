@@ -35,7 +35,7 @@ import {
   type PaymentFamily,
 } from '../paymentFamily';
 import { djb2, isEmpty, isObject, isString, readOwnValue } from '../utils';
-import { isEmailInput, readFormEmail, scanFormEmails } from './formEmail';
+import { isEmailInput, isMalformedEmail, readFormEmail, scanFormEmails } from './formEmail';
 import {
   canDispatchPreselection,
   formatIdentityTypes,
@@ -898,11 +898,14 @@ type EmailMissReason =
 // Whether the partner supplies the shopper's email anywhere, including on the unfiltered user: an email
 // filtered from this connection is one the partner chose not to share, so the form must not stand in.
 // A hashed or encrypted email (emailsha256, the identity mapped to it, or any of them plus enc) counts, in any casing.
+// A raw email under the email key counts only where rawEmailCounts says so.
 export function hasPartnerEmail(
   host: PreselectHost,
   emailKey: string,
   eventAttributes: Record<string, unknown> = {},
+  rawEmailCounts: (value: unknown) => boolean = () => true,
 ): boolean {
+  const rawEmailKey = emailKey.toLowerCase();
   const emailKeys = new Set(
     [emailKey, 'emailsha256', host.mappedEmailSha256Key]
       .filter((key): key is string => isString(key) && key !== '')
@@ -918,8 +921,20 @@ export function hasPartnerEmail(
     (currentUser?.getUserIdentities?.().userIdentities as Record<string, unknown> | undefined) ?? {},
   ];
   return sources.some((source) =>
-    Object.keys(source).some((key) => emailKeys.has(key.toLowerCase()) && !isEmpty(readOwnValue(source, key))),
+    Object.keys(source).some((key) => {
+      const lowerKey = key.toLowerCase();
+      const value = readOwnValue(source, key);
+      return emailKeys.has(lowerKey) && !isEmpty(value) && (lowerKey !== rawEmailKey || rawEmailCounts(value));
+    }),
   );
+}
+
+// A raw partner email shaped like an email, which keeps the form out. Given the form email a call carries, the same
+// address in any casing doesn't count either.
+export function rawEmailOutranks(formEmail?: string): (value: unknown) => boolean {
+  return (value) =>
+    !isString(value) ||
+    (!isMalformedEmail(value) && (formEmail === undefined || value.trim().toLowerCase() !== formEmail.toLowerCase()));
 }
 
 // Whether the call will carry the shopper's email, raw or hashed, judged on what selectPlacements would
@@ -929,12 +944,14 @@ function carriesEmail(host: PreselectHost, collected: Record<string, unknown>, i
 }
 
 // Why the form may not be read for this entry now, or undefined when it may, decided before any input value is
-// touched. It may only on an opted-in entry's own route, with no partner email and no opt-out or privacy signal.
+// touched. It may only on an opted-in entry's own route, with no partner email and no opt-out or privacy signal. A
+// caller that may replace the partner's raw email leaves it out here and checks it against the form email once read.
 function whyFormEmailUnreadable(
   host: PreselectHost,
   configEntry: PreselectionConfigEntry,
   emailKey: string,
   eventAttributes: Record<string, unknown> = {},
+  rawEmailCounts?: (value: unknown) => boolean,
 ): EmailMissReason | undefined {
   if (configEntry.readEmailInput !== true) return 'read_disabled';
   if (!entryMatchesPathname(configEntry, window.location.pathname)) return 'off_route';
@@ -946,7 +963,7 @@ function whyFormEmailUnreadable(
     return 'privacy_blocked';
   }
   if (host.isEmailIdentityFiltered()) return 'email_filtered';
-  return hasPartnerEmail(host, emailKey, eventAttributes) ? 'partner_email' : undefined;
+  return hasPartnerEmail(host, emailKey, eventAttributes, rawEmailCounts) ? 'partner_email' : undefined;
 }
 
 // Why an unresolved email key got nothing from the form, for the missed line. Fields are read only when the gates allow.
@@ -981,18 +998,26 @@ export function isReadableFormEmailChange(state: PreselectState, host: Preselect
   );
 }
 
-// Fills an unresolved email key from the form and returns that key, when the form may be read.
+// The email key the form filled, and whether a partner value it superseded was there.
+type FormEmailFill = { key: string; replaced: boolean };
+
+// Fills an unresolved email key from the form, or replaces a malformed raw partner email there, when the form may be
+// read. Any partner email shaped like an email, or a hashed or encrypted one, keeps the form unread, so the call never
+// carries a raw email that disagrees with one.
 function fillEmailFromForm(
   host: PreselectHost,
   configEntry: PreselectionConfigEntry,
   collected: Record<string, unknown>,
   event: SDKEvent,
-): string | undefined {
+): FormEmailFill | undefined {
   const emailKey = findEmailAttributeKey(configEntry);
+  if (!emailKey) return undefined;
+  const partnerValue = readOwnValue(collected, emailKey);
+  const replacing = !isEmpty(partnerValue);
+  const eventAttributes = event.EventAttributes ?? {};
   if (
-    !emailKey ||
-    !isEmpty(readOwnValue(collected, emailKey)) ||
-    whyFormEmailUnreadable(host, configEntry, emailKey, event.EventAttributes ?? {})
+    (replacing && !(isString(partnerValue) && isMalformedEmail(partnerValue))) ||
+    whyFormEmailUnreadable(host, configEntry, emailKey, eventAttributes, replacing ? rawEmailOutranks() : undefined)
   ) {
     return undefined;
   }
@@ -1001,7 +1026,7 @@ function fillEmailFromForm(
     return undefined;
   }
   collected[emailKey] = email;
-  return emailKey;
+  return { key: emailKey, replaced: replacing };
 }
 
 // An opted-in entry requires email, so its guests pass the identity gate and wait on the email itself
@@ -1079,7 +1104,7 @@ function collectAttributes(
   configEntry: PreselectionConfigEntry,
   // False for a fire off the entry's route, which never reads the page it happens to be on.
   readForm = true,
-): { collected: Record<string, unknown>; missingKeys: string[]; formEmailKey?: string } {
+): { collected: Record<string, unknown>; missingKeys: string[]; formEmail?: FormEmailFill } {
   const livePersistedAttributes = host.filteredUser?.getAllUserAttributes?.() || {};
 
   const identityKeys = new Set(configEntry.identityKeys ?? []);
@@ -1141,12 +1166,12 @@ function collectAttributes(
     }
   }
 
-  const formEmailKey = readForm ? fillEmailFromForm(host, configEntry, collected, event) : undefined;
+  const formEmail = readForm ? fillEmailFromForm(host, configEntry, collected, event) : undefined;
 
   return {
     collected,
     missingKeys: getMissingRequiredAttributeKeys(host, configEntry, collected),
-    formEmailKey,
+    formEmail,
   };
 }
 
@@ -1358,7 +1383,7 @@ function fireDispatch(
   skipWhileActive = false,
   intent?: IntentTriggerKind,
   byEvent = skipWhileActive,
-  formEmailKey?: string,
+  formEmail?: FormEmailFill,
   intentSource?: string,
   // Set for a fire off its entry's route, or from a page a router already moved, which binds the call to its user and
   // says whether it needed a logged-in shopper. A tap also reports its route and whether the shopper was logged in.
@@ -1439,7 +1464,8 @@ function fireDispatch(
   const defaultedKeys = Object.keys(fills).filter((key) => readOwnValue(outgoing, key) === fills[key]);
   logOutcome(host, 'fired', lateRefire ? 'intent_refire' : reason, {
     identity_types: formatIdentityTypes(getIdentityTypes(host.filteredUser)),
-    ...(formEmailKey ? { email_source: 'input' } : {}),
+    ...(formEmail ? { email_source: 'input' } : {}),
+    ...(formEmail?.replaced ? { email_replaced: true } : {}),
     ...(intent
       ? {
           ...intentKindDetail,
@@ -1487,8 +1513,14 @@ function fireDispatch(
     // target value the call's identifier also matches.
     ...(callIdentifier !== identifier ? { [PRESELECT_ENTRY_OPTION]: identifier } : {}),
     omitUrl: true,
-    ...(formEmailKey
-      ? { [PRESELECT_FORM_EMAIL_OPTION]: { key: formEmailKey, mpid: getUserId(host.filteredUser) } }
+    ...(formEmail
+      ? {
+          [PRESELECT_FORM_EMAIL_OPTION]: {
+            key: formEmail.key,
+            mpid: getUserId(host.filteredUser),
+            ...(formEmail.replaced ? { replaced: true } : {}),
+          },
+        }
       : {}),
     ...(offEntry
       ? { [PRESELECT_BOUND_USER_OPTION]: { mpid: getUserId(host.filteredUser), requireLogin: offEntry.requireLogin } }
@@ -1834,8 +1866,8 @@ function waitForLauncher(
   // Gating it needs the decision knowable pre-launcher, which is a Web SDK change.
   const mpid = getUserId(host.filteredUser);
   if (host.accountId && mpid && hasValidIdentity(host.filteredUser)) {
-    const { collected, missingKeys, formEmailKey } = collectAttributes(host, event, configEntry);
-    if (missingKeys.length === 0 && !formEmailKey) {
+    const { collected, missingKeys, formEmail } = collectAttributes(host, event, configEntry);
+    if (missingKeys.length === 0 && !formEmail) {
       // Deny-listed attributes may still resolve here (they're read from the raw event or
       // mParticle's live store, not just host.userAttributes), so strip them before this
       // snapshot sits in storage rather than going straight over the wire.
@@ -2001,7 +2033,7 @@ function resolveAndDispatch(
   consumedPending?: PendingPreselectDispatch,
 ): void {
   if (!host.isPreselectionPrivacyAllowed()) return;
-  const { collected: collectedAttributes, missingKeys, formEmailKey } = collectAttributes(host, event, configEntry);
+  const { collected: collectedAttributes, missingKeys, formEmail } = collectAttributes(host, event, configEntry);
   const trigger = { event, pathname, triggeringUserId, triggeredAt, intentSeen };
   const lastPageView = state.lastResolvedPageView;
   const route = intentPathHistory[intentPathHistory.length - 1];
@@ -2072,7 +2104,7 @@ function resolveAndDispatch(
     isEventTrigger && !intentKind,
     intentKind,
     isEventTrigger,
-    formEmailKey,
+    formEmail,
     intentKind ? state.intentSource : undefined,
     undefined,
     state.lateRefire === true,

@@ -8722,6 +8722,7 @@ describe('preselection', () => {
       if (touched) shopperTouch(input);
       return input;
     };
+    const emailOfLength = (length: number) => `${'a'.repeat(length - '@example.com'.length)}@example.com`;
 
     beforeEach(() => {
       mockConfig.current = [EMAIL_ENTRY];
@@ -9124,6 +9125,15 @@ describe('preselection', () => {
       expect(selectPlacementsCalls).toHaveLength(0);
     });
 
+    it('reads nothing when a field holds an email too long to send beside a different one', () => {
+      addInput(emailOfLength(255));
+      addInput('recipient@example.org', 'text');
+
+      maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+      expect(selectPlacementsCalls).toHaveLength(0);
+    });
+
     it('reads the same email once from an email field and a text field that differ in case or spacing', () => {
       addInput('Guest@Example.com');
       addInput('  guest@example.com ', 'text');
@@ -9154,6 +9164,8 @@ describe('preselection', () => {
       { label: 'a text field with a numeric TLD', type: 'text', value: 'guest@example.12', expected: false },
       { label: 'a field with no type holding an email', type: undefined, value: 'guest@example.com', expected: true },
       { label: 'a text field holding something else', type: 'text', value: 'Jane Shopper', expected: false },
+      { label: 'a text field holding a 254-character email', type: 'text', value: emailOfLength(254), expected: true },
+      { label: 'a text field holding a 255-character email', type: 'text', value: emailOfLength(255), expected: false },
       { label: 'an empty text field', type: 'text', value: '', expected: false },
       { label: 'an empty email field', type: 'email', value: '', expected: true },
       { label: 'a hidden input holding an email', type: 'hidden', value: 'guest@example.com', expected: false },
@@ -9877,6 +9889,213 @@ describe('preselection', () => {
       querySpy.mockRestore();
     });
 
+    describe('a partner email not shaped like an email', () => {
+      const identifiedAs = (email: string) => {
+        host.filteredUser = {
+          getUserIdentities: () => ({ userIdentities: { email } }),
+          getMPID: () => MPID,
+        } as unknown as PreselectHost['filteredUser'];
+        host.getUserIdentities = () => ({ email });
+      };
+
+      it.each([
+        { label: 'cut short before a two-letter top-level domain', partner: 'shopper@example.c' },
+        { label: 'cut short at the dot', partner: 'shopper@example.' },
+        { label: 'cut short, in another casing', partner: 'Shopper@Example.c' },
+      ])('sends the typed email in place of an identity $label', ({ partner }) => {
+        identifiedAs(partner);
+        addInput('shopper@example.com');
+
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+        expect(selectPlacementsCalls).toHaveLength(1);
+        expect(selectPlacementsCalls[0].attributes).toEqual(tagged({ email: 'shopper@example.com' }));
+        expect(selectPlacementsCalls[0].preselectFormEmail).toEqual({ key: 'email', mpid: MPID, replaced: true });
+        expect(loggedDiagnostics).toContainEqual(
+          expect.objectContaining({
+            code: 'PRESELECT_FIRED',
+            message: expect.stringMatching(/\[email_source=input\].*\[email_replaced=true\]/),
+          }),
+        );
+      });
+
+      it('replaces a saved attribute or an event value the same way', () => {
+        host.userAttributes = { email: 'shopper@example.c' };
+        addInput('shopper@example.com');
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+        host.userAttributes = {};
+        vi.mocked(getActivePreselect).mockReturnValue(null);
+        maybeFirePreselect(state, host, buildEvent({ email: 'shopper@example.c' }), PATHNAME);
+
+        expect(selectPlacementsCalls.map((call) => call.attributes)).toEqual([
+          tagged({ email: 'shopper@example.com' }),
+          tagged({ email: 'shopper@example.com' }),
+        ]);
+      });
+
+      it('sends the typed email in place of a value not shaped like an email, whatever it holds', () => {
+        identifiedAs('not-an-email');
+        addInput('shopper@example.com');
+
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+        expect(selectPlacementsCalls[0].attributes).toEqual(tagged({ email: 'shopper@example.com' }));
+      });
+
+      it.each([
+        { label: 'the same email', partner: 'shopper@example.com', typed: 'shopper@example.com' },
+        { label: 'the same email in another casing', partner: 'shopper@example.com', typed: 'Shopper@Example.com' },
+        { label: 'a different address', partner: 'shopper@example.com', typed: 'someone@example.org' },
+        { label: 'an address it extends', partner: 'shopper@example.com', typed: 'shopper@example.co' },
+        { label: 'an address that extends it', partner: 'shopper@example.co', typed: 'shopper@example.com' },
+      ])(
+        'keeps a partner email shaped like an email, without reading the form, when the form holds $label',
+        ({ partner, typed }) => {
+          identifiedAs(partner);
+          addInput(typed);
+          const querySpy = vi.spyOn(document, 'querySelectorAll');
+
+          maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+          expect(selectPlacementsCalls).toHaveLength(1);
+          expect(selectPlacementsCalls[0].attributes).toEqual(tagged({ email: partner }));
+          expect(selectPlacementsCalls[0].preselectFormEmail).toBeUndefined();
+          expect(querySpy).not.toHaveBeenCalled();
+          querySpy.mockRestore();
+        },
+      );
+
+      it.each([
+        { label: 'a saved attribute', setup: () => (host.userAttributes = { Email: 'other@example.org' }) },
+        {
+          label: 'the unfiltered user',
+          setup: () =>
+            (host.getCurrentUser = () =>
+              ({
+                getAllUserAttributes: () => ({ email: 'other@example.org' }),
+                getUserIdentities: () => ({ userIdentities: {} }),
+              }) as unknown as ReturnType<NonNullable<PreselectHost['getCurrentUser']>>),
+        },
+      ])('keeps the partner email when $label holds an address shaped like an email', ({ setup }) => {
+        identifiedAs('shopper@example.c');
+        setup();
+        addInput('shopper@example.com');
+
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+        expect(selectPlacementsCalls.map((call) => call.attributes)).not.toContainEqual(
+          expect.objectContaining({ email: 'shopper@example.com' }),
+        );
+      });
+
+      it('never reads the form for a cut-short event value when another partner source holds an email', () => {
+        identifiedAs('shopper@example.com');
+        addInput('shopper@example.com');
+        const querySpy = vi.spyOn(document, 'querySelectorAll');
+
+        maybeFirePreselect(state, host, buildEvent({ email: 'shopper@example.c' }), PATHNAME);
+
+        expect(selectPlacementsCalls[0].preselectFormEmail).toBeUndefined();
+        expect(querySpy).not.toHaveBeenCalled();
+        querySpy.mockRestore();
+      });
+
+      it.each([
+        { length: 254, email: emailOfLength(254) },
+        { length: 255, email: 'shopper@example.c' },
+      ])('sends a typed email of $length characters in its place as $email', ({ length, email }) => {
+        identifiedAs('shopper@example.c');
+        addInput(emailOfLength(length));
+
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+        expect(selectPlacementsCalls).toHaveLength(1);
+        expect(selectPlacementsCalls[0].attributes).toEqual(tagged({ email }));
+      });
+
+      it.each([
+        { length: 254, email: emailOfLength(254) },
+        { length: 255, email: 'shopper@example.com' },
+      ])('sends a partner email of $length characters as $email', ({ length, email }) => {
+        identifiedAs(emailOfLength(length));
+        addInput('shopper@example.com');
+
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+        expect(selectPlacementsCalls).toHaveLength(1);
+        expect(selectPlacementsCalls[0].attributes).toEqual(tagged({ email }));
+      });
+
+      it('keeps a cut-short partner email when a 255-character email sits beside a different one', () => {
+        identifiedAs('shopper@example.c');
+        addInput(emailOfLength(255));
+        addInput('recipient@example.org', 'text');
+
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+        expect(selectPlacementsCalls).toHaveLength(1);
+        expect(selectPlacementsCalls[0].attributes).toEqual(tagged({ email: 'shopper@example.c' }));
+        expect(selectPlacementsCalls[0].preselectFormEmail).toBeUndefined();
+      });
+
+      it('keeps a cut-short partner email when the form holds no email', () => {
+        identifiedAs('shopper@example.c');
+
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+        expect(selectPlacementsCalls).toHaveLength(1);
+        expect(selectPlacementsCalls[0].attributes).toEqual(tagged({ email: 'shopper@example.c' }));
+        expect(selectPlacementsCalls[0].preselectFormEmail).toBeUndefined();
+      });
+
+      it('keeps a cut-short partner email when the shopper has not finished the field', () => {
+        identifiedAs('shopper@example.c');
+        addInput('shopper@example.com', 'email', false);
+
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+        expect(selectPlacementsCalls[0].attributes).toEqual(tagged({ email: 'shopper@example.c' }));
+      });
+
+      it.each([
+        { label: 'a hashed email', setup: () => (host.userAttributes = { emailsha256: 'abc123' }) },
+        { label: 'an encrypted email', setup: () => (host.userAttributes = { emailenc: 'ciphertext' }) },
+      ])('never replaces it when the partner also supplies $label', ({ setup }) => {
+        identifiedAs('shopper@example.c');
+        setup();
+        addInput('shopper@example.com');
+
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+        expect(selectPlacementsCalls.map((call) => call.attributes)).not.toContainEqual(
+          expect.objectContaining({ email: 'shopper@example.com' }),
+        );
+      });
+
+      it.each([
+        {
+          label: 'when the entry has not opted in',
+          setup: () => (mockConfig.current = [{ ...EMAIL_ENTRY, readEmailInput: undefined }]),
+        },
+        { label: 'under a privacy signal', setup: () => (host.isPreselectionPrivacyAllowed = () => false) },
+        {
+          label: 'when this connection filters out the Email identity',
+          setup: () => (host.isEmailIdentityFiltered = () => true),
+        },
+      ])('never replaces it $label', ({ setup }) => {
+        identifiedAs('shopper@example.c');
+        setup();
+        addInput('shopper@example.com');
+
+        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
+
+        expect(selectPlacementsCalls.map((call) => call.attributes)).not.toContainEqual(
+          expect.objectContaining({ email: 'shopper@example.com' }),
+        );
+      });
+    });
+
     it.each([
       { label: 'after the user opts out or consent drops the kit', allowed: () => false },
     ])('never reads the form $label, including from a running hold', ({ allowed }) => {
@@ -10011,6 +10230,15 @@ describe('preselection', () => {
         expect(emailReason()).toBe('multiple_emails');
       });
 
+      it('is multiple_emails when a field holds an email too long to send beside a different one', () => {
+        addInput(emailOfLength(255), 'text');
+        addInput('recipient@example.org', 'text');
+
+        fire();
+
+        expect(emailReason()).toBe('multiple_emails');
+      });
+
       it.each([
         {
           label: 'has only heard trusted input events',
@@ -10027,12 +10255,16 @@ describe('preselection', () => {
         expect(emailReason()).toBe('uncommitted_fill');
       });
 
-      it('never tests a value longer than an email can be', () => {
-        addInput(`${'a'.repeat(250)}@example.com`, 'text', false);
+      it.each([
+        { length: 254, label: 'a field the shopper never touched', touched: false, reason: 'unseen_fill' },
+        { length: 255, label: 'a field the shopper never touched', touched: false, reason: 'no_field' },
+        { length: 255, label: 'a field the shopper filled', touched: true, reason: 'no_field' },
+      ])('is $reason for a $length-character email in $label', ({ length, touched, reason }) => {
+        addInput(emailOfLength(length), 'text', touched);
 
         fire();
 
-        expect(emailReason()).toBe('no_field');
+        expect(emailReason()).toBe(reason);
       });
 
       it('is read_disabled for an entry that has not opted in', () => {

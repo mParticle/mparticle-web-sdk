@@ -1,9 +1,17 @@
 // Many partners identify a guest only after the order, so the email a guest types on the trigger
-// page is the only one there is in time. It fills an unresolved `email` key, nothing else.
+// page is the only one there is in time. It fills an unresolved `email` key, or replaces a malformed partner value.
 // Some checkout forms mark the email field type="text", so any text or email input is a candidate,
 // as is one marked autocomplete="email"; hidden and password inputs never are. Only a candidate the
 // shopper typed into or autofilled is read, and only a value shaped like an email counts.
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.(?:[a-zA-Z]{2,}|xn--[a-zA-Z0-9-]+|[^\s@.\x00-\x7F]{2,})$/;
+
+// Longer values are never emails, and skipping them bounds the pattern's backtracking on fields the shopper didn't fill.
+const MAX_EMAIL_LENGTH = 254;
+
+// The form read and the partner value check share this test, so the form never supplies a value the check rejects.
+function isEmailShaped(email: string): boolean {
+  return email.length <= MAX_EMAIL_LENGTH && EMAIL_PATTERN.test(email);
+}
 
 // Candidates whose latest input or change event was a trusted change: the shopper finished typing into or
 // autofilled them. A field the shopper never finished never fills the call, and one the shopper edits again or
@@ -96,12 +104,15 @@ export function isEmailInput(target: EventTarget | null): boolean {
     isEmailCandidate(target) &&
     (target.type === 'email' ||
       target.getAttribute('autocomplete') === 'email' ||
-      EMAIL_PATTERN.test(target.value.trim()))
+      isEmailShaped(target.value.trim()))
   );
 }
 
-// Longer values are never emails, and skipping them bounds the pattern's backtracking on fields the shopper didn't fill.
-const MAX_EMAIL_LENGTH = 254;
+// A partner value under the email key that isn't shaped like an email, as a page sends when it identifies the shopper
+// mid-typing. The shopper's committed form email may replace it; any value shaped like an email stays.
+export function isMalformedEmail(value: string): boolean {
+  return !isEmailShaped(value.trim());
+}
 
 function mayHoldEmail(input: HTMLInputElement): boolean {
   return input.type === 'email' || input.getAttribute('autocomplete') === 'email' || input.value.includes('@');
@@ -130,6 +141,7 @@ export function scanFormEmails(testUnfilled: boolean): {
   const emails = new Map<string, string>();
   const unfilledCandidates: HTMLInputElement[] = [];
   let unsettledTouched = 0;
+  let overlongEmail = false;
   document.querySelectorAll('input').forEach((input) => {
     if (!isEmailCandidate(input)) return;
     const filled = shopperInputs.has(input);
@@ -140,16 +152,19 @@ export function scanFormEmails(testUnfilled: boolean): {
       return;
     }
     const value = input.value.trim();
-    if (EMAIL_PATTERN.test(value) && !emails.has(value.toLowerCase())) {
-      emails.set(value.toLowerCase(), value);
+    if (isEmailShaped(value)) {
+      if (!emails.has(value.toLowerCase())) emails.set(value.toLowerCase(), value);
+    } else if (value.length > MAX_EMAIL_LENGTH && EMAIL_PATTERN.test(value)) {
+      // Too long to send, but still an address the shopper typed, so another field's email isn't theirs alone.
+      overlongEmail = true;
     }
   });
-  const ambiguous = emails.size > 0 && unsettledTouched > 0;
+  const ambiguous = emails.size > 0 && (unsettledTouched > 0 || overlongEmail);
   let unfilled: 'untrusted_fill' | 'uncommitted_fill' | 'unseen_fill' | undefined;
   if (testUnfilled && !ambiguous && emails.size === 0) {
     unfilledCandidates.forEach((input) => {
       const value = input.value.trim();
-      if (value.length > MAX_EMAIL_LENGTH || !EMAIL_PATTERN.test(value)) return;
+      if (!isEmailShaped(value)) return;
       if (scriptInputs.has(input)) {
         unfilled = 'untrusted_fill';
       } else if (unfilled !== 'untrusted_fill') {
