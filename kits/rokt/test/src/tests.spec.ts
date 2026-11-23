@@ -13121,6 +13121,122 @@ describe('Rokt Forwarder', () => {
         expect(selectPlacementsCalls[0].attributes.placementType).toBe('embed');
       });
 
+      describe('mapped from a value on the page', () => {
+        const win = window as unknown as Record<string, unknown>;
+        const pushPageDefault = () =>
+          pushDefaultsConfig({
+            preselectAttributeDefaults: {
+              placementType: {
+                value: 'overlay',
+                byPageValue: { path: 'siteData.visitor.status', values: { guest: 'guest' } },
+              },
+            },
+          });
+
+        afterEach(() => {
+          delete win.siteData;
+        });
+
+        it('sends the mapped value, read from the page after the kit loaded, as a default', async () => {
+          pushPageDefault();
+          win.siteData = { visitor: { status: 'Guest' } };
+
+          firePreselectPageview();
+          await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+          expect(selectPlacementsCalls[0].attributes.placementType).toBe('guest');
+          expect(selectPlacementsCalls[0].attributes['rokt.preselectdefaulted']).toBe('placementType');
+          expect(JSON.stringify(selectPlacementsCalls[0])).not.toContain('Guest');
+        });
+
+        it.each([
+          ['an unmapped page value', { visitor: { status: 'shopper@example.com' } }, 'shopper@example.com'],
+          ['no page value', undefined, 'siteData'],
+        ])('sends the plain value for %s, and nothing from the page', async (_label, siteData, pageText) => {
+          pushPageDefault();
+          if (siteData) win.siteData = siteData;
+
+          firePreselectPageview();
+          await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+          expect(selectPlacementsCalls[0].attributes.placementType).toBe('overlay');
+          expect(JSON.stringify(selectPlacementsCalls[0])).not.toContain(pageText);
+        });
+
+        it("never replaces the trigger page's own value with the page's mapped one", async () => {
+          pushPageDefault();
+          win.siteData = { visitor: { status: 'guest' } };
+
+          firePreselectPageview({ placementType: 'embed' });
+          await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+          expect(selectPlacementsCalls[0].attributes.placementType).toBe('embed');
+          expect(selectPlacementsCalls[0].attributes).not.toHaveProperty('rokt.preselectdefaulted');
+        });
+
+        it('reads the page when a held call goes out, not when it was held', async () => {
+          vi.useFakeTimers();
+          try {
+            pushDefaultsConfig({
+              dispatchDelayMs: 1000,
+              preselectAttributeDefaults: {
+                placementType: {
+                  value: 'overlay',
+                  byPageValue: { path: 'siteData.visitor.status', values: { guest: 'guest' } },
+                },
+              },
+            });
+            win.siteData = { visitor: { status: 'Registered' } };
+
+            firePreselectPageview();
+            win.siteData = { visitor: { status: 'Guest' } };
+            expect(selectPlacementsCalls).toHaveLength(0);
+            await vi.advanceTimersByTimeAsync(1000);
+
+            expect(selectPlacementsCalls).toHaveLength(1);
+            expect(selectPlacementsCalls[0].attributes.placementType).toBe('guest');
+            expect(selectPlacementsCalls[0].attributes['rokt.preselectdefaulted']).toBe('placementType');
+          } finally {
+            vi.useRealTimers();
+          }
+        });
+
+        it("never replaces a saved value with the page's mapped one", async () => {
+          pushPageDefault();
+          win.siteData = { visitor: { status: 'guest' } };
+          (window as any).mParticle.forwarder.userAttributes = { loyaltyTier: 'gold', placementType: 'embed' };
+
+          firePreselectPageview();
+          await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+          expect(selectPlacementsCalls[0].attributes.placementType).toBe('embed');
+          expect(selectPlacementsCalls[0].attributes).not.toHaveProperty('rokt.preselectdefaulted');
+        });
+
+        it("never replaces an identity the call carries with the page's mapped one", async () => {
+          pushDefaultsConfig({
+            attributeKeys: ['loyaltyTier', 'customerid'],
+            optionalAttributeKeys: ['customerid'],
+            preselectAttributeDefaults: {
+              customerid: {
+                value: 'guess',
+                byPageValue: { path: 'siteData.visitor.id', values: { guest: 'page-guess' } },
+              },
+            },
+          });
+          win.siteData = { visitor: { id: 'guest' } };
+          (window as any).mParticle.forwarder.filters.filteredUser.getUserIdentities = () => ({
+            userIdentities: { email: 'test@example.com', customerid: 'c-1' },
+          });
+
+          firePreselectPageview();
+          await waitForCondition(() => selectPlacementsCalls.length > 0);
+
+          expect(selectPlacementsCalls[0].attributes.customerid).toBe('c-1');
+          expect(selectPlacementsCalls[0].attributes).not.toHaveProperty('rokt.preselectdefaulted');
+        });
+      });
+
       it('holds on a required key the trigger event sets in another casing, even with skipRemembered', async () => {
         pushDefaultsConfig({
           preselectAttributeDefaults: { placementType: { value: 'overlay', skipRemembered: true } },

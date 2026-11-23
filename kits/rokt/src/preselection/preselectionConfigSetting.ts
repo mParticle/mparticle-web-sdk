@@ -1,5 +1,6 @@
-import { PRESELECT_SKIP_DEFAULT, type PreselectionConfigEntry } from './preselectionConfig';
+import { PRESELECT_SKIP_DEFAULT, type PreselectionConfigEntry, type PreselectPageValue } from './preselectionConfig';
 import { isObject, isString, parseKitSettingJson } from '../utils';
+import { isPageValuePath } from './pageValue';
 import { isPaymentFamily } from '../paymentFamily';
 import { isSelectPlacementsAttributePersistenceDenied } from '../selectPlacementsAttributePersistence';
 
@@ -66,6 +67,19 @@ function isIntentSelectors(value: unknown): boolean {
   );
 }
 
+// Keyed in lower case and trimmed, as the page's value is read.
+function isPageValueDefault(value: unknown): boolean {
+  return (
+    isObject(value) &&
+    isPageValuePath(value.path) &&
+    isObject(value.values) &&
+    Object.keys(value.values).length > 0 &&
+    Object.entries(value.values).every(
+      ([pageValue, fill]) => pageValue !== '' && pageValue === pageValue.trim().toLowerCase() && isNonEmptyString(fill),
+    )
+  );
+}
+
 // Fields this kit does not know are ignored, as they are on the entry, so a later kit can add one.
 function isAttributeDefault(value: unknown): boolean {
   if (isNonEmptyString(value)) {
@@ -76,7 +90,11 @@ function isAttributeDefault(value: unknown): boolean {
   }
 
   const { byClientType, byHostname, byPaymentPick, skipRemembered, skipValues, matchGroups, matchPaymentFamily } = value;
+  const { byPageValue } = value;
   if (value.value !== undefined && !isNonEmptyString(value.value)) {
+    return false;
+  }
+  if (byPageValue !== undefined && !isPageValueDefault(byPageValue)) {
     return false;
   }
   if (
@@ -131,6 +149,7 @@ function isAttributeDefault(value: unknown): boolean {
       ...Object.values(byClientType ?? {}).filter((fill) => fill !== PRESELECT_SKIP_DEFAULT),
       ...Object.values(byHostname ?? {}),
       ...Object.values(byPaymentPick ?? {}),
+      ...Object.values((byPageValue as PreselectPageValue | undefined)?.values ?? {}),
     ];
     if (filled.some((fill) => isString(fill) && skipped.includes(fill.toLowerCase()))) {
       return false;
@@ -139,6 +158,7 @@ function isAttributeDefault(value: unknown): boolean {
   if (matchGroups !== undefined && !isMatchGroups(matchGroups, skipValues)) {
     return false;
   }
+  // byPageValue never counts: kits that predate it ignore it, and a default with nothing else would fail them.
   return (
     value.value !== undefined || byClientType !== undefined || byHostname !== undefined || byPaymentPick !== undefined
   );

@@ -4536,6 +4536,105 @@ describe('preselection', () => {
             });
           });
 
+          describe('byPageValue', () => {
+            const win = window as unknown as Record<string, unknown>;
+            const PAGE_DEFAULT = {
+              value: 'registered',
+              byPageValue: { path: 'siteData.visitor.status', values: { guest: 'guest' } },
+            };
+            const setStatus = (status: unknown) => {
+              win.siteData = { visitor: { status } };
+            };
+
+            afterEach(() => {
+              delete win.siteData;
+            });
+
+            it.each(['guest', 'Guest', 'GUEST'])("fills the mapped value when the page's value is %s", (status) => {
+              setStatus(status);
+              useEntry({ preselectAttributeDefaults: { [DEFAULTED_KEY]: PAGE_DEFAULT } });
+
+              expect(getPreselectAttributeDefaults(host, mockConfig.current[0], {})).toEqual({
+                [DEFAULTED_KEY]: 'guest',
+              });
+            });
+
+            it.each([
+              ['another value', 'Registered'],
+              ['an email', 'shopper@example.com'],
+              ['markup', '<img src=x>'],
+              ['a getter', undefined],
+            ])('falls back to the value, never sending the page value, for %s', (_label, status) => {
+              if (status === undefined) {
+                const visitor = {};
+                Object.defineProperty(visitor, 'status', { get: () => 'guest' });
+                win.siteData = { visitor };
+              } else {
+                setStatus(status);
+              }
+              useEntry({ preselectAttributeDefaults: { [DEFAULTED_KEY]: PAGE_DEFAULT } });
+
+              expect(getPreselectAttributeDefaults(host, mockConfig.current[0], {})).toEqual({
+                [DEFAULTED_KEY]: 'registered',
+              });
+            });
+
+            it('falls back to the value when the page has no such path', () => {
+              useEntry({ preselectAttributeDefaults: { [DEFAULTED_KEY]: PAGE_DEFAULT } });
+
+              expect(getPreselectAttributeDefaults(host, mockConfig.current[0], {})).toEqual({
+                [DEFAULTED_KEY]: 'registered',
+              });
+            });
+
+            it("never overrides the shopper's own value from the call, an identity or the saved attributes", () => {
+              setStatus('guest');
+              useEntry({ preselectAttributeDefaults: { [DEFAULTED_KEY]: PAGE_DEFAULT } });
+              const entry = mockConfig.current[0];
+
+              expect(getPreselectAttributeDefaults(host, entry, { [DEFAULTED_KEY]: 'registered' })).toEqual({});
+              host.userAttributes = { [ATTRIBUTE_KEY]: 'gold', [DEFAULTED_KEY]: 'registered' };
+              expect(getPreselectAttributeDefaults(host, entry, {})).toEqual({});
+              host.userAttributes = { [ATTRIBUTE_KEY]: 'gold' };
+              host.getUserIdentities = () => ({ [DEFAULTED_KEY]: 'registered' });
+              expect(getPreselectAttributeDefaults(host, entry, {})).toEqual({});
+            });
+
+            it("fills the page's value over the payment pick and the host, but not over a device's skip", () => {
+              setStatus('guest');
+              vi.mocked(readPreselectPaymentPick).mockReturnValue('paypal');
+              useEntry({
+                preselectAttributeDefaults: {
+                  [DEFAULTED_KEY]: {
+                    ...PAGE_DEFAULT,
+                    byPaymentPick: { paypal: 'PayPal' },
+                    byHostname: { [window.location.hostname]: 'host' },
+                  },
+                },
+              });
+              expect(getPreselectAttributeDefaults(host, mockConfig.current[0], {})).toEqual({
+                [DEFAULTED_KEY]: 'guest',
+              });
+
+              vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue(IPHONE);
+              useEntry({
+                preselectAttributeDefaults: {
+                  [DEFAULTED_KEY]: { ...PAGE_DEFAULT, byClientType: { MobileWeb: 'skip' } },
+                },
+              });
+              expect(getPreselectAttributeDefaults(host, mockConfig.current[0], {})).toEqual({});
+            });
+
+            it('reads the page each time the call is built, not once', () => {
+              useEntry({ preselectAttributeDefaults: { [DEFAULTED_KEY]: PAGE_DEFAULT } });
+              const entry = mockConfig.current[0];
+
+              expect(getPreselectAttributeDefaults(host, entry, {})).toEqual({ [DEFAULTED_KEY]: 'registered' });
+              setStatus('Guest');
+              expect(getPreselectAttributeDefaults(host, entry, {})).toEqual({ [DEFAULTED_KEY]: 'guest' });
+            });
+          });
+
           it('fills nothing over a value the attributes hold in another casing', () => {
             useEntry();
             const attributes = { placementtype: 'embed' };

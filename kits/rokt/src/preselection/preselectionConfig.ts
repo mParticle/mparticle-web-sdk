@@ -4,8 +4,18 @@ export type PreselectClientType = 'DesktopWeb' | 'MobileWeb';
 
 export const PRESELECT_SKIP_DEFAULT = 'skip';
 
+export interface PreselectPageValue {
+  // Dotted segments from window, such as a data layer field.
+  path: string;
+  // Keyed by the page's value, trimmed and in lower case. The call sends the mapped value, never the page's own.
+  values: Record<string, string>;
+}
+
 export interface PreselectAttributeDefault {
   value?: string;
+  // Read when the call goes out. Beats byPaymentPick, byHostname, byClientType and value; a device's skip still wins.
+  // A page value the map doesn't name, or none, falls through to the rest of the default.
+  byPageValue?: PreselectPageValue;
   // PRESELECT_SKIP_DEFAULT leaves the key empty on that device, whatever value or byHostname say.
   byClientType?: Partial<Record<PreselectClientType, string>>;
   // Keyed by the exact, lowercase host of the page the call fires from.
