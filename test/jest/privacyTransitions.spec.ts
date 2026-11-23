@@ -774,6 +774,29 @@ describe('mid-page noFunctional changes', () => {
         setItem.mockRestore();
     });
 
+    it('retries a retained privacy write that failed, so a reload sees the latest decision', async () => {
+        const instance = init();
+        await settle();
+        const sdk = mParticle.getInstance(instanceName);
+        const user = sdk.Identity.getCurrentUser();
+        user.setConsentState(declineMarketing(sdk, true));
+        consent(instance).replaceDerivedFlags({ noFunctional: true });
+
+        const setItem = jest
+            .spyOn(Storage.prototype, 'setItem')
+            .mockImplementation(() => {
+                throw new Error('storage unavailable');
+            });
+        user.setConsentState(declineMarketing(sdk, false));
+        setItem.mockRestore();
+        sdk.logEvent('after storage recovers');
+
+        const { user: reloaded } = await reloadedUser();
+        expect(
+            reloaded.getConsentState().getGDPRConsentState().marketing.Consented
+        ).toBe(false);
+    });
+
     it('removes stored queues on restriction even when offline storage is off', async () => {
         const instance = init({ flags: { offlineStorage: '0' } });
         await settle();

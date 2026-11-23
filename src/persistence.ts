@@ -410,21 +410,25 @@ export default function _Persistence(
         const key = mpInstance._Store.storageName;
         const record = buildPrivacyChoices();
         const hasChoices = !!record;
-        writtenPrivacyChoices = JSON.stringify(record);
+        const serialized = JSON.stringify(record);
+        // Only a confirmed write is cached, so a failed one is retried.
+        writtenPrivacyChoices = null;
         try {
             if (self.useLocalStorage()) {
                 if (!hasChoices) {
                     window.localStorage.removeItem(encodeURIComponent(key));
-                    return;
+                } else {
+                    window.localStorage.setItem(
+                        encodeURIComponent(key),
+                        self.encodePersistence(serialized)
+                    );
                 }
-                window.localStorage.setItem(
-                    encodeURIComponent(key),
-                    self.encodePersistence(JSON.stringify(record))
-                );
+                writtenPrivacyChoices = serialized;
                 return;
             }
             if (!hasChoices) {
                 self.expireCookies(key);
+                writtenPrivacyChoices = serialized;
                 return;
             }
             const expires = new Date(
@@ -442,6 +446,7 @@ export default function _Persistence(
                     '=' +
                     createFullEncodedCookie(record, expires, domain)
             );
+            writtenPrivacyChoices = serialized;
         } catch (e) {
             mpInstance.Logger.error('Error storing privacy choices.');
         }
