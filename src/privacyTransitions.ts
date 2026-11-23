@@ -2,7 +2,7 @@ import { ICookieConsentFlags } from './cookieConsentManager';
 import { NO_TARGETING_ATTRIBUTE } from './constants';
 import { isNoFunctionalWithoutId } from './identity-utils';
 import { IMParticleWebSDKInstance } from './mp-instance';
-import { hasOwnProp } from './utils';
+import { Dictionary, hasOwnProp } from './utils';
 import { DisabledVault, LocalStorageVault, SessionStorageVault } from './vault';
 
 // Stores whose suppressed initial identify waits for another identity request
@@ -17,6 +17,10 @@ const revokedStores = new WeakSet<object>();
 // Until the restriction is lifted, memory is the only full copy, so storage is
 // not read back into it.
 const purgedStores = new WeakSet<object>();
+
+// Stores whose full record is being written back, so the write it makes is
+// not taken for another retry.
+const restoringStores = new WeakSet<object>();
 
 /** True while the stored record holds only the retained privacy choices. */
 export function isStoredRecordPurged(
@@ -75,7 +79,6 @@ export function applyPrivacyFlagChange(
             revokedStores.add(store);
         } else {
             revokedStores.delete(store);
-            purgedStores.delete(store);
         }
         if (store.configurationLoaded) {
             if (noFunctional) {
@@ -93,12 +96,33 @@ export function applyPrivacyFlagChange(
         }
     }
 
+    // Forwarder and identity code runs here; a failure in one must not reach
+    // the setter's caller or skip the other.
     if (manager.getNoTargeting() !== previous.noTargeting) {
-        syncNoTargetingAttribute(mpInstance);
+        attempt(() => syncNoTargetingAttribute(mpInstance));
     }
 
     if (previous.noFunctional && !noFunctional) {
-        resumeSuppressedIdentify(mpInstance);
+        attempt(() => resumeSuppressedIdentify(mpInstance));
+    }
+}
+
+/**
+ * Called once the configuration has loaded and storage has been read into
+ * memory. A page or derived restriction set while it loaded only stopped the
+ * consumers; remove what earlier pages stored, as a later restriction would.
+ */
+export function applyRestrictionAfterConfiguration(
+    mpInstance: IMParticleWebSDKInstance
+): void {
+    const manager = mpInstance._CookieConsentManager;
+    if (
+        manager &&
+        manager.getNoFunctional() &&
+        isFunctionalStorageRevoked(mpInstance) &&
+        !isStoredRecordPurged(mpInstance)
+    ) {
+        disableFunctionalStorage(mpInstance);
     }
 }
 
@@ -115,11 +139,11 @@ function disableFunctionalStorage(mpInstance: IMParticleWebSDKInstance): void {
     attempt(() => persistence.expireCookies(storageName));
     attempt(() => persistence.storePrivacyChoices());
 
-    if (!mpInstance._APIClient?.uploader) {
-        attempt(() => new SessionStorageVault(`${storageName}-events`).purge());
-        attempt(() => new LocalStorageVault(`${storageName}-batches`).purge());
-    }
     suppressConsumers(mpInstance);
+    // The uploader has taken what it needs into memory; remove any queue a
+    // page stored, including one this uploader never reads.
+    attempt(() => new SessionStorageVault(`${storageName}-events`).purge());
+    attempt(() => new LocalStorageVault(`${storageName}-batches`).purge());
 }
 
 // Stops the identity cache, uploader and time-on-site timer from writing, and
@@ -155,10 +179,8 @@ function enableFunctionalStorage(mpInstance: IMParticleWebSDKInstance): void {
     // The stored record was removed, and later writes only refresh the global
     // and current user fields. Write the in-memory users back once, then
     // refresh the global fields, including the logging choice.
-    attempt(() => {
-        persistence.savePersistence(store.persistenceData);
-        persistence.update();
-    });
+    attempt(() => restoreStoredRecord(mpInstance));
+    attempt(() => persistence.update());
 
     // Time-on-site writes resume through the live flag. The identity cache
     // and the uploader are switched back here.
@@ -168,6 +190,60 @@ function enableFunctionalStorage(mpInstance: IMParticleWebSDKInstance): void {
         );
     });
     switchUploader(mpInstance, true);
+}
+
+/**
+ * Writes the in-memory record back over the retained privacy choices. Memory
+ * stays the full copy until storage holds that record, so a failed write
+ * cannot load the privacy choices over it; a later write retries.
+ */
+export function restoreStoredRecord(
+    mpInstance: IMParticleWebSDKInstance
+): void {
+    const store = mpInstance._Store;
+    if (!store || restoringStores.has(store)) {
+        return;
+    }
+    restoringStores.add(store);
+    try {
+        attempt(() =>
+            mpInstance._Persistence.savePersistence(store.persistenceData)
+        );
+        if (isFullRecordStored(mpInstance)) {
+            purgedStores.delete(store);
+        }
+    } finally {
+        restoringStores.delete(store);
+    }
+}
+
+// True when storage holds every field memory has for the current user and
+// the global fields, which the retained privacy choices never do.
+function isFullRecordStored(mpInstance: IMParticleWebSDKInstance): boolean {
+    const persistence = mpInstance._Persistence;
+    const memory = mpInstance._Store.persistenceData || ({} as Dictionary);
+    let stored = null;
+    attempt(() => {
+        stored = persistence.useLocalStorage()
+            ? persistence.getLocalStorage()
+            : persistence.getCookie();
+    });
+    if (!stored) {
+        return false;
+    }
+    const mpid = mpInstance._Store.mpid;
+    return (
+        holdsFields(stored.gs, memory.gs) &&
+        (!mpid || holdsFields(stored[mpid], memory[mpid]))
+    );
+}
+
+function holdsFields(stored: Dictionary, expected: Dictionary): boolean {
+    return Object.keys(expected || {}).every(
+        field =>
+            expected[field] === undefined ||
+            (!!stored && hasOwnProp(stored, field))
+    );
 }
 
 function syncNoTargetingAttribute(mpInstance: IMParticleWebSDKInstance): void {

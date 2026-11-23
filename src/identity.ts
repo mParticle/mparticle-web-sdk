@@ -1090,7 +1090,7 @@ export default function Identity(
                         );
                     }
                 } else {
-                    cookies = mpInstance._Persistence.getPersistence();
+                    cookies = readStoredUsers();
 
                     userAttributes = this.getAllUserAttributes();
 

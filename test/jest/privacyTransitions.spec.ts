@@ -356,6 +356,43 @@ describe('mid-page noFunctional changes', () => {
         expect(instance._Store.sessionStartDate).toBe(sessionStart);
     });
 
+    it('removes what earlier pages stored once the configuration arrives under a restriction set while it loads', async () => {
+        init();
+        await settle();
+        mParticle
+            .getInstance(instanceName)
+            .Identity.getCurrentUser()
+            .setUserAttribute('color', 'blue');
+        localStorage.setItem(`mprtcl-tos-${workspaceToken}`, '123');
+
+        const respond = global.fetch;
+        let releaseConfig: () => void;
+        global.fetch = jest.fn((url: string, options?: unknown) =>
+            /\/config\?/.test(url)
+                ? new Promise(resolve => {
+                      releaseConfig = () =>
+                          resolve({ status: 200, json: async () => ({}) });
+                  })
+                : (respond as any)(url, options)
+        ) as unknown as typeof global.fetch;
+        const loading = init({ requestConfig: true });
+        consent(loading).setPageFlags({ noFunctional: true });
+        releaseConfig();
+        await settle();
+
+        expect(loading._Store.getUserAttributes(loading._Store.mpid)).toEqual({
+            color: 'blue',
+        });
+        const stored = storedRecord(loading);
+        expect(stored && stored[loading._Store.mpid] && stored[loading._Store.mpid].ua).toBeFalsy();
+        expect(localStorage.getItem(`mprtcl-tos-${workspaceToken}`)).toBeNull();
+
+        consent(loading).setPageFlags({});
+        expect(storedRecord(loading)[loading._Store.mpid].ua).toEqual({
+            color: 'blue',
+        });
+    });
+
     it('loads the stored user when noFunctional is set while configuration loads', async () => {
         const first = init();
         await settle();
@@ -541,6 +578,267 @@ describe('mid-page noFunctional changes', () => {
         expect(sdk.Identity.getCurrentUser().getMPID()).toBe(mpidFor.login);
         expect(storedRecord(instance)).toBeNull();
     });
+
+    it('removes user attributes and tags from memory while the privacy choices are the only stored record', async () => {
+        const instance = init();
+        await settle();
+        const sdk = mParticle.getInstance(instanceName);
+        const user = sdk.Identity.getCurrentUser();
+        user.setUserAttribute('sensitive', 'secret');
+        user.setUserAttribute('color', 'blue');
+        user.setUserTag('vip');
+        consent(instance).replaceDerivedFlags({ noFunctional: true });
+
+        user.removeUserAttribute('sensitive');
+        user.removeUserTag('vip');
+        expect(user.getAllUserAttributes()).toEqual({ color: 'blue' });
+
+        consent(instance).replaceDerivedFlags({});
+        expect(user.getAllUserAttributes()).toEqual({ color: 'blue' });
+        expect(storedRecord(instance)['mpid-1'].ua).toEqual({ color: 'blue' });
+
+        init({}, `${instanceName}-reload`);
+        await settle();
+        expect(
+            mParticle
+                .getInstance(`${instanceName}-reload`)
+                .Identity.getCurrentUser()
+                .getAllUserAttributes()
+        ).toEqual({ color: 'blue' });
+    });
+
+    it('removes all user attributes from memory while the privacy choices are the only stored record', async () => {
+        const instance = init();
+        await settle();
+        const sdk = mParticle.getInstance(instanceName);
+        const user = sdk.Identity.getCurrentUser();
+        user.setUserAttribute('sensitive', 'secret');
+        user.setUserAttributeList('list', ['a', 'b']);
+        consent(instance).replaceDerivedFlags({ noFunctional: true });
+
+        user.removeAllUserAttributes();
+        expect(user.getAllUserAttributes()).toEqual({});
+
+        consent(instance).replaceDerivedFlags({});
+        expect(user.getAllUserAttributes()).toEqual({});
+        expect(storedRecord(instance)['mpid-1'].ua || {}).toEqual({});
+    });
+
+    it('keeps first and last seen times, and alias time bounds, while the privacy choices are the only stored record', async () => {
+        const instance = init();
+        await settle();
+        const sdk = mParticle.getInstance(instanceName);
+        const firstSeen = sdk.Identity.getCurrentUser().getFirstSeenTime();
+        expect(firstSeen).toBeGreaterThan(0);
+        consent(instance).replaceDerivedFlags({ noFunctional: true });
+
+        sdk.Identity.login({ userIdentities: { customerid: 'customer' } });
+        await settle();
+
+        const previous = sdk.Identity.getUser(mpidFor.identify);
+        const current = sdk.Identity.getCurrentUser();
+        expect(current.getMPID()).toBe(mpidFor.login);
+        expect(previous.getFirstSeenTime()).toBe(firstSeen);
+        expect(previous.getLastSeenTime()).toBeGreaterThan(0);
+        expect(current.getFirstSeenTime()).toBeGreaterThan(0);
+
+        const request = sdk.Identity.createAliasRequest(previous, current);
+        expect(request.startTime).toBe(firstSeen);
+        expect(request.endTime).toBe(previous.getLastSeenTime());
+    });
+
+    it('keeps memory authoritative when writing the full record back fails on lift', async () => {
+        const instance = init();
+        await settle();
+        const sdk = mParticle.getInstance(instanceName);
+        const user = sdk.Identity.getCurrentUser();
+        user.setUserAttribute('color', 'blue');
+        user.setConsentState(
+            sdk.Consent.createConsentState().addGDPRConsentState(
+                'marketing',
+                sdk.Consent.createGDPRConsent(false, 1)
+            )
+        );
+        const identities = user.getUserIdentities();
+        consent(instance).replaceDerivedFlags({ noFunctional: true });
+
+        const setItem = Storage.prototype.setItem;
+        const failing = jest
+            .spyOn(Storage.prototype, 'setItem')
+            .mockImplementation(function(this: Storage, key: string, value: string) {
+                if (key === storageName) {
+                    throw new Error('QuotaExceededError');
+                }
+                return setItem.call(this, key, value);
+            });
+        consent(instance).replaceDerivedFlags({});
+        failing.mockRestore();
+
+        instance._Store.syncPersistenceData();
+        expect(user.getAllUserAttributes()).toEqual({ color: 'blue' });
+        expect(user.getUserIdentities()).toEqual(identities);
+
+        consent(instance).replaceDerivedFlags({ noFunctional: true });
+        consent(instance).replaceDerivedFlags({});
+        expect(storedRecord(instance)['mpid-1'].ua).toEqual({ color: 'blue' });
+        expect(user.getAllUserAttributes()).toEqual({ color: 'blue' });
+    });
+
+    async function restrictedUserWithConsent(): Promise<IMParticleWebSDKInstance> {
+        const instance = init();
+        await settle();
+        const sdk = mParticle.getInstance(instanceName);
+        const user = sdk.Identity.getCurrentUser();
+        user.setUserAttribute('color', 'blue');
+        user.setConsentState(
+            sdk.Consent.createConsentState().addGDPRConsentState(
+                'marketing',
+                sdk.Consent.createGDPRConsent(false, 1)
+            )
+        );
+        consent(instance).replaceDerivedFlags({ noFunctional: true });
+        return instance;
+    }
+
+    function failWrites(predicate: (value: string) => boolean): jest.SpyInstance {
+        const setItem = Storage.prototype.setItem;
+        return jest
+            .spyOn(Storage.prototype, 'setItem')
+            .mockImplementation(function(this: Storage, key: string, value: string) {
+                if (key === storageName && predicate(value)) {
+                    throw new Error('QuotaExceededError');
+                }
+                return setItem.call(this, key, value);
+            });
+    }
+
+    it('keeps memory authoritative when only the global fields can be written back on lift', async () => {
+        const instance = await restrictedUserWithConsent();
+        const user = mParticle.getInstance(instanceName).Identity.getCurrentUser();
+        const decode = (value: string) =>
+            String(instance._Persistence.decodePersistence(value));
+        const failing = failWrites(value => decode(value).indexOf('blue') !== -1);
+
+        consent(instance).replaceDerivedFlags({});
+        failing.mockRestore();
+        instance._Store.syncPersistenceData();
+
+        expect(user.getAllUserAttributes()).toEqual({ color: 'blue' });
+    });
+
+    it('puts the full record back on a later write once storage recovers after a failed lift', async () => {
+        const instance = await restrictedUserWithConsent();
+        const failing = failWrites(() => true);
+        consent(instance).replaceDerivedFlags({});
+        failing.mockRestore();
+        expect(instance._Persistence.getPersistence()).toBeNull();
+
+        mParticle.getInstance(instanceName).logEvent('after recovery');
+
+        expect(storedRecord(instance)['mpid-1'].ua).toEqual({ color: 'blue' });
+        expect(instance._Persistence.getPersistence()).not.toBeNull();
+    });
+
+    it('ends a timed-out session while a failed write-back keeps the record purged', async () => {
+        const instance = await restrictedUserWithConsent();
+        const failing = failWrites(() => true);
+        consent(instance).replaceDerivedFlags({});
+        expect(instance._Store.sessionId).toBeTruthy();
+
+        instance._Store.dateLastEventSent = new Date(Date.now() - 31 * 60000);
+        instance._SessionManager.endSession();
+        failing.mockRestore();
+
+        expect(instance._Store.sessionId).toBeNull();
+    });
+
+    it('rewrites the retained privacy choices only when they change', async () => {
+        const instance = await restrictedUserWithConsent();
+        const setItem = jest.spyOn(Storage.prototype, 'setItem');
+        const sdk = mParticle.getInstance(instanceName);
+
+        for (let i = 0; i < 20; i++) {
+            sdk.logEvent(`restricted ${i}`);
+        }
+        const writes = () =>
+            setItem.mock.calls.filter(([key]) => key === storageName).length;
+        expect(writes()).toBe(0);
+
+        sdk.Identity.getCurrentUser().setConsentState(
+            sdk.Consent.createConsentState().addGDPRConsentState(
+                'marketing',
+                sdk.Consent.createGDPRConsent(true, 2)
+            )
+        );
+        expect(writes()).toBe(1);
+        setItem.mockRestore();
+    });
+
+    it('removes stored queues on restriction even when offline storage is off', async () => {
+        const instance = init({ flags: { offlineStorage: '0' } });
+        await settle();
+        mParticle.getInstance(instanceName).logEvent('before');
+        expect(instance._APIClient.uploader).toBeTruthy();
+        localStorage.setItem(`${storageName}-batches`, 'stale');
+        sessionStorage.setItem(`${storageName}-events`, 'stale');
+
+        consent(instance).setPageFlags({ noFunctional: true });
+
+        expect(localStorage.getItem(`${storageName}-batches`)).toBeNull();
+        expect(sessionStorage.getItem(`${storageName}-events`)).toBeNull();
+    });
+
+    it('does not let a failing targeting sync escape the privacy setter', async () => {
+        const instance = init();
+        await settle();
+        jest.spyOn(consent(instance), 'syncNoTargetingAttribute').mockImplementation(() => {
+            throw new Error('forwarder failure');
+        });
+
+        expect(() =>
+            consent(instance).setPageFlags({ noTargeting: true })
+        ).not.toThrow();
+        expect(consent(instance).getNoTargeting()).toBe(true);
+    });
+
+    for (const useCookieStorage of [false, true]) {
+        it(`keeps only consent decisions in the retained record (${useCookieStorage ? 'cookie' : 'localStorage'})`, async () => {
+            const instance = init({ useCookieStorage });
+            await settle();
+            const sdk = mParticle.getInstance(instanceName);
+            sdk.Identity.getCurrentUser().setConsentState(
+                sdk.Consent.createConsentState()
+                    .addGDPRConsentState(
+                        'marketing',
+                        sdk.Consent.createGDPRConsent(false, 1, 'doc', 'place', 'device')
+                    )
+                    .setCCPAConsentState(
+                        sdk.Consent.createCCPAConsent(true, 2, 'doc', 'place', 'device')
+                    )
+            );
+
+            consent(instance).replaceDerivedFlags({ noFunctional: true });
+
+            const stored = useCookieStorage
+                ? instance._Persistence.getCookie()
+                : storedRecord(instance);
+            expect(stored['mpid-1'].con).toEqual({
+                gdpr: { marketing: { c: false, ts: 1 } },
+                ccpa: { data_sale_opt_out: { c: true, ts: 2 } },
+            });
+
+            const reloaded = init({ useCookieStorage }, `${instanceName}-reload`);
+            await settle();
+            expect(
+                mParticle
+                    .getInstance(`${instanceName}-reload`)
+                    .Identity.getCurrentUser()
+                    .getConsentState()
+                    .getGDPRConsentState().marketing.Consented
+            ).toBe(false);
+            expect(reloaded._Store.mpid).toBe('mpid-1');
+        });
+    }
 
     it('switches storage back on when noFunctional is lifted', async () => {
         const instance = init();

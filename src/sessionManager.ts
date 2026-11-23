@@ -7,7 +7,10 @@ import { IMParticleUser } from './identity-user-interfaces';
 import { IMParticleWebSDKInstance } from './mp-instance';
 import { hasIdentityRequestChanged, isNoFunctionalWithoutId } from './identity-utils';
 import { logDeprecatedMethodUsage } from './reporting/deprecatedMethodLogger';
-import { isFunctionalStorageRevoked } from './privacyTransitions';
+import {
+    isFunctionalStorageRevoked,
+    isStoredRecordPurged,
+} from './privacyTransitions';
 
 const { Messages } = Constants;
 
@@ -166,7 +169,8 @@ export default function SessionManager(
         if (
             !cookies?.gs?.sid &&
             sessionId &&
-            isFunctionalStorageRevoked(mpInstance)
+            (isFunctionalStorageRevoked(mpInstance) ||
+                isStoredRecordPurged(mpInstance))
         ) {
             cookies = {
                 gs: {

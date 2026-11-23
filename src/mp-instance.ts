@@ -55,7 +55,10 @@ import ForegroundTimer from './foregroundTimeTracker';
 import RoktManager, { IRoktOptions } from './roktManager';
 import filteredMparticleUser from './filteredMparticleUser';
 import CookieConsentManager, { ICookieConsentManager } from './cookieConsentManager';
-import { applyPrivacyFlagChange } from './privacyTransitions';
+import {
+    applyPrivacyFlagChange,
+    applyRestrictionAfterConfiguration,
+} from './privacyTransitions';
 import { ErrorReportingDispatcher } from './reporting/errorReportingDispatcher';
 import { LoggingDispatcher } from './reporting/loggingDispatcher';
 import { IErrorReportingService, ILoggingService } from './reporting/types';
@@ -1405,6 +1408,7 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
         // Load any settings/identities/attributes from cookie or localStorage
         mpInstance._Persistence.initializeStorage();
         mpInstance._Store.syncPersistenceData();
+        applyRestrictionAfterConfiguration(mpInstance);
 
         // Set up user identitiy variables for later use
         const currentUser = mpInstance.Identity.getCurrentUser();
