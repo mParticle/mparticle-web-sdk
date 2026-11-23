@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.38.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.37.0...v3.38.0) (2026-11-23)
+
+
+### Features
+
+* **web:** add Rokt page privacy setter ([#1926](https://github.com/mParticle/mparticle-web-sdk/issues/1926)) ([5d5ca3a](https://github.com/mParticle/mparticle-web-sdk/commit/5d5ca3a71814c03dffc1e2c1cfa9e4180901e100))
+
 ## [3.37.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.36.1...v3.37.0) (2026-11-23)
 
 
