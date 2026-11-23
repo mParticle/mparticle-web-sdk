@@ -613,6 +613,19 @@ describe('Rokt consent privacy mapping', () => {
         expect(kit._effectivePrivacyFlags?.noTargeting).toBe(true);
         expect(storesForgetTime()).toBe(false);
       });
+
+      it.each([
+        ['setting', (k: typeof kit) => k.setUserAttribute('cartItems', '[]')],
+        ['removing', (k: typeof kit) => k.removeUserAttribute('cartItems')],
+      ])('applies a functional decline made since the last refresh before %s the cart attribute', (_label, act) => {
+        initKit({ consentMappingSDK: mappingSetting, preselectionConfig: cartConfig });
+        consent.functional = { Consented: false };
+
+        act(kit);
+
+        expect(isDevicePersistenceDisabled()).toBe(true);
+        expect(storesForgetTime()).toBe(false);
+      });
     });
 
     it('applies a decline made since the last refresh in the form listener before anything else', () => {
