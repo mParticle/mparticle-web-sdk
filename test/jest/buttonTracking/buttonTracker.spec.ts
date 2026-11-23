@@ -12,6 +12,7 @@ import * as controls from '../../../src/buttonTracking/controls';
 import Events from '../../../src/events';
 import { IMParticleWebSDKInstance } from '../../../src/mp-instance';
 import RoktManager, { IRoktKit } from '../../../src/roktManager';
+import CookieConsentManager from '../../../src/cookieConsentManager';
 import { IKitConfigs } from '../../../src/configAPIClient';
 import { IMParticleUser } from '../../../src/identity-user-interfaces';
 import { SDKIdentityApi } from '../../../src/identity.interfaces';
@@ -28,6 +29,7 @@ describe('ButtonTracker', () => {
     let upload: jest.Mock;
     let apiClient: { uploader: BatchUploader | null };
     let roktManager: RoktManager;
+    let cookieConsent: CookieConsentManager | undefined;
     let store: {
         isEnabled: boolean;
         SDKConfig: { flags: Record<string, unknown> };
@@ -41,6 +43,7 @@ describe('ButtonTracker', () => {
         (({
             _Store: store,
             _RoktManager: roktManager,
+            _CookieConsentManager: cookieConsent,
             _Events: { logEvent },
             _SessionManager: { resetSessionTimer },
             _APIClient: apiClient,
@@ -117,6 +120,7 @@ describe('ButtonTracker', () => {
     };
 
     beforeEach(() => {
+        cookieConsent = undefined;
         jest.useFakeTimers();
         jest.setSystemTime(1000000);
         window.history.replaceState({}, '', '/checkout');
@@ -1299,6 +1303,23 @@ describe('ButtonTracker', () => {
                 'Auto Link Click',
             ]);
         });
+
+        it.each(['noTargeting', 'doNotShareOrSell'])(
+            'stops logging clicks without a Rokt kit when core sets %s',
+            flag => {
+                cookieConsent = new CookieConsentManager({
+                    noFunctional: false,
+                    noTargeting: false,
+                });
+                startTracker(false, bothOn);
+                clickButtonAndLink();
+
+                cookieConsent.setPageFlags({ [flag]: true });
+                clickButtonAndLink();
+
+                expect(logEvent).toHaveBeenCalledTimes(2);
+            }
+        );
 
         it.each([...kitGates, optOut])(
             'drops a kit signal when %s after attaching',

@@ -85,5 +85,8 @@ export type {
     SDKCCPAConsentState,
 } from './consent';
 
+// Rokt Ads
+export type { IRoktPrivacyControl } from './roktManager';
+
 // Utilities
 export type { Dictionary, valueof } from './utils';

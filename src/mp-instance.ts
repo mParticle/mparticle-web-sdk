@@ -1686,6 +1686,12 @@ function runPreConfigFetchInitialization(mpInstance, apiKey, config) {
     mpInstance._CookieConsentManager.setChangeListener(previous =>
         applyPrivacyFlagChange(mpInstance, previous)
     );
+    // Bound after the listener, so page flags queued before load, and page
+    // flags kept across a re-initialization, apply like any other page change.
+    mpInstance._RoktManager._bindCookieConsentManager(
+        mpInstance._CookieConsentManager,
+        mpInstance._preInit.readyQueue
+    );
 
     // Check to see if localStorage is available before main configuration runs
     // since we will need this for the current implementation of user persistence

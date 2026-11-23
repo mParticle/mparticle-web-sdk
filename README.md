@@ -24,6 +24,31 @@ To integrate the SDK add the following snippet to your site after customizing `m
 
 This snippet pre-populates method stubs for much of the public SDK API, allowing immediate reference to these APIs as the SDK loads.
 
+### Rokt Ads privacy control
+
+After the SDK loads, `mParticle.Rokt.setPrivacyControl` sets page-scoped privacy
+flags for Rokt Ads, even when no Rokt kit is loaded:
+
+```javascript
+mParticle.Rokt.setPrivacyControl({ noTargeting: true, noFunctional: true });
+```
+
+The object accepts `noTargeting`, `noFunctional` and `doNotShareOrSell` booleans
+(`IRoktPrivacyControl` for TypeScript). Each call updates only the flags passed
+as booleans. Omitted and non-boolean values leave the flag unchanged. Each page
+flag defaults to `false`. Pass `false` to clear that page flag without clearing
+initialization or derived opt-outs. `$NoTargeting` is set to `true` or removed
+from the current user's profile according to the combined targeting flag.
+
+Snippet version 3.1 queues calls before load. It applies the queued privacy
+updates in order before SDK initialization and the other queued calls. With an older
+snippet, call after load or feature-detect the method. A change applies straight
+away, as a consent change does: `noFunctional` stops the SDK's storage and removes
+what it stored, apart from the user and device IDs and consent choices it keeps,
+and a loaded Rokt kit uses the flags on its next call. Pass the same flags in
+`launcherOptions` at initialization on the next page load; they are not saved as
+preferences.
+
 ```javascript
 <script type="text/javascript">
 
@@ -50,7 +75,7 @@ window.mParticle = {
 };
 
 //load the SDK
-(function(e){window.mParticle=window.mParticle||{};window.mParticle.EventType={Unknown:0,Navigation:1,Location:2,Search:3,Transaction:4,UserContent:5,UserPreference:6,Social:7,Other:8,Media:9};window.mParticle.eCommerce={Cart:{}};window.mParticle.Identity={};window.mParticle.Rokt={};window.mParticle.config=window.mParticle.config||{};window.mParticle.config.rq=[];window.mParticle.config.snippetVersion=3;window.mParticle.ready=function(e){window.mParticle.config.rq.push(e)};var i=["endSession","logError","logBaseEvent","logEvent","logForm","logLink","logPageView","setSessionAttribute","setAppName","setAppVersion","setOptOut","setPosition","startNewSession","startTrackingLocation","stopTrackingLocation"];var t=["setCurrencyCode"];var n=["identify","login","logout","modify","search"];var o=["selectPlacements","hashAttributes","hashSha256","setExtensionData","use","getVersion","terminate","onShoppableAdsReady"];i.forEach(function(e){window.mParticle[e]=r(e)});t.forEach(function(e){window.mParticle.eCommerce[e]=r(e,"eCommerce")});n.forEach(function(e){window.mParticle.Identity[e]=r(e,"Identity")});o.forEach(function(e){window.mParticle.Rokt[e]=r(e,"Rokt")});function r(i,t){return function(){if(t){i=t+"."+i}var e=Array.prototype.slice.call(arguments);e.unshift(i);window.mParticle.config.rq.push(e)}}var a,c,s=window.mParticle.config,l=s.isDevelopmentMode?1:0,w="?env="+l,d=window.mParticle.config.dataPlan;if(d){a=d.planId;c=d.planVersion;if(a){if(c&&(c<1||c>1e3)){c=null}w+="&plan_id="+a+(c?"&plan_version="+c:"")}}var m=window.mParticle.config.versions;var f=[];if(m){Object.keys(m).forEach(function(e){f.push(e+"="+m[e])})}var p=document.createElement("script");p.type="text/javascript";p.charset="utf-8";p.async=true;p.src="https://jssdkcdns.mparticle.com/js/v3/"+e+"/mparticle.js"+w+"&"+f.join("&");var P=document.getElementsByTagName("script")[0];P.parentNode.insertBefore(p,P)})("REPLACE WITH API KEY");
+(function(e){window.mParticle=window.mParticle||{};window.mParticle.EventType={Unknown:0,Navigation:1,Location:2,Search:3,Transaction:4,UserContent:5,UserPreference:6,Social:7,Other:8,Media:9};window.mParticle.eCommerce={Cart:{}};window.mParticle.Identity={};window.mParticle.Rokt={};window.mParticle.config=window.mParticle.config||{};window.mParticle.config.rq=[];window.mParticle.config.snippetVersion=3.1;window.mParticle.ready=function(e){window.mParticle.config.rq.push(e)};var i=["endSession","logError","logBaseEvent","logEvent","logForm","logLink","logPageView","setSessionAttribute","setAppName","setAppVersion","setOptOut","setPosition","startNewSession","startTrackingLocation","stopTrackingLocation"];var t=["setCurrencyCode"];var n=["identify","login","logout","modify","search"];var o=["selectPlacements","hashAttributes","hashSha256","setExtensionData","use","getVersion","terminate","onShoppableAdsReady","setPrivacyControl"];i.forEach(function(e){window.mParticle[e]=r(e)});t.forEach(function(e){window.mParticle.eCommerce[e]=r(e,"eCommerce")});n.forEach(function(e){window.mParticle.Identity[e]=r(e,"Identity")});o.forEach(function(e){window.mParticle.Rokt[e]=r(e,"Rokt")});function r(i,t){if(t){i=t+"."+i}return function(){var e=Array.prototype.slice.call(arguments);e.unshift(i);window.mParticle.config.rq.push(e)}}var a,c,s=window.mParticle.config,l=s.isDevelopmentMode?1:0,w="?env="+l,d=window.mParticle.config.dataPlan;if(d){a=d.planId;c=d.planVersion;if(a){if(c&&(c<1||c>1e3)){c=null}w+="&plan_id="+a+(c?"&plan_version="+c:"")}}var m=window.mParticle.config.versions;var f=[];if(m){Object.keys(m).forEach(function(e){f.push(e+"="+m[e])})}var p=document.createElement("script");p.type="text/javascript";p.charset="utf-8";p.async=true;p.src="https://jssdkcdns.mparticle.com/js/v3/"+e+"/mparticle.js"+w+"&"+f.join("&");var P=document.getElementsByTagName("script")[0];P.parentNode.insertBefore(p,P)})("REPLACE WITH API KEY");
 ```
 
 You can then log events, for example, as follows:

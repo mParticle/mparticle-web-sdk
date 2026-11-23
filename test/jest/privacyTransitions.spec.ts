@@ -1644,3 +1644,56 @@ describe('mid-page noTargeting changes', () => {
         expect(localStorage.getItem(storageName)).toBeNull();
     });
 });
+
+describe('mParticle.Rokt.setPrivacyControl', () => {
+    afterEach(() => {
+        delete (window as any).mParticle.config;
+    });
+
+    it('syncs $NoTargeting from the page setter', async () => {
+        const instance = init();
+        await settle();
+
+        instance._RoktManager.setPrivacyControl({ noTargeting: true });
+        expect(userAttributes(instance)[NO_TARGETING_ATTRIBUTE]).toBe(true);
+
+        instance._RoktManager.setPrivacyControl({ noTargeting: false });
+        expect(userAttributes(instance)).not.toHaveProperty(NO_TARGETING_ATTRIBUTE);
+    });
+
+    it('stops functional storage when the setter turns noFunctional on', async () => {
+        const instance = init();
+        await settle();
+        mParticle.getInstance(instanceName).logEvent('before');
+
+        instance._RoktManager.setPrivacyControl({ noFunctional: true });
+        expect(instance._Identity.idCache).toBeInstanceOf(DisabledVault);
+        expect(localStorage.getItem(`${storageName}-id-cache`)).toBeNull();
+        expect(localStorage.getItem(`${storageName}-batches`)).toBeNull();
+        expect(sessionStorage.getItem(`${storageName}-events`)).toBeNull();
+
+        mParticle.getInstance(instanceName).logEvent('after');
+        expect(sessionStorage.getItem(`${storageName}-events`)).toBeNull();
+        instance._timeOnSiteTimer.totalTime = 500;
+        instance._timeOnSiteTimer.updateTimeInPersistence();
+        expect(localStorage.getItem(`mprtcl-tos-${workspaceToken}`)).toBeNull();
+
+        instance._RoktManager.setPrivacyControl({ noFunctional: false });
+        expect(instance._Identity.idCache).toBeInstanceOf(LocalStorageVault);
+    });
+
+    it('runs the skipped identify when a queued noFunctional is lifted', async () => {
+        (window as any).mParticle.config = {
+            rq: [['Rokt.setPrivacyControl', { noFunctional: true }]],
+        };
+        const instance = init();
+        await settle();
+        expect(consent(instance).getNoFunctional()).toBe(true);
+        expect(identityMethods).not.toContain('identify');
+
+        instance._RoktManager.setPrivacyControl({ noFunctional: false });
+        await settle();
+        expect(identityMethods).toContain('identify');
+        expect(instance.Identity.getCurrentUser().getMPID()).toBe('mpid-1');
+    });
+});
