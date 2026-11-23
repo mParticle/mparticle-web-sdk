@@ -20,4 +20,5 @@ export type { SDKIdentityApi, IAliasRequest, IAliasCallback, IAliasResult, SDKId
 export type { SDKECommerceAPI, } from './ecommerce.interfaces';
 export type { SDKProduct, SDKPromotion, SDKImpression, SDKProductImpression, } from './sdkRuntimeModels';
 export type { SDKConsentApi, SDKConsentState, SDKConsentStateData, SDKGDPRConsentState, SDKCCPAConsentState, } from './consent';
+export type { IRoktPrivacyControl } from './roktManager';
 export type { Dictionary, valueof } from './utils';

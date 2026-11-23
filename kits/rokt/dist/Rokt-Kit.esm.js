@@ -2431,7 +2431,7 @@ function tn(t, e, i) {
   return p().generateHash([t, e, i].join(""));
 }
 function Da(t) {
-  let n = "mParticle_wsdkv_" + p().getVersion() + "_kitv_" + "3.37.0";
+  let n = "mParticle_wsdkv_" + p().getVersion() + "_kitv_" + "3.38.0";
   return t && (n += "_" + t), n;
 }
 function nn(t) {

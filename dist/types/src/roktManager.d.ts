@@ -9,12 +9,15 @@ import { MPID } from "@mparticle/web-sdk";
 import { IErrorReportingService, ILoggingService } from "./reporting/types";
 import { IRoktLauncherOptions } from "./roktLauncherOptions";
 import IntegrationCapture from "./integrationCapture";
+import { ICookieConsentFlags } from "./cookieConsentManager";
 import type { CheckoutIntentKind, CheckoutIntentSource, ICheckoutIntentSelectors, PaymentFrameFamily } from "./buttonTracking/checkoutIntent";
 export type { ICheckoutIntentSelectors } from "./buttonTracking/checkoutIntent";
 export type RoktAttributeValueArray = Array<string | number | boolean>;
 export type RoktAttributeValueType = string | number | boolean | undefined | null;
 export type RoktAttributeValue = RoktAttributeValueType | RoktAttributeValueArray;
 export type RoktAttributes = Record<string, RoktAttributeValue>;
+/** Page-scoped privacy flags for Rokt Ads. Only boolean true opts out. */
+export type IRoktPrivacyControl = Partial<ICookieConsentFlags>;
 export interface IRoktPartnerExtensionData<T> {
     [extensionName: string]: T;
 }
@@ -115,6 +118,13 @@ export default class RoktManager {
     private autoButtonClicksForwarded;
     private autoLinkClicksForwarded;
     constructor(instanceName?: string);
+    /**
+     * Updates the supplied page-scoped privacy flags for Rokt Ads in core.
+     * Omitted and non-boolean flags are unchanged; initialization opt-outs still win.
+     * Works without a Rokt kit; a loaded kit uses the combined flags on its
+     * next call. Pass the same flags in launcherOptions on the next page load.
+     */
+    setPrivacyControl(control: IRoktPrivacyControl): void;
     /**
      * Sets a callback to be invoked when RoktManager becomes ready
      */
