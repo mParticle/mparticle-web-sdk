@@ -13957,6 +13957,71 @@ describe('Rokt Forwarder', () => {
           expect(selectPlacementsCalls[1].cacheMatchTokens).toEqual({ placementType: 'card' });
         });
 
+        it('keeps a default matched by payment family strict on an entry matched on targetPageIdentifierAttribute', async () => {
+          pushIdentityDefaultsConfig({
+            targetPageIdentifierAttribute: 'pageGroup',
+            preselectAttributeDefaults: { placementType: { value: 'Credit Card', matchPaymentFamily: true } },
+          });
+
+          firePreselectPageview({ pageGroup: 'group-a' });
+          await waitForCondition(() => selectPlacementsCalls.length > 0);
+          await (window as any).mParticle.forwarder.selectPlacements({
+            attributes: { pageGroup: 'group-b' },
+            identifier: 'group-a',
+          });
+
+          expect(selectPlacementsCalls[0].identifier).toBe('group-a');
+          expect(selectPlacementsCalls[0].attributes.placementType).toBe('Credit Card');
+          expect(selectPlacementsCalls[0].cacheIdentityKeys).toEqual(['customerid', 'placementType']);
+          // The target page's call names another pageGroup, so it finds no entry and sends no token.
+          expect(selectPlacementsCalls[1]).not.toHaveProperty('cacheMatchTokens');
+        });
+
+        it('keeps it strict on a plain entry when another entry is matched on targetPageIdentifierAttribute', async () => {
+          pushIdentityDefaultsConfig({
+            preselectAttributeDefaults: { placementType: { value: 'Credit Card', matchPaymentFamily: true } },
+          });
+          pushDefaultsConfig({
+            pathname: '/elsewhere',
+            targetPageIdentifier: 'other-target-page',
+            targetPageIdentifierAttribute: 'pageGroup',
+          });
+
+          firePreselectPageview();
+          await waitForCondition(() => selectPlacementsCalls.length > 0);
+          await (window as any).mParticle.forwarder.selectPlacements({
+            attributes: { pageGroup: PRESELECT_TARGET_PAGE_IDENTIFIER },
+            identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+          });
+
+          expect(selectPlacementsCalls[0].identifier).toBe(PRESELECT_TARGET_PAGE_IDENTIFIER);
+          expect(selectPlacementsCalls[0].cacheIdentityKeys).toEqual(['customerid', 'placementType']);
+          // Both entries answer to the target page's call, so it goes to neither and sends no token.
+          expect(selectPlacementsCalls[1]).not.toHaveProperty('cacheMatchTokens');
+        });
+
+        it('keeps it strict when another entry answers to the same target page identifier', async () => {
+          pushIdentityDefaultsConfig({
+            preselectAttributeDefaults: { placementType: { value: 'Credit Card', matchPaymentFamily: true } },
+          });
+          pushDefaultsConfig({
+            pathname: '/elsewhere',
+            targetPageIdentifier: 'other-target-page',
+            alternateTargetPageIdentifiers: { byHostname: { 'elsewhere.example': PRESELECT_TARGET_PAGE_IDENTIFIER } },
+          });
+
+          firePreselectPageview();
+          await waitForCondition(() => selectPlacementsCalls.length > 0);
+          await (window as any).mParticle.forwarder.selectPlacements({
+            attributes: {},
+            identifier: PRESELECT_TARGET_PAGE_IDENTIFIER,
+          });
+
+          expect(selectPlacementsCalls[0].identifier).toBe(PRESELECT_TARGET_PAGE_IDENTIFIER);
+          expect(selectPlacementsCalls[0].cacheIdentityKeys).toEqual(['customerid', 'placementType']);
+          expect(selectPlacementsCalls[1]).not.toHaveProperty('cacheMatchTokens');
+        });
+
         it('sends the no-value token when the target page names the key only under another spelling', async () => {
           pushIdentityDefaultsConfig({
             preselectAttributeDefaults: { placementType: { value: 'Credit Card', matchPaymentFamily: true } },

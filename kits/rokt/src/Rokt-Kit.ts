@@ -2780,6 +2780,7 @@ class RoktKit implements KitInterface {
       cacheConfigEntry,
       preselectFills,
       selectPlacementsAttributes,
+      identifier,
     );
     const cacheMatchValues = getPreselectCacheMatchValues(cacheConfigEntry, preselectFills, selectPlacementsAttributes);
     const cacheMatchTokens = getPreselectCacheMatchTokens(
