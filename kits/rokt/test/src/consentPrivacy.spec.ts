@@ -578,6 +578,43 @@ describe('Rokt consent privacy mapping', () => {
       expect(kit._lastPreselectPathname).not.toBe(`${PATHNAME}/next`);
     });
 
+    describe('cart attribute callbacks', () => {
+      const cartConfig = JSON.stringify({
+        schemaVersion: 1,
+        entries: [
+          {
+            pathname: PATHNAME,
+            targetPageIdentifier: 'confirmation_page',
+            attributeKeys: ['email'],
+            cartIntent: true,
+            cartUserAttribute: 'cartItems',
+          },
+        ],
+      });
+      const storesForgetTime = () => JSON.stringify({ ...localStorage }).includes('forgottenAt');
+
+      it('records the cart forget time while targeting is allowed', () => {
+        initKit({ consentMappingSDK: mappingSetting, preselectionConfig: cartConfig });
+
+        kit.setUserAttribute('cartItems', '[]');
+
+        expect(storesForgetTime()).toBe(true);
+      });
+
+      it.each([
+        ['setting', (k: typeof kit) => k.setUserAttribute('cartItems', '[]')],
+        ['removing', (k: typeof kit) => k.removeUserAttribute('cartItems')],
+      ])('applies a targeting decline made since the last refresh before %s the cart attribute', (_label, act) => {
+        initKit({ consentMappingSDK: mappingSetting, preselectionConfig: cartConfig });
+        consent.targeted_advertising = { Consented: false };
+
+        act(kit);
+
+        expect(kit._effectivePrivacyFlags?.noTargeting).toBe(true);
+        expect(storesForgetTime()).toBe(false);
+      });
+    });
+
     it('applies a decline made since the last refresh in the form listener before anything else', () => {
       initKit({ consentMappingSDK: mappingSetting, preselectionConfig });
       expect(kit._preselectEmailInputListener).toBeTypeOf('function');

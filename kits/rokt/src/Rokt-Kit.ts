@@ -2263,6 +2263,8 @@ class RoktKit implements KitInterface {
   // The page's cart attribute or a logout replaces a remembered add-to-cart click. Under noTargeting, or for an account
   // that never remembers one, nothing is written to the device.
   private forgetCartAdd(): void {
+    // Attribute callbacks can arrive without an event, so a consent change is applied before the device write.
+    this.refreshConsentPrivacy();
     if (this.accountId) {
       forgetPreselectCartAdd(this.accountId, !this.isTargetingDisabled() && hasPreselectCartPageView(this.accountId));
     }
