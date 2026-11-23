@@ -1,5 +1,13 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import RoktManager, { WIN_PAGE_PRIVACY_KEY } from '../../src/roktManager';
+import CookieConsentManager from '../../src/cookieConsentManager';
+import CookieSyncManager, { PARTNER_MODULE_IDS } from '../../src/cookieSyncManager';
+import { IMParticleWebSDKInstance } from '../../src/mp-instance';
+
+afterEach(() => {
+    delete (window as any)[WIN_PAGE_PRIVACY_KEY];
+});
 
 const repoRoot = path.resolve(__dirname, '..', '..');
 const read = (file: string): string =>
@@ -146,6 +154,7 @@ function runRoktSnippetAtProtocol(
             });
             mParticle.Identity.login({ userIdentities: { customerid: 'c' } });
             mParticle.eCommerce.setCurrencyCode('usd');
+            mParticle.Rokt.setPrivacyControl({ noTargeting: true });
             mParticle.Rokt.selectPlacements({ attributes: {} });
             mParticle.ready(onReady);
 
@@ -156,10 +165,11 @@ function runRoktSnippetAtProtocol(
                 ['logEvent', 'test event', 8, { attrFoo: 'attrBar' }],
                 ['Identity.login', { userIdentities: { customerid: 'c' } }],
                 ['eCommerce.setCurrencyCode', 'usd'],
+                ['Rokt.setPrivacyControl', { noTargeting: true }],
                 ['Rokt.selectPlacements', { attributes: {} }],
                 onReady,
             ]);
-            expect(mParticle.config.snippetVersion).toBe(3);
+            expect(mParticle.config.snippetVersion).toBe(3.1);
         });
     });
 });
@@ -167,6 +177,17 @@ function runRoktSnippetAtProtocol(
 ['snippet.rokt.js', 'snippet.rokt.min.js'].forEach(file => {
     describe(file, () => {
         const source = read(file);
+
+        it('queues the Ads privacy setter before placements', () => {
+            const { mParticle } = runRoktSnippetAtProtocol(source, 'https:');
+            mParticle.Rokt.setPrivacyControl({ noFunctional: true });
+            mParticle.Rokt.selectPlacements({ attributes: {} });
+            expect(mParticle.config.rq).toEqual([
+                ['Rokt.setPrivacyControl', { noFunctional: true }],
+                ['Rokt.selectPlacements', { attributes: {} }],
+            ]);
+            expect(mParticle.config.snippetVersion).toBe(3.1);
+        });
 
         it('sets utf-8 charset on the primary injected script', () => {
             const { script } = runRoktSnippetAtProtocol(source, 'file:');
@@ -191,6 +212,54 @@ function runRoktSnippetAtProtocol(
             const fallbackScript = scripts[0];
             expect(fallbackScript.charset.toLowerCase()).toBe('utf-8');
             expect(fallbackScript.src).toContain('https://apps.roktecommerce.com/js/v3/');
+        });
+    });
+});
+
+['snippet.js', 'snippet.min.js', 'snippet.rokt.js', 'snippet.rokt.min.js'].forEach(file => {
+    ['noTargeting', 'noFunctional', 'doNotShareOrSell'].forEach(flag => {
+        it(file + ' applies the latest pre-load ' + flag + ' before initial cookie sync', () => {
+            const source = read(file);
+            const run = file.indexOf('.rokt.') === -1
+                ? runSnippetAtProtocol(source, 'https:')
+                : runRoktSnippetAtProtocol(source, 'https:');
+            const { mParticle } = run;
+            mParticle.Rokt.setPrivacyControl({ [flag]: false });
+            mParticle.Rokt.selectPlacements({ attributes: {} });
+            mParticle.Rokt.setPrivacyControl({ [flag]: true });
+            expect(mParticle.config.rq.map(item => item[0])).toEqual([
+                'Rokt.setPrivacyControl', 'Rokt.selectPlacements', 'Rokt.setPrivacyControl',
+            ]);
+
+            const consent = new CookieConsentManager({ noFunctional: false, noTargeting: false });
+            const manager = new RoktManager();
+            // This is the binding done before initialization can attempt cookie sync.
+            manager._bindCookieConsentManager(consent, mParticle.config.rq);
+            expect(mParticle.config.rq).toEqual([['Rokt.selectPlacements', { attributes: {} }]]);
+            const instance = {
+                _CookieConsentManager: consent,
+                _Store: {
+                    webviewBridgeEnabled: false,
+                    pixelConfigurations: [{
+                        moduleId: PARTNER_MODULE_IDS.Rokt,
+                        pixelUrl: 'https://example.com/pixel',
+                        settings: {},
+                    }],
+                },
+                _Persistence: { getPersistence: () => ({ testMPID: { csd: {} } }) },
+                _Consent: { isEnabledForUserConsent: () => true },
+                Identity: { getCurrentUser: () => null },
+                Logger: { error: jest.fn() },
+            } as unknown as IMParticleWebSDKInstance;
+            const sync = new CookieSyncManager(instance);
+            sync.performCookieSync = jest.fn();
+            sync.attemptCookieSync('testMPID', true);
+            expect(sync.performCookieSync).not.toHaveBeenCalled();
+            expect(instance.Logger.error).not.toHaveBeenCalled();
+            manager.setPrivacyControl({ [flag]: false });
+            sync.attemptCookieSync('testMPID', true);
+            expect(sync.performCookieSync).toHaveBeenCalledTimes(1);
+            expect(instance.Logger.error).not.toHaveBeenCalled();
         });
     });
 });

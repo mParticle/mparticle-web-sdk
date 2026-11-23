@@ -11,6 +11,7 @@ import {
     isEmpty,
     obfuscateDevData,
     getErrorMessage,
+    hasOwnProp,
 } from "./utils";
 import { SDKIdentityApi } from "./identity.interfaces";
 import { SDKLoggerApi } from "./sdkRuntimeModels";
@@ -22,6 +23,7 @@ import { IRoktLauncherOptions, normalizeRoktLauncherOptions } from "./roktLaunch
 import { PARTNER_MODULE_IDS } from "./cookieSyncManager";
 import IntegrationCapture from "./integrationCapture";
 import Constants from "./constants";
+import { ICookieConsentFlags, ICookieConsentManager } from "./cookieConsentManager";
 import { subscribeToRouteChange } from "./routeChangeMonitor";
 import type { CheckoutIntentKind, CheckoutIntentSource, ICheckoutIntentSelectors, PaymentFrameFamily } from "./buttonTracking/checkoutIntent";
 export type { ICheckoutIntentSelectors } from "./buttonTracking/checkoutIntent";
@@ -43,6 +45,9 @@ export type RoktAttributeValueArray = Array<string | number | boolean>;
 export type RoktAttributeValueType = string | number | boolean | undefined | null;
 export type RoktAttributeValue = RoktAttributeValueType | RoktAttributeValueArray;
 export type RoktAttributes = Record<string, RoktAttributeValue>;
+
+/** Page-scoped privacy flags for Rokt Ads. Only boolean true opts out. */
+export type IRoktPrivacyControl = Partial<ICookieConsentFlags>;
 
 export interface IRoktPartnerExtensionData<T> {
     [extensionName: string]: T;
@@ -157,6 +162,34 @@ const ON_SHOPPABLE_ADS_READY_METHOD = 'onShoppableAdsReady'
 // Rokt Manager in a "ready" state and it can begin sending data to the kit.
 //
 // https://github.com/mparticle-integrations/mparticle-javascript-integration-rokt
+// The page setter's flags, per SDK instance. They live on `window`, not on the
+// manager, because Next.js re-executes the bundle per SPA navigation: the new
+// manager must keep an opt-out made earlier on the page. A page load clears them.
+/** @internal */
+export const WIN_PAGE_PRIVACY_KEY = '__mpRoktPagePrivacy__';
+
+function pagePrivacyFlags(
+    instanceName: string | undefined,
+    create: boolean
+): IRoktPrivacyControl | undefined {
+    if (typeof window === 'undefined') {
+        return create ? {} : undefined;
+    }
+    const win = window as unknown as Record<string, Record<string, IRoktPrivacyControl>>;
+    const key = instanceName || '';
+    if (!win[WIN_PAGE_PRIVACY_KEY]) {
+        if (!create) {
+            return undefined;
+        }
+        win[WIN_PAGE_PRIVACY_KEY] = {};
+    }
+    const byInstance = win[WIN_PAGE_PRIVACY_KEY];
+    if (!byInstance[key] && create) {
+        byInstance[key] = {};
+    }
+    return byInstance[key];
+}
+
 export default class RoktManager {
     public kit: IRoktKit = null;
     public filters: RoktKitFilterSettings = {};
@@ -168,6 +201,8 @@ export default class RoktManager {
     private identityService: SDKIdentityApi;
     private store: IStore;
     private launcherOptions?: IRoktLauncherOptions;
+    /** @internal */
+    private cookieConsentManager?: ICookieConsentManager;
     private logger: SDKLoggerApi;
     private errorReporter: IErrorReportingService;
     private loggingService: ILoggingService;
@@ -190,6 +225,62 @@ export default class RoktManager {
     // Keys this manager's route subscription, so a re-executed bundle's manager replaces
     // it while a second named instance keeps its own.
     constructor(private readonly instanceName?: string) {}
+
+    /**
+     * Updates the supplied page-scoped privacy flags for Rokt Ads in core.
+     * Omitted and non-boolean flags are unchanged; initialization opt-outs still win.
+     * Works without a Rokt kit; a loaded kit uses the combined flags on its
+     * next call. Pass the same flags in launcherOptions on the next page load.
+     */
+    public setPrivacyControl(control: IRoktPrivacyControl): void {
+        if (!control || typeof control !== 'object' || Array.isArray(control)) {
+            return;
+        }
+        let hasUpdate = false;
+        let pageFlags: IRoktPrivacyControl | undefined;
+        for (const key of ['noFunctional', 'noTargeting', 'doNotShareOrSell'] as const) {
+            if (hasOwnProp(control, key)) {
+                const value = control[key];
+                if (typeof value === 'boolean') {
+                    pageFlags = pageFlags || pagePrivacyFlags(this.instanceName, true);
+                    pageFlags[key] = value;
+                    hasUpdate = true;
+                }
+            }
+        }
+        if (!hasUpdate) {
+            return;
+        }
+        // The consent manager's change listener applies the change to storage,
+        // identity and the $NoTargeting attribute.
+        this.cookieConsentManager?.setPageFlags(pageFlags);
+        if (this.isCheckoutIntentSuppressed()) {
+            this.discardCheckoutIntents();
+        }
+    }
+
+    /** @internal Bind core privacy before persistence, independently of kit init. */
+    public _bindCookieConsentManager(
+        manager: ICookieConsentManager,
+        readyQueue: any[] = []
+    ): void {
+        this.cookieConsentManager = manager;
+        // Calls queued before load take effect before the initial identify and
+        // cookie sync, not when the rest of the ready queue drains.
+        for (let i = 0; i < readyQueue.length; i++) {
+            const item = readyQueue[i];
+            if (Array.isArray(item) && item[0] === 'Rokt.setPrivacyControl') {
+                this.setPrivacyControl(item[1]);
+                readyQueue.splice(i--, 1);
+            }
+        }
+        // Page flags set earlier on this page carry over a re-initialization
+        // and a re-executed bundle.
+        const pageFlags = pagePrivacyFlags(this.instanceName, false);
+        if (pageFlags) {
+            manager.setPageFlags(pageFlags);
+        }
+    }
 
     /**
      * Sets a callback to be invoked when RoktManager becomes ready
@@ -357,7 +448,11 @@ export default class RoktManager {
     // from being logged.
     public hasTargetingOptOut(): boolean {
         const options = this.launcherOptions || {};
-        if (options.noTargeting || options.doNotShareOrSell) {
+        if (
+            options.noTargeting ||
+            options.doNotShareOrSell ||
+            this.hasPageTargetingOptOut()
+        ) {
             return true;
         }
         const nav = typeof navigator === 'undefined' ? undefined : (navigator as Navigator & { globalPrivacyControl?: boolean });
@@ -377,7 +472,21 @@ export default class RoktManager {
         ) {
             return true;
         }
-        return !!this.launcherOptions?.noFunctional || this.hasTargetingOptOut();
+        const pageFlags = pagePrivacyFlags(this.instanceName, false);
+        return !!this.launcherOptions?.noFunctional ||
+            pageFlags?.noFunctional === true ||
+            this.hasTargetingOptOut();
+    }
+
+    /**
+     * @internal True when the page setter opted out of targeting. Only the
+     * setter's flags count, so pages that never call it keep their existing
+     * click logging.
+     */
+    public hasPageTargetingOptOut(): boolean {
+        const pageFlags = pagePrivacyFlags(this.instanceName, false);
+        return !!pageFlags &&
+            (pageFlags.noTargeting === true || pageFlags.doNotShareOrSell === true);
     }
 
     // True when the kit can wait for the shopper's confirm click: signals are not

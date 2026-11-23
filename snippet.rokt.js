@@ -19,7 +19,7 @@
     window.mParticle.Rokt = {};
     window.mParticle.config = window.mParticle.config || {};
     window.mParticle.config.rq = [];
-    window.mParticle.config.snippetVersion = 3.0;
+    window.mParticle.config.snippetVersion = 3.1;
     window.mParticle.ready = function(f) {
         window.mParticle.config.rq.push(f);
     };
@@ -54,6 +54,7 @@
         'getVersion',
         'terminate',
         'onShoppableAdsReady',
+        'setPrivacyControl',
     ];
 
     // iterates through methods above to create stubs
@@ -76,10 +77,10 @@
     // ie: Identity.login, eCommerce.setCurrencyCode, Rokt.selectPlacements
     // in main.js, the function "processPreloadedItem" will parse and run stubbed methods stored in the readyQueue (config.rq)
     function preloadMethod(method, base) {
+        if (base) {
+            method = base + '.' + method;
+        }
         return function() {
-            if (base) {
-                method = base + '.' + method;
-            }
             var args = Array.prototype.slice.call(arguments);
             args.unshift(method);
             window.mParticle.config.rq.push(args);

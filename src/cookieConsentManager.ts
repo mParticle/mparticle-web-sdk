@@ -34,6 +34,9 @@ export interface ICookieConsentFlags {
 export type CookieConsentChangeListener = (previous: ICookieConsentFlags) => void;
 
 export interface ICookieConsentManager {
+    /** @internal Replaces only the page setter's contribution. */
+    setPageFlags: (flags: Partial<ICookieConsentFlags>) => void;
+
     /**
      * Targeting is allowed when noTargeting is false (default)
      */
