@@ -1,6 +1,7 @@
 import '../../src/Rokt-Kit';
 import * as storage from '../../src/storage';
 import { isDevicePersistenceDisabled, setDevicePersistenceDisabled } from '../../src/storage';
+import { applyPreselectionConfigSetting, isReadableFormEmailChange } from '../../src/preselection/preselection';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -496,5 +497,210 @@ describe('Rokt consent privacy mapping', () => {
     Object.defineProperty(navigator, 'globalPrivacyControl', { configurable: true, value: true });
     expect(kit.isPageHistoryAllowed()).toBe(false);
     delete (navigator as any).globalPrivacyControl;
+  });
+
+  describe('preselection callbacks', () => {
+    const PATHNAME = '/checkout/review';
+    const preselectionConfig = JSON.stringify({
+      schemaVersion: 1,
+      entries: [
+        {
+          pathname: PATHNAME,
+          targetPageIdentifier: 'confirmation_page',
+          attributeKeys: ['email'],
+          readEmailInput: true,
+        },
+      ],
+    });
+    const originalPathname = window.location.pathname;
+    const originalGetActiveForwarders = mp._getActiveForwarders;
+
+    beforeEach(() => {
+      window.history.replaceState({}, '', PATHNAME);
+      mp._getActiveForwarders = () => [kit];
+    });
+
+    afterEach(() => {
+      window.history.replaceState({}, '', originalPathname);
+      mp._getActiveForwarders = originalGetActiveForwarders;
+      applyPreselectionConfigSetting('000000', undefined);
+    });
+
+    it.each([
+      ['targeted_advertising', 'targeting'],
+      ['sale_of_data', 'sharing'],
+    ])('never reads a committed form field after a %s decline made since the last refresh', (purpose) => {
+      initKit({ consentMappingSDK: mappingSetting, preselectionConfig });
+      kit._preselectState.pending.push({ pathname: PATHNAME, event: { EventAttributes: {} } });
+      consent[purpose] = { Consented: false };
+      const input = document.createElement('input');
+      input.type = 'text';
+      const readValue = vi.fn(() => 'shopper@example.com');
+      Object.defineProperty(input, 'value', { configurable: true, get: readValue });
+      const event = { type: 'change', isTrusted: true, target: input } as unknown as Event;
+
+      expect(isReadableFormEmailChange(kit._preselectState, kit.buildPreselectHost(), event)).toBe(false);
+      expect(readValue).not.toHaveBeenCalled();
+    });
+
+    it('applies a functional decline made since the last refresh before recording a payment pick', () => {
+      initKit({ consentMappingSDK: mappingSetting, preselectionConfig });
+      expect(kit.onPaymentPick).toBeTypeOf('function');
+      consent.functional = { Consented: false };
+
+      kit.onPaymentPick({ t: Date.now(), family: 'card' });
+
+      expect(isDevicePersistenceDisabled()).toBe(true);
+      expect(sessionStorage.length).toBe(0);
+    });
+
+    it('applies a targeting decline made since the last refresh before handling a checkout intent', () => {
+      initKit({ consentMappingSDK: mappingSetting, preselectionConfig });
+      expect(kit.onCheckoutIntent).toBeTypeOf('function');
+      const storedKeys = localStorage.length + sessionStorage.length;
+      consent.targeted_advertising = { Consented: false };
+
+      kit.onCheckoutIntent({ kind: 'commit', t: Date.now() });
+
+      expect(kit._effectivePrivacyFlags?.noTargeting).toBe(true);
+      expect(localStorage.length + sessionStorage.length).toBe(storedKeys);
+    });
+
+    it('applies a targeting decline made since the last refresh before handling a route change', () => {
+      initKit({ consentMappingSDK: mappingSetting, preselectionConfig });
+      expect(kit.onRouteChange).toBeTypeOf('function');
+      consent.targeted_advertising = { Consented: false };
+      window.history.replaceState({}, '', `${PATHNAME}/next`);
+
+      kit.onRouteChange();
+
+      expect(kit._effectivePrivacyFlags?.noTargeting).toBe(true);
+      expect(kit._lastPreselectPathname).not.toBe(`${PATHNAME}/next`);
+    });
+
+    it('applies a decline made since the last refresh in the form listener before anything else', () => {
+      initKit({ consentMappingSDK: mappingSetting, preselectionConfig });
+      expect(kit._preselectEmailInputListener).toBeTypeOf('function');
+      consent.sale_of_data = { Consented: false };
+      const input = document.createElement('input');
+      const readValue = vi.fn(() => 'shopper@example.com');
+      Object.defineProperty(input, 'value', { configurable: true, get: readValue });
+
+      kit._preselectEmailInputListener({ type: 'input', isTrusted: true, target: input } as unknown as Event);
+
+      expect(kit._effectivePrivacyFlags?.doNotShareOrSell).toBe(true);
+      expect(readValue).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('failure handling', () => {
+    it('does not let a failing launcher setter escape, and retries it on the next refresh', () => {
+      initKit({ consentMappingSDK: mappingSetting });
+      const setPrivacyControl = vi.fn(() => {
+        throw new Error('launcher is being torn down');
+      });
+      kit.launcher = { ...launcher, setPrivacyControl };
+      consent.targeted_advertising = { Consented: false };
+
+      expect(() => kit.process({ EventDataType: 4, EventName: 'event', EventAttributes: {} })).not.toThrow();
+      expect(setPrivacyControl).toHaveBeenCalledTimes(1);
+
+      kit.refreshConsentPrivacy();
+      expect(setPrivacyControl).toHaveBeenCalledTimes(2);
+    });
+
+    it('retries a launcher setter whose promise rejected', async () => {
+      initKit({ consentMappingSDK: mappingSetting });
+      const setPrivacyControl = vi.fn(() => Promise.reject(new Error('rejected')));
+      kit.launcher = { ...launcher, setPrivacyControl };
+      consent.targeted_advertising = { Consented: false };
+
+      kit.refreshConsentPrivacy();
+      await Promise.resolve();
+      await Promise.resolve();
+      kit.refreshConsentPrivacy();
+
+      expect(setPrivacyControl).toHaveBeenCalledTimes(2);
+    });
+
+    it('disables kit storage even when the $NoTargeting sync throws', () => {
+      initKit({ consentMappingSDK: mappingSetting });
+      manager.syncNoTargetingAttribute.mockImplementation(() => {
+        throw new Error('forwarder failed');
+      });
+      consent.targeted_advertising = { Consented: false };
+      consent.functional = { Consented: false };
+
+      expect(() => kit.refreshConsentPrivacy()).not.toThrow();
+      expect(isDevicePersistenceDisabled()).toBe(true);
+    });
+  });
+
+  describe('mapping values and older versions', () => {
+    const captureLogs = () => {
+      const helperKit = new mp.forwarder.constructor();
+      helperKit.attachLauncher = vi.fn(() => Promise.resolve());
+      helperKit.init({ accountId: '000000' }, null, true, null, {});
+      return vi.spyOn(helperKit.testHelpers.LoggingService.prototype, 'log');
+    };
+    const loggedCodes = (log: ReturnType<typeof captureLogs>) =>
+      log.mock.calls.map((call: any[]) => call[0]?.code).filter((code: string) => code === 'CONSENT_PRIVACY_WARNING');
+
+    it('matches mapping values in any letter case', () => {
+      initKit({ consentMappingSDK: JSON.stringify([{ map: 'targeted_advertising', value: 'NoTargeting' }]) });
+      consent.targeted_advertising = { Consented: false };
+      kit.refreshConsentPrivacy();
+      expect(kit._effectivePrivacyFlags?.noTargeting).toBe(true);
+    });
+
+    it('reports an unknown mapping value once', () => {
+      const log = captureLogs();
+      initKit({
+        consentMappingSDK: JSON.stringify([
+          { map: 'a', value: 'noTargetting' },
+          { map: 'b', value: 'noTargetting' },
+        ]),
+      });
+      expect(kit._consentMappings).toEqual([]);
+      expect(loggedCodes(log)).toHaveLength(1);
+    });
+
+    it('reports a mapping that an older mParticle SDK cannot apply', () => {
+      const log = captureLogs();
+      delete (manager as any).replaceDerivedFlags;
+      initKit({ consentMappingSDK: mappingSetting });
+      expect(loggedCodes(log)).toHaveLength(1);
+    });
+
+    it('reports a mapping that an older launcher cannot apply after it loads', () => {
+      const log = captureLogs();
+      initKit({ consentMappingSDK: mappingSetting });
+      kit.launcher = { selectPlacements: vi.fn(() => ({})) };
+      consent.targeted_advertising = { Consented: false };
+      kit.refreshConsentPrivacy();
+      expect(loggedCodes(log)).toHaveLength(1);
+    });
+  });
+
+  it('sends the exit-intent config to the extension when targeting is granted after the launcher attached', () => {
+    const config = { placementIdentifier: 'exit' };
+    const setExtensionData = vi.fn();
+    const originalRoktGlobal = (window as any).Rokt;
+    (window as any).Rokt = { ...(originalRoktGlobal || {}), setExtensionData };
+    try {
+      consent.targeted_advertising = { Consented: false };
+      initKit({ consentMappingSDK: mappingSetting });
+      kit._exitIntentEnabledForAccount = true;
+      kit.getEffectiveExitIntentConfig = vi.fn(() => config);
+      kit.launcher = launcher;
+      setExtensionData.mockClear();
+
+      consent.targeted_advertising = { Consented: true };
+      kit.refreshConsentPrivacy();
+
+      expect(setExtensionData).toHaveBeenCalledTimes(1);
+    } finally {
+      (window as any).Rokt = originalRoktGlobal;
+    }
   });
 });
