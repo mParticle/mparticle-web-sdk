@@ -238,11 +238,21 @@ function isFullRecordStored(mpInstance: IMParticleWebSDKInstance): boolean {
     );
 }
 
+// Storage omits empty fields (no attributes left, consent cleared), so only
+// fields that hold a value must be present in the stored record.
 function holdsFields(stored: Dictionary, expected: Dictionary): boolean {
     return Object.keys(expected || {}).every(
         field =>
-            expected[field] === undefined ||
+            isEmptyField(expected[field]) ||
             (!!stored && hasOwnProp(stored, field))
+    );
+}
+
+function isEmptyField(value: unknown): boolean {
+    return (
+        value === undefined ||
+        value === null ||
+        (typeof value === 'object' && Object.keys(value).length === 0)
     );
 }
 

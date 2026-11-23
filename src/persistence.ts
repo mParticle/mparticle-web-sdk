@@ -446,7 +446,9 @@ export default function _Persistence(
                     '=' +
                     createFullEncodedCookie(record, expires, domain)
             );
-            writtenPrivacyChoices = serialized;
+            if (self.getCookie()) {
+                writtenPrivacyChoices = serialized;
+            }
         } catch (e) {
             mpInstance.Logger.error('Error storing privacy choices.');
         }

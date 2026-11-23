@@ -752,6 +752,30 @@ describe('mid-page noFunctional changes', () => {
         expect(instance._Store.sessionId).toBeNull();
     });
 
+    it('finishes restoring storage after the last attribute was removed while restricted', async () => {
+        const instance = await restrictedUserWithConsent();
+        mParticle
+            .getInstance(instanceName)
+            .Identity.getCurrentUser()
+            .removeUserAttribute('color');
+
+        consent(instance).replaceDerivedFlags({});
+
+        expect(instance._Persistence.getPersistence()).not.toBeNull();
+    });
+
+    it('finishes restoring storage after consent was cleared while restricted', async () => {
+        const instance = await restrictedUserWithConsent();
+        mParticle
+            .getInstance(instanceName)
+            .Identity.getCurrentUser()
+            .setConsentState(null);
+
+        consent(instance).replaceDerivedFlags({});
+
+        expect(instance._Persistence.getPersistence()).not.toBeNull();
+    });
+
     it('rewrites the retained privacy choices only when they change', async () => {
         const instance = await restrictedUserWithConsent();
         const setItem = jest.spyOn(Storage.prototype, 'setItem');
