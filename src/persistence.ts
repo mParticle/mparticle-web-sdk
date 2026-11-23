@@ -345,6 +345,11 @@ export default function _Persistence(
             (record as Dictionary)[mpid] = {
                 con: minimizeConsent(consentState),
             };
+            // Identify resolves an anonymous user by device ID, so the next
+            // page must reuse it to stay on the user whose consent is kept.
+            if (store.deviceId) {
+                record.gs.das = store.deviceId;
+            }
         }
         return consentState || store.isEnabled === false ? record : null;
     }

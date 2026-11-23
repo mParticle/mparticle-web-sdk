@@ -333,6 +333,56 @@ describe('mid-page noFunctional changes', () => {
         expect(reloaded._Store.mpid).toBe('mpid-1');
     });
 
+    it('keeps the device ID so an anonymous user is identified as the same user on the next page', async () => {
+        const mpidByDeviceId: Record<string, string> = {};
+        const respond = global.fetch;
+        global.fetch = jest.fn((url: string, options?: { body: string }) => {
+            if (!/\/identify(\?|$)/.test(url)) {
+                return (respond as any)(url, options);
+            }
+            const das = JSON.parse(options.body).known_identities
+                .device_application_stamp;
+            mpidByDeviceId[das] =
+                mpidByDeviceId[das] ||
+                (Object.keys(mpidByDeviceId).length ? 'mpid-new' : 'mpid-1');
+            return Promise.resolve({
+                status: 200,
+                headers: { get: (): null => null },
+                json: async () => ({
+                    mpid: mpidByDeviceId[das],
+                    context: null,
+                    is_logged_in: false,
+                    matched_identities: {},
+                }),
+            });
+        }) as unknown as typeof global.fetch;
+
+        const instance = init();
+        await settle();
+        const sdk = mParticle.getInstance(instanceName);
+        expect(instance._Store.mpid).toBe('mpid-1');
+        sdk.Identity.getCurrentUser().setConsentState(
+            sdk.Consent.createConsentState().addGDPRConsentState(
+                'marketing',
+                sdk.Consent.createGDPRConsent(false, 1)
+            )
+        );
+        consent(instance).replaceDerivedFlags({ noFunctional: true });
+
+        const reloaded = init({}, `${instanceName}-reload`);
+        await settle();
+
+        expect(reloaded._Store.deviceId).toBe(instance._Store.deviceId);
+        expect(reloaded._Store.mpid).toBe('mpid-1');
+        expect(
+            mParticle
+                .getInstance(`${instanceName}-reload`)
+                .Identity.getCurrentUser()
+                .getConsentState()
+                .getGDPRConsentState().marketing.Consented
+        ).toBe(false);
+    });
+
     it('keeps the user logged in after a login while the privacy choices are the only stored record', async () => {
         const instance = init();
         await settle();
