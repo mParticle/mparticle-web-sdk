@@ -1,5 +1,18 @@
 # Changelog
 
+## [3.39.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.38.0...v3.39.0) (2026-11-23)
+
+
+### Features
+
+* **rokt-kit:** fill a pre-selection default from a value on the page ([#1929](https://github.com/mParticle/mparticle-web-sdk/issues/1929)) ([025700e](https://github.com/mParticle/mparticle-web-sdk/commit/025700e69f5800ade4eb5e0a7ccf5a2d9dbda140))
+
+
+### Bug Fixes
+
+* **rokt:** let the typed email replace a cut-short partner email on a pre-selection call ([#1930](https://github.com/mParticle/mparticle-web-sdk/issues/1930)) ([034d8e8](https://github.com/mParticle/mparticle-web-sdk/commit/034d8e8bd6603a47ad9e5124dfeddb4026f72561))
+* **web:** keep queued Rokt setter calls for the default instance ([#1928](https://github.com/mParticle/mparticle-web-sdk/issues/1928)) ([4cf136e](https://github.com/mParticle/mparticle-web-sdk/commit/4cf136e15df454336654e5b2652bd85b5e229b9f))
+
 ## [3.38.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.37.0...v3.38.0) (2026-11-23)
 
 
