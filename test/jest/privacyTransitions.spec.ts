@@ -1648,6 +1648,7 @@ describe('mid-page noTargeting changes', () => {
 describe('mParticle.Rokt.setPrivacyControl', () => {
     afterEach(() => {
         delete (window as any).mParticle.config;
+        delete (window as any).__mpRoktPagePrivacy__;
     });
 
     it('syncs $NoTargeting from the page setter', async () => {

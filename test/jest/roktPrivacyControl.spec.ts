@@ -1,11 +1,15 @@
 import CookieConsentManager from '../../src/cookieConsentManager';
-import RoktManager from '../../src/roktManager';
+import RoktManager, { WIN_PAGE_PRIVACY_KEY } from '../../src/roktManager';
 import { IStore } from '../../src/store';
 import Constants from '../../src/constants';
 
 // Core-only Ads integrations must not need a kit or RoktManager.init().
 describe('Rokt Ads page privacy control', () => {
     const noFlags = () => new CookieConsentManager({ noFunctional: false, noTargeting: false });
+
+    afterEach(() => {
+        delete (window as any)[WIN_PAGE_PRIVACY_KEY];
+    });
 
     it('keeps existing defaults without a setter call', () => {
         const manager = new RoktManager();
@@ -123,6 +127,19 @@ describe('Rokt Ads page privacy control', () => {
         expect(consent.getNoFunctional()).toBe(true);
         expect(consent.getNoTargeting()).toBe(true);
         expect(readyQueue).toEqual([queued]);
+    });
+
+    it('keeps page flags for a manager built by a re-executed bundle', () => {
+        new RoktManager('spa').setPrivacyControl({ noTargeting: true });
+
+        // A re-executed bundle builds a new manager for the same instance.
+        const consent = noFlags();
+        new RoktManager('spa')._bindCookieConsentManager(consent);
+        expect(consent.getNoTargeting()).toBe(true);
+
+        const other = noFlags();
+        new RoktManager('other')._bindCookieConsentManager(other);
+        expect(other.getNoTargeting()).toBe(false);
     });
 
     it('isolates page contributions between instances', () => {

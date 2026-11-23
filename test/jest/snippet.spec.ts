@@ -1,6 +1,10 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import RoktManager from '../../src/roktManager';
+import RoktManager, { WIN_PAGE_PRIVACY_KEY } from '../../src/roktManager';
+
+afterEach(() => {
+    delete (window as any)[WIN_PAGE_PRIVACY_KEY];
+});
 import CookieConsentManager from '../../src/cookieConsentManager';
 import CookieSyncManager, { PARTNER_MODULE_IDS } from '../../src/cookieSyncManager';
 import { IMParticleWebSDKInstance } from '../../src/mp-instance';
