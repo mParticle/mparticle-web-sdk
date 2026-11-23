@@ -172,6 +172,34 @@ function buildCandidate(): string {
     return root;
 }
 
+const modulesBlock = {
+    schemaVersion: 1,
+    core: 'core/dist/mparticle.lean.js',
+    files: [
+        {
+            name: 'buttonTracking',
+            path: 'core/dist/mparticle.buttonTracking.js',
+            enabledBy: [
+                {flag: 'autoButtonTracking', value: 'True'},
+                {flag: 'autoLinkTracking', value: 'True'},
+            ],
+        },
+    ],
+};
+
+// Adds a core built without the module, the module, and the modules block.
+function addModules(root: string, block: unknown = modulesBlock) {
+    writeFile(root, 'core/dist/mparticle.lean.js', 'core lean\n');
+    writeFile(root, 'core/dist/mparticle.buttonTracking.js', 'button tracking\n');
+    writeCdnArchive(root, [
+        ...Object.keys(cdnFiles),
+        'core/dist/mparticle.buttonTracking.js',
+        'core/dist/mparticle.lean.js',
+    ]);
+    inventory(root);
+    writeMetadata(root, {...readMetadata(root), modules: block});
+}
+
 describe('V3 candidate checker', () => {
     let root: string;
 
@@ -186,6 +214,59 @@ describe('V3 candidate checker', () => {
     it('accepts a candidate that meets the reader contract', () => {
         expect(checkCandidate(root)).toEqual([]);
         expect(checkCandidate(root, {version, buildId})).toEqual([]);
+    });
+
+    it('accepts a candidate with a modules block', () => {
+        addModules(root);
+        expect(checkCandidate(root, {version, buildId})).toEqual([]);
+    });
+
+    it('rejects a modules block the server would ignore', () => {
+        const block = JSON.parse(JSON.stringify(modulesBlock));
+        block.core = 'core/dist/mparticle.js';
+        block.files.push({
+            name: 'none',
+            path: 'core/dist/mparticle.lean.js',
+            enabledBy: [{flag: 'autoButtonTracking', value: 'a&b'}],
+        });
+        addModules(root, block);
+        expect(checkCandidate(root)).toEqual([
+            'modules core path is a required core bundle',
+            'Module name is reserved: none',
+            'Module none has an invalid condition',
+        ]);
+
+        addModules(root, {...modulesBlock, extra: true});
+        expect(checkCandidate(root)).toEqual([
+            'modules must be an object with exactly: core, files, schemaVersion',
+        ]);
+
+        addModules(root, {...modulesBlock, files: []});
+        expect(checkCandidate(root)).toEqual([
+            'modules files must list 1 to 16 modules',
+        ]);
+    });
+
+    it('rejects a module that is a copy of a core, and an unlisted one', () => {
+        addModules(root);
+        writeFile(root, 'core/dist/mparticle.buttonTracking.js', 'core lean\n');
+        writeCdnArchive(root, [
+            ...Object.keys(cdnFiles),
+            'core/dist/mparticle.buttonTracking.js',
+            'core/dist/mparticle.lean.js',
+        ]);
+        inventory(root);
+        writeMetadata(root, {...readMetadata(root), modules: modulesBlock});
+        expect(checkCandidate(root)).toEqual([
+            'Module buttonTracking is a copy of a core',
+        ]);
+
+        const unlisted = JSON.parse(JSON.stringify(modulesBlock));
+        unlisted.files[0].path = 'core/dist/mparticle.other.js';
+        addModules(root, unlisted);
+        expect(checkCandidate(root)).toEqual([
+            'Module buttonTracking path is not listed: core/dist/mparticle.other.js',
+        ]);
     });
 
     it('reports a version or build ID that differs from the expected one', () => {
@@ -392,7 +473,7 @@ describe('V3 candidate checker', () => {
         const metadata = readMetadata(root);
         writeMetadata(root, {...metadata, extra: true});
         expect(checkCandidate(root)).toEqual([
-            'metadata.json must be an object with exactly: buildId, files, packages, schemaVersion, sourceSha, version',
+            'metadata.json must be an object with exactly: buildId, files, packages, schemaVersion, sourceSha, version, and optionally modules',
         ]);
 
         writeMetadata(root, {

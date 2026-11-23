@@ -3,8 +3,10 @@ import * as path from 'path';
 import { execFileSync } from 'child_process';
 import {
     FIXTURE_DIRECTORY,
+    MODULES_BLOCK,
     READER_FIXTURE_PATHS,
     buildCandidate,
+    fixtureContent,
     pointerBytesFor,
 } from './v3-release/helpers';
 
@@ -15,6 +17,92 @@ function metadataWith(mutate: (metadata: any) => void): Buffer {
     mutate(metadata);
     return contract.serializeCanonical(metadata);
 }
+
+function modulesMetadataWith(mutate: (metadata: any) => void): Buffer {
+    const metadata = JSON.parse(
+        buildCandidate({ modules: true }).metadataBytes.toString()
+    );
+    mutate(metadata);
+    metadata.files.sort((left: any, right: any) =>
+        contract.compareStrings(left.path, right.path)
+    );
+    return contract.serializeCanonical(metadata);
+}
+
+function listFile(metadata: any, filePath: string): void {
+    const bytes = fixtureContent(filePath);
+    metadata.files.push({
+        path: filePath,
+        size: bytes.length,
+        sha256: contract.sha256Hex(bytes),
+    });
+}
+
+function listedFile(metadata: any, filePath: string): any {
+    return metadata.files.find((file: any) => file.path === filePath);
+}
+
+function addModules(metadata: any, count: number): void {
+    for (let index = 0; index < count; index++) {
+        const name = `extra${String(index).padStart(2, '0')}`;
+        const filePath = `core/dist/${name}.js`;
+        listFile(metadata, filePath);
+        metadata.modules.files.push({
+            name,
+            path: filePath,
+            enabledBy: [{ flag: 'autoButtonTracking', value: 'True' }],
+        });
+    }
+}
+
+const LEAN_PATH = 'core/dist/mparticle.lean.js';
+const MODULE_PATH = 'core/dist/mparticle.buttonTracking.js';
+const FULL_CORE_PATH = 'core/dist/mparticle.js';
+
+// The same cases the server-side reader rejects, so a candidate the producers
+// accept never has its modules ignored there.
+const INVALID_MODULES: Array<[string, (metadata: any) => void]> = [
+    ['the block is null', m => (m.modules = null)],
+    ['the block is an array', m => (m.modules = [])],
+    ['the block is a string', m => (m.modules = LEAN_PATH)],
+    ['the block is empty', m => (m.modules = {})],
+    ['the block has an extra key', m => (m.modules.extra = 1)],
+    ['the block misses files', m => delete m.modules.files],
+    ['schema version 2', m => (m.modules.schemaVersion = 2)],
+    ['schema version as a string', m => (m.modules.schemaVersion = '1')],
+    ['the core is not listed', m => (m.files = m.files.filter((f: any) => f.path !== LEAN_PATH))],
+    ['the core is the full core', m => (m.modules.core = FULL_CORE_PATH)],
+    ['the core is the stub', m => (m.modules.core = 'core/dist/mparticle.stub.js')],
+    ['the core is outside core/dist', m => (m.modules.core = 'kits/rokt/dist/Rokt-Kit.iife.js')],
+    ['the core path traverses', m => (m.modules.core = 'core/dist/../dist/mparticle.lean.js')],
+    ['the core starts with an underscore', m => (m.modules.core = 'core/dist/_lean.js')],
+    ['the core has the full core SHA-256', m => (listedFile(m, LEAN_PATH).sha256 = listedFile(m, FULL_CORE_PATH).sha256)],
+    ['no modules', m => (m.modules.files = [])],
+    ['17 modules', m => addModules(m, 17)],
+    ['a module has an extra key', m => (m.modules.files[0].extra = 'x')],
+    ['a module misses enabledBy', m => delete m.modules.files[0].enabledBy],
+    ['a module named none', m => (m.modules.files[0].name = 'none')],
+    ['a module named UNKNOWN', m => (m.modules.files[0].name = 'UNKNOWN')],
+    ['a module name that leaves a comment', m => (m.modules.files[0].name = 'x*/alert(1)//')],
+    ['a module name with a comma', m => (m.modules.files[0].name = 'a,b')],
+    ['a 65-character module name', m => (m.modules.files[0].name = 'a'.repeat(65))],
+    ['an empty module name', m => (m.modules.files[0].name = '')],
+    ['a module listed twice', m => { addModules(m, 1); m.modules.files[1].name = 'buttonTracking'; }],
+    ['two modules on one path', m => { addModules(m, 1); m.modules.files[1].path = MODULE_PATH; }],
+    ['a module on the core path', m => (m.modules.files[0].path = LEAN_PATH)],
+    ['a module on the full core path', m => (m.modules.files[0].path = FULL_CORE_PATH)],
+    ['a module not listed', m => (m.files = m.files.filter((f: any) => f.path !== MODULE_PATH))],
+    ['a module with the full core SHA-256', m => (listedFile(m, MODULE_PATH).sha256 = listedFile(m, FULL_CORE_PATH).sha256)],
+    ['a module with the core SHA-256', m => (listedFile(m, MODULE_PATH).sha256 = listedFile(m, LEAN_PATH).sha256)],
+    ['no conditions', m => (m.modules.files[0].enabledBy = [])],
+    ['9 conditions', m => (m.modules.files[0].enabledBy = Array.from({ length: 9 }, (_, i) => ({ flag: `flag${i}`, value: 'True' })))],
+    ['a condition with an extra key', m => (m.modules.files[0].enabledBy[0].extra = 'x')],
+    ['a condition without a value', m => delete m.modules.files[0].enabledBy[0].value],
+    ['a boolean condition value', m => (m.modules.files[0].enabledBy[0].value = true)],
+    ['an empty condition value', m => (m.modules.files[0].enabledBy[0].value = '')],
+    ['a condition value HTML encoding would change', m => (m.modules.files[0].enabledBy[0].value = 'a&b')],
+    ['a numeric condition flag', m => (m.modules.files[0].enabledBy[0].flag = 1)],
+];
 
 function pointerWith(mutate: (pointer: any) => void): Buffer {
     const pointer = JSON.parse(pointerBytesFor(buildCandidate()).toString());
@@ -61,6 +149,123 @@ describe('V3 release contract', () => {
             });
             contract.validateMetadataIdentity(metadata, pointer);
             expect(metadata.files).toHaveLength(18);
+        });
+    });
+
+    describe('golden modules fixture', () => {
+        const metadataBytes = fs.readFileSync(
+            path.join(FIXTURE_DIRECTORY, 'metadata.modules.json')
+        );
+
+        it('is reproduced byte for byte from the reader fixture recipe plus the module', () => {
+            expect(
+                buildCandidate({ modules: true }).metadataBytes.equals(
+                    metadataBytes
+                )
+            ).toBe(true);
+        });
+
+        it('passes the strict producer checks with its modules block', () => {
+            const metadata = contract.parseMetadata(metadataBytes);
+            expect(metadata.modules).toEqual(MODULES_BLOCK);
+            expect(metadata.files).toHaveLength(20);
+        });
+
+        it('is read without its modules block in reader mode', () => {
+            const metadata = contract.parseMetadata(metadataBytes, {
+                canonical: false,
+            });
+            expect(metadata.modules).toBeUndefined();
+            expect(metadata.files).toHaveLength(20);
+        });
+
+        it('leaves a candidate without the block exactly as before', () => {
+            const metadata = contract.parseMetadata(
+                buildCandidate().metadataBytes
+            );
+            expect(metadata).not.toHaveProperty('modules');
+        });
+    });
+
+    describe('modules block', () => {
+        it.each(INVALID_MODULES)('rejects %s', (_label, mutate) => {
+            const bytes = modulesMetadataWith(mutate);
+            expect(() => contract.parseMetadata(bytes)).toThrow(/odule/);
+            expect(() =>
+                contract.parseMetadata(bytes, { canonical: false })
+            ).not.toThrow();
+        });
+
+        it('accepts 16 modules and 8 conditions', () => {
+            const bytes = modulesMetadataWith(metadata => {
+                addModules(metadata, 15);
+                metadata.modules.files[0].enabledBy = Array.from(
+                    { length: 8 },
+                    (_, index) => ({ flag: `flag${index}`, value: 'True' })
+                );
+            });
+            const metadata = contract.parseMetadata(bytes);
+            expect(metadata.modules.files).toHaveLength(16);
+            expect(metadata.modules.files[0].enabledBy).toHaveLength(8);
+        });
+
+        it.each([
+            [
+                'not written last',
+                (text: string) => {
+                    const metadata = JSON.parse(text);
+                    const { modules, ...rest } = metadata;
+                    return contract.serializeCanonical({ modules, ...rest });
+                },
+            ],
+            [
+                'with its keys out of order',
+                (text: string) => {
+                    const metadata = JSON.parse(text);
+                    const { schemaVersion, core, files } = metadata.modules;
+                    metadata.modules = { core, schemaVersion, files };
+                    return contract.serializeCanonical(metadata);
+                },
+            ],
+            [
+                'with conditions out of order',
+                (text: string) => {
+                    const metadata = JSON.parse(text);
+                    metadata.modules.files[0].enabledBy.reverse();
+                    return contract.serializeCanonical(metadata);
+                },
+            ],
+            [
+                'with modules out of name order',
+                (text: string) => {
+                    const metadata = JSON.parse(text);
+                    addModules(metadata, 1);
+                    metadata.modules.files[1].name = 'aaa';
+                    metadata.files.sort((left: any, right: any) =>
+                        contract.compareStrings(left.path, right.path)
+                    );
+                    return contract.serializeCanonical(metadata);
+                },
+            ],
+            [
+                'with a schema version written as 1.0',
+                (text: string) =>
+                    Buffer.from(
+                        text.replace(
+                            '"modules": {\n        "schemaVersion": 1,',
+                            '"modules": {\n        "schemaVersion": 1.0,'
+                        )
+                    ),
+            ],
+        ])('rejects a block %s', (_label, rewrite) => {
+            const text = buildCandidate({
+                modules: true,
+            }).metadataBytes.toString();
+            const bytes = rewrite(text);
+            expect(bytes.toString()).not.toBe(text);
+            expect(() => contract.parseMetadata(bytes)).toThrow(
+                /not canonical/
+            );
         });
     });
 
