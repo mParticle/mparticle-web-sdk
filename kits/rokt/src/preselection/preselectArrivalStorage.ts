@@ -147,8 +147,7 @@ export function wasPreselectTriggeredInAnyTab(accountId: string, targetPageIdent
   if (!isObject(stored) || typeof stored.triggeredAt !== 'number') {
     return false;
   }
-  const age = Date.now() - stored.triggeredAt;
-  return age >= 0 && age < ANY_TAB_TRIGGER_TTL_MS;
+  return isWithinWindow(stored.triggeredAt, ANY_TAB_TRIGGER_TTL_MS);
 }
 
 // The last add-to-cart click on this device, as its time and the mpid of the shopper who made it, or when the add was
@@ -180,8 +179,7 @@ export function wasPreselectCartAdded(accountId: string, mpid: string | null): b
   if (typeof at !== 'number') {
     return false;
   }
-  const age = Date.now() - at;
-  if (age >= 0 && age < CART_ADD_TTL_MS) {
+  if (isWithinWindow(at, CART_ADD_TTL_MS)) {
     return addedAt !== undefined && mpid !== null && stored.mpid === mpid;
   }
   removeNamespacedField(STORAGE_NAMESPACE_KEY, field);
@@ -216,6 +214,9 @@ export function recordPreselectFired(
   targetPageIdentifier: string,
   digest?: number,
   byCart = false,
+  // The pick the fire's call went out with, when the caller knows it (null for none), so an entry's own cutoff for
+  // picks applies; otherwise the tab's latest pick.
+  pickUsed?: PaymentFamily | null,
 ): PreselectFireMark | undefined {
   const fieldKey = buildFieldKey(accountId, targetPageIdentifier);
   const record = readOpenRecord(fieldKey);
@@ -231,9 +232,11 @@ export function recordPreselectFired(
       : undefined;
   // The shadow payment check compares the pick this fire went out with, not one made after it.
   const pickAtFire =
-    record.paymentPick !== undefined && record.paymentPickAt !== undefined && isWithinWindow(record.paymentPickAt)
-      ? record.paymentPick
-      : undefined;
+    pickUsed !== undefined
+      ? (pickUsed ?? undefined)
+      : record.paymentPick !== undefined && record.paymentPickAt !== undefined && isWithinWindow(record.paymentPickAt)
+        ? record.paymentPick
+        : undefined;
   writeRecord(
     fieldKey,
     withFireMark(record, {
@@ -286,8 +289,7 @@ export function wasPreselectTriggeredRecently(accountId: string, targetPageIdent
   if (record.triggeredAt === undefined) {
     return false;
   }
-  const age = Date.now() - record.triggeredAt;
-  return age >= 0 && age < INTENT_ARRIVAL_WINDOW_MS;
+  return isWithinWindow(record.triggeredAt);
 }
 
 // Whether this tab fired for the target page within INTENT_ARRIVAL_WINDOW_MS and has not arrived on it
@@ -308,8 +310,7 @@ export function wasPreselectFiredRecently(
   if (digest !== undefined && record.firedDigest !== undefined && record.firedDigest !== digest) {
     return false;
   }
-  const age = Date.now() - record.firedAt;
-  return age >= 0 && age < INTENT_ARRIVAL_WINDOW_MS;
+  return isWithinWindow(record.firedAt);
 }
 
 // Keeps the strongest kind this tab saw, and the latest time for that kind. A stored intent past
@@ -322,7 +323,7 @@ export function recordPreselectIntent(
 ): void {
   const fieldKey = buildFieldKey(accountId, targetPageIdentifier);
   const record = readOpenRecord(fieldKey);
-  if (record.intentAt !== undefined && record.intentKind !== undefined && isIntentRecent(record.intentAt)) {
+  if (record.intentAt !== undefined && record.intentKind !== undefined && isWithinWindow(record.intentAt)) {
     const storedRank = INTENT_KIND_PRIORITY.indexOf(record.intentKind);
     const rank = INTENT_KIND_PRIORITY.indexOf(kind);
     if (storedRank < rank || (storedRank === rank && record.intentAt >= t)) {
@@ -332,13 +333,9 @@ export function recordPreselectIntent(
   writeRecord(fieldKey, { ...record, intentAt: t, intentKind: kind });
 }
 
-function isWithinWindow(at: number): boolean {
+function isWithinWindow(at: number, windowMs = INTENT_ARRIVAL_WINDOW_MS): boolean {
   const age = Date.now() - at;
-  return age >= 0 && age < INTENT_ARRIVAL_WINDOW_MS;
-}
-
-function isIntentRecent(intentAt: number): boolean {
-  return isWithinWindow(intentAt);
+  return age >= 0 && age < windowMs;
 }
 
 // Keeps the latest payment method picked in this tab, for the shadow payment check on arrival.
@@ -358,6 +355,13 @@ export function recordPreselectPaymentPick(
     return;
   }
   writeRecord(fieldKey, { ...record, paymentPick: family, paymentPickAt: t });
+}
+
+// The payment family this tab's latest fire for a target page went out with, while that fire is within the window and
+// the shopper has not arrived since, or undefined.
+export function readPreselectPaymentAtFire(accountId: string, targetPageIdentifier: string): PaymentFamily | undefined {
+  const record = readOpenRecord(buildFieldKey(accountId, targetPageIdentifier));
+  return record.firedAt !== undefined && isWithinWindow(record.firedAt) ? record.paymentAtFire : undefined;
 }
 
 // The payment family the shopper last picked in this tab for a target page, within the arrival window and no earlier
@@ -473,8 +477,7 @@ export function isPreselectTargetPath(accountId: string, targetPageIdentifier: s
   if (!isObject(stored) || stored.pathDigest !== pathDigest || typeof stored.learnedAt !== 'number') {
     return false;
   }
-  const age = Date.now() - stored.learnedAt;
-  return age >= 0 && age < TARGET_PATH_TTL_MS;
+  return isWithinWindow(stored.learnedAt, TARGET_PATH_TTL_MS);
 }
 
 export function clearPreselectArrivals(accountId: string): void {

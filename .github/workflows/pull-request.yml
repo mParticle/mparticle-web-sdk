@@ -223,6 +223,47 @@ jobs:
                   { echo dist/mparticle.js; find kits -name '*.iife.js'; } |
                   xargs node ../scripts/check-cdn-minifier.js
 
+    # Report-only: core and the Rokt kit as the CDN serves them, for this pull request merged onto its base and for
+    # that base, so the difference is this pull request's own.
+    cdn-bundle-size:
+        name: CDN-Shaped Bundle Size
+        runs-on: ubuntu-latest
+        timeout-minutes: 20
+        permissions:
+            contents: read
+        steps:
+            - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+              with:
+                  fetch-depth: 2
+                  persist-credentials: false
+
+            - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+              with:
+                  node-version: 24.x
+
+            - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
+              with:
+                  dotnet-version: 8.0.x
+
+            # Both sides build with this pull request's script, which drops any bundle whose build fails.
+            - name: Build this pull request's bundles
+              run: bash scripts/cdn-bundle-size-build.sh
+
+            - name: Build the base's bundles
+              continue-on-error: true
+              run: |
+                  git worktree add --detach "$RUNNER_TEMP/base" HEAD^1
+                  cd "$RUNNER_TEMP/base"
+                  bash "$GITHUB_WORKSPACE/scripts/cdn-bundle-size-build.sh"
+
+            # A side whose measurement fails reads "not measured" and the other side is still reported.
+            - name: Report both after the CDN minifier
+              run: |
+                  BUNDLES="dist/mparticle.js kits/rokt/dist/Rokt-Kit.iife.js"
+                  node scripts/cdn-bundle-size.js measure "$RUNNER_TEMP/head.json" $BUNDLES || rm -f "$RUNNER_TEMP/head.json"
+                  (cd "$RUNNER_TEMP/base" && node "$GITHUB_WORKSPACE/scripts/cdn-bundle-size.js" measure "$RUNNER_TEMP/base.json" $BUNDLES) || rm -f "$RUNNER_TEMP/base.json"
+                  node scripts/cdn-bundle-size.js report "$RUNNER_TEMP/base.json" "$RUNNER_TEMP/head.json" | tee -a "$GITHUB_STEP_SUMMARY"
+
     # Coverage is uploaded separately so instrumentation can't affect the
     # assertions in the test jobs above. Needs a CODECOV_TOKEN secret.
     coverage-core:

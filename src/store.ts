@@ -12,7 +12,7 @@ import Constants from './constants';
 import {
     IQueryParamAllowlist,
     parseQueryParamAllowlist,
-} from './pageViewTracker';
+} from './pageViewAttributes';
 import {
     DataPlanResult,
     KitBlockerOptions,

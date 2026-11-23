@@ -15,6 +15,7 @@ import {
   flushPendingPreselectDispatches,
   findPreselectionConfig,
   findPreselectionConfigByIdentifier,
+  findPreselectionEntryByKey,
   getCallIdentifier,
   getPreselectLookupAttributes,
   getPreselectCacheMatchKeys,
@@ -316,6 +317,35 @@ describe('preselection', () => {
       selectPlacements: (options) => {
         selectPlacementsCalls.push(options);
       },
+      // The members buildPreselectHost always supplies, valued as the module behaves when one is missing.
+      getPreselectVariant: () => undefined,
+      isPreselectionPrivacyAllowed: () => true,
+      isCheckoutIntentActive: () => false,
+      isLinkIntentWithheld: () => false,
+      getCurrentUser: () => null,
+      getCurrentHost: () => host,
+      isTargetingDisabled: () => false,
+      isForwardingAllowed: () => true,
+      isEmailIdentityFiltered: () => false,
+      getUserIdentities: () => ({}),
+      filterAttributes: (attributes) => attributes,
+      getPreselectFills: (attributes, entryKey) => {
+        const entry = host.isPreselectionEnabled() ? findPreselectionEntryByKey(host.accountId, entryKey) : undefined;
+        return entry ? getPreselectAttributeDefaults(host, entry, attributes) : undefined;
+      },
+      // As the kit builds it: identities, then saved attributes under the call's own, filled. The kit filters with its
+      // own filter rather than through the host, so this one passes everything.
+      getOutgoingAttributes: (attributes, entryKey) => {
+        const entry = host.isPreselectionEnabled() ? findPreselectionEntryByKey(host.accountId, entryKey) : undefined;
+        const merged = { ...host.userAttributes, ...attributes };
+        const filled = entryKey
+          ? applyPreselectAttributeDefaults(merged, host.getPreselectFills?.(attributes, entryKey))
+          : merged;
+        return {
+          ...(host.getUserIdentities?.() ?? {}),
+          ...withoutPreselectCartGateAttribute(host.accountId, filled, entry),
+        };
+      },
     };
   });
 
@@ -578,7 +608,7 @@ describe('preselection', () => {
         expect(loggedDiagnostics.map((line) => line.message)).toEqual([
           'Rokt Kit: preselect fired [reason=intent] [identity_types=email] [intent_kind=wallet] [intent_route=before_entry] [intent_source=vendor] [logged_in=true]',
         ]);
-        expect(recordPreselectFired).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, TAP_DIGEST, false);
+        expect(recordPreselectFired).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, TAP_DIGEST, false, null);
         expect(buildActivePreselectFieldKey).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER);
         expect(buildActivePreselectFieldKey).not.toHaveBeenCalledWith(ACCOUNT_ID, PRODUCT_PATH);
         expect(state.pending).toHaveLength(0);
@@ -829,7 +859,7 @@ describe('preselection', () => {
           throw new Error('boom');
         };
         tap('wallet');
-        expect(recordPreselectFired).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, TAP_DIGEST, false);
+        expect(recordPreselectFired).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, TAP_DIGEST, false, null);
         expect(restorePreselectFired).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, undefined, TAP_DIGEST);
         expect(restoreActivePreselect).toHaveBeenCalledWith(FIELD_KEY, null, TAP_DIGEST);
         expect(loggedEvents).toContainEqual(expect.objectContaining({ code: 'PRESELECT_DISPATCH_FAILED' }));
@@ -1461,7 +1491,13 @@ describe('preselection', () => {
         // The entry that fired travels with the call, named by its key.
         expect(selectPlacementsCalls[0][PRESELECT_ENTRY_OPTION]).toBe(TARGET_PAGE_IDENTIFIER);
         // The records stay keyed by the entry's targetPageIdentifier.
-        expect(recordPreselectFired).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, expect.any(Number), false);
+        expect(recordPreselectFired).toHaveBeenCalledWith(
+          ACCOUNT_ID,
+          TARGET_PAGE_IDENTIFIER,
+          expect.any(Number),
+          false,
+          null,
+        );
         // The call it sends is matched back to the entry on its own value.
         expect(
           findPreselectionConfigByIdentifier(
@@ -1688,7 +1724,13 @@ describe('preselection', () => {
         expect(selectPlacementsCalls[0].identifier).toBe(PAID_PAGE);
         expect(selectPlacementsCalls[0][PRESELECT_ENTRY_OPTION]).toBe(TARGET_PAGE_IDENTIFIER);
         expect(readPreselectPaymentPick).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, expect.any(Number));
-        expect(recordPreselectFired).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, expect.any(Number), false);
+        expect(recordPreselectFired).toHaveBeenCalledWith(
+          ACCOUNT_ID,
+          TARGET_PAGE_IDENTIFIER,
+          expect.any(Number),
+          false,
+          'card',
+        );
         expect(findPreselectionConfigByIdentifier(ACCOUNT_ID, PAID_PAGE)).toBe(mockConfig.current[0]);
       });
 
@@ -1921,6 +1963,7 @@ describe('preselection', () => {
           TARGET_PAGE_IDENTIFIER,
           djb2(`${JSON.stringify({ [ATTRIBUTE_KEY]: 'gold' })}|${JSON.stringify([['email', 'shopper@example.test']])}`),
           false,
+          null,
         );
       });
       it('counts a corrected email the entry does not list as changed attributes', () => {
@@ -2051,17 +2094,6 @@ describe('preselection', () => {
         flushPendingPreselectDispatches(state, host);
         expect(selectPlacementsCalls).toHaveLength(0);
         expect(loggedDiagnostics.filter((line) => line.message.includes('no_strict_email'))).toHaveLength(1);
-      });
-      it('reads the identities when the host cannot build the outgoing attributes', () => {
-        host.getOutgoingAttributes = undefined;
-        host.getUserIdentities = undefined;
-        maybeFirePreselect(state, host, buildEvent(), PATHNAME);
-        send('commit');
-        expect(selectPlacementsCalls).toHaveLength(0);
-
-        host.getUserIdentities = () => ({ email: 'shopper@example.test' });
-        flushPendingPreselectDispatches(state, host);
-        expect(selectPlacementsCalls).toHaveLength(1);
       });
       it('counts an email the call carries from the cached user attributes', () => {
         host.getUserIdentities = () => ({});
@@ -2890,7 +2922,7 @@ describe('preselection', () => {
       expect(messages()).toEqual([
         'Rokt Kit: preselect fired [reason=intent] [identity_types=email] [intent_kind=cart] [intent_route=before_entry] [intent_source=label] [logged_in=false]',
       ]);
-      expect(recordPreselectFired).toHaveBeenCalledWith(ACCOUNT_ID, BAG_TARGET, CART_DIGEST, true);
+      expect(recordPreselectFired).toHaveBeenCalledWith(ACCOUNT_ID, BAG_TARGET, CART_DIGEST, true, null);
       expect(buildActivePreselectFieldKey).toHaveBeenCalledWith(ACCOUNT_ID, BAG_TARGET);
       expect(recordPreselectIntent).toHaveBeenCalledWith(ACCOUNT_ID, BAG_TARGET, 'cart', clock);
       expect(state.pending).toHaveLength(0);
@@ -3146,7 +3178,7 @@ describe('preselection', () => {
           preselectBoundUser: { mpid: MPID, requireLogin: true },
         }),
       ]);
-      expect(recordPreselectFired).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, CART_DIGEST, false);
+      expect(recordPreselectFired).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, CART_DIGEST, false, null);
       expect(recordPreselectFired).not.toHaveBeenCalledWith(ACCOUNT_ID, BAG_TARGET, expect.anything(), expect.anything());
       expect(observedLines()).toEqual([]);
     });
@@ -3289,6 +3321,7 @@ describe('preselection', () => {
         BAG_TARGET,
         CART_DIGEST,
         false,
+        null,
       );
       expect(buildActivePreselectFieldKey).toHaveBeenCalledWith(ACCOUNT_ID, BAG_TARGET);
       expect(state.scheduledDispatch).toBeUndefined();
@@ -3710,11 +3743,17 @@ describe('preselection', () => {
       omitUrl: true,
     });
 
-    beforeEach(async () => {
-      const { PRESELECTION_CONFIG } = await vi.importActual<typeof import('../../../src/preselection/preselectionConfig')>(
-        '../../../src/preselection/preselectionConfig',
-      );
-      mockConfig.current = PRESELECTION_CONFIG;
+    beforeEach(() => {
+      mockConfig.current = [
+        {
+          accountId: ENTRY_ACCOUNT_ID,
+          pathname: '/checkout/*/review',
+          targetPageIdentifier: 'ppx-ad-view-prod',
+          attributeKeys: ['email'],
+          optionalAttributeKeys: ['email'],
+          dispatchDelayMs: ENTRY_DELAY_MS,
+        },
+      ];
       host.accountId = ENTRY_ACCOUNT_ID;
       // Signed in, with no email attribute or email identity.
       host.filteredUser = {
@@ -3750,11 +3789,15 @@ describe('preselection', () => {
   describe('checkout registry entry without last name in the match set', () => {
     let configEntry: PreselectionConfigEntry;
 
-    beforeEach(async () => {
-      const { PRESELECTION_CONFIG } = await vi.importActual<typeof import('../../../src/preselection/preselectionConfig')>(
-        '../../../src/preselection/preselectionConfig',
-      );
-      configEntry = PRESELECTION_CONFIG.find((entry) => entry.accountId === '2550745407543340151')!;
+    beforeEach(() => {
+      configEntry = {
+        accountId: '2550745407543340151',
+        pathname: '/checkout',
+        targetPageIdentifier: 'RoktExperience',
+        attributeKeys: ['email', 'firstname', 'customertype', 'loyaltytier', 'paymenttype'],
+        optionalAttributeKeys: ['loyaltytier', 'paymenttype'],
+        dispatchDelayMs: 20000,
+      };
       mockConfig.current = [configEntry];
       host.accountId = configEntry.accountId;
       host.userAttributes = { email: 'test@example.com', firstname: 'Ana', customertype: 'guest' };
@@ -5163,7 +5206,7 @@ describe('preselection', () => {
             });
             maybeFirePreselect(state, host, buildEvent(), PATHNAME);
             vi.advanceTimersByTime(DELAY_MS);
-            host.getCurrentHost = undefined;
+            host.getCurrentHost = () => host;
           });
 
           it('replays for the same user once they are identified again', () => {
@@ -5712,12 +5755,6 @@ describe('preselection', () => {
             '[identity_reason=kit_user_lacks_identities]',
             '[current_identity_types=customerid,email] [mpid_match=true]',
           ],
-        },
-        {
-          label: 'the current user cannot be read',
-          filteredUser: buildUser(MPID),
-          getCurrentUser: undefined,
-          fragments: ['[identity_reason=no_identities]', '[mpid_match=unknown]'],
         },
       ])('reports the identity detail when $label', ({ filteredUser, getCurrentUser, fragments }) => {
         host.filteredUser = filteredUser;
@@ -6344,7 +6381,13 @@ describe('preselection', () => {
         maybeFirePreselect(state, host, buildEvent(), PATHNAME);
 
         expect(recordPreselectTrigger).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, true);
-        expect(recordPreselectFired).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, expect.any(Number), false);
+        expect(recordPreselectFired).toHaveBeenCalledWith(
+          ACCOUNT_ID,
+          TARGET_PAGE_IDENTIFIER,
+          expect.any(Number),
+          false,
+          null,
+        );
       });
 
       it('records an anonymous trigger without marking a fire', () => {
@@ -6861,7 +6904,7 @@ describe('preselection', () => {
             ['the family of a payment frame', { family: 'google_pay' }, 'google_pay'],
           ])('records %s for each target page', (_, fields, family) => {
             const signal = pick(fields);
-            handlePreselectPaymentPick(host, signal);
+            handlePreselectPaymentPick(state, host, signal);
 
             expect(recordPreselectPaymentPick).toHaveBeenCalledWith(
               ACCOUNT_ID,
@@ -6877,7 +6920,7 @@ describe('preselection', () => {
             ['a timestamp later than Date.now()', () => Date.now() + 1_000],
           ])('falls back to Date.now() when the signal carries %s', (_, timestamp) => {
             const resolved = typeof timestamp === 'function' ? timestamp() : timestamp;
-            handlePreselectPaymentPick(host, {
+            handlePreselectPaymentPick(state, host, {
               t: resolved as number,
               pathname: PATHNAME,
               family: 'paypal',
@@ -6896,7 +6939,7 @@ describe('preselection', () => {
             ['a balance', { names: ['gift card'] }],
             ['an unknown family', { family: 'bitcoin' }],
           ])('records nothing for %s', (_, fields) => {
-            handlePreselectPaymentPick(host, pick(fields));
+            handlePreselectPaymentPick(state, host, pick(fields));
 
             expect(recordPreselectPaymentPick).not.toHaveBeenCalled();
           });
@@ -6911,7 +6954,7 @@ describe('preselection', () => {
           ])('records nothing while %s', (_, gate) => {
             gate();
 
-            handlePreselectPaymentPick(host, pick({ family: 'paypal' }));
+            handlePreselectPaymentPick(state, host, pick({ family: 'paypal' }));
 
             expect(recordPreselectPaymentPick).not.toHaveBeenCalled();
           });
@@ -6919,7 +6962,7 @@ describe('preselection', () => {
           it('records nothing for an account with no pre-selection entries', () => {
             mockConfig.current = [];
 
-            handlePreselectPaymentPick(host, pick({ family: 'paypal' }));
+            handlePreselectPaymentPick(state, host, pick({ family: 'paypal' }));
 
             expect(recordPreselectPaymentPick).not.toHaveBeenCalled();
           });
@@ -8447,8 +8490,11 @@ describe('preselection', () => {
   });
 
   describe('hasPartnerEmail', () => {
-    const hostWith = (userAttributes: Record<string, unknown>, mappedEmailSha256Key?: string): PreselectHost =>
-      ({ userAttributes, mappedEmailSha256Key }) as unknown as PreselectHost;
+    const hostWith = (userAttributes: Record<string, unknown>, mappedEmailSha256Key?: string): PreselectHost => ({
+      ...host,
+      userAttributes,
+      mappedEmailSha256Key,
+    });
 
     it.each([{ emailEnc: 'encrypted-email' }, { EMAILENC: 'encrypted-email' }, { emailsha256enc: 'encrypted-hash' }])(
       'counts an encrypted email the partner sent in %o, so the form never stands in',
@@ -8680,7 +8726,13 @@ describe('preselection', () => {
       };
       addInput('guest@example.com');
       maybeFirePreselect(state, host, buildEvent(), PATHNAME);
-      expect(recordPreselectFired).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, expect.any(Number), false);
+      expect(recordPreselectFired).toHaveBeenCalledWith(
+        ACCOUNT_ID,
+        TARGET_PAGE_IDENTIFIER,
+        expect.any(Number),
+        false,
+        null,
+      );
       expect(restorePreselectFired).toHaveBeenCalledWith(ACCOUNT_ID, TARGET_PAGE_IDENTIFIER, undefined, expect.any(Number));
       expect(restoreActivePreselect).toHaveBeenCalledWith(FIELD_KEY, null, expect.any(Number));
     });
@@ -9061,10 +9113,6 @@ describe('preselection', () => {
         {
           label: 'after the user opts out or consent drops the kit',
           setup: () => (host.isForwardingAllowed = () => false),
-        },
-        {
-          label: 'when the host cannot say whether forwarding is allowed',
-          setup: () => (host.isForwardingAllowed = undefined),
         },
         {
           label: 'under do-not-share-or-sell or Global Privacy Control',
@@ -9732,7 +9780,6 @@ describe('preselection', () => {
 
     it.each([
       { label: 'after the user opts out or consent drops the kit', allowed: () => false },
-      { label: 'when the host cannot say', allowed: undefined },
     ])('never reads the form $label, including from a running hold', ({ allowed }) => {
       mockConfig.current = [{ ...EMAIL_ENTRY, dispatchDelayMs: 1000 }];
       host.filteredUser = {
@@ -9913,7 +9960,6 @@ describe('preselection', () => {
           label: 'after the user opts out or consent drops the kit',
           setup: () => (host.isForwardingAllowed = () => false),
         },
-        { label: 'when the host cannot say', setup: () => (host.isForwardingAllowed = undefined) },
       ])('is privacy_blocked $label', ({ setup }) => {
         setup();
         addInput('guest@example.com');

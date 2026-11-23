@@ -26,7 +26,7 @@ import {
     autoPageViewAttribute,
     IPageViewOptions,
     paramsToAttributes,
-} from './pageViewTracker';
+} from './pageViewAttributes';
 
 interface DOMHandlerElement extends HTMLElement {
     href?: string;

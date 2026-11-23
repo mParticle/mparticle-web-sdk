@@ -489,10 +489,12 @@ from** dropdown and run its workflows in order:
    visible on npm, publishes all packages in `kits/publish-matrix.json`
    concurrently with a bounded worker pool, and runs `auditRemotePackages` at
    the end of `publish-kits.js`, reusing the tarballs it already packed.
-   A package npm has not confirmed within five minutes warns in the log and step
-   summary, without failing **Publish V3 kits** (`publish-kits`). A different
-   artifact or a conflicting dist-tag still fails before `advance-staging`
-   moves `v3-staging` (with no extra `npm pack` and no extra workflow job).
+   On release tags that include `c28064ee`, a package npm has not confirmed
+   within five minutes warns in the log and step summary, without failing
+   **Publish V3 kits** (`publish-kits`). Tags with the integrated audit but
+   without `c28064ee`, including `v3.34.3`, fail on an unconfirmed package.
+   A different artifact or a conflicting dist-tag fails in either case,
+   before `advance-staging` moves `v3-staging`.
    In **V3 Release - Step 1**, npm is then checked a second
    time by the release gate in **Upload and stage V3 candidate** described below:
    `check-release-parity.ts` compares every package's `dist.integrity` with the
@@ -523,17 +525,17 @@ from** dropdown and run its workflows in order:
    in tag mode (Release Please, dispatched from `v3.X.Y`), use **Re-run failed
    jobs** on the original **V3 Release - Step 1** run (which keeps the original
    packaged candidate and its `${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}` build
-   ID; never start a fresh Step 1 run or use **Re-run all jobs**), or if kits
-   and `v3-staging` already succeeded and only candidate upload or stage
-   failed, dispatch **V3 shadow release: upload candidate**
+   ID). Do not use **Re-run all jobs**. For the one exception that calls for
+   a fresh Step 1 run, see [When a kit never reaches npm](#when-a-kit-never-reaches-npm).
+   If kits and `v3-staging` already succeeded and only candidate upload or
+   stage failed, dispatch **V3 shadow release: upload candidate**
    (`v3-shadow-candidate.yml`) on `main` with `step1_run_id` set to the
    original Step 1 run ID, `release_gate=true`, and `release_tag` set to the
    release tag (`v3.X.Y`). In branch mode (dispatched from `v3-staging` before
    Release Please), rerun **V3 Release - Step 1** from `v3-staging` with
    `dryRun=false` and `resumeKitReleaseTag` set to the exact Step 1 tag.
    Branch-mode recovery validates that immutable tag, resumes kits without
-   republishing core, and runs the same integrated npm audit at the end of
-   `publish-kits.js`: unconfirmed packages warn and mismatches fail. A green
+   republishing core, and runs the integrated npm audit from that tag. A green
    publish or recovery job alone is not proof that the candidate can stage.
    Because a branch-mode `resumeKitReleaseTag` recovery run
    skips Perform Release, Package and Upload, once it finishes green dispatch
@@ -565,6 +567,19 @@ from** dropdown and run its workflows in order:
    `v3-development` is retired. `dryRun=true` performs all validation without
    pushing. `dryRun=false` performs the atomic push and releases the candidate
    to those destinations.
+   When the repository variable `V3_RELEASE_ORDER_BRANCHES_RETIRED` is also
+   `true`, the three `v3-release-order-*` git branches are retired: V3 Step 3
+   makes the same checks and pushes no branch, and V3 Step 2 stops at its first
+   step. Every V3 channel is served from its S3 pointer, so the S3 promote that
+   follows Step 3 still moves all release-order channels and `ga`; it then
+   checks that `v3-staging` is still at the tag in place of the three branches.
+   To move one release-order channel, run `promote-release-order` by hand (see
+   **Undo a rollback or replace a build**). The variable needs
+   `V3_RELEASE_PLEASE_ENABLED` to be `true`; without it Step 3 fails before any
+   push. Like `V3_RELEASE_PLEASE_ENABLED`, don't change it while a Step 3 run or
+   its S3 promote is in progress. Setting it back to `false` restores the
+   branch pushes on the next Step 3 run, as long as the three branches still
+   exist and can fast-forward to the tag.
 
 Safe sequence: run Step 1 with `dryRun=true`, then Step 1 with `dryRun=false`;
 copy its release tag; optionally preview and run Step 2 for each needed
@@ -640,39 +655,46 @@ candidates.
 ### Recover an incomplete v3 kit publication
 
 A real v3 Step 1 run can publish core and create the GitHub Release before all
-33 kits finish. If the kit job fails:
+33 kits finish. If the kit job fails or reports an unconfirmed package:
 
 1. Do not start a newer release or run Step 2 or Step 3.
-2. Copy the exact release tag from the failed Step 1 run.
-3. Use the failed job and its npm kit publish summary to identify any
-   missing or rejected kits. Correct their npm or trusted-publisher configuration.
+2. Copy the exact release tag from the original Step 1 run.
+3. Use the npm kit publish summary to identify missing or rejected kits.
+   Correct their npm or trusted-publisher configuration.
 4. For a Release Please release (dispatched from a `v3.X.Y` tag), use
    **Re-run failed jobs** on the original **V3 Release - Step 1** run (which
    keeps the successful package job and its
-   `${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}` build ID; never start a fresh Step
-   1 run or use **Re-run all jobs**), and skip the rest of this step.
-   Otherwise, dispatch **V3 Release - Step 1** from `v3-staging` with `dryRun=false`
-   and `resumeKitReleaseTag` set to the failed run's exact tag.
+   `${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}` build ID). Do not use **Re-run all
+   jobs**. If **Publish V3 kits** passed but a package never reached npm,
+   follow the [same-tag dispatch exception](#when-a-kit-never-reaches-npm)
+   before any pod has staged. In branch mode, dispatch **V3 Release - Step 1**
+   from `v3-staging` with `dryRun=false` and `resumeKitReleaseTag` set to the
+   original run's exact tag.
 5. Wait for recovery to publish any missing kits (existing byte-identical
    packages are skipped) and for `publish-kits.js` to check core and all 33 kits
-   at that version on `next`. Unconfirmed packages warn in the log and step
-   summary; mismatched artifacts or conflicting dist-tags fail. Follow up on
-   warned tags as described above; the staging gate checks integrity, not tags.
-6. For a Release Please release, **Re-run failed jobs** on the original Step 1
-   run re-runs `advance-staging` and `upload-v3-candidate` using the original
+   at that version on `next`. Recovery runs the script from the immutable
+   release tag. On tags with the integrated audit but without `c28064ee`,
+   including `v3.34.3`, a package still unconfirmed after five minutes fails
+   **Publish V3 kits**. On tags with the change, it warns instead.
+   Mismatched artifacts or conflicting dist-tags fail in both cases.
+   Follow up on warned tags as
+   described above: the staging gate checks integrity, not tags.
+6. If recovering the original Release Please run, **Re-run failed jobs** can
+   re-run `advance-staging` and `upload-v3-candidate` using the original
    run's packaged candidate (or, if `v3-staging` already moved and only
    candidate upload or stage failed, dispatch **V3 shadow release: upload
    candidate** (`v3-shadow-candidate.yml`) on `main` with `step1_run_id` set to
    the original Step 1 run's ID, `release_gate=true`, and `release_tag` set to
    the release tag `v3.X.Y` within the candidate's 7-day retention window).
-   Otherwise, if the failed run was **V3 Release - Step 1** from `v3-staging`,
-   it did not upload or stage its candidate because `resumeKitReleaseTag` skips
-   packaging and upload: dispatch **V3 shadow release: upload candidate**
+   For a fresh same-tag dispatch, wait for **Upload and stage V3 candidate**
+   on the new Step 1 run. Do not reuse the original run ID or artifact.
+   In branch mode, the `resumeKitReleaseTag` recovery run skips packaging and
+   upload. Dispatch **V3 shadow release: upload candidate**
    (`v3-shadow-candidate.yml`) on `main` with `step1_run_id` set to the
-   original failed Step 1 run's ID and `release_gate=true`, within the
-   candidate's 7 days.
-7. Continue to Step 2 or Step 3 only after the recovery run and the candidate
-   upload are green.
+   original Step 1 run's ID and `release_gate=true`, within the candidate's
+   7 days.
+7. Continue to Step 2 or Step 3 only after recovery, candidate upload and
+   staging have passed.
 
 In tag mode, `v3-staging` moves to the release tag before the S3 upload and
 stage runs. If `v3-staging` moves and the S3 upload or stage then fails,
@@ -696,6 +718,33 @@ continues; the check fails only when `release_tag` is provided and differs from
 `release_tag` input declaration on `v3-shadow-candidate.yml` so Step 1 runs
 from newer tags that send `inputs[release_tag]` can still dispatch the workflow
 without GitHub rejecting `release_tag` as an unexpected input.
+
+In tag mode, `advance-staging` waits for **Confirm v3 staging release state**,
+**Perform Release**, **Package V3 candidate (shadow)** and **Publish V3 kits**.
+It does not wait for the npm gate in **Upload and stage V3 candidate**. If npm
+still does not show a package after the gate's 10-minute retry window and final
+check, `v3-staging` is already at the release tag, but the candidate is not
+uploaded or staged.
+Once `npm view` shows every package at the release version, use **Re-run failed
+jobs** on the original Step 1 run within the candidate's 7-day artifact window.
+The gate runs again with the same build ID.
+
+#### When a kit never reaches npm
+
+If **Publish V3 kits** passed with a warning, **Re-run failed jobs** can retry
+the gate but cannot publish a missing kit. Correct the package's npm or
+trusted-publisher setup first. Confirm that the original candidate workflow
+is not running and that no pod has staged this release.
+
+In tag mode, dispatch **V3 Release - Step 1** again from the same `v3.X.Y` tag
+with `dryRun=false`. A tag run refuses `resumeKitReleaseTag`. Step 1 refuses
+`v3-staging` while `V3_RELEASE_PLEASE_ENABLED` is `true`. If the same-tag npm
+preflight passes, the new run skips byte-identical packages, publishes missing
+kits, and packages, gates and stages a new build ID. If preflight fails, stop
+and reconcile the reported npm tags before retrying. If any pod has staged the
+release, do not dispatch Step 1 again.
+
+#### When the tagged core version is missing
 
 If recovery reports that the tagged core version is missing from npm, stop the
 kit recovery. Semantic-release may have pushed the generated staging commit and

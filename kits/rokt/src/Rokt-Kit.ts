@@ -1382,7 +1382,7 @@ class RoktKit implements KitInterface {
     this.onPaymentPick = hasPreselectionConfigForAccount(this.accountId)
       ? (signal: PreselectPaymentPickSignal): void => {
           try {
-            handlePreselectPaymentPick(this.buildPreselectHost(), signal);
+            handlePreselectPaymentPick(this._preselectState, this.buildPreselectHost(), signal);
           } catch {
             return;
           }
@@ -2315,6 +2315,18 @@ class RoktKit implements KitInterface {
     return carried.every(([value, held]) => isString(value) && value === held);
   }
 
+  // Reports why a pre-selection call was dropped and undoes the records its fire wrote: a dropped call is not the
+  // checkout's pre-selection, so it must not hold off the next fire.
+  private dropPreselect(
+    rollback: (() => void) | undefined,
+    reason: string,
+    details?: Parameters<typeof buildPreselectDiagnosticLogEntry>[2],
+  ): undefined {
+    this.loggingService?.logPlacementDiagnostic(buildPreselectDiagnosticLogEntry('missed', reason, details));
+    rollback?.();
+    return undefined;
+  }
+
   private _dispatchPlacements(
     options: Record<string, unknown>,
     callTimeUser?: CallTimeUser,
@@ -2340,11 +2352,7 @@ class RoktKit implements KitInterface {
     // or a launcher recreation, so the value is read again here under the filter in force now, and a call whose value it
     // removes goes out as nothing and undoes its records, as the fire does when the filter removes it at the trigger.
     if (options.preselect === true && !this.isPreselectTargetAllowed(firedEntryOption, options)) {
-      this.loggingService?.logPlacementDiagnostic(
-        buildPreselectDiagnosticLogEntry('missed', 'no_target_page_identifier', { cause: 'filtered' }),
-      );
-      rollback?.();
-      return undefined;
+      return this.dropPreselect(rollback, 'no_target_page_identifier', { cause: 'filtered' });
     }
     // An off-entry tap goes out only while the user it fired for is still the kit's user, and still logged in when
     // the fire needed that, so a logout or user switch during the wait never sends one user's attributes as another's.
@@ -2352,11 +2360,7 @@ class RoktKit implements KitInterface {
       const bound = isObject(boundUserOption) ? boundUserOption : {};
       const requireLogin = bound.requireLogin !== false;
       if (!this.isStillCurrentUser(String(bound.mpid ?? ''), requireLogin)) {
-        this.loggingService?.logPlacementDiagnostic(
-          buildPreselectDiagnosticLogEntry('missed', requireLogin ? 'logged_in_dropped' : 'user_changed_dropped'),
-        );
-        rollback?.();
-        return undefined;
+        return this.dropPreselect(rollback, requireLogin ? 'logged_in_dropped' : 'user_changed_dropped');
       }
     }
     // The same rule holds for any call that waited: a logout or user switch during the wait would send, and log, the
@@ -2371,15 +2375,12 @@ class RoktKit implements KitInterface {
       !this.mayGoOutForNewUser(callTimeUser, isObject(options.attributes) ? options.attributes : {})
     ) {
       if (options.preselect === true) {
-        this.loggingService?.logPlacementDiagnostic(
-          buildPreselectDiagnosticLogEntry('missed', callTimeUser.loggedIn ? 'logged_in_dropped' : 'user_changed_dropped'),
-        );
-      } else {
-        this.loggingService?.log({
-          message: 'Rokt Kit: Dropped a selectPlacements call whose user changed while it waited',
-          code: 'SELECT_PLACEMENTS_USER_CHANGED',
-        });
+        return this.dropPreselect(rollback, callTimeUser.loggedIn ? 'logged_in_dropped' : 'user_changed_dropped');
       }
+      this.loggingService?.log({
+        message: 'Rokt Kit: Dropped a selectPlacements call whose user changed while it waited',
+        code: 'SELECT_PLACEMENTS_USER_CHANGED',
+      });
       rollback?.();
       return undefined;
     }
@@ -2388,12 +2389,7 @@ class RoktKit implements KitInterface {
     if (formEmailKey) {
       const dropCause = this.getFormEmailDropCause(formEmailKey, formEmail!.mpid);
       if (dropCause) {
-        this.loggingService?.logPlacementDiagnostic(
-          buildPreselectDiagnosticLogEntry('missed', 'form_email_dropped', { cause: dropCause }),
-        );
-        // The dropped call is not the checkout's pre-selection, so it must not hold off the next fire.
-        rollback?.();
-        return undefined;
+        return this.dropPreselect(rollback, 'form_email_dropped', { cause: dropCause });
       }
     }
     const attributes = (options.attributes as Record<string, unknown>) || {};
@@ -2499,11 +2495,7 @@ class RoktKit implements KitInterface {
       (trigger.indexOf('intent_') === 0 || trigger.indexOf('pageview_cart|') === 0) &&
       !hasPreselectEmail(selectPlacementsAttributes, this._mappedEmailSha256Key)
     ) {
-      this.loggingService?.logPlacementDiagnostic(
-        buildPreselectDiagnosticLogEntry('missed', 'no_strict_email', { cause: 'lost_before_dispatch' }),
-      );
-      rollback?.();
-      return undefined;
+      return this.dropPreselect(rollback, 'no_strict_email', { cause: 'lost_before_dispatch' });
     }
 
     const cacheIdentityKeys = getPreselectCacheIdentityKeys(
@@ -2512,7 +2504,11 @@ class RoktKit implements KitInterface {
       selectPlacementsAttributes,
     );
     const cacheMatchValues = getPreselectCacheMatchValues(cacheConfigEntry, preselectFills, selectPlacementsAttributes);
-    const cacheMatchTokens = getPreselectCacheMatchTokens(cacheConfigEntry, selectPlacementsAttributes);
+    const cacheMatchTokens = getPreselectCacheMatchTokens(
+      cacheConfigEntry,
+      selectPlacementsAttributes,
+      options.preselect !== true,
+    );
     // Only the kit writes the marker: a copy from the page, the user attributes or a session attribute never goes out.
     delete selectPlacementsAttributes[PRESELECT_DEFAULTED_ATTRIBUTE];
     const defaultedMarker = getPreselectDefaultedMarker(preselectFills, selectPlacementsAttributes);

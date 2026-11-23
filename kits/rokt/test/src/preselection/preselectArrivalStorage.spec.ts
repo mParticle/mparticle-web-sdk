@@ -9,6 +9,7 @@ import {
   restorePreselectFired,
   markPreselectArrival,
   recordPreselectFired,
+  readPreselectPaymentAtFire,
   recordPreselectIntent,
   recordPreselectNearMiss,
   recordPreselectPaymentPick,
@@ -355,6 +356,27 @@ describe('preselectArrivalStorage', () => {
         paymentPick: 'apple_pay',
         paymentAtFire: 'card',
       });
+    });
+
+    it.each([
+      ['the pick it names', 'card', 'card'],
+      ['no pick for null', null, undefined],
+    ] as const)('records %s when the fire says which pick its call used', (_, used, expected) => {
+      recordPreselectPaymentPick('1', 'confirmation', 'apple_pay', 900);
+      recordPreselectFired('1', 'confirmation', 7, false, used);
+
+      expect(readPreselectPaymentAtFire('1', 'confirmation')).toBe(expected);
+      expect(markPreselectArrival('1', 'confirmation')).toMatchObject({ paymentPick: 'apple_pay' });
+    });
+
+    it('reads no pick at fire once the fire is past the window or the shopper arrived', () => {
+      recordPreselectFired('1', 'confirmation', 7, false, 'card');
+      vi.setSystemTime(1_000 + INTENT_ARRIVAL_WINDOW_MS);
+      expect(readPreselectPaymentAtFire('1', 'confirmation')).toBeUndefined();
+
+      vi.setSystemTime(1_000);
+      markPreselectArrival('1', 'confirmation');
+      expect(readPreselectPaymentAtFire('1', 'confirmation')).toBeUndefined();
     });
 
     it('fires with no pick when the last one is older than the window', () => {
