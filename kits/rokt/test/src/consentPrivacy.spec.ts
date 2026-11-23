@@ -623,6 +623,29 @@ describe('Rokt consent privacy mapping', () => {
       expect(setPrivacyControl).toHaveBeenCalledTimes(2);
     });
 
+    it('retries a launcher setter that failed while lifting the last restriction', () => {
+      initKit({ consentMappingSDK: mappingSetting });
+      let failing = false;
+      const setPrivacyControl = vi.fn(() => {
+        if (failing) throw new Error('launcher is being torn down');
+      });
+      kit.launcher = { ...launcher, setPrivacyControl };
+      consent.targeted_advertising = { Consented: false };
+      kit.refreshConsentPrivacy();
+      expect(setPrivacyControl).toHaveBeenCalledTimes(1);
+
+      failing = true;
+      consent.targeted_advertising = { Consented: true };
+      kit.refreshConsentPrivacy();
+      expect(setPrivacyControl).toHaveBeenCalledTimes(2);
+
+      failing = false;
+      kit.refreshConsentPrivacy();
+      expect(setPrivacyControl).toHaveBeenCalledTimes(3);
+      kit.refreshConsentPrivacy();
+      expect(setPrivacyControl).toHaveBeenCalledTimes(3);
+    });
+
     it('disables kit storage even when the $NoTargeting sync throws', () => {
       initKit({ consentMappingSDK: mappingSetting });
       manager.syncNoTargetingAttribute.mockImplementation(() => {

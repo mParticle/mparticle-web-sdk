@@ -998,6 +998,7 @@ class RoktKit implements KitInterface {
   private _effectivePrivacyFlags: PrivacyFlags | null = null;
   private _noTargetingSyncedMpid: string | null | undefined;
   private _privacyControlLauncher: RoktLauncher | null = null;
+  private _privacyControlUnsent = false;
   private _isRefreshingConsentPrivacy = false;
   private _hasDerivedPrivacyFlags = false;
   // The launcher being created was given restricting flags that may have lifted before it attached.
@@ -1676,7 +1677,7 @@ class RoktKit implements KitInterface {
     const isCreatedLauncherAttached = !!this.launcher && this.launcher !== this._launcherBeforeCreation;
     const isAttachedLauncherStale =
       this._isLauncherCreatedRestricted && isCreatedLauncherAttached && this._privacyControlLauncher !== this.launcher;
-    if (!isRestricted && !this._effectivePrivacyFlags && !isAttachedLauncherStale) return;
+    if (!isRestricted && !this._effectivePrivacyFlags && !isAttachedLauncherStale && !this._privacyControlUnsent) return;
     this._effectivePrivacyFlags = isRestricted ? flags : null;
     // Init applies storage, launcher options and exit intent from these flags itself. Writing $NoTargeting from
     // init would re-enter init through core's forwarder initialization; core syncs it after identify instead.
@@ -1738,7 +1739,10 @@ class RoktKit implements KitInterface {
       return;
     }
     const onFailure = (error: unknown): void => {
-      if (this._privacyControlLauncher === launcher) this._privacyControlLauncher = null;
+      if (this._privacyControlLauncher === launcher) {
+        this._privacyControlLauncher = null;
+        this._privacyControlUnsent = true;
+      }
       this.warnConsentPrivacyOnce(
         'launcher_setter_failed',
         `Rokt Kit: setPrivacyControl failed: ${error instanceof Error ? error.message : String(error)}`,
@@ -1747,6 +1751,7 @@ class RoktKit implements KitInterface {
     try {
       const result = launcher.setPrivacyControl(flags);
       this._privacyControlLauncher = launcher;
+      this._privacyControlUnsent = false;
       void Promise.resolve(result).catch(onFailure);
     } catch (error) {
       onFailure(error);
