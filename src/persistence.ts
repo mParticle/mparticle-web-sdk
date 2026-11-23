@@ -446,7 +446,17 @@ export default function _Persistence(
                     '=' +
                     createFullEncodedCookie(record, expires, domain)
             );
-            if (self.getCookie()) {
+            // A rejected cookie write is silent, so only a read-back that
+            // matches what was written counts as stored.
+            const stored = self.getCookie() as Dictionary | null;
+            const isStored =
+                !!stored &&
+                Object.keys(record).every(
+                    field =>
+                        JSON.stringify(stored[field]) ===
+                        JSON.stringify((record as Dictionary)[field])
+                );
+            if (isStored) {
                 writtenPrivacyChoices = serialized;
             }
         } catch (e) {
