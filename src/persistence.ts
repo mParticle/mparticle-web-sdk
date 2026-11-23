@@ -433,7 +433,11 @@ export default function _Persistence(
             }
             if (!hasChoices) {
                 self.expireCookies(key);
-                writtenPrivacyChoices = serialized;
+                // A refused expiry is silent too, so only a confirmed removal
+                // counts as stored.
+                if (!self.getCookie()) {
+                    writtenPrivacyChoices = serialized;
+                }
                 return;
             }
             const expires = new Date(

@@ -957,6 +957,25 @@ describe('mid-page noFunctional changes', () => {
         ).toBe(false);
     });
 
+    it('retries removing the retained privacy cookie when the browser silently refused it', async () => {
+        const instance = init({ useCookieStorage: true });
+        await settle();
+        const sdk = mParticle.getInstance(instanceName);
+        const user = sdk.Identity.getCurrentUser();
+        user.setConsentState(declineMarketing(sdk, false));
+        consent(instance).replaceDerivedFlags({ noFunctional: true });
+        expect(instance._Persistence.getCookie()).not.toBeNull();
+
+        const rejectCookies = jest
+            .spyOn(document, 'cookie', 'set')
+            .mockImplementation(() => undefined);
+        user.setConsentState(null);
+        rejectCookies.mockRestore();
+        sdk.logEvent('after cookies recover');
+
+        expect(instance._Persistence.getCookie()).toBeNull();
+    });
+
     it('switches storage back on when noFunctional is lifted', async () => {
         const instance = init();
         await settle();
