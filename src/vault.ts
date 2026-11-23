@@ -110,10 +110,18 @@ export class SessionStorageVault<StorableItem> extends BaseVault<StorableItem> {
 
 // DisabledVault is used when persistence is disabled by privacy flags.
 export class DisabledVault<StorableItem> extends BaseVault<StorableItem> {
-    constructor(storageKey: string) {
-        super(storageKey, window.localStorage);
+    constructor(storageKey: string);
+    /**
+     * @internal removeStored false creates the vault without touching
+     * storage, leaving removal of the stored item to the caller.
+     */
+    constructor(storageKey: string, removeStored: boolean);
+    constructor(storageKey: string, removeStored: boolean = true) {
+        super(storageKey, removeStored ? window.localStorage : null);
         this.contents = null;
-        this.storageObject.removeItem(this._storageKey);
+        if (removeStored) {
+            this.storageObject.removeItem(this._storageKey);
+        }
     }
 
     public store(_item: StorableItem): StorageResult {

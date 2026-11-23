@@ -8,10 +8,29 @@ export default class ForegroundTimeTracker {
     public startTime: number = 0;
     public totalTime: number = 0;
 
-    constructor(timerKey: string, private noFunctional: boolean = false) {
+    // noFunctional is the initialization restriction and always applies.
+    // isNoFunctional reads the live privacy flags: it stops writes only while
+    // a page or derived restriction holds, and skips loading stored time if
+    // one holds when the tracker is created.
+    /** @internal */
+    private isNoFunctional: () => boolean;
+
+    constructor(timerKey: string, noFunctional?: boolean);
+    /** @internal */
+    constructor(
+        timerKey: string,
+        noFunctional: boolean,
+        isNoFunctional: () => boolean
+    );
+    constructor(
+        timerKey: string,
+        private noFunctional: boolean = false,
+        isNoFunctional: () => boolean = () => false
+    ) {
+        this.isNoFunctional = isNoFunctional;
         this.localStorageName = `mprtcl-tos-${timerKey}`;
         this.timerVault = new LocalStorageVault<number>(this.localStorageName);
-        if (!this.noFunctional) {
+        if (!this.noFunctional && !this.isNoFunctional()) {
             this.loadTimeFromStorage();
         }
         this.addHandlers();
@@ -65,9 +84,18 @@ export default class ForegroundTimeTracker {
     }
 
     public updateTimeInPersistence(): void {
-        if (this.isTrackerActive && !this.noFunctional) {
+        if (
+            this.isTrackerActive &&
+            !this.noFunctional &&
+            !this.isNoFunctional()
+        ) {
             this.timerVault.store(Math.round(this.totalTime));
         }
+    }
+
+    /** @internal Removes stored time when functional storage is switched off. */
+    public clearStoredTime(): void {
+        this.timerVault.purge();
     }
 
     private loadTimeFromStorage(): void {

@@ -5,6 +5,10 @@ import { IMParticleWebSDKInstance } from './mp-instance';
 import { IPersistence, IPersistenceMinified } from './persistence.interfaces';
 import { MPID } from '@mparticle/web-sdk';
 import { CookieSyncDates } from './cookieSyncManager';
+import {
+    isStoredRecordPurged,
+    restoreStoredRecord,
+} from './privacyTransitions';
 import { Dictionary, isObject, generateUniqueId } from './utils';
 import { IMParticleInstanceManager } from './sdkRuntimeModels';
 
@@ -284,14 +288,79 @@ export default function _Persistence(
         }
     };
 
+    // The retained privacy choices last written, so a blocked write rewrites
+    // them only when a consent change or user switch changed them.
+    let writtenPrivacyChoices: string | null = null;
+
+    // Blocks mprtcl-v4 writes while noFunctional is true. Once the stored
+    // record holds only the privacy choices, each blocked write refreshes
+    // them from memory, so a later consent change or user switch is kept.
+    // After the restriction is lifted, a write first retries putting the
+    // full record back if that has not succeeded yet.
+    function isWriteBlocked(): boolean {
+        const purged = isStoredRecordPurged(mpInstance);
+        if (!mpInstance._CookieConsentManager?.getNoFunctional()) {
+            if (purged) {
+                restoreStoredRecord(mpInstance);
+            }
+            return false;
+        }
+        if (
+            purged &&
+            JSON.stringify(buildPrivacyChoices()) !== writtenPrivacyChoices
+        ) {
+            self.storePrivacyChoices();
+        }
+        return true;
+    }
+
+    // Only the decisions are kept: the optional document, location and
+    // hardware id fields of each consent are left out.
+    function minimizeConsent(consentState: Dictionary): Dictionary {
+        const minimized: Dictionary = {};
+        for (const regulation in consentState) {
+            if (!isObject(consentState[regulation])) {
+                continue;
+            }
+            minimized[regulation] = {};
+            for (const purpose in consentState[regulation]) {
+                const consent = consentState[regulation][purpose] || {};
+                minimized[regulation][purpose] = { c: consent.c, ts: consent.ts };
+            }
+        }
+        return minimized;
+    }
+
+    function buildPrivacyChoices(): IPersistenceMinified | null {
+        const store = mpInstance._Store;
+        const record = { gs: {} } as IPersistenceMinified;
+        const mpid = store.mpid;
+        const userRecord = mpid && store.persistenceData[mpid];
+        const consentState = userRecord && userRecord.con;
+        if (store.isEnabled === false) {
+            record.gs.ie = false;
+        }
+        if (consentState) {
+            record.cu = mpid;
+            (record as Dictionary)[mpid] = {
+                con: minimizeConsent(consentState),
+            };
+            // Identify resolves an anonymous user by device ID, so the next
+            // page must reuse it to stay on the user whose consent is kept.
+            if (store.deviceId) {
+                record.gs.das = store.deviceId;
+            }
+        }
+        return consentState || store.isEnabled === false ? record : null;
+    }
+
     // https://go.mparticle.com/work/SQDSDKS-6021
     this.setLocalStorage = function(): void {
         if (!mpInstance._Store.isLocalStorageAvailable) {
             return;
         }
 
-        // Block mprtcl-v4 localStorage when noFunctional is true
-        if (mpInstance._CookieConsentManager?.getNoFunctional()) {
+        if (isWriteBlocked()) {
             return;
         }
 
@@ -335,6 +404,72 @@ export default function _Persistence(
                     'Error with setting localStorage item.'
                 );
             }
+        }
+    };
+
+    // Writes a record holding only the privacy choices: the logging opt-out
+    // (gs.ie = false) and the current user's consent state. It is used after
+    // functional data is removed so that both are still honoured on the next
+    // page load. It carries no other identity or session data.
+    this.storePrivacyChoices = function(): void {
+        const key = mpInstance._Store.storageName;
+        const record = buildPrivacyChoices();
+        const hasChoices = !!record;
+        const serialized = JSON.stringify(record);
+        // Only a confirmed write is cached, so a failed one is retried.
+        writtenPrivacyChoices = null;
+        try {
+            if (self.useLocalStorage()) {
+                if (!hasChoices) {
+                    window.localStorage.removeItem(encodeURIComponent(key));
+                } else {
+                    window.localStorage.setItem(
+                        encodeURIComponent(key),
+                        self.encodePersistence(serialized)
+                    );
+                }
+                writtenPrivacyChoices = serialized;
+                return;
+            }
+            if (!hasChoices) {
+                self.expireCookies(key);
+                // A refused expiry is silent too, so only a confirmed removal
+                // counts as stored.
+                if (!self.getCookie()) {
+                    writtenPrivacyChoices = serialized;
+                }
+                return;
+            }
+            const expires = new Date(
+                Date.now() +
+                    mpInstance._Store.SDKConfig.cookieExpiration *
+                        24 *
+                        60 *
+                        60 *
+                        1000
+            ).toUTCString();
+            const cookieDomain = self.getCookieDomain();
+            const domain = cookieDomain === '' ? '' : ';domain=' + cookieDomain;
+            writeCookie(
+                encodeURIComponent(key) +
+                    '=' +
+                    createFullEncodedCookie(record, expires, domain)
+            );
+            // A rejected cookie write is silent, so only a read-back that
+            // matches what was written counts as stored.
+            const stored = self.getCookie() as Dictionary | null;
+            const isStored =
+                !!stored &&
+                Object.keys(record).every(
+                    field =>
+                        JSON.stringify(stored[field]) ===
+                        JSON.stringify((record as Dictionary)[field])
+                );
+            if (isStored) {
+                writtenPrivacyChoices = serialized;
+            }
+        } catch (e) {
+            mpInstance.Logger.error('Error storing privacy choices.');
         }
     };
 
@@ -455,8 +590,7 @@ export default function _Persistence(
     // https://go.mparticle.com/work/SQDSDKS-5022
     // https://go.mparticle.com/work/SQDSDKS-6021
     this.setCookie = function(): void {
-        // Block mprtcl-v4 cookies when noFunctional is true
-        if (mpInstance._CookieConsentManager?.getNoFunctional()) {
+        if (isWriteBlocked()) {
             return;
         }
 
@@ -965,8 +1099,7 @@ export default function _Persistence(
 
     // https://go.mparticle.com/work/SQDSDKS-6021
     this.savePersistence = function(persistence: IPersistenceMinified): void {
-        // Block mprtcl-v4 persistence when noFunctional is true
-        if (mpInstance._CookieConsentManager?.getNoFunctional()) {
+        if (isWriteBlocked()) {
             return;
         }
 
@@ -1021,6 +1154,9 @@ export default function _Persistence(
     };
 
     this.getPersistence = function(): IPersistenceMinified | null {
+        if (isStoredRecordPurged(mpInstance)) {
+            return null;
+        }
         let persistence = this.useLocalStorage()
             ? this.getLocalStorage()
             : this.getCookie();
@@ -1028,11 +1164,19 @@ export default function _Persistence(
         return persistence;
     };
 
+    // User records for reads and writes of one user's fields. While the stored
+    // record holds only the privacy choices, memory is the full copy.
+    function readUserRecords(): IPersistenceMinified | null {
+        return isStoredRecordPurged(mpInstance)
+            ? mpInstance._Store.persistenceData
+            : self.getPersistence();
+    }
+
     this.getFirstSeenTime = function(mpid: MPID): number | null {
         if (!mpid) {
             return null;
         }
-        let persistence = self.getPersistence();
+        let persistence = readUserRecords();
         if (persistence && persistence[mpid] && persistence[mpid].fst) {
             return persistence[mpid].fst;
         } else {
@@ -1052,7 +1196,7 @@ export default function _Persistence(
         if (!time) {
             time = new Date().getTime();
         }
-        let persistence = self.getPersistence();
+        let persistence = readUserRecords();
         if (persistence) {
             if (!isObject(persistence[mpid])) {
                 persistence[mpid] = {};
@@ -1077,7 +1221,7 @@ export default function _Persistence(
             //if the mpid is the current user, its last seen time is the current time
             return new Date().getTime();
         } else {
-            let persistence = self.getPersistence();
+            let persistence = readUserRecords();
             if (persistence && persistence[mpid] && persistence[mpid].lst) {
                 return persistence[mpid].lst;
             }
@@ -1093,7 +1237,7 @@ export default function _Persistence(
         if (!time) {
             time = new Date().getTime();
         }
-        let persistence = self.getPersistence();
+        let persistence = readUserRecords();
         if (persistence && isObject(persistence[mpid])) {
             persistence[mpid].lst = time;
             self.savePersistence(persistence);

@@ -104,6 +104,8 @@ export interface IPersistence {
     expireCookies(cookieName: string): void;
     getCookie(): IPersistenceMinified | null;
     setCookie(): void;
+    /** @internal */
+    storePrivacyChoices?(): void;
     reduceAndEncodePersistence(
         persistence: IPersistenceMinified,
         expires: string,

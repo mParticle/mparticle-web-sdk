@@ -51,6 +51,7 @@ import { IdentityApiData, UserIdentities, MPID, ConsentState, UserAttributesValu
 import { BaseEvent, SDKEvent, SDKLoggerApi } from './sdkRuntimeModels';
 import { IdentitySearchCallback } from './identity/search';
 import Validators from './validators';
+import { isStoredRecordPurged } from './privacyTransitions';
 
 export default function Identity(
     this: IIdentity,
@@ -60,6 +61,14 @@ export default function Identity(
 
     const self: IIdentity = this;
     this.idCache = null;
+
+    // Users known to this page. Once the stored record holds only the privacy
+    // choices, memory is the only full copy.
+    function readStoredUsers() {
+        return isStoredRecordPurged(mpInstance)
+            ? mpInstance._Store.persistenceData
+            : mpInstance._Persistence.getPersistence();
+    }
     this.audienceManager = null;
 
     // https://go.mparticle.com/work/SQDSDKS-6353
@@ -671,7 +680,7 @@ export default function Identity(
          * @return {Object} the user for  mpid
          */
         getUser: function(mpid: MPID) {
-            const persistence = mpInstance._Persistence.getPersistence();
+            const persistence = readStoredUsers();
             if (persistence) {
                 if (
                     persistence[mpid] &&
@@ -692,7 +701,7 @@ export default function Identity(
          * @return {Array} array of users
          */
         getUsers: function() {
-            const persistence = mpInstance._Persistence.getPersistence();
+            const persistence = readStoredUsers();
             const users = [];
             if (persistence) {
                 for (const key in persistence) {
@@ -1081,7 +1090,7 @@ export default function Identity(
                         );
                     }
                 } else {
-                    cookies = mpInstance._Persistence.getPersistence();
+                    cookies = readStoredUsers();
 
                     userAttributes = this.getAllUserAttributes();
 

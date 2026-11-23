@@ -17,6 +17,11 @@ import { IMParticleWebSDKInstance } from './mp-instance';
 import { appendUserInfo } from './user-utils';
 import { IntegrationAttributes } from './store';
 import { isIntegrationCaptureEnabled } from './integrationCapture';
+import { isFunctionalStorageRevoked } from './privacyTransitions';
+
+// Retired uploaders whose failed batches wait, by SDK instance, for an
+// uploader of the same endpoint. Only privacy changes add to it.
+const retiredUploaders = new WeakMap<object, BatchUploader[]>();
 /**
  * BatchUploader contains all the logic to store/retrieve events and batches
  * to/from persistence, and upload batches to mParticle.
@@ -53,6 +58,16 @@ export class BatchUploader {
     private exitHandler: (() => void) | null = null;
     private visibilityChangeHandler: (() => void) | null = null;
     private destroyed = false;
+    /** @internal The storage key prefix this uploader was created with. */
+    private storageName: string;
+    /** @internal True while a page or derived flag withholds offline storage. */
+    private storageSwitchedOff = false;
+    /** @internal The Store this uploader was created with. */
+    private readonly creationStore: object;
+    /** @internal Whether offline storage was available when this uploader was created. */
+    private readonly offlineStorageAvailableAtCreation: boolean;
+    /** @internal Batches and events a privacy restriction kept out of storage. */
+    private withheld = new WeakSet<object>();
     // The order this page's uploads first picked each batch up in, by request
     // id. Batches enter uploads in creation order, so this keeps that order for
     // batches that share a millisecond.
@@ -84,9 +99,14 @@ export class BatchUploader {
         // Cache Offline Storage Availability boolean
         // so that we don't have to check it every time
         this.offlineStorageEnabled = this.isOfflineStorageAvailable();
+        this.offlineStorageAvailableAtCreation = this.offlineStorageEnabled;
+        this.creationStore = mpInstance._Store;
 
         // When noFunctional is true, prevent events/batches storage
         const noFunctional = mpInstance._CookieConsentManager?.getNoFunctional();
+        this.storageName = mpInstance._Store.storageName;
+        this.storageSwitchedOff =
+            !!noFunctional && isFunctionalStorageRevoked(mpInstance);
 
         if (this.offlineStorageEnabled && !noFunctional) {
             this.eventVault = new SessionStorageVault<SDKEvent[]>(
@@ -116,6 +136,7 @@ export class BatchUploader {
             ? new FetchUploader(this.uploadUrl)
             : new XHRUploader(this.uploadUrl);
 
+        this.adoptRetiredBatches();
         this.triggerUploadInterval(true, false);
         this.addEventListeners();
     }
@@ -126,6 +147,13 @@ export class BatchUploader {
      */
     public destroy(): void {
         this.destroyed = true;
+
+        // While a page or derived flag withholds storage, pending batches and
+        // events exist only in memory. Keep them for the next uploader, even
+        // when no upload is in flight.
+        if (this.isStorageWithheld()) {
+            this.retire();
+        }
 
         if (this.uploadIntervalTimerId !== null) {
             clearTimeout(this.uploadIntervalTimerId);
@@ -143,6 +171,66 @@ export class BatchUploader {
 
         this.exitHandler = null;
         this.visibilityChangeHandler = null;
+    }
+
+    /**
+     * @internal Switches offline storage off or back on when functional
+     * storage is restricted or allowed again after this uploader was created.
+     */
+    public setFunctionalStorageAllowed(allowed: boolean): void {
+        if (!allowed) {
+            if (this.batchVault) {
+                // Failed batches are kept only in storage between attempts.
+                // Keep them in memory so this page can still retry them.
+                this.batchesQueuedForProcessing.unshift(
+                    ...(this.batchVault.retrieve() ?? [])
+                );
+                this.batchVault.purge();
+                this.storageSwitchedOff = true;
+            }
+            // The event vault only mirrors eventsQueuedForProcessing.
+            this.eventVault?.purge();
+            this.eventVault = null;
+            this.batchVault = null;
+            this.offlineStorageEnabled = false;
+            return;
+        }
+
+        // Only storage a privacy flag withheld is switched back on.
+        if (!this.storageSwitchedOff) {
+            return;
+        }
+        // A re-initialization replaces the Store before its configuration
+        // and feature flags load, so a retiring uploader keeps the
+        // availability it was created with. While storage stays unavailable,
+        // the uploader keeps counting as withheld so destroy() hands its
+        // in-memory batches on.
+        const isAvailable =
+            this.mpInstance._Store === this.creationStore
+                ? this.isOfflineStorageAvailable()
+                : this.offlineStorageAvailableAtCreation;
+        if (!isAvailable) {
+            return;
+        }
+        this.storageSwitchedOff = false;
+        this.offlineStorageEnabled = true;
+        this.withheld = new WeakSet<object>();
+        const { storageName } = this;
+        this.eventVault = new SessionStorageVault<SDKEvent[]>(
+            `${storageName}-events`
+        );
+        this.batchVault = new LocalStorageVault<Batch[]>(
+            `${storageName}-batches`
+        );
+        // Batches and events kept only in memory while storage was off go
+        // back to storage, so a re-initialization before the next upload
+        // still finds them, as it would had storage never been switched off.
+        if (!isEmpty(this.eventsQueuedForProcessing)) {
+            this.eventVault.store(this.eventsQueuedForProcessing);
+        }
+        if (!isEmpty(this.batchesQueuedForProcessing)) {
+            this.storeBatchesQueuedForProcessing();
+        }
     }
 
     private isOfflineStorageAvailable(): boolean {
@@ -300,7 +388,7 @@ export class BatchUploader {
 
         this.eventsQueuedForProcessing.push(event);
         if (this.offlineStorageEnabled && this.eventVault) {
-            this.eventVault.store(this.eventsQueuedForProcessing);
+            this.eventVault.store(this.storable(this.eventsQueuedForProcessing));
         }
 
         if (this.mpInstance.Logger.isVerbose()) {
@@ -425,11 +513,22 @@ export class BatchUploader {
 
         let newBatches: Batch[] = [];
         if (!isEmpty(currentEvents)) {
-            newBatches = BatchUploader.createNewBatches(
-                currentEvents,
-                currentUser,
-                this.mpInstance
-            );
+            newBatches =
+                BatchUploader.createNewBatches(
+                    this.storable(currentEvents),
+                    currentUser,
+                    this.mpInstance
+                ) || [];
+            // Events withheld under a restriction become batches that stay
+            // withheld, so they are retried but never stored.
+            const withheldBatches =
+                BatchUploader.createNewBatches(
+                    currentEvents.filter(event => this.withheld.has(event)),
+                    currentUser,
+                    this.mpInstance
+                ) || [];
+            withheldBatches.forEach(batch => this.withheld.add(batch));
+            newBatches.unshift(...withheldBatches);
         }
 
         // Top Load any older Batches from Offline Storage so they go out first
@@ -484,9 +583,19 @@ export class BatchUploader {
         // the beacon path writes nothing unless the browser refused a batch: then
         // `batchesThatDidNotUpload` holds it, and it is stored since the page may
         // be going away.
-        if (
+        if (this.destroyed && this.isStorageWithheld()) {
+            // A page or derived flag keeps this retired uploader from storing
+            // its batches. Hand them to the current uploader for the same
+            // endpoint, or keep them until one exists.
+            this.retire();
+            const current = this.mpInstance._APIClient?.uploader;
+            if (current && current !== this) {
+                current.adoptRetiredBatches();
+            }
+        } else if (
             this.offlineStorageEnabled &&
             this.batchVault &&
+            !isFunctionalStorageRevoked(this.mpInstance) &&
             (!useBeacon || !isEmpty(batchesThatDidNotUpload))
         ) {
             this.storeBatchesQueuedForProcessing();
@@ -497,14 +606,74 @@ export class BatchUploader {
         }
     }
 
+    /**
+     * @internal True while a page or derived flag keeps this uploader from
+     * storing, or while it holds batches or events withheld under one.
+     */
+    private isStorageWithheld(): boolean {
+        return (
+            this.storageSwitchedOff ||
+            (this.offlineStorageEnabled &&
+                !!this.batchVault &&
+                isFunctionalStorageRevoked(this.mpInstance)) ||
+            [
+                ...this.batchesQueuedForProcessing,
+                ...this.eventsQueuedForProcessing,
+            ].some(item => this.withheld.has(item))
+        );
+    }
+
+    /** @internal The items that may be written to storage. */
+    private storable<T extends object>(items: T[]): T[] {
+        return items.filter(item => !this.withheld.has(item));
+    }
+
+    /** @internal Lists this uploader for the next uploader of its endpoint to adopt. */
+    private retire(): void {
+        const pending = retiredUploaders.get(this.mpInstance) || [];
+        if (pending.indexOf(this) === -1) {
+            pending.push(this);
+        }
+        retiredUploaders.set(this.mpInstance, pending);
+    }
+
+    /** @internal */
+    private adoptRetiredBatches(): void {
+        const retiredList = retiredUploaders.get(this.mpInstance);
+        if (!retiredList) {
+            return;
+        }
+        const adopted: Batch[] = [];
+        const adoptedEvents: SDKEvent[] = [];
+        const pending = retiredList.filter(retired => {
+            if (retired.uploadUrl !== this.uploadUrl) {
+                return true;
+            }
+            adopted.push(...retired.batchesQueuedForProcessing);
+            adoptedEvents.push(...retired.eventsQueuedForProcessing);
+            retired.batchesQueuedForProcessing = [];
+            retired.eventsQueuedForProcessing = [];
+            return false;
+        });
+        retiredUploaders.set(this.mpInstance, pending);
+        // A retired uploader is listed only while a restriction withholds its
+        // storage, so what it hands over stays out of storage here as well.
+        [...adopted, ...adoptedEvents].forEach(item => this.withheld.add(item));
+        this.batchesQueuedForProcessing.unshift(...adopted);
+        this.eventsQueuedForProcessing.unshift(...adoptedEvents);
+    }
+
     private storeBatchesQueuedForProcessing(): void {
         // Another upload may have stored its failed batches while this one was
         // in flight. Merge them in creation order, whichever upload finished
         // first, so they are not overwritten and quota trimming drops the oldest.
         const orderOf = (batch: Batch): number =>
             this.batchOrder.get(batch.source_request_id) ?? -1;
+        const withheldBatches = this.batchesQueuedForProcessing.filter(batch =>
+            this.withheld.has(batch)
+        );
         const batches = [
-            ...this.batchesQueuedForProcessing,
+            ...this.storable(this.batchesQueuedForProcessing),
             ...(this.batchVault.retrieve() ?? []),
         ].sort(
             (a, b) =>
@@ -515,7 +684,7 @@ export class BatchUploader {
         // Nothing to persist: reset offline storage to an empty state.
         if (isEmpty(batches)) {
             this.batchVault.store([]);
-            this.batchesQueuedForProcessing = [];
+            this.batchesQueuedForProcessing = withheldBatches;
             return;
         }
 
@@ -527,7 +696,7 @@ export class BatchUploader {
 
             if (result === StorageResult.Success) {
                 this.logDroppedOfflineBatches(dropped);
-                this.batchesQueuedForProcessing = [];
+                this.batchesQueuedForProcessing = withheldBatches;
                 return;
             }
 

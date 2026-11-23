@@ -154,6 +154,63 @@ describe('BatchUploader', () => {
         });
     });
 
+    describe('setFunctionalStorageAllowed', () => {
+        const storageName = 'mprtcl-v4_switch';
+        let uploader: BatchUploader;
+
+        beforeEach(() => {
+            window.localStorage.clear();
+            window.sessionStorage.clear();
+            (mockMPInstance._Store as any).storageName = storageName;
+            mockMPInstance._Helpers.getFeatureFlag = jest.fn().mockReturnValue('100');
+            uploader = new BatchUploader(mockMPInstance, 1000);
+        });
+
+        afterEach(() => {
+            uploader.destroy();
+        });
+
+        it('stops offline storage and keeps stored failed batches in memory', () => {
+            window.localStorage.setItem(
+                `${storageName}-batches`,
+                JSON.stringify([{ source_request_id: 'stored' }])
+            );
+            uploader.queueEvent({ EventName: 'queued' } as any);
+            expect(window.sessionStorage.getItem(`${storageName}-events`)).not.toBeNull();
+
+            uploader.setFunctionalStorageAllowed(false);
+
+            expect(window.localStorage.getItem(`${storageName}-batches`)).toBeNull();
+            expect(window.sessionStorage.getItem(`${storageName}-events`)).toBeNull();
+            expect(
+                (uploader as any).batchesQueuedForProcessing.map(
+                    (batch: { source_request_id: string }) => batch.source_request_id
+                )
+            ).toEqual(['stored']);
+
+            uploader.queueEvent({ EventName: 'after opt-out' } as any);
+            expect(window.sessionStorage.getItem(`${storageName}-events`)).toBeNull();
+            expect((uploader as any).eventsQueuedForProcessing).toHaveLength(2);
+        });
+
+        it('resumes offline storage when allowed again', () => {
+            uploader.setFunctionalStorageAllowed(false);
+            uploader.setFunctionalStorageAllowed(true);
+
+            uploader.queueEvent({ EventName: 'after opt-in' } as any);
+            expect(window.sessionStorage.getItem(`${storageName}-events`)).not.toBeNull();
+        });
+
+        it('stays off when the offline storage ramp excludes this device', () => {
+            mockMPInstance._Helpers.getFeatureFlag = jest.fn().mockReturnValue('0');
+            uploader.setFunctionalStorageAllowed(false);
+            uploader.setFunctionalStorageAllowed(true);
+
+            uploader.queueEvent({ EventName: 'after opt-in' } as any);
+            expect(window.sessionStorage.getItem(`${storageName}-events`)).toBeNull();
+        });
+    });
+
     describe('shouldDebounceAST', () => {
         it('should return false for first call', () => {
             // First call should not be debounced
