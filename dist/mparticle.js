@@ -1,6 +1,6 @@
 var mParticle = (function () {
 
-    var version = "3.38.0";
+    var version = "3.39.0";
 
     var Constants = {
       sdkVersion: version,
@@ -16010,7 +16010,9 @@ var mParticle = (function () {
       });
       // Bound after the listener, so page flags queued before load, and page
       // flags kept across a re-initialization, apply like any other page change.
-      mpInstance._RoktManager._bindCookieConsentManager(mpInstance._CookieConsentManager, mpInstance._preInit.readyQueue);
+      // The snippet queue is shared by every instance, but mParticle.Rokt calls
+      // belong to the default instance, so only it takes the queued setter calls.
+      mpInstance._RoktManager._bindCookieConsentManager(mpInstance._CookieConsentManager, mpInstance._instanceName === Constants.DefaultInstance ? mpInstance._preInit.readyQueue : []);
       // Check to see if localStorage is available before main configuration runs
       // since we will need this for the current implementation of user persistence
       // TODO: Refactor this when we refactor User Identity Persistence
