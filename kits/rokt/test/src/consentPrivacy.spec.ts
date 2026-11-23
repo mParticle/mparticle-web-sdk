@@ -1,7 +1,11 @@
 import '../../src/Rokt-Kit';
 import * as storage from '../../src/storage';
 import { isDevicePersistenceDisabled, setDevicePersistenceDisabled } from '../../src/storage';
-import { applyPreselectionConfigSetting, isReadableFormEmailChange } from '../../src/preselection/preselection';
+import {
+  applyPreselectionConfigSetting,
+  dispatchPreselect,
+  isReadableFormEmailChange,
+} from '../../src/preselection/preselection';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -524,6 +528,40 @@ describe('Rokt consent privacy mapping', () => {
       window.history.replaceState({}, '', originalPathname);
       mp._getActiveForwarders = originalGetActiveForwarders;
       applyPreselectionConfigSetting('000000', undefined);
+    });
+
+    it.each([
+      { label: 'goes out while consent holds', purpose: undefined, sent: true },
+      { label: 'is dropped after a targeted_advertising decline', purpose: 'targeted_advertising', sent: false },
+      { label: 'is dropped after a sale_of_data decline', purpose: 'sale_of_data', sent: false },
+    ])('a typed email replacing a partner one that waited for the search $label', async ({ purpose, sent }) => {
+      initKit({ consentMappingSDK: mappingSetting, preselectionConfig });
+      kit.launcher = launcher;
+      kit.filters = { filteredUser: currentUser() };
+      kit.userAttributes = { email: 'shopper@example.c' };
+      let finish: () => void;
+      kit._workspaceSearchInFlightPromise = new Promise<void>((resolve) => {
+        finish = resolve;
+      });
+      let placement: unknown;
+      const rollback = vi.fn();
+      const host = { selectPlacements: (options: any) => (placement = kit.selectPlacements(options)), log: vi.fn() };
+      dispatchPreselect(
+        host as any,
+        {
+          identifier: 'confirmation_page',
+          preselect: true,
+          attributes: { email: 'shopper@example.com' },
+          preselectFormEmail: { key: 'email', mpid, replaced: true },
+        },
+        rollback,
+      );
+      if (purpose) consent[purpose] = { Consented: false };
+      finish!();
+      await placement;
+
+      expect(launcher.selectPlacements).toHaveBeenCalledTimes(sent ? 1 : 0);
+      expect(rollback).toHaveBeenCalledTimes(sent ? 0 : 1);
     });
 
     it.each([

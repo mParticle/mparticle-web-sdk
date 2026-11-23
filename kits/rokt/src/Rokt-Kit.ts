@@ -78,6 +78,7 @@ import {
   recordShopperInput,
   hasEmailInputEntry,
   hasPartnerEmail,
+  rawEmailOutranks,
   hasPreselectEmail,
   PRESELECT_DEFAULTED_ATTRIBUTE,
   PRESELECT_TRIGGER_ATTRIBUTE,
@@ -1516,12 +1517,18 @@ class RoktKit implements KitInterface {
 
   // A call carrying a form email can wait on identity search or launcher setup. A skipped one costs only
   // the cached hit, so it goes out only if nothing changed: same user, still allowed, and no partner
-  // email has appeared, filtered or not.
-  private getFormEmailDropCause(emailKey: string, formEmailMpid: unknown): string | undefined {
+  // email has appeared, filtered or not; for a form email that replaced a malformed one, a malformed raw email or the
+  // same address doesn't count.
+  private getFormEmailDropCause(
+    emailKey: string,
+    formEmailMpid: unknown,
+    replacingFormEmail: string | undefined,
+  ): string | undefined {
     if (!this.isForwardingAllowed()) return 'forwarding_disallowed';
     if (this.isTargetingDisabledNow() || !this.isPreselectionPrivacyAllowedNow()) return 'privacy_signal';
     if (String(this.filters?.filteredUser?.getMPID?.() ?? '') !== String(formEmailMpid ?? '')) return 'user_changed';
-    if (hasPartnerEmail(this.buildPreselectHost(), emailKey)) return 'partner_email';
+    const rawEmailCounts = replacingFormEmail === undefined ? undefined : rawEmailOutranks(replacingFormEmail);
+    if (hasPartnerEmail(this.buildPreselectHost(), emailKey, {}, rawEmailCounts)) return 'partner_email';
     return undefined;
   }
 
@@ -2656,7 +2663,9 @@ class RoktKit implements KitInterface {
     const formEmail = isObject(transientOption) ? transientOption : undefined;
     const formEmailKey = formEmail && isString(formEmail.key) ? formEmail.key : undefined;
     if (formEmailKey) {
-      const dropCause = this.getFormEmailDropCause(formEmailKey, formEmail!.mpid);
+      const outgoingEmail = readOwnValue((options.attributes as Record<string, unknown>) || {}, formEmailKey);
+      const replacingFormEmail = formEmail!.replaced === true && isString(outgoingEmail) ? outgoingEmail : undefined;
+      const dropCause = this.getFormEmailDropCause(formEmailKey, formEmail!.mpid, replacingFormEmail);
       if (dropCause) {
         return this.dropPreselect(rollback, 'form_email_dropped', { cause: dropCause });
       }
