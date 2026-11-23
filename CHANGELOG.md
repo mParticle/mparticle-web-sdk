@@ -1,5 +1,26 @@
 # Changelog
 
+## [3.37.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.36.1...v3.37.0) (2026-11-23)
+
+
+### Features
+
+* **rokt:** map GDPR consent to privacy flags ([#1890](https://github.com/mParticle/mparticle-web-sdk/issues/1890)) ([2a09e10](https://github.com/mParticle/mparticle-web-sdk/commit/2a09e10c93b89a6340a6bf9f5bf1781b8cac4ab5))
+
+
+### Bug Fixes
+
+* **web:** apply combined privacy changes to storage and identity ([#1892](https://github.com/mParticle/mparticle-web-sdk/issues/1892)) ([71ffb48](https://github.com/mParticle/mparticle-web-sdk/commit/71ffb48bd99eabbf0bfefdb98c35beb18b935fde))
+
+
+### Miscellaneous
+
+* **web-sdk:** check imports across the core and module folder line ([#1920](https://github.com/mParticle/mparticle-web-sdk/issues/1920)) ([f5aca24](https://github.com/mParticle/mparticle-web-sdk/commit/f5aca249163617d0a59ee496bca64fcee7985efb))
+* **web-sdk:** give auto click events their own event type ids ([#1919](https://github.com/mParticle/mparticle-web-sdk/issues/1919)) ([ea9bd47](https://github.com/mParticle/mparticle-web-sdk/commit/ea9bd474369a71da204f93cf64cfc88738645652))
+* **web-sdk:** let V3 Step 3 stop pushing the release-order branches ([#1924](https://github.com/mParticle/mparticle-web-sdk/issues/1924)) ([35c7772](https://github.com/mParticle/mparticle-web-sdk/commit/35c777203a46302692edbfac5fc5f80d365a72ae))
+* **web-sdk:** move the auto click forwarding check into core ([#1923](https://github.com/mParticle/mparticle-web-sdk/issues/1923)) ([ba87227](https://github.com/mParticle/mparticle-web-sdk/commit/ba8722795dcd6279fd0ae6fe7e8fa2591f1b6463))
+* **web-sdk:** move the page view attribute helpers out of the tracker's file ([#1922](https://github.com/mParticle/mparticle-web-sdk/issues/1922)) ([9d452c5](https://github.com/mParticle/mparticle-web-sdk/commit/9d452c52a4ef40ab86a06d984e7db8b9c0d1afbd))
+
 ## [3.36.1](https://github.com/mParticle/mparticle-web-sdk/compare/v3.36.0...v3.36.1) (2026-11-22)
 
 
