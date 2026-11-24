@@ -1,3 +1,5 @@
+import terserPlugin from '../../../../scripts/rollup/terserPlugin';
+
 const input = 'src/GoogleAnalytics4EventForwarderServerSide.js';
 
 const outputOptions = {
@@ -15,6 +17,7 @@ const builds = {
             file: 'dist/GoogleAnalytics4EventForwarderServerSide-Kit.iife.js',
             format: 'iife',
         },
+        plugins: [terserPlugin],
     },
     // creates npm module for GA4 server side kit
     server_cjs: {

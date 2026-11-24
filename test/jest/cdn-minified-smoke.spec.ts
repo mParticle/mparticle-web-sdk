@@ -1,9 +1,50 @@
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
 import { TextDecoder, TextEncoder } from 'util';
 
 // jsdom needs these, and the jsdom test environment does not provide them.
 Object.assign(globalThis, { TextEncoder, TextDecoder });
 
-const { smokeTest } = require('../../scripts/smoke-cdn-minified');
+const {
+    smokeTest,
+    main,
+    introducedUndeclaredNames,
+} = require('../../scripts/smoke-cdn-minified');
+
+describe('introducedUndeclaredNames', () => {
+    const original =
+        '(function(){const K="k";function f(o){const{[K]:t,...r}=o||{};return[t,r]}window.f=f})();';
+
+    it('reports a name the minifier left undeclared', () => {
+        const broken =
+            '(function(){function n(n){const{[K]:t,...r}=n||{};return[t,r]}window.f=n})()';
+
+        expect(introducedUndeclaredNames(original, broken)).toEqual(['K']);
+    });
+
+    it('passes when every reference was renamed with its declaration', () => {
+        const renamed =
+            '(function(){const n="k";function t(t){const{[n]:i,...r}=t||{};return[i,r]}window.f=t})()';
+
+        expect(introducedUndeclaredNames(original, renamed)).toEqual([]);
+    });
+
+    it('ignores global comments, which the minifier strips', () => {
+        const withGlobalComment =
+            '/* global Suppressed */\n(function(){return typeof Suppressed=="function"?Suppressed:null})();';
+        const stripped =
+            '(function(){return typeof Suppressed=="function"?Suppressed:null})()';
+
+        expect(introducedUndeclaredNames(withGlobalComment, stripped)).toEqual([]);
+    });
+
+    it('throws when the minified bundle does not parse', () => {
+        expect(() => introducedUndeclaredNames(original, '(function(){')).toThrow(
+            'does not parse'
+        );
+    });
+});
 
 describe('smokeTest', () => {
     const core =
@@ -35,7 +76,11 @@ describe('smokeTest', () => {
             { core, kit: 'window.notAKit=1;' }
         );
 
-        expect(result).toEqual({ errors: [], loadOnly: true });
+        expect(result).toEqual({
+            errors: [],
+            loadOnly: true,
+            baselineErrors: [],
+        });
     });
 
     it('reports a kit the minified copy no longer registers', async () => {
@@ -89,4 +134,86 @@ describe('smokeTest', () => {
             'confirm click: no single intent_commit call with the typed email',
         ]);
     }, 15000);
+});
+
+// main reads baselines relative to the working directory, as CI runs it from the folder holding the bundles.
+async function mainIn(files: Record<string, string>, bundles: string[]) {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mp-smoke-'));
+    const cwd = process.cwd();
+    try {
+        for (const [file, code] of Object.entries(files)) {
+            fs.mkdirSync(path.dirname(path.join(dir, file)), {
+                recursive: true,
+            });
+            fs.writeFileSync(path.join(dir, file), code);
+        }
+        process.chdir(dir);
+        return await main(bundles);
+    } finally {
+        process.chdir(cwd);
+        fs.rmSync(dir, { recursive: true, force: true });
+    }
+}
+
+describe('main baseline requirements', () => {
+    const cleanCore =
+        'window.mParticle={init:function(){},logEvent:function(){},addForwarder:function(){}};';
+    const throwingCore =
+        "window.mParticle={init:function(){throw new TypeError('smoke');},logEvent:function(){},addForwarder:function(){}};";
+
+    it('fails when a Rollup bundle has no .unminified baseline', async () => {
+        const code = await mainIn(
+            { 'CustomKit.iife.js': '(function(){window.x=1;})();' },
+            ['CustomKit.iife.js']
+        );
+
+        expect(code).toBe(1);
+    });
+
+    it('accepts a Vite bundle without an .unminified baseline', async () => {
+        const code = await mainIn(
+            { 'RoktPayPlus-Kit.iife.js': '(function(){window.x=1;})();' },
+            ['RoktPayPlus-Kit.iife.js']
+        );
+
+        expect(code).toBe(0);
+    });
+
+    it('fails when a baseline has no minified bundle in the run', async () => {
+        const code = await mainIn(
+            {
+                'dist/mparticle.js': cleanCore,
+                'dist/mparticle.js.unminified': cleanCore,
+                'kits/smoke/dist/SmokeKit.iife.js.unminified':
+                    '(function(){window.x=1;})();',
+            },
+            ['dist/mparticle.js']
+        );
+
+        expect(code).toBe(1);
+    });
+
+    it('passes a core that runs cleanly before and after minification', async () => {
+        const code = await mainIn(
+            {
+                'dist/mparticle.js': cleanCore,
+                'dist/mparticle.js.unminified': cleanCore,
+            },
+            ['dist/mparticle.js']
+        );
+
+        expect(code).toBe(0);
+    });
+
+    it('fails when the core throws the same way before and after minification', async () => {
+        const code = await mainIn(
+            {
+                'dist/mparticle.js': throwingCore,
+                'dist/mparticle.js.unminified': throwingCore,
+            },
+            ['dist/mparticle.js']
+        );
+
+        expect(code).toBe(1);
+    });
 });

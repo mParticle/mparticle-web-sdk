@@ -4,6 +4,7 @@ import {
     production,
     testEndToEnd,
 } from './node_modules/@mparticle/web-kit-wrapper/rollup.base';
+import terserPlugin from '../../scripts/rollup/terserPlugin';
 
 const { ENVIRONMENT } = process.env;
 const initialization = require('./src/initialization');
@@ -17,7 +18,7 @@ const productionBuilds = {
             file: `dist/${initialization.name}-Kit.iife.js`,
             name: `${initialization.name}Kit`,
         },
-        plugins: [...production.plugins],
+        plugins: [...production.plugins, terserPlugin],
     },
     cjs: {
         input: production.input,
