@@ -77,6 +77,8 @@ const REQUIRED_UPSTREAM_JOBS = [
     'test-integrations-common-js-rollup',
     'test-integrations-module-js-webpack',
     'test-integrations-module-js-rollup',
+    'run-kit-tests',
+    'cdn-minifier-check',
 ];
 
 describe('V3 Release Please on main', () => {
@@ -209,10 +211,12 @@ describe('V3 Release Please on main', () => {
         expect(read('.github/dependabot.yml')).not.toContain('v3-development');
     });
 
-    it('decouples stub and integration PR checks from optional kit tests and aggregates required checks', () => {
+    it('decouples stub and integration PR checks from kit tests and aggregates required checks', () => {
         expect(PR_WORKFLOW.on).toBe('pull_request');
 
-        for (const jobName of REQUIRED_UPSTREAM_JOBS.slice(3)) {
+        for (const jobName of REQUIRED_UPSTREAM_JOBS.filter(
+            job => job === 'test-stub' || job.startsWith('test-integrations-')
+        )) {
             expect(PR_WORKFLOW.jobs[jobName].needs).toEqual([
                 'test-core',
                 'test-jest',
@@ -260,7 +264,7 @@ describe('V3 Release Please on main', () => {
                     : rawNeeds
                     ? [rawNeeds]
                     : [];
-                // Optional kit tests stay out of required-checks; fail if a gated job needs run-kit-tests.
+                // A failed or hung kit test must not skip core, stub or integration checks.
                 expect(jobNeeds).not.toContain('run-kit-tests');
                 const requiredJobNeeds = jobNeeds;
                 if (gatedJobs.includes(jobName)) {
@@ -275,7 +279,6 @@ describe('V3 Release Please on main', () => {
                 }
             }
             expect(upstreamNeeds.length).toBeGreaterThan(0);
-            expect(aggregatorNeeds).not.toContain('run-kit-tests');
         };
 
         assertRecursiveNeedsCovered(PR_WORKFLOW.jobs, aggregator.needs);

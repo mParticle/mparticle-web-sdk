@@ -7,6 +7,7 @@ import typescript from '@rollup/plugin-typescript';
 import commonjs from '@rollup/plugin-commonjs';
 import json from '@rollup/plugin-json';
 import { escapeNonAsciiPlugin } from './scripts/rollup/escapeNonAsciiPlugin';
+import { saveUnminifiedPlugin } from './scripts/rollup/terserPlugin';
 const extensions = ['.js', '.ts'];
 
 const defaultOutputOptions = {
@@ -31,6 +32,10 @@ const builds = {
             file: 'dist/mparticle.js',
             format: 'iife',
             name: 'mParticle',
+            plugins: [
+                saveUnminifiedPlugin,
+                terser({ format: { ascii_only: true } }),
+            ],
         },
         plugins: [
             defaultBabel,

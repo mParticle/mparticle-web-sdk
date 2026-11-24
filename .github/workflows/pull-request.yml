@@ -46,6 +46,13 @@ jobs:
                   name: bundle-local
                   path: dist
 
+            - name: Archive unminified core bundle for the CDN minifier check
+              uses: actions/upload-artifact@v7.0.2
+              with:
+                  name: cdn-minifier-input-core
+                  path: cdn-minifier-input
+                  if-no-files-found: error
+
             - name: Archive npm failure logs
               uses: actions/upload-artifact@v7.0.2
               if: failure()
@@ -172,7 +179,8 @@ jobs:
                   name: npm-logs-kit-${{ matrix.kit.name }}
                   path: ~/.npm/_logs
 
-    # The mParticle CDN re-minifies the core bundle and every kit with NUglify before serving them.
+    # Smoke-tests the minified core and kit IIFE bundles against their unminified siblings, and
+    # checks that they survive the mParticle CDN's NUglify pass until the CDN stops re-minifying.
     cdn-minifier-check:
         name: CDN Minifier Check
         needs:
@@ -216,6 +224,12 @@ jobs:
                   pattern: cdn-minifier-input-*
                   merge-multiple: true
                   path: cdn-minifier-input
+
+            - name: Smoke-test minified CDN bundles
+              working-directory: cdn-minifier-input
+              run: |
+                  { echo dist/mparticle.js; find kits -name '*.iife.js'; } |
+                  xargs node ../scripts/smoke-cdn-minified.js
 
             - name: Check bundles survive the CDN minifier
               working-directory: cdn-minifier-input
@@ -478,6 +492,8 @@ jobs:
             - test-integrations-common-js-rollup
             - test-integrations-module-js-webpack
             - test-integrations-module-js-rollup
+            - run-kit-tests
+            - cdn-minifier-check
         steps:
             - name: Verify required checks succeeded
               env:
@@ -496,6 +512,8 @@ jobs:
                       "test-integrations-common-js-rollup",
                       "test-integrations-module-js-webpack",
                       "test-integrations-module-js-rollup",
+                      "run-kit-tests",
+                      "cdn-minifier-check",
                   ];
                   const failed = required.filter(job => needs[job]?.result !== "success");
                   for (const job of required) {

@@ -1,6 +1,7 @@
 import resolve from '@rollup/plugin-node-resolve';
 import commonjs from '@rollup/plugin-commonjs';
 import replace from '@rollup/plugin-replace';
+import terserPlugin from '../../../scripts/rollup/terserPlugin';
 
 const packageVersion = process.env.npm_package_version;
 if (!packageVersion) {
@@ -31,6 +32,7 @@ export default [
                 browser: true,
             }),
             commonjs(),
+            terserPlugin,
         ],
     },
     {
