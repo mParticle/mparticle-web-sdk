@@ -1,5 +1,22 @@
 # Changelog
 
+## [3.40.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.39.0...v3.40.0) (2026-11-24)
+
+
+### Features
+
+* **web SDK:** load button tracking through a module registry ([#1935](https://github.com/mParticle/mparticle-web-sdk/issues/1935)) ([9ba2c6d](https://github.com/mParticle/mparticle-web-sdk/commit/9ba2c6dbdf86f2d9b018fda946c01901dc75cdbf))
+
+
+### Bug Fixes
+
+* **rokt-kit:** keep a guessed payment default strict when the target page may not find its entry ([#1925](https://github.com/mParticle/mparticle-web-sdk/issues/1925)) ([e0bf4ce](https://github.com/mParticle/mparticle-web-sdk/commit/e0bf4cec5d2be4134ac6ab2af7408e6fbbcea647))
+
+
+### Performance Improvements
+
+* **web-sdk:** minify core and kit IIFE bundles with Terser ([#1936](https://github.com/mParticle/mparticle-web-sdk/issues/1936)) ([8e59a6f](https://github.com/mParticle/mparticle-web-sdk/commit/8e59a6fbfc3fd59e1005a0f34dc576e33d50069e))
+
 ## [3.39.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.38.0...v3.39.0) (2026-11-23)
 
 
