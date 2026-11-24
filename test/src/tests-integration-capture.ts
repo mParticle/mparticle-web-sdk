@@ -59,6 +59,7 @@ describe('Integration Capture', () => {
             wbraid: '1234111',
             ScCid: '1234',
             epik: 'pinterest-qp-epik',
+            msclkid: 'bing-click-id',
         });
         integrationCapture.capture();
     });
@@ -86,6 +87,7 @@ describe('Integration Capture', () => {
         expect(testEvent.data).to.have.property('custom_flags');
 
         expect(testEvent.data.custom_flags['Facebook.ClickId'], 'Facebook Click Id').to.equal(`fb.1.${initialTimestamp}.1234`);
+        expect(testEvent.data.custom_flags['BingAds-S2S.LastClickId'], 'Bing Ads Click ID').to.equal('bing-click-id');
         expect(testEvent.data.custom_flags['Facebook.BrowserId'], 'Facebook Browser Id').to.equal('54321');
         expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gclid'], 'Google Enhanced Conversions Gclid').to.equal('234');
         expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gbraid'], 'Google Enhanced Conversions Gbraid').to.equal('6574');
@@ -101,7 +103,7 @@ describe('Integration Capture', () => {
             'Test Event',
             mParticle.EventType.Navigation,
             { mykey: 'myvalue' },
-            { 'Facebook.ClickId': 'passed-in' },
+            { 'Facebook.ClickId': 'passed-in', 'BingAds-S2S.LastClickId': 'passed-in-bing' },
         );
 
         const testEvent = findEventFromRequest(fetchMock.calls(), 'Test Event');
@@ -111,6 +113,7 @@ describe('Integration Capture', () => {
         expect(testEvent.data).to.have.property('custom_flags');
 
         expect(testEvent.data.custom_flags['Facebook.ClickId'], 'Facebook Click Id').to.equal('passed-in');
+        expect(testEvent.data.custom_flags['BingAds-S2S.LastClickId'], 'Bing Ads Click ID').to.equal('passed-in-bing');
         expect(testEvent.data.custom_flags['Facebook.BrowserId'], 'Facebook Browser Id').to.equal('54321');
         expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gclid'], 'Google Enhanced Conversions Gclid').to.equal('234');
         expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gbraid'], 'Google Enhanced Conversions Gbraid').to.equal('6574');
@@ -137,6 +140,7 @@ describe('Integration Capture', () => {
         expect(testEvent.data).to.have.property('custom_flags');
 
         expect(testEvent.data.custom_flags['Facebook.ClickId'], 'Facebook Click Id').to.equal(`fb.1.${initialTimestamp}.1234`);
+        expect(testEvent.data.custom_flags['BingAds-S2S.LastClickId'], 'Bing Ads Click ID').to.equal('bing-click-id');
         expect(testEvent.data.custom_flags['Facebook.BrowserId'], 'Facebook Browser Id').to.equal('54321');
         expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gclid'], 'Google Enhanced Conversions Gclid').to.equal('234');
         expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gbraid'], 'Google Enhanced Conversions Gbraid').to.equal('6574');
@@ -152,7 +156,7 @@ describe('Integration Capture', () => {
         window.mParticle.logPageView(
             'Test Page View',
             {'foo-attr': 'bar-attr'},
-            {'Facebook.ClickId': 'passed-in'},
+            {'Facebook.ClickId': 'passed-in', 'BingAds-S2S.LastClickId': 'passed-in-bing'},
         );
 
         const testEvent = findEventFromRequest(fetchMock.calls(), 'Test Page View');
@@ -162,6 +166,7 @@ describe('Integration Capture', () => {
         expect(testEvent.data).to.have.property('custom_flags');
 
         expect(testEvent.data.custom_flags['Facebook.ClickId'], 'Facebook Click Id').to.equal('passed-in');
+        expect(testEvent.data.custom_flags['BingAds-S2S.LastClickId'], 'Bing Ads Click ID').to.equal('passed-in-bing');
         expect(testEvent.data.custom_flags['Facebook.BrowserId'], 'Facebook Browser Id').to.equal('54321');
         expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gclid'], 'Google Enhanced Conversions Gclid').to.equal('234');
         expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gbraid'], 'Google Enhanced Conversions Gbraid').to.equal('6574');
@@ -202,6 +207,7 @@ describe('Integration Capture', () => {
 
         expect(testEvent.data.custom_flags['foo'], 'Custom Flag').to.equal('bar');
         expect(testEvent.data.custom_flags['Facebook.ClickId'], 'Facebook Click Id').to.equal(`fb.1.${initialTimestamp}.1234`);
+        expect(testEvent.data.custom_flags['BingAds-S2S.LastClickId'], 'Bing Ads Click ID').to.equal('bing-click-id');
         expect(testEvent.data.custom_flags['Facebook.BrowserId'], 'Facebook Browser Id').to.equal('54321');
         expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gclid'], 'Google Enhanced Conversions Gclid').to.equal('234');
         expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gbraid'], 'Google Enhanced Conversions Gbraid').to.equal('6574');
@@ -225,7 +231,8 @@ describe('Integration Capture', () => {
 
         const customAttributes = {sale: true};
         const customFlags = {
-            'Facebook.ClickId': 'passed-in'
+            'Facebook.ClickId': 'passed-in',
+            'BingAds-S2S.LastClickId': 'passed-in-bing',
         };
 
         mParticle.eCommerce.logProductAction(
@@ -242,6 +249,7 @@ describe('Integration Capture', () => {
         expect(testEvent.data).to.have.property('custom_flags');
 
         expect(testEvent.data.custom_flags['Facebook.ClickId'], 'Facebook Click Id').to.equal('passed-in');
+        expect(testEvent.data.custom_flags['BingAds-S2S.LastClickId'], 'Bing Ads Click ID').to.equal('passed-in-bing');
         expect(testEvent.data.custom_flags['Facebook.BrowserId'], 'Facebook Browser Id').to.equal('54321');
         expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gclid'], 'Google Enhanced Conversions Gclid').to.equal('234');
         expect(testEvent.data.custom_flags['GoogleEnhancedConversions.Gbraid'], 'Google Enhanced Conversions Gbraid').to.equal('6574');

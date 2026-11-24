@@ -24,6 +24,7 @@ describe('Integration Capture', () => {
                 'fbclid',
                 '_fbp',
                 '_fbc',
+                'msclkid',
                 'gclid',
                 'gbraid',
                 'wbraid',
@@ -98,6 +99,8 @@ describe('Integration Capture', () => {
             deleteAllCookies();
             window.localStorage.clear();
             jest.restoreAllMocks();
+            document.cookie = 'msclkid=bing-cookie-id';
+            window.localStorage.setItem('msclkid', 'bing-storage-id');
         });
 
         afterEach(() => {
@@ -108,7 +111,7 @@ describe('Integration Capture', () => {
 
         it('should return only Rokt keys from helpers when captureMode is roktonly (lowercase)', () => {
             // Query params
-            const url = new URL('https://www.example.com/?fbclid=abc&gclid=g1&rtid=rt1&rclid=rc1');
+            const url = new URL('https://www.example.com/?fbclid=abc&gclid=g1&rtid=rt1&rclid=rc1&msclkid=bing-url-id');
             window.location.href = url.href;
             window.location.search = url.search;
 
@@ -133,7 +136,7 @@ describe('Integration Capture', () => {
         it('should return all mapped keys from helpers when captureMode is all (lowercase)', () => {
             jest.spyOn(Date, 'now').mockImplementation(() => 42);
             // Query params
-            const url = new URL('https://www.example.com/?fbclid=abc&gclid=g1&rtid=rt1&rclid=rc1&ScCid=snap1');
+            const url = new URL('https://www.example.com/?fbclid=abc&gclid=g1&rtid=rt1&rclid=rc1&ScCid=snap1&msclkid=bing-url-id');
             window.location.href = url.href;
             window.location.search = url.search;
 
@@ -152,15 +155,15 @@ describe('Integration Capture', () => {
             const clickIdLocalStorage = integrationCapture.captureLocalStorage();
 
             // fbclid is formatted with timestamp/domain index
-            expect(clickIds).toMatchObject({ fbclid: 'fb.2.42.abc', gclid: 'g1', rtid: 'rt1', rclid: 'rc1', ScCid: 'snap1' });
-            expect(clickIdCookies).toMatchObject({ _fbp: '54321', _fbc: 'fb.1.1554763741205.abcdef', RoktTransactionId: 'xyz' });
-            expect(clickIdLocalStorage).toEqual({ RoktTransactionId: 'ls-rok' });
+            expect(clickIds).toMatchObject({ fbclid: 'fb.2.42.abc', gclid: 'g1', rtid: 'rt1', rclid: 'rc1', ScCid: 'snap1', msclkid: 'bing-url-id' });
+            expect(clickIdCookies).toMatchObject({ _fbp: '54321', _fbc: 'fb.1.1554763741205.abcdef', RoktTransactionId: 'xyz', msclkid: 'bing-cookie-id' });
+            expect(clickIdLocalStorage).toEqual({ RoktTransactionId: 'ls-rok', msclkid: 'bing-storage-id' });
         });
 
         it('should NOT return mapped keys from helpers when captureMode is none (lowercase)', () => {
             jest.spyOn(Date, 'now').mockImplementation(() => 42);
             // Query params
-            const url = new URL('https://www.example.com/?fbclid=abc&gclid=g1&rtid=rt1&rclid=rc1&ScCid=snap1');
+            const url = new URL('https://www.example.com/?fbclid=abc&gclid=g1&rtid=rt1&rclid=rc1&ScCid=snap1&msclkid=bing-url-id');
             window.location.href = url.href;
             window.location.search = url.search;
 
@@ -252,6 +255,51 @@ describe('Integration Capture', () => {
                 wbraid: '09876',
                 ScCid:'1234'
             }); 
+        });
+
+        describe('Bing Ads Click Ids', () => {
+            const clickId = 'Dd4afcccb1c94a4cad9544dd7e5006ab';
+
+            it.each(['msclkid', 'MSCLKID'])('should capture %s without altering its value', key => {
+                window.location.href = `https://www.example.com/?${key}=${clickId}`;
+
+                const integrationCapture = new IntegrationCapture('all');
+                integrationCapture.capture();
+
+                expect(integrationCapture.clickIds).toEqual({ msclkid: clickId });
+                expect(integrationCapture.getClickIdsAsCustomFlags()).toEqual({
+                    'BingAds-S2S.LastClickId': clickId,
+                });
+            });
+
+            it.each(['https://www.example.com/', 'https://www.example.com/?msclkid='])(
+                'should omit the Bing click ID when it is missing or empty in %s', url => {
+                    window.location.href = url;
+
+                    const integrationCapture = new IntegrationCapture('all');
+                    integrationCapture.capture();
+
+                    expect(integrationCapture.getClickIdsAsCustomFlags()).toEqual({});
+                }
+            );
+
+            it('should retain the captured ID until a new click ID is available', () => {
+                const integrationCapture = new IntegrationCapture('all');
+                window.location.href = `https://www.example.com/?msclkid=${clickId}`;
+                integrationCapture.capture();
+
+                window.location.href = 'https://www.example.com/next-page';
+                integrationCapture.capture();
+                expect(integrationCapture.getClickIdsAsCustomFlags()).toEqual({
+                    'BingAds-S2S.LastClickId': clickId,
+                });
+
+                window.location.href = 'https://www.example.com/?msclkid=new-click-id';
+                integrationCapture.capture();
+                expect(integrationCapture.getClickIdsAsCustomFlags()).toEqual({
+                    'BingAds-S2S.LastClickId': 'new-click-id',
+                });
+            });
         });
 
         describe('Google Click Ids', () => {
@@ -750,6 +798,7 @@ describe('Integration Capture', () => {
 
         describe('precedence between the URL, localStorage and cookies', () => {
             const outputOfEachKey: [string, string][] = [
+                ['msclkid', 'BingAds-S2S.LastClickId'],
                 ['fbclid', 'Facebook.ClickId'],
                 ['_fbc', 'Facebook.ClickId'],
                 ['_fbp', 'Facebook.BrowserId'],
