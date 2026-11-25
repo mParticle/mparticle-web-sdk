@@ -4,17 +4,18 @@ run-name: 'V3 Release Please - Commit Release Bundles [${{ github.ref_name }}]'
 # dist/ and kits/**/dist change only in the Release Please release PR. On each
 # push to its branch, this workflow builds core and every publishable kit at
 # the branch's package.json version, the same way Step 1 builds them
-# (scripts/build-v3-release.sh), and commits dist/ and kits/**/dist as the
-# release machine user when the bundles changed. The push runs the PR checks,
+# (scripts/build-v3-release.sh), and commits dist/ and kits/**/dist, signed by
+# the release machine user and pushed by the release app, when the bundles
+# changed. The push runs the PR checks,
 # so v3-release-dist-check.yml then checks the new head. Every v3.X.Y tag
 # therefore carries the bundles its version builds.
 #
 # The build job reads no secret, and runs only while the repository variable
 # V3_RELEASE_PLEASE_ENABLED is 'true'. The commit job runs in the GitHub
-# Environment v3-release-machine-user, which holds the machine user's token and
-# GPG key and admits only the release branch, main and the v3 tags. Its first
-# step fails, naming the secret, if the token, the GPG key or its passphrase is
-# empty. It runs no npm or repository script: it applies the build's patch,
+# Environment v3-release-machine-user, which holds the release app's
+# credentials and the machine user's GPG key and admits only the release
+# branch, main and the v3 tags. Its first step fails, naming the secret, if an
+# app credential, the GPG key or its passphrase is empty. It runs no npm or repository script: it applies the build's patch,
 # commits and pushes.
 
 on:
@@ -127,8 +128,9 @@ jobs:
         runs-on: ubuntu-latest
         timeout-minutes: 10
         permissions:
-            contents: read # The push uses the machine user's token, not GITHUB_TOKEN.
-        # Holds MP_SEMANTIC_RELEASE_BOT, GPG_PRIVATE_KEY and GPG_PASSPHRASE.
+            contents: read # The push uses the release app's token, not GITHUB_TOKEN.
+        # Holds SDK_RELEASE_GITHUB_CLIENT_ID, SDK_RELEASE_GITHUB_APP_PRIVATE_KEY,
+        # GPG_PRIVATE_KEY and GPG_PASSPHRASE.
         # Its deployment rule admits the release branch, main and v3 tags.
         environment: v3-release-machine-user
         env:
@@ -141,14 +143,18 @@ jobs:
             # with its name, before the checkout, the GPG import or the push.
             - name: Check the release secrets are set
               env:
-                  RELEASE_TOKEN: ${{ secrets.MP_SEMANTIC_RELEASE_BOT }}
+                  RELEASE_APP_CLIENT_ID: ${{ secrets.SDK_RELEASE_GITHUB_CLIENT_ID }}
+                  RELEASE_APP_PRIVATE_KEY: ${{ secrets.SDK_RELEASE_GITHUB_APP_PRIVATE_KEY }}
                   RELEASE_GPG_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
                   RELEASE_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
               run: |
                   set -eu
                   MISSING=''
-                  if [ -z "${RELEASE_TOKEN:-}" ]; then
-                      MISSING="${MISSING} MP_SEMANTIC_RELEASE_BOT"
+                  if [ -z "${RELEASE_APP_CLIENT_ID:-}" ]; then
+                      MISSING="${MISSING} SDK_RELEASE_GITHUB_CLIENT_ID"
+                  fi
+                  if [ -z "${RELEASE_APP_PRIVATE_KEY:-}" ]; then
+                      MISSING="${MISSING} SDK_RELEASE_GITHUB_APP_PRIVATE_KEY"
                   fi
                   if [ -z "${RELEASE_GPG_KEY:-}" ]; then
                       MISSING="${MISSING} GPG_PRIVATE_KEY"
@@ -161,14 +167,25 @@ jobs:
                       exit 1
                   fi
 
+            - name: Mint the release app token
+              id: release-app-token
+              uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+              with:
+                  client-id: ${{ secrets.SDK_RELEASE_GITHUB_CLIENT_ID }}
+                  private-key: ${{ secrets.SDK_RELEASE_GITHUB_APP_PRIVATE_KEY }}
+                  owner: ${{ github.repository_owner }}
+                  repositories: ${{ github.event.repository.name }}
+                  permission-contents: write
+                  permission-workflows: write
+
             - name: Checkout the release branch head
               uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
                   ref: ${{ github.sha }}
-                  token: ${{ secrets.MP_SEMANTIC_RELEASE_BOT }}
-                  # The machine user's push runs the PR checks on the new head;
+                  token: ${{ steps.release-app-token.outputs.token }}
+                  # The release app's push runs the PR checks on the new head;
                   # a GITHUB_TOKEN push would not.
-                  persist-credentials: true # zizmor: ignore[artipacked] -- pushes the bundle commit as the release machine user; this job runs no npm or repository script
+                  persist-credentials: true # zizmor: ignore[artipacked] -- pushes the bundle commit as the release app; this job runs no npm or repository script
 
             - name: Download the bundle patch
               uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2

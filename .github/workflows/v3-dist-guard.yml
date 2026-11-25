@@ -1,7 +1,8 @@
 name: 'V3 Release Please - Bundle Change Guard'
 
-# dist/ and kits/**/dist change only in the Release Please release PR, in
-# commits the release machine user made and signed. A dist that is a file or a
+# dist/ and kits/**/dist change only in the Release Please release PR, which
+# the release app or the release machine user opened, in commits the release
+# machine user made and signed. A dist that is a file or a
 # symlink counts as a bundle change too. This check fails a pull
 # request to main that changes them any other way. It is inert until the
 # repository variable V3_DIST_GUARD_ENABLED is 'true': until then it passes
@@ -85,6 +86,7 @@ jobs:
                   HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
                   BASE_REPOSITORY: ${{ github.repository }}
                   PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+                  RELEASE_PR_AUTHORS: 'rokt-releases[bot] mparticle-automation'
                   RELEASE_BOT_LOGIN: 'mparticle-automation'
                   RELEASE_IDENTITY: 'mparticle-automation <developers@mparticle.com>'
                   GH_TOKEN: ${{ github.token }}
@@ -105,9 +107,10 @@ jobs:
                   RELEASE_BRANCH=false
                   case "$HEAD_REF" in
                       release-please--branches--main|release-please--branches--main--components--*)
-                          if [ "$HEAD_REPOSITORY" = "$BASE_REPOSITORY" ] &&
-                              [ "$PR_AUTHOR" = "$RELEASE_BOT_LOGIN" ]; then
-                              RELEASE_BRANCH=true
+                          if [ "$HEAD_REPOSITORY" = "$BASE_REPOSITORY" ]; then
+                              case " ${RELEASE_PR_AUTHORS} " in
+                                  *" ${PR_AUTHOR} "*) RELEASE_BRANCH=true ;;
+                              esac
                           fi
                           ;;
                   esac

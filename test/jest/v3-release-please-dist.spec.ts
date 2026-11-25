@@ -64,7 +64,7 @@ describe('V3 Release Please bundle commit workflow', () => {
             ref: '${{ github.sha }}',
             'persist-credentials': false,
         });
-        expect(read(DIST_PATH).match(/secrets\./g)).toHaveLength(6);
+        expect(read(DIST_PATH).match(/secrets\./g)).toHaveLength(8);
         expect(JSON.stringify(BUILD_JOB)).not.toContain('secrets.');
         expect(commitText).not.toMatch(/\bnpm\b|\bnode\b|\.\/scripts\//);
         expect(COMMIT_JOB.needs).toBe('build-dist');
@@ -73,11 +73,11 @@ describe('V3 Release Please bundle commit workflow', () => {
         );
     });
 
-    it('checks out with the machine user token so its push runs the PR checks', () => {
+    it('checks out with the release app token so its push runs the PR checks', () => {
         const checkout = step(COMMIT_JOB, 'Checkout the release branch head');
 
         expect(checkout.with.token).toBe(
-            '${{ secrets.MP_SEMANTIC_RELEASE_BOT }}'
+            '${{ steps.release-app-token.outputs.token }}'
         );
         expect(checkout.with.ref).toBe('${{ github.sha }}');
         expect(DIST.permissions).toEqual({});
@@ -92,12 +92,13 @@ describe('V3 Release Please bundle commit workflow', () => {
         );
     });
 
-    it('reads the machine user token and GPG key only in the release Environment', () => {
+    it('reads the release app credentials and GPG key only in the release Environment', () => {
         expect(COMMIT_JOB.environment).toBe(RELEASE_ENVIRONMENT);
         expect(BUILD_JOB.environment).toBeUndefined();
         expect(CHECK_JOB.environment).toBeUndefined();
         for (const name of [
-            'MP_SEMANTIC_RELEASE_BOT',
+            'SDK_RELEASE_GITHUB_CLIENT_ID',
+            'SDK_RELEASE_GITHUB_APP_PRIVATE_KEY',
             'GPG_PRIVATE_KEY',
             'GPG_PASSPHRASE',
         ]) {
@@ -105,17 +106,27 @@ describe('V3 Release Please bundle commit workflow', () => {
         }
     });
 
-    it('fails first, with a clear message, when the token, GPG key or passphrase is empty', () => {
+    it('fails first, with a clear message, when an app credential, GPG key or passphrase is empty', () => {
         const check = step(COMMIT_JOB, 'Check the release secrets are set');
 
         expect(steps(COMMIT_JOB)[0]).toBe(check);
         expect(check.env).toEqual({
-            RELEASE_TOKEN: '${{ secrets.MP_SEMANTIC_RELEASE_BOT }}',
+            RELEASE_APP_CLIENT_ID: '${{ secrets.SDK_RELEASE_GITHUB_CLIENT_ID }}',
+            RELEASE_APP_PRIVATE_KEY:
+                '${{ secrets.SDK_RELEASE_GITHUB_APP_PRIVATE_KEY }}',
             RELEASE_GPG_KEY: '${{ secrets.GPG_PRIVATE_KEY }}',
             RELEASE_GPG_PASSPHRASE: '${{ secrets.GPG_PASSPHRASE }}',
         });
         expect(check.if).toBeUndefined();
-        expect(check.run).toContain('if [ -z "${RELEASE_TOKEN:-}" ]; then');
+        expect(check.run).toContain(
+            'if [ -z "${RELEASE_APP_CLIENT_ID:-}" ]; then'
+        );
+        expect(check.run).toContain(
+            'if [ -z "${RELEASE_APP_PRIVATE_KEY:-}" ]; then'
+        );
+        expect(check.run).toContain(
+            'MISSING="${MISSING} SDK_RELEASE_GITHUB_APP_PRIVATE_KEY"'
+        );
         expect(check.run).toContain('if [ -z "${RELEASE_GPG_KEY:-}" ]; then');
         expect(check.run).toContain(
             'if [ -z "${RELEASE_GPG_PASSPHRASE:-}" ]; then'

@@ -4,8 +4,8 @@ name: 'V3 Release Please'
 # request. When that pull request merges, it publishes the GitHub release,
 # which creates the v3.X.Y tag, and dispatches v3-release-step-1.yml on that
 # tag with dryRun=false using the built-in token. Release Please runs as the
-# release machine user, so pushes to the release pull request run its checks
-# (a GITHUB_TOKEN push would not), and v3-release-please-dist.yml commits the
+# release app, so pushes to the release pull request run its checks (a
+# GITHUB_TOKEN push would not), and v3-release-please-dist.yml commits the
 # bundles there. The repository variable V3_RELEASE_PLEASE_ENABLED is the kill
 # switch.
 
@@ -28,20 +28,32 @@ jobs:
         if: ${{ github.repository_owner == 'mParticle' && vars.V3_RELEASE_PLEASE_ENABLED == 'true' }}
         runs-on: ubuntu-latest
         timeout-minutes: 15
-        # The only copy of MP_SEMANTIC_RELEASE_BOT this repository can read; its
-        # deployment rule admits main.
+        # The only place this repository holds the release app's credentials;
+        # its deployment rule admits main.
         environment: v3-release-machine-user
         permissions:
-            contents: read # The action writes with the machine user's token.
+            contents: read # The action writes with the release app's token.
         outputs:
             release_created: ${{ steps.release.outputs.release_created }}
             tag_name: ${{ steps.release.outputs.tag_name }}
         steps:
+            - name: Mint the release app token
+              id: release-app-token
+              uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+              with:
+                  client-id: ${{ secrets.SDK_RELEASE_GITHUB_CLIENT_ID }}
+                  private-key: ${{ secrets.SDK_RELEASE_GITHUB_APP_PRIVATE_KEY }}
+                  owner: ${{ github.repository_owner }}
+                  repositories: ${{ github.event.repository.name }}
+                  permission-contents: write
+                  permission-pull-requests: write
+                  permission-workflows: write
+
             - name: Run Release Please
               id: release
               uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
               with:
-                  token: ${{ secrets.MP_SEMANTIC_RELEASE_BOT }}
+                  token: ${{ steps.release-app-token.outputs.token }}
                   target-branch: main
                   config-file: release-please-config.json
                   manifest-file: .release-please-manifest.json

@@ -91,19 +91,21 @@ describe('V3 Release Please on main', () => {
         });
     });
 
-    it('runs a pinned Release Please action as the release machine user', () => {
+    it('runs a pinned Release Please action as the release app', () => {
         expect(ACTION_STEP.uses).toMatch(
             /^googleapis\/release-please-action@[0-9a-f]{40}$/
         );
+        expect(JOB.steps[0].id).toBe('release-app-token');
+        expect(JOB.steps[0].with['permission-pull-requests']).toBe('write');
         expect(ACTION_STEP.with).toEqual({
-            token: '${{ secrets.MP_SEMANTIC_RELEASE_BOT }}',
+            token: '${{ steps.release-app-token.outputs.token }}',
             'target-branch': 'main',
             'config-file': 'release-please-config.json',
             'manifest-file': '.release-please-manifest.json',
         });
         expect(WORKFLOW.permissions).toEqual({});
         expect(JOB.permissions).toEqual({ contents: 'read' });
-        expect(JOB.steps).toHaveLength(1);
+        expect(JOB.steps).toHaveLength(2);
         expect(JOB.outputs).toEqual({
             release_created: '${{ steps.release.outputs.release_created }}',
             tag_name: '${{ steps.release.outputs.tag_name }}',
