@@ -1,5 +1,18 @@
 # Changelog
 
+## [3.41.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.40.0...v3.41.0) (2026-11-25)
+
+
+### Features
+
+* **web SDK:** build the lean SDK and the button tracking module (M1b) ([#1941](https://github.com/mParticle/mparticle-web-sdk/issues/1941)) ([7173c67](https://github.com/mParticle/mparticle-web-sdk/commit/7173c671daef6592483ab2c0ca9ca7cde1cf7918))
+
+
+### Miscellaneous
+
+* **web SDK:** read the release machine user's token from its Environment ([#1942](https://github.com/mParticle/mparticle-web-sdk/issues/1942)) ([d0b156e](https://github.com/mParticle/mparticle-web-sdk/commit/d0b156e61a6b956c0b0af4bd70d7b4e3a1ff2f32))
+* **web-sdk:** fail when a CDN bundle is not ASCII after NUglify ([#1939](https://github.com/mParticle/mparticle-web-sdk/issues/1939)) ([7ea4128](https://github.com/mParticle/mparticle-web-sdk/commit/7ea4128ada6e7bf669db9a16c4ccd7d35d6ba794))
+
 ## [3.40.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.39.0...v3.40.0) (2026-11-24)
 
 

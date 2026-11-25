@@ -5,6 +5,7 @@ export declare const SDKModuleNames: {
 export declare function registerSDKModule<K extends SDKModuleName>(name: K, module: ISDKModules[K], replace?: boolean): void;
 export declare function registerBuiltInSDKModule<K extends SDKModuleName>(name: K, module: ISDKModules[K]): void;
 export declare function getSDKModule<K extends SDKModuleName>(name: K): ISDKModules[K] | undefined;
+export declare function getSDKModuleRejection(name: SDKModuleName): string | undefined;
 export declare function takeSDKModuleWarnings(): string[];
 export declare function resetSDKModules(): void;
 export declare function resetButtonTrackingModule(): void;
