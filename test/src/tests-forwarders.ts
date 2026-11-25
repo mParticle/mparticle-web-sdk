@@ -21,6 +21,7 @@ import { UserIdentities } from '@mparticle/web-sdk';
 
 const {
     findEventFromRequest,
+    findBatch,
     waitForCondition,
     fetchMockSuccess,
     getForwarderEvent,
@@ -2978,6 +2979,57 @@ describe('forwarders', function() {
         clock.restore();
     });
 
+    it('includes a late Adobe visitor ID in subsequent uploads after the shared queue drains', async () => {
+        const adobeModuleId = 124;
+        const adobeVisitorId = 'test-adobe-visitor-id';
+        const config = window.mParticle.config;
+        config.integrationDelayTimeout = 1000;
+
+        mParticle.init(apiKey, config);
+        const instance = mParticle.getInstance();
+        await waitForCondition(() => !instance._Store.identityCallInFlight);
+
+        const clock = sinon.useFakeTimers({
+            now: instance._Store.integrationDelayTimeoutStart,
+        });
+
+        try {
+            fetchMock.resetHistory();
+            mParticle._setIntegrationDelay(adobeModuleId, true);
+            mParticle.logEvent('Before Adobe ID');
+
+            clock.tick(999);
+            expect(fetchMock.calls(urls.events)).to.have.length(0);
+
+            clock.tick(1);
+            const initialUploads = fetchMock.calls(urls.events);
+            const initialBatch = findBatch(initialUploads, 'Before Adobe ID');
+            expect(initialBatch).to.exist;
+            expect(initialBatch.integration_attributes?.[adobeModuleId])
+                .to.be.undefined;
+
+            // Simulate the Adobe kit's visitor-ID callback after the deadline.
+            mParticle.setIntegrationAttribute(adobeModuleId, {
+                mid: adobeVisitorId,
+            });
+            mParticle._setIntegrationDelay(adobeModuleId, false);
+            expect(fetchMock.calls(urls.events)).to.have.length(
+                initialUploads.length
+            );
+
+            mParticle.logEvent('After Adobe ID');
+            const laterUploads = fetchMock.calls(urls.events).slice(
+                initialUploads.length
+            );
+            const laterBatch = findBatch(laterUploads, 'After Adobe ID');
+            expect(laterBatch?.integration_attributes?.[adobeModuleId]?.mid)
+                .to.equal(adobeVisitorId);
+            expect(findBatch(laterUploads, 'Before Adobe ID')).to.be.null;
+        } finally {
+            clock.restore();
+        }
+    });
+
     it('drains an idle integration queue without forwarding to GA4 while its tag is blocked', async () => {
         const ga4ModuleId = 160;
         const otherModuleId = 128;
@@ -3043,7 +3095,17 @@ describe('forwarders', function() {
                 )
             ).to.equal(true);
 
-            const uploadCount = uploads.length;
+            // A loaded tag can still be waiting for its client-ID callback.
+            const pendingPageView = 'Page view while GA4 client ID is pending';
+            mParticle.logPageView(pendingPageView);
+            const pendingUploads = fetchMock.calls(urls.events).slice(
+                uploads.length
+            );
+            expect(findEventFromRequest(pendingUploads, pendingPageView)).to.exist;
+            expect(sendToOther.lastCall.args[0].EventName).to.equal(pendingPageView);
+            expect(sendToGA4.callCount).to.equal(0);
+
+            const uploadCount = fetchMock.calls(urls.events).length;
             mParticle._setIntegrationDelay(ga4ModuleId, false);
             expect(fetchMock.calls(urls.events)).to.have.length(uploadCount);
             expect(sendToGA4.callCount).to.equal(0);
