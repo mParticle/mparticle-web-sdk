@@ -22,7 +22,7 @@ jobs:
           local-identifier: random
 
       - name: 'Checkout the repository'
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: 'Run NPM CI'
         run: npm ci
