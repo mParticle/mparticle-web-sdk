@@ -1,2 +1,2 @@
-declare const mParticleManager: any;
+import mParticleManager from './mparticle-lean';
 export default mParticleManager;
