@@ -24,6 +24,12 @@ describe('nonAsciiValues', () => {
         expect(nonAsciiValues(code, 'bundle.js')).toHaveLength(3);
     });
 
+    it('flags escaped identifiers, private ones included', () => {
+        const code = `var ${BS}u00E9=1;class C{#${BS}u00E9=2}`;
+
+        expect(nonAsciiValues(code, 'bundle.js')).toHaveLength(2);
+    });
+
     it('passes an escaped backslash, which stays ASCII after minification', () => {
         const code = `var p=new RegExp('[^${BS}${BS}u3092]');var s=String.fromCharCode(65533);`;
 

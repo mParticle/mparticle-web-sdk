@@ -29,7 +29,8 @@ function nonAsciiValues(code, fileName) {
         if (
             (ts.isStringLiteralLike(node) ||
                 ts.isTemplateLiteralToken(node) ||
-                ts.isIdentifier(node)) &&
+                ts.isIdentifier(node) ||
+                ts.isPrivateIdentifier(node)) &&
             hasNonAscii(node.text)
         ) {
             const { line } = sourceFile.getLineAndCharacterOfPosition(
