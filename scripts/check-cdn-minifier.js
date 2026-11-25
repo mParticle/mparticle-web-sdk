@@ -8,6 +8,23 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 const { Linter } = require('eslint');
 const { smokeTest } = require('./smoke-cdn-minified');
+const { firstNonAsciiByte } = require('./check-ascii-dist');
+
+// NUglify writes string escapes back out as raw characters, and a page that is not UTF-8 then fails
+// to parse the bundle (3.33.0). These vendor kits already ship non-ASCII text after NUglify; any
+// other bundle that does fails the check.
+const KNOWN_NON_ASCII = [/^kits\/adobe\//, /^kits\/braze\//];
+
+function nonAsciiAfterMinification(bundle, minified) {
+    const offset = firstNonAsciiByte(minified);
+    if (offset === -1 || KNOWN_NON_ASCII.some(known => known.test(bundle))) {
+        return undefined;
+    }
+    const character = minified.subarray(offset, offset + 4).toString('utf8');
+    return `${bundle} is not ASCII after minification: byte ${offset} starts "${
+        Array.from(character)[0]
+    }". Write the character with String.fromCharCode, or escape the backslash in a RegExp pattern.`;
+}
 
 const linter = new Linter();
 const config = {
@@ -66,7 +83,13 @@ async function main(bundles) {
     let failed = false;
     for (const bundle of bundles) {
         const original = fs.readFileSync(bundle, 'utf8');
-        const minified = fs.readFileSync(path.join(outputDir, bundle), 'utf8');
+        const minifiedBytes = fs.readFileSync(path.join(outputDir, bundle));
+        const minified = minifiedBytes.toString('utf8');
+        const nonAscii = nonAsciiAfterMinification(bundle, minifiedBytes);
+        if (nonAscii) {
+            failed = true;
+            console.error(`CDN minifier check failed: ${nonAscii}`);
+        }
         let introduced;
         try {
             introduced = introducedUndeclaredNames(original, minified);
@@ -84,7 +107,7 @@ async function main(bundles) {
                     ', '
                 )} after minification.`
             );
-        } else {
+        } else if (!nonAscii) {
             console.log(`CDN minifier check passed: ${bundle}`);
         }
     }
@@ -154,4 +177,4 @@ if (require.main === module) {
     );
 }
 
-module.exports = { introducedUndeclaredNames };
+module.exports = { introducedUndeclaredNames, nonAsciiAfterMinification };

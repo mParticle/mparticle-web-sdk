@@ -212,6 +212,19 @@ jobs:
             - name: Confirm the minifier keeps the 3.19.0 pattern
               run: node scripts/check-cdn-minifier.js test/fixtures/cdn-minifier/computed-binding-key.js
 
+            # NUglify writes a string escape back out as the raw character, so 3.33.0's checkout pattern
+            # left the served bundle non-ASCII and Shift_JIS pages could not parse it. The check must keep
+            # failing on that pattern; if it stops, it no longer sees what NUglify does to escapes.
+            - name: Confirm the ASCII check catches the 3.33.0 pattern
+              run: |
+                  if output=$(node scripts/check-cdn-minifier.js test/fixtures/cdn-minifier/escaped-non-ascii-string.js 2>&1); then
+                      echo "$output"
+                      echo "::error::The CDN minifier check passed a bundle NUglify leaves non-ASCII."
+                      exit 1
+                  fi
+                  echo "$output"
+                  echo "$output" | grep -q 'is not ASCII after minification'
+
             - name: Download core bundle
               uses: actions/download-artifact@v8
               with:
