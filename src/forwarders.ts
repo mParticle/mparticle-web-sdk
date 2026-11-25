@@ -27,6 +27,7 @@ import { IMParticleUser } from './identity-user-interfaces';
 import { IPixelConfiguration } from './cookieSyncManager';
 
 const { Modify, Identify, Login, Logout } = Constants.IdentityMethods;
+const googleAnalytics4ModuleId = 160;
 
 // Maps an identity method to the kit callback that reports its completion.
 const identityCompleteKitMethods: Dictionary<
@@ -243,6 +244,14 @@ export default function Forwarders(
         );
 
         const forwardEvent = function(forwarder: ConfiguredKit): void {
+            // A blocked Google tag can queue events in dataLayer for later delivery.
+            if (
+                forwarder.id === googleAnalytics4ModuleId &&
+                mpInstance._preInit.integrationDelays[forwarder.id] === true
+            ) {
+                return;
+            }
+
             if (
                 isBlockedByForwardingRule(
                     event.EventDataType,

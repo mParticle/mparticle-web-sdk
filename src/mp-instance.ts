@@ -282,6 +282,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
      */
     this.reset = function(instance) {
         try {
+            instance._APIClient?.cancelIntegrationDelayTimer();
             instance._Persistence.resetPersistence();
             if (instance._Store) {
                 delete instance._Store;
@@ -292,6 +293,7 @@ export default function mParticleInstance(this: IMParticleWebSDKInstance, instan
     };
 
     this._resetForTests = function(config, keepPersistence, instance) {
+        instance._APIClient?.cancelIntegrationDelayTimer();
         if (instance._Store) {
             delete instance._Store;
         }
@@ -1500,10 +1502,9 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
     const { getFeatureFlag } = mpInstance._Helpers;
     const { AutoLogPageView } = Constants.FeatureFlags;
 
-    // Destroy previous batch uploader to prevent leaked timers and event listeners
-    if (mpInstance._APIClient?.uploader) {
-        mpInstance._APIClient.uploader.destroy();
-    }
+    // Clean up the previous API client before replacing it.
+    mpInstance._APIClient?.cancelIntegrationDelayTimer();
+    mpInstance._APIClient?.uploader?.destroy();
 
     mpInstance._APIClient = new APIClient(mpInstance, kitBlocker);
     mpInstance._Forwarders = new Forwarders(mpInstance, kitBlocker);

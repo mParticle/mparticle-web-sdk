@@ -2978,6 +2978,86 @@ describe('forwarders', function() {
         clock.restore();
     });
 
+    it('drains an idle integration queue without forwarding to GA4 while its tag is blocked', async () => {
+        const ga4ModuleId = 160;
+        const otherModuleId = 128;
+        const config = window.mParticle.config;
+        config.integrationDelayTimeout = 1000;
+
+        new MockForwarder('GoogleAnalytics4', ga4ModuleId).register(config);
+        new MockForwarder('OtherForwarder', otherModuleId).register(config);
+        config.kitConfigs.push(
+            forwarderDefaultConfiguration('GoogleAnalytics4', ga4ModuleId),
+            forwarderDefaultConfiguration('OtherForwarder', otherModuleId)
+        );
+
+        mParticle.init(apiKey, config);
+        const instance = mParticle.getInstance();
+        await waitForCondition(() => !instance._Store.identityCallInFlight);
+
+        const ga4 = instance._getActiveForwarders().find(
+            forwarder => forwarder.id === ga4ModuleId
+        );
+        const other = instance._getActiveForwarders().find(
+            forwarder => forwarder.id === otherModuleId
+        );
+        const sendToGA4 = sinon.spy(ga4, 'process');
+        const sendToOther = sinon.spy(other, 'process');
+        const start = instance._Store.integrationDelayTimeoutStart;
+        const clock = sinon.useFakeTimers({ now: start });
+
+        try {
+            fetchMock.resetHistory();
+            mParticle._setIntegrationDelay(ga4ModuleId, true);
+            mParticle.startNewSession();
+            mParticle.logPageView('Initial page view');
+            mParticle.logEvent(
+                'Client-side only event',
+                mParticle.EventType.Other,
+                {},
+                {},
+                { shouldUploadEvent: false }
+            );
+
+            clock.tick(999);
+            expect(fetchMock.calls(urls.events)).to.have.length(0);
+            expect(sendToGA4.callCount).to.equal(0);
+            expect(sendToOther.callCount).to.equal(0);
+
+            clock.tick(1);
+            const uploads = fetchMock.calls(urls.events);
+            expect(findEventFromRequest(uploads, 'session_start')).to.exist;
+            expect(findEventFromRequest(uploads, 'Initial page view')).to.exist;
+            expect(
+                findEventFromRequest(uploads, 'Client-side only event')
+            ).to.be.null;
+            expect(instance._Store.eventQueue).to.be.empty;
+            expect(sendToGA4.callCount).to.equal(0);
+            const pageView = sendToOther.getCalls().find(
+                call => call.args[0].EventName === 'Initial page view'
+            );
+            expect(pageView?.args[0].Timestamp).to.equal(start);
+            expect(
+                sendToOther.getCalls().some(
+                    call => call.args[0].EventName === 'Client-side only event'
+                )
+            ).to.equal(true);
+
+            const uploadCount = uploads.length;
+            mParticle._setIntegrationDelay(ga4ModuleId, false);
+            expect(fetchMock.calls(urls.events)).to.have.length(uploadCount);
+            expect(sendToGA4.callCount).to.equal(0);
+
+            mParticle.logPageView('Page view after GA4 is ready');
+            expect(sendToGA4.callCount).to.equal(1);
+            expect(sendToGA4.firstCall.args[0].EventName).to.equal(
+                'Page view after GA4 is ready'
+            );
+        } finally {
+            clock.restore();
+        }
+    });
+
     it('parse and capture forwarderConfiguration properly from backend', async () => {
         mParticle.config.requestConfig = true;
 

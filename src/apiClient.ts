@@ -12,10 +12,13 @@ import { IMParticleWebSDKInstance } from './mp-instance';
 import { appendUserInfo } from './user-utils';
 import { hasExplicitIdentifier } from './identity-utils';
 
+const eventsWithoutServerUpload = new WeakSet<SDKEvent>();
+
 export interface IAPIClient {
     uploader: BatchUploader | null;
     queueEventForBatchUpload: (event: SDKEvent) => void;
     processQueuedEvents: () => void;
+    cancelIntegrationDelayTimer: () => void;
     appendUserInfoToEvents: (user: IMParticleUser, events: SDKEvent[]) => void;
     sendEventToServer: (event: SDKEvent, _options?: Dictionary<any>) => void;
     sendSingleEventToServer: (event: SDKEvent) => void;
@@ -51,6 +54,15 @@ export default function APIClient(
 ) {
     this.uploader = null;
     const self = this;
+    let integrationDelayTimer: ReturnType<typeof setTimeout> | undefined;
+
+    this.cancelIntegrationDelayTimer = function() {
+        if (integrationDelayTimer !== undefined) {
+            clearTimeout(integrationDelayTimer);
+            integrationDelayTimer = undefined;
+        }
+    };
+
     this.queueEventForBatchUpload = function(event: SDKEvent) {
         if (!this.uploader) {
             // https://go.mparticle.com/work/SQDSDKS-6317
@@ -120,7 +132,7 @@ export default function APIClient(
 
     this.sendEventToServer = function(event, _options) {
         const defaultOptions = {
-            shouldUploadEvent: true,
+            shouldUploadEvent: !eventsWithoutServerUpload.has(event),
         };
         const options = extend(defaultOptions, _options);
 
@@ -137,11 +149,17 @@ export default function APIClient(
         if (currentUser) {
             mpid = currentUser.getMPID();
         }
-        mpInstance._Store.requireDelay = mpInstance._Helpers.isDelayedByIntegration(
+        const store = mpInstance._Store;
+        const now = Date.now();
+        store.requireDelay = mpInstance._Helpers.isDelayedByIntegration(
             mpInstance._preInit.integrationDelays,
-            mpInstance._Store.integrationDelayTimeoutStart,
-            Date.now()
+            store.integrationDelayTimeoutStart,
+            now
         );
+
+        if (!options.shouldUploadEvent) {
+            eventsWithoutServerUpload.add(event);
+        }
 
         if (handleNoFunctionalPreMpidEvent(event, mpid)) {
             return;
@@ -152,17 +170,29 @@ export default function APIClient(
         // fetching the config (self hosted only), and so require delaying events
         if (
             !mpid ||
-            mpInstance._Store.requireDelay ||
-            !mpInstance._Store.configurationLoaded
+            store.requireDelay ||
+            !store.configurationLoaded
         ) {
             mpInstance.Logger.verbose(
                 'Event was added to eventQueue. eventQueue will be processed once a valid MPID is returned or there is no more integration imposed delay.'
             );
-            mpInstance._Store.eventQueue.push(event);
+            store.eventQueue.push(event);
+            if (store.requireDelay && integrationDelayTimer === undefined) {
+                const elapsed = now - store.integrationDelayTimeoutStart;
+                const remaining = store.SDKConfig.integrationDelayTimeout - elapsed;
+                integrationDelayTimer = setTimeout(() => {
+                    integrationDelayTimer = undefined;
+                    if (mpInstance._Store === store && store.configurationLoaded) {
+                        self.processQueuedEvents();
+                    }
+                }, Math.ceil(remaining));
+            }
             return;
         }
 
+        this.cancelIntegrationDelayTimer();
         this.processQueuedEvents();
+        eventsWithoutServerUpload.delete(event);
 
         if (isEmpty(event)) {
             return;
