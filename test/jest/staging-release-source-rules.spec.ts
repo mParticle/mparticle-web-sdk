@@ -462,6 +462,7 @@ describe('V2 release app token', () => {
             );
             expect(workflow).toContain('permission-workflows: write');
             expect(workflow).toContain('environment: v2-release\n');
+            expect(workflow).not.toMatch(/GPG|gpg/);
         }
     );
 });

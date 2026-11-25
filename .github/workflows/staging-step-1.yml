@@ -462,8 +462,8 @@ jobs:
             release_sha: ${{ steps.verify-release.outputs.release_sha }}
             release_tag: ${{ steps.verify-release.outputs.release_tag }}
 
-        # Holds the release app's credentials and the GPG key; its deployment
-        # rule admits staging and master.
+        # Holds the release app's credentials; its deployment rule admits
+        # staging and master.
         environment: v2-release
 
         # OIDC permissions for npm trusted publishing
@@ -504,14 +504,6 @@ jobs:
             - name: Configure release paths
               run: |
                   echo "NEXT_RELEASE_VERSION_FILE=$RUNNER_TEMP/next-release-version" >> "$GITHUB_ENV"
-
-            - name: Import GPG Key
-              uses: crazy-max/ghaction-import-gpg@e00cb83a68c1158b29afc5217dd0582cada6d172 #v4.4.0
-              with:
-                  gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
-                  passphrase: ${{ secrets.GPG_PASSPHRASE }}
-                  git_user_signingkey: true
-                  git_commit_gpgsign: true
 
             - name: Merge frozen candidate into staging preview
               if: ${{ github.event.inputs.dryRun == 'true' }}
