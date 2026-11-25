@@ -90,6 +90,12 @@ const integrationMappingExternal: IntegrationIdMapping = {
         output: IntegrationOutputs.CUSTOM_FLAGS,
     },
 
+    // Bing Ads
+    msclkid: {
+        mappedKey: 'BingAds-S2S.LastClickId',
+        output: IntegrationOutputs.CUSTOM_FLAGS,
+    },
+
     // Google
     gclid: {
         mappedKey: 'GoogleEnhancedConversions.Gclid',
