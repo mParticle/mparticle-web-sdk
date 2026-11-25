@@ -718,22 +718,39 @@ describe('feature-flags', () => {
                 expectTrackingOff(await initWithTracking());
             });
 
-            it('logs a rejected registration once, at the next init', async () => {
+            it('logs and reports a rejected module once per init, through the guard', async () => {
                 const warnings: string[] = [];
+                const reports: any[] = [];
                 const logger = { warning: (message: string) => warnings.push(message) };
+                registerModule(moduleName, undefined);
                 registerModule(moduleName, { ...workingModule, version: '0.0.1' });
 
                 // The SDK's default level, which the shared test config turns off.
                 const config = { logLevel: 'warning', logger } as Partial<SDKInitConfig>;
                 const instance = await initWithTracking(config);
+                // Registered after init, as the Rokt kit's reporting is: it gets the held report.
+                window.mParticle._registerErrorReportingService({ report: (error: any) => reports.push(error) });
                 await initWithTracking(config);
 
-                expect(
-                    warnings.filter(warning => warning.indexOf('Rejected SDK module') === 0)
-                ).to.deep.equal([
-                    'Rejected SDK module buttonTracking 0.0.1, built for another SDK version',
+                const expected = 'Button tracking off: Rejected SDK module buttonTracking 0.0.1, built for another SDK version';
+                expect(warnings.filter(warning => /SDK module|Button tracking off/.test(warning))).to.deep.equal([expected, expected]);
+                expect(reports.map(({ message, code, severity }) => ({ message, code, severity }))).to.deep.equal([
+                    { message: expected, code: 'BUTTON_TRACKING_OFF', severity: 'WARNING' },
+                    { message: expected, code: 'BUTTON_TRACKING_OFF', severity: 'WARNING' },
                 ]);
+                expectTrackingOff(instance);
+            });
+
+            it('keeps the built-in module, without a warning, when a mismatched one registers', async () => {
+                const warnings: string[] = [];
+                const logger = { warning: (message: string) => warnings.push(message) };
+                registerModule(moduleName, { ...workingModule, version: '0.0.1' });
+
+                const instance = await initWithTracking({ logLevel: 'warning', logger } as Partial<SDKInitConfig>);
+
+                expect(warnings.filter(warning => /SDK module|Button tracking off/.test(warning))).to.deep.equal([]);
                 expect(instance._ButtonTracker).to.not.equal(undefined);
+                expect(activeTracker() && activeTracker().isActive).to.equal(true);
             });
 
             it('turns both tracking flags off when building the tracker throws', async () => {
@@ -786,15 +803,20 @@ describe('feature-flags', () => {
                     },
                 });
                 const warnings: string[] = [];
+                const reports: any[] = [];
                 const logger = { warning: (message: string) => warnings.push(message) };
                 const config = { logLevel: 'warning', logger } as Partial<SDKInitConfig>;
                 expect((await initWithTracking(config))._ButtonTracker).to.not.equal(undefined);
+                window.mParticle._registerErrorReportingService({ report: (error: any) => reports.push(error) });
                 resetThrows = true;
 
                 expectTrackingOff(await initWithTracking(config));
                 expect(
                     warnings.filter(warning => warning.indexOf('Button tracking off') === 0)
                 ).to.deep.equal(['Button tracking off: no module']);
+                expect(reports.map(({ message, code, severity }) => ({ message, code, severity }))).to.deep.equal([
+                    { message: 'Button tracking off: no module', code: 'BUTTON_TRACKING_OFF', severity: 'WARNING' },
+                ]);
             });
 
             it('leaves tracking off without the module when the flags are off', async () => {

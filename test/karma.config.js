@@ -1,9 +1,22 @@
-const { DEBUG } = process.env;
+const { DEBUG, SDK_BUNDLE } = process.env;
+
+// full: the released full SDK. modular: the lean SDK plus every module, as the
+// server joins them, against the whole suite. lean: the lean SDK alone,
+// against the suites that expect no module (npm run build:modular first).
+const sdkFiles = {
+    full: ['../dist/mparticle.js'],
+    modular: ['modular/mparticle.lean.js', 'modular/mparticle.buttonTracking.js'],
+    lean: ['modular/mparticle.lean.js'],
+};
+const bundle = SDK_BUNDLE || 'full';
+if (!sdkFiles[bundle]) {
+    throw new Error(`SDK_BUNDLE must be one of ${Object.keys(sdkFiles).join(', ')}`);
+}
 
 const files = [
     'lib/geomock.js',
-    '../dist/mparticle.js',
-    'test-bundle.js',
+    ...sdkFiles[bundle],
+    bundle === 'lean' ? 'test-bundle.lean.js' : 'test-bundle.js',
 ];
 
 let browsers = ['ChromeHeadless', 'FirefoxHeadless'];

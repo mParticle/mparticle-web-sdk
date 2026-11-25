@@ -61,7 +61,7 @@ import {
 } from './privacyTransitions';
 import { ErrorReportingDispatcher } from './reporting/errorReportingDispatcher';
 import { LoggingDispatcher } from './reporting/loggingDispatcher';
-import { IErrorReportingService, ILoggingService } from './reporting/types';
+import { ErrorCodes, IErrorReportingService, ILoggingService, WSDKErrorSeverity } from './reporting/types';
 import { logDeprecatedMethodUsage } from './reporting/deprecatedMethodLogger';
 import { normalizeRoktLauncherOptions } from './roktLauncherOptions';
 import {
@@ -74,6 +74,7 @@ import { ButtonTracker } from './buttonTracking/buttonTracker';
 import { getButtonClickBlocker } from './autoClickForwarding';
 import {
     getSDKModule,
+    getSDKModuleRejection,
     resetButtonTrackingModule,
     SDKModuleNames,
     takeSDKModuleWarnings,
@@ -1389,7 +1390,9 @@ function buildButtonTracker(mpInstance: IMParticleWebSDKInstance): void {
         // module but leaves the tracker an earlier init built.
         const buttonTracking = getSDKModule(SDKModuleNames.ButtonTracking);
         if (!buttonTracking) {
-            throw new Error('no module');
+            throw new Error(
+                getSDKModuleRejection(SDKModuleNames.ButtonTracking) || 'no module'
+            );
         }
         if (!mpInstance._ButtonTracker) {
             mpInstance._ButtonTracker = buttonTracking.createTracker(mpInstance);
@@ -1409,7 +1412,13 @@ function turnButtonTrackingOff(
     flags[Constants.FeatureFlags.AutoButtonTracking] = false;
     flags[Constants.FeatureFlags.AutoLinkTracking] = false;
     mpInstance._ButtonTracker = undefined;
-    mpInstance.Logger.warning('Button tracking off: ' + getErrorMessage(error));
+    const message = 'Button tracking off: ' + getErrorMessage(error);
+    mpInstance.Logger.warning(message);
+    mpInstance._ErrorReportingDispatcher.report({
+        message,
+        code: ErrorCodes.BUTTON_TRACKING_OFF,
+        severity: WSDKErrorSeverity.WARNING,
+    });
     resetButtonTrackingModule();
 }
 

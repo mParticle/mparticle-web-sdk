@@ -104,6 +104,32 @@ jobs:
             build_command: npm run build:iife
             branch_name: ${{ vars.GITHUB_SHA }}
 
+    # The lean SDK plus every module, as the server joins them, against the
+    # whole suite; and the lean SDK alone against the suites that expect no module.
+    test-modular:
+        name: Modular Tests
+        uses: mParticle/mparticle-workflows/.github/workflows/web-run-test.yml@main
+        needs:
+            - test-jest
+            - build-bundle
+        with:
+            test_command_label: Lean SDK plus modules
+            test_command: npm run test:modular
+            build_command: npm run build:modular
+            branch_name: ${{ vars.GITHUB_SHA }}
+
+    test-lean:
+        name: Lean SDK Tests
+        uses: mParticle/mparticle-workflows/.github/workflows/web-run-test.yml@main
+        needs:
+            - test-jest
+            - build-bundle
+        with:
+            test_command_label: Lean SDK without modules
+            test_command: npm run test:lean
+            build_command: npm run build:modular
+            branch_name: ${{ vars.GITHUB_SHA }}
+
     # Kit tests: build and test each kit defined in kits/matrix.json
     load-kit-matrix:
         name: Load Kit Matrix
