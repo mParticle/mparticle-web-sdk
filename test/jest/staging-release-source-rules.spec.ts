@@ -135,9 +135,11 @@ describe('V2 release Steps 2 and 3 dispatch rule', () => {
                 expect(workflow).not.toContain('v3-release-order');
                 expect(workflow).not.toContain('v3-development');
                 expect(workflow).not.toContain('refs/heads/main');
+                expect(workflow).toContain('environment: v2-release\n');
                 expect(workflow).toContain(
-                    'GITHUB_TOKEN: ${{ secrets.MP_SEMANTIC_RELEASE_BOT }}'
+                    'token: ${{ steps.release-app-token.outputs.token }}'
                 );
+                expect(workflow).not.toContain('MP_SEMANTIC_RELEASE_BOT');
             });
 
             it('does not compare the master and main copies', () => {
@@ -407,9 +409,13 @@ describe('V2 Step 1 (staging-step-1.yml) workflow source validation', () => {
         expect(release).toContain(
             "needs.create-release-branch.result == 'success'"
         );
-        expect(release).toContain(
-            'GITHUB_TOKEN: ${{ secrets.MP_SEMANTIC_RELEASE_BOT }}'
-        );
+        expect(release).toContain('        environment: v2-release\n');
+        expect(
+            release.match(
+                /GITHUB_TOKEN: \$\{\{ steps\.release-app-token\.outputs\.token \}\}/g
+            )
+        ).toHaveLength(2);
+        expect(workflow).not.toContain('MP_SEMANTIC_RELEASE_BOT');
         expect(release).toContain('id-token: write');
         expect(release).toContain(
             'npx semantic-release --branches "$STAGING_BRANCH"'
@@ -433,4 +439,29 @@ describe('V2 Step 1 (staging-step-1.yml) workflow source validation', () => {
             'printf \'gh workflow run staging-step-3.yml --ref %s -f releaseTag=%s\\n\' "$PROMOTION_REF" "$RELEASE_TAG"'
         );
     });
+});
+
+describe('V2 release app token', () => {
+    it.each([['staging-step-1.yml'], ['staging-step-2.yml'], ['staging-step-3.yml']])(
+        '%s mints one token scoped to this repository from the v2-release Environment',
+        file => {
+            const workflow = readWorkflow(file);
+            const mints = workflow.match(/id: release-app-token\n/g) || [];
+            expect(mints).toHaveLength(1);
+            expect(workflow).toMatch(
+                /uses: actions\/create-github-app-token@[0-9a-f]{40} # 3\.3\.0\n/
+            );
+            expect(workflow).toContain(
+                'client-id: ${{ secrets.SDK_RELEASE_GITHUB_CLIENT_ID }}'
+            );
+            expect(workflow).toContain(
+                'private-key: ${{ secrets.SDK_RELEASE_GITHUB_APP_PRIVATE_KEY }}'
+            );
+            expect(workflow).toContain(
+                'repositories: ${{ github.event.repository.name }}'
+            );
+            expect(workflow).toContain('permission-workflows: write');
+            expect(workflow).toContain('environment: v2-release\n');
+        }
+    );
 });
