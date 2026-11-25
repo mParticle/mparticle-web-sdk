@@ -255,12 +255,22 @@ describe('V3 Step 1 from a release tag: workflow source', () => {
                 output:
                     'Release Please cuts V3 releases; dispatch Step 1 from the release tag\n',
             });
+        });
+    });
+
+    it('stops a semantic-release dry run from v3-staging, because it cannot read the release secrets', () => {
+        withOrigin(origin => {
+            const checkout = clone(origin, 'checkout', 'v3-staging');
             expect(
                 run(checkout, {
                     SOURCE_REF: 'refs/heads/v3-staging',
                     DRY_RUN: 'true',
-                }).status
-            ).toBe(0);
+                })
+            ).toEqual({
+                status: 1,
+                output:
+                    "A semantic-release run from v3-staging can't read the release machine user's secrets, which this repository holds only in the v3-release-machine-user Environment; release from a v3.X.Y tag with V3_RELEASE_PLEASE_ENABLED set to 'true'\n",
+            });
         });
     });
 });
@@ -859,6 +869,7 @@ describe('V3 Step 1 from a release tag: release jobs', () => {
 
     it('fast-forwards v3-staging once core and the kits are on npm and the candidate is packaged, before uploading and staging the candidate', () => {
         const job = workflow.jobs['advance-staging'];
+        expect(job.environment).toBe('v3-release-machine-user');
         expect(job.needs).toEqual([
             'confirm-staging-branch',
             'release',
@@ -1071,7 +1082,7 @@ describe('V3 Step 1 from a release tag: release jobs', () => {
         const jobsWithEnvironment = Object.entries(workflow.jobs)
             .filter(([, job]: [string, any]) => job.environment !== undefined)
             .map(([name]) => name);
-        expect(jobsWithEnvironment).toEqual([]);
+        expect(jobsWithEnvironment).toEqual(['advance-staging']);
 
         expect(workflow.jobs.release.needs).toContain('create-release-branch');
         expect(workflow.jobs.release.if.replace(/\s+/g, ' ')).toContain(

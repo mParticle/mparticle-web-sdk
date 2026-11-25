@@ -7,8 +7,9 @@ run-name: 'V3 Release - Step 1'
 # own workflow.
 #
 # Two release modes, chosen by the dispatch ref:
-# - v3-staging (the default until Release Please is on): semantic-release cuts
-#   the release commit and tag from v3-development.
+# - v3-staging: semantic-release cut the release commit and tag from
+#   v3-development. It now stops at the source check, because its release job
+#   can't read the machine user's secrets; only kit recovery still runs from it.
 # - a stable v3.X.Y tag (Release Please mode): the release PR already put the
 #   version, the changelog and the bundles on main, and the tag on that commit,
 #   and v3-release-please.yml dispatches this workflow on that tag (or a
@@ -136,6 +137,15 @@ jobs:
                           echo "Synchronize the staging branch from its approved trunk before releasing"
                           exit 1
                       fi
+                  fi
+
+                  # The release job signs and pushes with secrets this repository
+                  # holds only in an Environment, and it can't join one: that
+                  # would change the OIDC subject npm trusted publishing checks.
+                  if [ "$RELEASE_MODE" = "semantic-release" ] &&
+                      [ -z "${RESUME_KIT_RELEASE_TAG:-}" ]; then
+                      echo "A semantic-release run from v3-staging can't read the release machine user's secrets, which this repository holds only in the v3-release-machine-user Environment; release from a v3.X.Y tag with V3_RELEASE_PLEASE_ENABLED set to 'true'"
+                      exit 1
                   fi
 
                   # A tag run checks out the tag's own copy of this workflow.
@@ -1304,6 +1314,9 @@ jobs:
             - publish-kits
         runs-on: ubuntu-latest
         timeout-minutes: 10
+        # The only copy of MP_SEMANTIC_RELEASE_BOT this repository can read; its
+        # deployment rule admits v3 tags.
+        environment: v3-release-machine-user
         permissions:
             contents: read # The push uses the machine user's token, not GITHUB_TOKEN.
         steps:
