@@ -279,7 +279,7 @@ export default function Helpers(
         now: number
     ): boolean {
         if (
-            now - timeoutStart >
+            now - timeoutStart >=
             mpInstance._Store.SDKConfig.integrationDelayTimeout
         ) {
             return false;
