@@ -462,6 +462,10 @@ jobs:
             release_sha: ${{ steps.verify-release.outputs.release_sha }}
             release_tag: ${{ steps.verify-release.outputs.release_tag }}
 
+        # Holds the release app's credentials; its deployment rule admits
+        # staging and master.
+        environment: v2-release
+
         # OIDC permissions for npm trusted publishing
         permissions:
             contents: write
@@ -470,7 +474,6 @@ jobs:
             id-token: write
 
         env:
-            GITHUB_TOKEN: ${{ secrets.MP_SEMANTIC_RELEASE_BOT }}
             GIT_AUTHOR_NAME: mparticle-automation
             GIT_AUTHOR_EMAIL: developers@mparticle.com
             GIT_COMMITTER_NAME: mparticle-automation
@@ -479,23 +482,28 @@ jobs:
             NPM_CONFIG_TAG: ${{ needs.confirm-staging-branch.outputs.npm_dist_tag }}
 
         steps:
+            - name: Mint the release app token
+              id: release-app-token
+              uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # 3.3.0
+              with:
+                  client-id: ${{ secrets.SDK_RELEASE_GITHUB_CLIENT_ID }}
+                  private-key: ${{ secrets.SDK_RELEASE_GITHUB_APP_PRIVATE_KEY }}
+                  owner: ${{ github.repository_owner }}
+                  repositories: ${{ github.event.repository.name }}
+                  permission-contents: write
+                  permission-pull-requests: write
+                  permission-workflows: write
+
             - name: Checkout ${{ needs.confirm-staging-branch.outputs.staging_branch }}
               uses: actions/checkout@v6
               with:
                   fetch-depth: 0
                   ref: ${{ needs.confirm-staging-branch.outputs.staging_branch }}
+                  token: ${{ steps.release-app-token.outputs.token }}
 
             - name: Configure release paths
               run: |
                   echo "NEXT_RELEASE_VERSION_FILE=$RUNNER_TEMP/next-release-version" >> "$GITHUB_ENV"
-
-            - name: Import GPG Key
-              uses: crazy-max/ghaction-import-gpg@e00cb83a68c1158b29afc5217dd0582cada6d172 #v4.4.0
-              with:
-                  gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
-                  passphrase: ${{ secrets.GPG_PASSPHRASE }}
-                  git_user_signingkey: true
-                  git_commit_gpgsign: true
 
             - name: Merge frozen candidate into staging preview
               if: ${{ github.event.inputs.dryRun == 'true' }}
@@ -555,6 +563,7 @@ jobs:
             - name: Release --dry-run
               if: ${{ github.event.inputs.dryRun == 'true' }}
               env:
+                  GITHUB_TOKEN: ${{ steps.release-app-token.outputs.token }}
                   STAGING_BRANCH: ${{ needs.confirm-staging-branch.outputs.staging_branch }}
               run: |
                   set -eu
@@ -581,6 +590,7 @@ jobs:
             - name: Release
               if: ${{ github.event.inputs.dryRun == 'false' }}
               env:
+                  GITHUB_TOKEN: ${{ steps.release-app-token.outputs.token }}
                   STAGING_BRANCH: ${{ needs.confirm-staging-branch.outputs.staging_branch }}
               run: |
                   set -eu
