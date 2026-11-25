@@ -230,6 +230,12 @@ instance for backwards compatibility).
      `scripts/check-cdn-minifier.js` runs it on the built bundles. When the CDN moves to a new
      version, move the pin with it, so the check tests what is actually served.
    - Treat a red `CDN Minifier Check` as a real break, not a flake.
+   - NUglify writes a string escape such as `'\u3092'` back out as the raw character, and a page that
+     is not UTF-8 then cannot parse the bundle (3.33.0; 3.17.0 shipped the raw character). Keep shipped
+     strings ASCII: build the character with `String.fromCharCode`, or escape the backslash in a RegExp pattern. Three
+     checks enforce it: `test/jest/asciiSource.spec.ts` on core and Rokt kit sources,
+     `npm run check:ascii:dist` on the built core, and `check-cdn-minifier.js` on NUglify's output for
+     every CDN bundle (the Adobe and Braze vendor kits are known exceptions).
    - Keep computed keys (`const { [KEY]: x, ...rest } = obj`), defaults and non-declaration `for-of`
      heads out of destructuring patterns in the Rokt kit. Read `obj[KEY]` and copy then `delete`
      instead. `kits/rokt/test/src/minifierSafeSyntax.spec.ts` checks both `src/` and the minified
