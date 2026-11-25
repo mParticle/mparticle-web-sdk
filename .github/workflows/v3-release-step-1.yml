@@ -55,7 +55,7 @@ jobs:
             contents: read
         steps:
             - name: Checkout workflow source
-              uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
                   fetch-depth: 0
 
@@ -244,7 +244,7 @@ jobs:
                   } >> "$GITHUB_OUTPUT"
 
             - name: Checkout ${{ steps.resolve.outputs.staging_branch }}
-              uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
                   fetch-depth: 0
                   ref: ${{ steps.resolve.outputs.staging_branch }}
@@ -380,7 +380,7 @@ jobs:
             contents: read
         steps:
             - name: Checkout
-              uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
                   ref: ${{ needs.confirm-staging-branch.outputs.candidate_sha }}
 
@@ -425,7 +425,7 @@ jobs:
             contents: read
         steps:
             - name: Checkout
-              uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
                   ref: ${{ needs.confirm-staging-branch.outputs.candidate_sha }}
 
@@ -478,7 +478,7 @@ jobs:
             contents: read
         steps:
             - name: Checkout
-              uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
                   ref: ${{ needs.confirm-staging-branch.outputs.candidate_sha }}
 
@@ -597,7 +597,7 @@ jobs:
             contents: read
         steps:
             - name: Checkout frozen release candidate
-              uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
                   ref: ${{ needs.confirm-staging-branch.outputs.candidate_sha }}
 
@@ -645,7 +645,7 @@ jobs:
             contents: read
         steps:
             - name: Checkout frozen release candidate
-              uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
                   ref: ${{ needs.confirm-staging-branch.outputs.candidate_sha }}
 
@@ -726,7 +726,7 @@ jobs:
         steps:
             - name: Checkout frozen release candidate
               if: ${{ needs.confirm-staging-branch.outputs.release_mode == 'semantic-release' }}
-              uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
                   repository: mparticle/mparticle-web-sdk
                   ref: ${{ needs.confirm-staging-branch.outputs.candidate_sha }}
@@ -869,14 +869,14 @@ jobs:
         steps:
             - name: Checkout ${{ needs.confirm-staging-branch.outputs.staging_branch }}
               if: ${{ needs.confirm-staging-branch.outputs.release_mode == 'semantic-release' }}
-              uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
                   fetch-depth: 0
                   ref: ${{ needs.confirm-staging-branch.outputs.staging_branch }}
 
             - name: Checkout the release tag
               if: ${{ needs.confirm-staging-branch.outputs.release_mode == 'tag' }}
-              uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
                   fetch-depth: 0
                   ref: ${{ needs.confirm-staging-branch.outputs.candidate_sha }}
@@ -1197,7 +1197,7 @@ jobs:
             npm_config_ignore_scripts: 'true'
         steps:
             - name: Checkout immutable release tag
-              uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
                   fetch-depth: 0
                   ref: ${{ inputs.resumeKitReleaseTag || needs.release.outputs.release_tag }}

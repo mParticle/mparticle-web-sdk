@@ -16,7 +16,7 @@ jobs:
         runs-on: ubuntu-latest
         steps:
             - name: Checkout
-              uses: actions/checkout@v6
+              uses: actions/checkout@v7
               with:
                   fetch-depth: 0
 
@@ -70,7 +70,7 @@ jobs:
                 node-version: [18.x, 19.x, 20.x, 21.x, 22.x, 23.x, 24.x, 25.x]
         steps:
             - name: Checkout
-              uses: actions/checkout@v6
+              uses: actions/checkout@v7
 
             - name: NPM install
               uses: actions/setup-node@v7
@@ -137,7 +137,7 @@ jobs:
         outputs:
             matrix: ${{ steps.set.outputs.matrix }}
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v7
             - id: set
               run: |
                 if [ -f kits/matrix.json ]; then
@@ -163,7 +163,7 @@ jobs:
             matrix:
                 kit: ${{ fromJson(needs.load-kit-matrix.outputs.matrix) }}
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v7
 
             - uses: actions/setup-node@v7
               with:
@@ -217,7 +217,7 @@ jobs:
         permissions:
             contents: read
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v7
               with:
                   persist-credentials: false
 
@@ -285,7 +285,7 @@ jobs:
         permissions:
             contents: read
         steps:
-            - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
                   fetch-depth: 2
                   persist-credentials: false
@@ -326,7 +326,7 @@ jobs:
             contents: read
         steps:
             - name: Checkout
-              uses: actions/checkout@v6
+              uses: actions/checkout@v7
               with:
                   persist-credentials: false
 
@@ -363,7 +363,7 @@ jobs:
             contents: read
         steps:
             - name: Checkout
-              uses: actions/checkout@v6
+              uses: actions/checkout@v7
               with:
                   persist-credentials: false
 
@@ -408,7 +408,7 @@ jobs:
             - build-bundle
         steps:
             - name: Checkout
-              uses: actions/checkout@v6
+              uses: actions/checkout@v7
 
             - name: NPM install
               uses: actions/setup-node@v7
@@ -575,7 +575,7 @@ jobs:
 
         steps:
             - name: Checkout
-              uses: actions/checkout@v6
+              uses: actions/checkout@v7
 
             - name: NPM install
               uses: actions/setup-node@v7
@@ -624,7 +624,7 @@ jobs:
 
         steps:
             - name: Checkout Master
-              uses: actions/checkout@v6
+              uses: actions/checkout@v7
               with:
                   ref: master
 

@@ -28,7 +28,7 @@ jobs:
             npm_dist_tag: ${{ steps.resolve.outputs.npm_dist_tag }}
         steps:
             - name: Checkout workflow source
-              uses: actions/checkout@v6
+              uses: actions/checkout@v7
               with:
                   fetch-depth: 0
 
@@ -96,7 +96,7 @@ jobs:
                   } >> "$GITHUB_OUTPUT"
 
             - name: Checkout ${{ steps.resolve.outputs.staging_branch }}
-              uses: actions/checkout@v6
+              uses: actions/checkout@v7
               with:
                   fetch-depth: 0
                   ref: ${{ steps.resolve.outputs.staging_branch }}
@@ -193,7 +193,7 @@ jobs:
         needs: confirm-staging-branch
         steps:
             - name: Checkout
-              uses: actions/checkout@v6
+              uses: actions/checkout@v7
               with:
                   ref: ${{ needs.confirm-staging-branch.outputs.candidate_sha }}
 
@@ -235,7 +235,7 @@ jobs:
                 node-version: [18.x, 19.x, 20.x, 21.x, 22.x, 23.x, 24.x, 25.x]
         steps:
             - name: Checkout
-              uses: actions/checkout@v6
+              uses: actions/checkout@v7
               with:
                   ref: ${{ needs.confirm-staging-branch.outputs.candidate_sha }}
 
@@ -283,7 +283,7 @@ jobs:
             - build-bundle
         steps:
             - name: Checkout
-              uses: actions/checkout@v6
+              uses: actions/checkout@v7
               with:
                   ref: ${{ needs.confirm-staging-branch.outputs.candidate_sha }}
 
@@ -431,7 +431,7 @@ jobs:
             - confirm-staging-branch
         steps:
             - name: Checkout frozen release candidate
-              uses: actions/checkout@v6
+              uses: actions/checkout@v7
               with:
                   repository: mparticle/mparticle-web-sdk
                   ref: ${{ needs.confirm-staging-branch.outputs.candidate_sha }}
@@ -484,7 +484,7 @@ jobs:
 
         steps:
             - name: Checkout ${{ needs.confirm-staging-branch.outputs.staging_branch }}
-              uses: actions/checkout@v6
+              uses: actions/checkout@v7
               with:
                   fetch-depth: 0
                   ref: ${{ needs.confirm-staging-branch.outputs.staging_branch }}
