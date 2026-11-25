@@ -12,6 +12,8 @@ const WORKFLOW_PATH = path.join(
 const WORKFLOW = yaml.load(fs.readFileSync(WORKFLOW_PATH, 'utf8'));
 const JOB = WORKFLOW.jobs['dist-guard'];
 const RELEASE_NAME = 'mparticle-automation';
+const RELEASE_APP_LOGIN = 'rokt-releases[bot]';
+const RELEASE_PR_AUTHORS = `${RELEASE_APP_LOGIN} ${RELEASE_NAME}`;
 const RELEASE_EMAIL = 'developers@mparticle.com';
 const RELEASE_BRANCH = 'release-please--branches--main';
 const REPOSITORY = 'mParticle/mparticle-web-sdk';
@@ -224,6 +226,7 @@ function setUp() {
             HEAD_REPOSITORY: headRepo,
             BASE_REPOSITORY: REPOSITORY,
             PR_AUTHOR: prAuthor,
+            RELEASE_PR_AUTHORS,
             RELEASE_BOT_LOGIN: RELEASE_NAME,
             RELEASE_IDENTITY: `${RELEASE_NAME} <${RELEASE_EMAIL}>`,
         });
@@ -274,6 +277,9 @@ describe('V3 bundle change guard', () => {
         );
         expect(step('Check every bundle change').env.PR_AUTHOR).toBe(
             '${{ github.event.pull_request.user.login }}'
+        );
+        expect(step('Check every bundle change').env.RELEASE_PR_AUTHORS).toBe(
+            RELEASE_PR_AUTHORS
         );
         expect(step('Check every bundle change').env.RELEASE_BOT_LOGIN).toBe(
             RELEASE_NAME
@@ -488,7 +494,26 @@ describe('V3 bundle change guard', () => {
         expect(result.status).toBe(1);
     });
 
-    it('fails a same-repository release branch opened by another pull request author', () => {
+    it.each([['contributor'], ['releases[bot]'], ['rokt-releases'], ['']])(
+        'fails a same-repository release branch opened by pull request author %p',
+        prAuthor => {
+            const { change, guard } = fresh();
+            const headSha = change(RELEASE, 'dist/mparticle.js', 'built\n', true);
+
+            const result = guard(
+                RELEASE_BRANCH,
+                'true',
+                REPOSITORY,
+                headSha,
+                prAuthor
+            );
+
+            expect(result.status).toBe(1);
+            expect(result.output).toContain('dist/mparticle.js');
+        }
+    );
+
+    it('passes a release branch the release app opened when every bundle commit is a verified release commit', () => {
         const { change, guard } = fresh();
         const headSha = change(RELEASE, 'dist/mparticle.js', 'built\n', true);
 
@@ -497,11 +522,11 @@ describe('V3 bundle change guard', () => {
             'true',
             REPOSITORY,
             headSha,
-            'contributor'
+            RELEASE_APP_LOGIN
         );
 
-        expect(result.status).toBe(1);
-        expect(result.output).toContain('dist/mparticle.js');
+        expect(result.status).toBe(0);
+        expect(result.output).toContain('Every bundle change is a signed release commit');
     });
 
     it('passes the release branch when every bundle commit is a verified release commit', () => {

@@ -35,7 +35,7 @@ const STEPS: any[] = JOB.steps;
 const PUSH_STEP = 'Atomically synchronize all destinations';
 const REAL_RUN_ONLY = "${{ github.event.inputs.dryRun == 'false' }}";
 const RELEASE_TOKEN_ON_REAL_RUNS =
-    "${{ github.event.inputs.dryRun == 'false' && secrets.MP_SEMANTIC_RELEASE_BOT || github.token }}";
+    "${{ github.event.inputs.dryRun == 'false' && steps.release-app-token.outputs.token || github.token }}";
 
 const RELEASE_TAG = 'v3.30.0';
 const RELEASE_ORDER_BRANCHES = [
@@ -321,9 +321,11 @@ describe('V3 Step 3 Release Please mode', () => {
     it('loads the release token only for a real run', () => {
         const checkout = STEPS.find(step => step.name === 'Checkout repository');
         expect(checkout.with.token).toBe(RELEASE_TOKEN_ON_REAL_RUNS);
-        expect(JOB.env.GITHUB_TOKEN).toBe(RELEASE_TOKEN_ON_REAL_RUNS);
+        expect(JOB.env.GITHUB_TOKEN).toBeUndefined();
+        const mint = STEPS.find(step => step.id === 'release-app-token');
+        expect(mint.if).toBe(REAL_RUN_ONLY);
         expect(JOB.permissions).toEqual({ contents: 'read' });
-        expect(JSON.stringify(WORKFLOW).match(/secrets\./g)).toHaveLength(3);
+        expect(JSON.stringify(WORKFLOW).match(/secrets\./g)).toHaveLength(4);
         const push = STEPS.find(
             step => step.name === 'Atomically synchronize all destinations'
         );
@@ -335,17 +337,22 @@ describe('V3 Step 3 Release Please mode', () => {
         expect(check.name).toBe('Check the release token on a real run');
         expect(check.if).toBe("${{ github.event.inputs.dryRun == 'false' }}");
         expect(check.env).toEqual({
-            RELEASE_TOKEN: '${{ secrets.MP_SEMANTIC_RELEASE_BOT }}',
+            RELEASE_APP_CLIENT_ID: '${{ secrets.SDK_RELEASE_GITHUB_CLIENT_ID }}',
+            RELEASE_APP_PRIVATE_KEY:
+                '${{ secrets.SDK_RELEASE_GITHUB_APP_PRIVATE_KEY }}',
         });
         expect(check.run).not.toContain('${{');
-        expect(STEPS[1].name).toBe('Checkout repository');
+        expect(STEPS[1].name).toBe('Mint the release app token');
+        expect(STEPS[2].name).toBe('Checkout repository');
     });
 
-    it.each([['empty'], ['unset']])(
-        'fails at the start of a real run when the release token is %s',
-        state => {
-            const env: Record<string, string> =
-                state === 'empty' ? { RELEASE_TOKEN: '' } : {};
+    it.each([
+        ['empty', { RELEASE_APP_CLIENT_ID: '', RELEASE_APP_PRIVATE_KEY: '' }, 'SDK_RELEASE_GITHUB_CLIENT_ID SDK_RELEASE_GITHUB_APP_PRIVATE_KEY'],
+        ['unset', {}, 'SDK_RELEASE_GITHUB_CLIENT_ID SDK_RELEASE_GITHUB_APP_PRIVATE_KEY'],
+        ['missing its private key', { RELEASE_APP_CLIENT_ID: 'client-id-for-test' }, 'SDK_RELEASE_GITHUB_APP_PRIVATE_KEY.'],
+    ])(
+        'fails at the start of a real run when the release app credential is %s',
+        (_state, env: Record<string, string>, missing) => {
             const root = fs.mkdtempSync(
                 path.join(os.tmpdir(), 'v3-step-3-token-')
             );
@@ -358,7 +365,7 @@ describe('V3 Step 3 Release Please mode', () => {
 
             expect(check.status).not.toBe(0);
             expect(check.output).toContain(
-                '::error title=Release token missing::MP_SEMANTIC_RELEASE_BOT is empty or not available to this workflow.'
+                `::error title=Release token missing::Empty or missing secret(s): ${missing}`
             );
             expect(check.output).toContain('Nothing was checked out or pushed.');
         }
@@ -368,7 +375,8 @@ describe('V3 Step 3 Release Please mode', () => {
         const root = fs.mkdtempSync(path.join(os.tmpdir(), 'v3-step-3-token-'));
         roots.push(root);
         const check = runStep('Check the release token on a real run', root, {
-            RELEASE_TOKEN: 'release-token-for-test',
+            RELEASE_APP_CLIENT_ID: 'client-id-for-test',
+            RELEASE_APP_PRIVATE_KEY: 'private-key-for-test',
         });
 
         expect(check.status).toBe(0);

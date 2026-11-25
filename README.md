@@ -198,7 +198,8 @@ Commit titles and cuts each V3 release from `main`:
    the version of every kit.
 2. On each push to that pull request, **V3 Release Please - Commit Release
    Bundles** builds core and every kit at that version and commits `dist/` and
-   `kits/**/dist` as the release machine user. The check **V3 release bundles
+   `kits/**/dist`, signed by the release machine user and pushed by the release
+   app. The check **V3 release bundles
    match version** passes once the committed bundles match that build. No other
    pull request to `main` may change `dist/` or `kits/**/dist` (the check **V3
    bundles change only in release PRs**).

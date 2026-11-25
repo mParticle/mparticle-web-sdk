@@ -16,9 +16,10 @@ run-name: 'V3 Release - Step 3 [${{ inputs.releaseTag }}]'
 # still runs on a real run, so the promoter can tell a real run from a dry
 # run. The variable needs Release Please mode: without it the run fails.
 #
-# A dry run never loads the release machine user's token: it checks out and
-# reads origin with the job's read-only GITHUB_TOKEN. A real run first checks
-# that the token is set, and fails at the start if it is empty. Right before
+# A dry run never mints the release app token: it checks out and reads origin
+# with the job's read-only GITHUB_TOKEN. A real run first checks that the
+# release app's credentials are set, and fails at the start if either is
+# empty. It then mints a token scoped to this repository. Right before
 # the atomic push, a real run reads the tag on origin again and stops if it no
 # longer names the commit the preflight checked.
 
@@ -41,39 +42,58 @@ jobs:
     synchronize-branches:
       name: Synchronize exact candidate ${{ inputs.releaseTag }}
       runs-on: ubuntu-latest
-      # The only copy of MP_SEMANTIC_RELEASE_BOT this repository can read; its
+      # The only place this repository holds the release app's credentials; its
       # deployment rule admits main.
       environment: v3-release-machine-user
       permissions:
-        contents: read # A real run pushes with the machine user's token, not GITHUB_TOKEN.
+        contents: read # A real run pushes with the release app's token, not GITHUB_TOKEN.
       env:
-        GITHUB_TOKEN: ${{ github.event.inputs.dryRun == 'false' && secrets.MP_SEMANTIC_RELEASE_BOT || github.token }}
         GIT_AUTHOR_NAME: mparticle-automation
         GIT_AUTHOR_EMAIL: developers@mparticle.com
         GIT_COMMITTER_NAME: mparticle-automation
         GIT_COMMITTER_EMAIL: developers@mparticle.com
 
       steps:
-        # An empty secret would fall back to the read-only job token above, and
-        # the real run would fail only at the push. Stop at the start instead.
+        # An empty secret would leave the checkout on the read-only job token,
+        # and the real run would fail only at the push. Stop at the start instead.
         - name: Check the release token on a real run
           if: ${{ github.event.inputs.dryRun == 'false' }}
           env:
-            RELEASE_TOKEN: ${{ secrets.MP_SEMANTIC_RELEASE_BOT }}
+            RELEASE_APP_CLIENT_ID: ${{ secrets.SDK_RELEASE_GITHUB_CLIENT_ID }}
+            RELEASE_APP_PRIVATE_KEY: ${{ secrets.SDK_RELEASE_GITHUB_APP_PRIVATE_KEY }}
           run: |
             set -eu
-            if [ -z "${RELEASE_TOKEN:-}" ]; then
-              echo "::error title=Release token missing::MP_SEMANTIC_RELEASE_BOT is empty or not available to this workflow. A real run needs it to push the release branches. Add it to the v3-release-machine-user Environment, or run with dryRun true. Nothing was checked out or pushed."
+            MISSING=''
+            if [ -z "${RELEASE_APP_CLIENT_ID:-}" ]; then
+              MISSING="${MISSING} SDK_RELEASE_GITHUB_CLIENT_ID"
+            fi
+            if [ -z "${RELEASE_APP_PRIVATE_KEY:-}" ]; then
+              MISSING="${MISSING} SDK_RELEASE_GITHUB_APP_PRIVATE_KEY"
+            fi
+            if [ -n "$MISSING" ]; then
+              echo "::error title=Release token missing::Empty or missing secret(s):${MISSING}. A real run needs the release app's credentials to push the release branches. Add them to the v3-release-machine-user Environment, or run with dryRun true. Nothing was checked out or pushed."
               exit 1
             fi
+
+        - name: Mint the release app token
+          id: release-app-token
+          if: ${{ github.event.inputs.dryRun == 'false' }}
+          uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+          with:
+            client-id: ${{ secrets.SDK_RELEASE_GITHUB_CLIENT_ID }}
+            private-key: ${{ secrets.SDK_RELEASE_GITHUB_APP_PRIVATE_KEY }}
+            owner: ${{ github.repository_owner }}
+            repositories: ${{ github.event.repository.name }}
+            permission-contents: write
+            permission-workflows: write
 
         - name: Checkout repository
           uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
           with:
             fetch-depth: 0
             repository: ${{ github.repository }}
-            # Only a real run pushes, so only a real run loads the release token.
-            token: ${{ github.event.inputs.dryRun == 'false' && secrets.MP_SEMANTIC_RELEASE_BOT || github.token }}
+            # Only a real run pushes, so only a real run mints the release token.
+            token: ${{ github.event.inputs.dryRun == 'false' && steps.release-app-token.outputs.token || github.token }}
 
         - name: Validate workflow source
           env:

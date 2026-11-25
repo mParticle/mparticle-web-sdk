@@ -1314,19 +1314,30 @@ jobs:
             - publish-kits
         runs-on: ubuntu-latest
         timeout-minutes: 10
-        # The only copy of MP_SEMANTIC_RELEASE_BOT this repository can read; its
-        # deployment rule admits v3 tags.
+        # The only place this repository holds the release app's credentials;
+        # its deployment rule admits v3 tags.
         environment: v3-release-machine-user
         permissions:
-            contents: read # The push uses the machine user's token, not GITHUB_TOKEN.
+            contents: read # The push uses the release app's token, not GITHUB_TOKEN.
         steps:
+            - name: Mint the release app token
+              id: release-app-token
+              uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+              with:
+                  client-id: ${{ secrets.SDK_RELEASE_GITHUB_CLIENT_ID }}
+                  private-key: ${{ secrets.SDK_RELEASE_GITHUB_APP_PRIVATE_KEY }}
+                  owner: ${{ github.repository_owner }}
+                  repositories: ${{ github.event.repository.name }}
+                  permission-contents: write
+                  permission-workflows: write
+
             - name: Checkout v3-staging
               uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
                   fetch-depth: 0
                   ref: ${{ needs.confirm-staging-branch.outputs.staging_branch }}
-                  token: ${{ secrets.MP_SEMANTIC_RELEASE_BOT }}
-                  persist-credentials: true # zizmor: ignore[artipacked] -- pushes v3-staging as the release machine user; this job runs no npm or repository script
+                  token: ${{ steps.release-app-token.outputs.token }}
+                  persist-credentials: true # zizmor: ignore[artipacked] -- pushes v3-staging as the release app; this job runs no npm or repository script
 
             - name: Fast-forward v3-staging
               env:
