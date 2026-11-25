@@ -522,7 +522,7 @@ describe('V3 Step 1 (v3-release-step-1.yml) workflow source validation', () => {
         expect(validate).toContain('"HEAD:${STEP_ONE_WORKFLOW}"');
     });
 
-    it('releases V3 when v3-staging matches main, whatever master carries', () => {
+    it('passes the main check when v3-staging matches main, whatever master carries, then stops at the release secrets', () => {
         withRepository(
             stepOne,
             { master: 'v2\n', main: 'v3\n', 'v3-staging': 'v3\n' },
@@ -532,8 +532,12 @@ describe('V3 Step 1 (v3-release-step-1.yml) workflow source validation', () => {
                     run(checkout, summary, {
                         SOURCE_REF: 'refs/heads/v3-staging',
                         DRY_RUN: 'false',
-                    }).status
-                ).toBe(0);
+                    })
+                ).toEqual({
+                    status: 1,
+                    output:
+                        "A semantic-release run from v3-staging can't read the release machine user's secrets, which this repository holds only in the v3-release-machine-user Environment; release from a v3.X.Y tag with V3_RELEASE_PLEASE_ENABLED set to 'true'\n",
+                });
             }
         );
     });

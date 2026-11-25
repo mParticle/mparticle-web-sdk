@@ -41,6 +41,9 @@ jobs:
     synchronize-branches:
       name: Synchronize exact candidate ${{ inputs.releaseTag }}
       runs-on: ubuntu-latest
+      # The only copy of MP_SEMANTIC_RELEASE_BOT this repository can read; its
+      # deployment rule admits main.
+      environment: v3-release-machine-user
       permissions:
         contents: read # A real run pushes with the machine user's token, not GITHUB_TOKEN.
       env:
@@ -60,7 +63,7 @@ jobs:
           run: |
             set -eu
             if [ -z "${RELEASE_TOKEN:-}" ]; then
-              echo "::error title=Release token missing::MP_SEMANTIC_RELEASE_BOT is empty or not available to this workflow. A real run needs it to push the release branches. Set the secret, or run with dryRun true. Nothing was checked out or pushed."
+              echo "::error title=Release token missing::MP_SEMANTIC_RELEASE_BOT is empty or not available to this workflow. A real run needs it to push the release branches. Add it to the v3-release-machine-user Environment, or run with dryRun true. Nothing was checked out or pushed."
               exit 1
             fi
 

@@ -37,6 +37,9 @@ jobs:
     promote-release-candidate:
         name: Promote ${{ inputs.releaseTag }} to ${{ inputs.releaseOrderBranch }}
         runs-on: ubuntu-latest
+        # The only copy of MP_SEMANTIC_RELEASE_BOT this repository can read; its
+        # deployment rule admits main.
+        environment: v3-release-machine-user
         env:
             GITHUB_TOKEN: ${{ secrets.MP_SEMANTIC_RELEASE_BOT }}
             GIT_AUTHOR_NAME: mparticle-automation
