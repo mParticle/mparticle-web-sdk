@@ -33,6 +33,30 @@ const builds = {
             json(),
         ],
     },
+    lean: {
+        input: 'test/src/_test.lean.index.ts',
+        output: {
+            file: 'test/test-bundle.lean.js',
+            format: 'iife',
+            name: 'mParticleTests',
+            sourcemap: ENVIRONMENT !== 'prod',
+        },
+        plugins: [
+            resolve(),
+            commonjs({
+                include: 'node_modules/**',
+                namedExports: { chai: ['expect'] },
+            }),
+            babel({
+                extensions,
+                include: ['src/**/*'],
+                babelHelpers: 'runtime',
+                inputSourceMap: false,
+            }),
+            typescript({ tsconfig: './tsconfig.json' }),
+            json(),
+        ],
+    },
     stub: {
         input: 'test/stub/tests-mParticle-stub.js',
         output: {

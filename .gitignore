@@ -16,3 +16,6 @@ test/cross-browser-testing/CBT-tests.js
 coverage/
 kits/**/test/test-bundle.js
 cdn-minifier-input/
+# Lean SDK and module builds, until releases carry them
+test/modular/
+test/test-bundle.lean.js*

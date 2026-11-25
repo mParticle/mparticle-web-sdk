@@ -1,12 +1,5 @@
 import Constants from '../../src/constants';
-import {
-    getSDKModule,
-    registerSDKModule,
-    resetButtonTrackingModule,
-    resetSDKModules,
-    SDKModuleNames,
-    takeSDKModuleWarnings,
-} from '../../src/sdkModules';
+import { SDKModuleNames } from '../../src/sdkModules';
 import { IButtonTrackingModule } from '../../src/sdkModuleTypes';
 
 describe('SDK modules', () => {
@@ -20,48 +13,54 @@ describe('SDK modules', () => {
         ...overrides,
     });
     const register = (name: unknown, module: unknown) =>
-        registerSDKModule(name as typeof ButtonTracking, module as IButtonTrackingModule);
+        registry.registerSDKModule(name as typeof ButtonTracking, module as IButtonTrackingModule);
 
-    afterEach(() => {
-        resetSDKModules();
+    // A fresh registry for each test: registrations the page makes outside the
+    // test environment survive resetSDKModules by design.
+    let registry: typeof import('../../src/sdkModules');
+    beforeEach(() => {
+        jest.isolateModules(() => {
+            registry = require('../../src/sdkModules');
+        });
     });
 
     it('returns undefined for a module that never registered', () => {
-        expect(getSDKModule(ButtonTracking)).toBeUndefined();
+        expect(registry.getSDKModule(ButtonTracking)).toBeUndefined();
     });
 
     it('returns the registered module', () => {
         const module = fakeModule();
-        registerSDKModule(ButtonTracking, module);
+        registry.registerSDKModule(ButtonTracking, module);
 
-        expect(getSDKModule(ButtonTracking)).toBe(module);
-        expect(takeSDKModuleWarnings()).toEqual([]);
+        expect(registry.getSDKModule(ButtonTracking)).toBe(module);
+        expect(registry.takeSDKModuleWarnings()).toEqual([]);
     });
 
     it('keeps the first valid registration and ignores a later one silently', () => {
         const first = fakeModule();
-        registerSDKModule(ButtonTracking, first);
-        registerSDKModule(ButtonTracking, fakeModule());
+        registry.registerSDKModule(ButtonTracking, first);
+        registry.registerSDKModule(ButtonTracking, fakeModule());
 
-        expect(getSDKModule(ButtonTracking)).toBe(first);
-        expect(takeSDKModuleWarnings()).toEqual([]);
+        expect(registry.getSDKModule(ButtonTracking)).toBe(first);
+        expect(registry.takeSDKModuleWarnings()).toEqual([]);
     });
 
-    it('rejects a module built for another SDK version with one warning', () => {
-        registerSDKModule(ButtonTracking, fakeModule({ version: '0.0.1' }));
+    it('rejects a module built for another SDK version, leaving its one warning to the code that reads it', () => {
+        registry.registerSDKModule(ButtonTracking, fakeModule({ version: '0.0.1' }));
 
-        expect(getSDKModule(ButtonTracking)).toBeUndefined();
-        expect(takeSDKModuleWarnings()).toEqual([
-            'Rejected SDK module buttonTracking 0.0.1, built for another SDK version',
-        ]);
+        expect(registry.getSDKModule(ButtonTracking)).toBeUndefined();
+        expect(registry.takeSDKModuleWarnings()).toEqual([]);
+        expect(registry.getSDKModuleRejection(ButtonTracking)).toBe(
+            'Rejected SDK module buttonTracking 0.0.1, built for another SDK version'
+        );
     });
 
     it('accepts a valid module after a rejected one', () => {
-        registerSDKModule(ButtonTracking, fakeModule({ version: '0.0.1' }));
+        registry.registerSDKModule(ButtonTracking, fakeModule({ version: '0.0.1' }));
         const valid = fakeModule();
-        registerSDKModule(ButtonTracking, valid);
+        registry.registerSDKModule(ButtonTracking, valid);
 
-        expect(getSDKModule(ButtonTracking)).toBe(valid);
+        expect(registry.getSDKModule(ButtonTracking)).toBe(valid);
     });
 
     it.each([
@@ -76,43 +75,43 @@ describe('SDK modules', () => {
     ])('ignores %s with one warning', (_, name, module) => {
         register(name, module);
 
-        expect(getSDKModule(ButtonTracking)).toBeUndefined();
-        expect(takeSDKModuleWarnings()).toEqual([
+        expect(registry.getSDKModule(ButtonTracking)).toBeUndefined();
+        expect(registry.takeSDKModuleWarnings()).toEqual([
             'Ignored an invalid SDK module registration',
         ]);
     });
 
     it('keeps the registered module when an invalid one follows', () => {
         const module = fakeModule();
-        registerSDKModule(ButtonTracking, module);
+        registry.registerSDKModule(ButtonTracking, module);
         register(ButtonTracking, undefined);
 
-        expect(getSDKModule(ButtonTracking)).toBe(module);
-        expect(takeSDKModuleWarnings()).toHaveLength(1);
+        expect(registry.getSDKModule(ButtonTracking)).toBe(module);
+        expect(registry.takeSDKModuleWarnings()).toHaveLength(1);
     });
 
     it('hands each warning over once', () => {
         register(ButtonTracking, undefined);
 
-        expect(takeSDKModuleWarnings()).toHaveLength(1);
-        expect(takeSDKModuleWarnings()).toEqual([]);
+        expect(registry.takeSDKModuleWarnings()).toHaveLength(1);
+        expect(registry.takeSDKModuleWarnings()).toEqual([]);
     });
 
     describe('replace, for the test environment', () => {
         it('replaces the registered module', () => {
-            registerSDKModule(ButtonTracking, fakeModule());
+            registry.registerSDKModule(ButtonTracking, fakeModule());
             const second = fakeModule();
-            registerSDKModule(ButtonTracking, second, true);
+            registry.registerSDKModule(ButtonTracking, second, true);
 
-            expect(getSDKModule(ButtonTracking)).toBe(second);
+            expect(registry.getSDKModule(ButtonTracking)).toBe(second);
         });
 
         it('removes the module when given undefined', () => {
-            registerSDKModule(ButtonTracking, fakeModule());
-            registerSDKModule(ButtonTracking, undefined, true);
+            registry.registerSDKModule(ButtonTracking, fakeModule());
+            registry.registerSDKModule(ButtonTracking, undefined, true);
 
-            expect(getSDKModule(ButtonTracking)).toBeUndefined();
-            expect(takeSDKModuleWarnings()).toEqual([]);
+            expect(registry.getSDKModule(ButtonTracking)).toBeUndefined();
+            expect(registry.takeSDKModuleWarnings()).toEqual([]);
         });
     });
 
@@ -132,24 +131,50 @@ describe('SDK modules', () => {
                 expect(registry.takeSDKModuleWarnings()).toEqual([]);
             });
         });
+
+        it('restores a module the page registered, such as a module file, and drops rejections', () => {
+            jest.isolateModules(() => {
+                const registry = require('../../src/sdkModules');
+                const fromModuleFile = fakeModule();
+                registry.registerSDKModule(ButtonTracking, fromModuleFile);
+                registry.registerSDKModule(ButtonTracking, fakeModule({ version: '0.0.1' }));
+                registry.registerSDKModule(ButtonTracking, undefined, true);
+
+                registry.resetSDKModules();
+
+                expect(registry.getSDKModule(ButtonTracking)).toBe(fromModuleFile);
+                expect(registry.getSDKModuleRejection(ButtonTracking)).toBeUndefined();
+            });
+        });
+
+        it('does not restore a module the test environment swapped in', () => {
+            jest.isolateModules(() => {
+                const registry = require('../../src/sdkModules');
+                registry.registerSDKModule(ButtonTracking, fakeModule(), true);
+
+                registry.resetSDKModules();
+
+                expect(registry.getSDKModule(ButtonTracking)).toBeUndefined();
+            });
+        });
     });
 
     describe('resetButtonTrackingModule', () => {
         it('resets the registered button tracking module', () => {
             const module = fakeModule();
-            registerSDKModule(ButtonTracking, module);
+            registry.registerSDKModule(ButtonTracking, module);
 
-            resetButtonTrackingModule();
+            registry.resetButtonTrackingModule();
 
             expect(module.reset).toHaveBeenCalledTimes(1);
         });
 
         it('does nothing without the module', () => {
-            expect(() => resetButtonTrackingModule()).not.toThrow();
+            expect(() => registry.resetButtonTrackingModule()).not.toThrow();
         });
 
         it('contains a reset that throws and removes the module', () => {
-            registerSDKModule(
+            registry.registerSDKModule(
                 ButtonTracking,
                 fakeModule({
                     reset: () => {
@@ -158,8 +183,8 @@ describe('SDK modules', () => {
                 })
             );
 
-            expect(() => resetButtonTrackingModule()).not.toThrow();
-            expect(getSDKModule(ButtonTracking)).toBeUndefined();
+            expect(() => registry.resetButtonTrackingModule()).not.toThrow();
+            expect(registry.getSDKModule(ButtonTracking)).toBeUndefined();
         });
     });
 });

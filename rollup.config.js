@@ -24,6 +24,30 @@ const defaultBabel = babel({
     inputSourceMap: false,
 });
 
+function iifeBuild(input, file) {
+    return {
+        input,
+        output: {
+            ...defaultOutputOptions,
+            file,
+            format: 'iife',
+            name: 'mParticle',
+        },
+        plugins: [
+            defaultBabel,
+            resolve(),
+            commonjs({
+                include: 'node_modules/**',
+            }),
+            typescript({ tsconfig: './tsconfig.json' }),
+            json(),
+            escapeNonAsciiPlugin(),
+        ],
+    };
+}
+
+const modularBuilds = ['modularFull', 'modularLean', 'modularButtonTracking'];
+
 const builds = {
     iife: {
         input: 'src/mparticle-instance-manager.ts',
@@ -92,6 +116,28 @@ const builds = {
             escapeNonAsciiPlugin(),
         ],
     },
+    // The modular builds go to test/modular/ until releases carry them. The
+    // full SDK is built there too, so every size is measured on the same code.
+    modularFull: iifeBuild(
+        'src/mparticle-instance-manager.ts',
+        'test/modular/mparticle.js'
+    ),
+    modularLean: iifeBuild(
+        'src/mparticle-lean.ts',
+        'test/modular/mparticle.lean.js'
+    ),
+    modularButtonTracking: {
+        ...iifeBuild(
+            'src/buttonTracking/buttonTrackingModuleEntry.ts',
+            'test/modular/mparticle.buttonTracking.js'
+        ),
+        output: {
+            file: 'test/modular/mparticle.buttonTracking.js',
+            format: 'iife',
+            strict: false,
+            sourcemap: false,
+        },
+    },
     stub: {
         input: 'src/stub/mparticle.stub.js',
         output: {
@@ -106,8 +152,12 @@ const builds = {
 let selectedBuilds = [];
 if (BUILDALL) {
     for (let build of Object.keys(builds)) {
-        selectedBuilds.push(builds[build]);
+        if (!modularBuilds.includes(build)) {
+            selectedBuilds.push(builds[build]);
+        }
     }
+} else if (BUILD === 'modular') {
+    selectedBuilds = modularBuilds.map(build => builds[build]);
 } else {
     selectedBuilds.push(builds[BUILD]);
 }

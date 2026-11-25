@@ -13,13 +13,20 @@ export const SDKModuleNames = {
 const knownNames: { [K in SDKModuleName]: true } = { buttonTracking: true };
 
 let modules: Partial<ISDKModules> = {};
-const builtInModules: Partial<ISDKModules> = {};
+// What the page itself registered, the full SDK's built-in modules or a module
+// file loaded after the lean SDK. A test reset returns to these.
+const pageModules: Partial<ISDKModules> = {};
 // Registration usually runs before any instance has a logger, so each warning
 // waits here until the next init logs it.
 let warnings: string[] = [];
+// A rejected module is reported by the code that needs it, only when its
+// feature is on, so a page logs one warning for it rather than two.
+let rejections: Partial<Record<SDKModuleName, string>> = {};
 
 // The first valid registration of a module wins, and a later valid one is
 // ignored. Anything invalid, including undefined, is ignored with one warning.
+// A module built for another SDK version is rejected without a warning here;
+// getSDKModuleRejection hands its reason to the code that reads the module.
 // replace lets the test environment swap a module, or remove it with
 // undefined, because Karma runs the built bundle and cannot reach this file.
 export function registerSDKModule<K extends SDKModuleName>(
@@ -40,13 +47,15 @@ export function registerSDKModule<K extends SDKModuleName>(
         return;
     }
     if (module.version !== Constants.sdkVersion) {
-        warnings.push(
-            'Rejected SDK module ' + name + ' ' + module.version + ', built for another SDK version'
-        );
+        rejections[name] =
+            'Rejected SDK module ' + name + ' ' + module.version + ', built for another SDK version';
         return;
     }
     if (!modules[name] || replace) {
         modules[name] = module;
+    }
+    if (!replace && !pageModules[name]) {
+        pageModules[name] = module;
     }
 }
 
@@ -54,7 +63,7 @@ export function registerBuiltInSDKModule<K extends SDKModuleName>(
     name: K,
     module: ISDKModules[K]
 ): void {
-    builtInModules[name] = module;
+    pageModules[name] = module;
     registerSDKModule(name, module);
 }
 
@@ -64,16 +73,21 @@ export function getSDKModule<K extends SDKModuleName>(
     return modules[name];
 }
 
+export function getSDKModuleRejection(name: SDKModuleName): string | undefined {
+    return rejections[name];
+}
+
 export function takeSDKModuleWarnings(): string[] {
     const taken = warnings;
     warnings = [];
     return taken;
 }
 
-// Back to the modules the build registers statically, with no warnings.
+// Back to the modules the page registered, with no warnings or rejections.
 export function resetSDKModules(): void {
-    modules = { ...builtInModules };
+    modules = { ...pageModules };
     warnings = [];
+    rejections = {};
 }
 
 // Stops button tracking where its module is present. A page without the
