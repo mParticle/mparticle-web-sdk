@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.41.1](https://github.com/mParticle/mparticle-web-sdk/compare/v3.41.0...v3.41.1) (2026-11-25)
+
+
+### Miscellaneous
+
+* **release:** push V3 releases with a rokt-releases app token instead of the machine user PAT ([#1944](https://github.com/mParticle/mparticle-web-sdk/issues/1944)) ([a39572b](https://github.com/mParticle/mparticle-web-sdk/commit/a39572be80825fba4833fc8dedde3df2f3b971db))
+
 ## [3.41.0](https://github.com/mParticle/mparticle-web-sdk/compare/v3.40.0...v3.41.0) (2026-11-25)
 
 
